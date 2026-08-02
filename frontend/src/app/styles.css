@@ -1786,13 +1786,13 @@ select:disabled {
 .statGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .statGrid article {
   min-width: 0;
-  padding: 21px;
+  padding: 24px;
   border: 1px solid #2d292d;
   border-radius: 12px;
   background: #161518;
@@ -1802,16 +1802,17 @@ select:disabled {
 .statGrid small {
   display: block;
   color: #7b7672;
-  font-size: 9px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .statGrid strong {
   display: block;
-  margin: 8px 0 4px;
+  margin: 10px 0 5px;
   overflow: hidden;
   color: #f2d8aa;
   font-family: Newsreader, Georgia, serif;
-  font-size: 27px;
+  font-size: 30px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1839,9 +1840,9 @@ select:disabled {
 .sessionList > div {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) auto auto;
-  gap: 13px;
+  gap: 14px;
   align-items: center;
-  padding: 11px 0;
+  padding: 14px 0;
   border-top: 1px solid #282629;
 }
 
@@ -1855,22 +1856,23 @@ select:disabled {
 
 .sessionList small {
   color: #777;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .sessionList b {
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .sessionList em {
   color: #ef8c84;
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 600;
   font-style: normal;
 }
 
 .sessionDot {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #6da274;
 }
