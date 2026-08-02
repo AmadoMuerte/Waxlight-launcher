@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   instancesApi,
@@ -395,6 +396,7 @@ function InstanceModal({
   refresh,
   notify,
 }: InstanceModalProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<InstanceTab>("overview");
   const [mods, setMods] = useState<InstalledMod[]>([]);
   const [name, setName] = useState(instance.name);
@@ -553,7 +555,15 @@ function InstanceModal({
         <div>
           <div className="sectionActions">
             <p className="muted">Local .zip, .cs, and .dll files</p>
-            <Button onClick={() => void installMod()}>＋ Install file</Button>
+            <div className="row">
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
+              >
+                Browse mods
+              </Button>
+              <Button onClick={() => void installMod()}>＋ Install file</Button>
+            </div>
           </div>
 
           {mods.length === 0 ? (

@@ -78,10 +78,8 @@ func (s *Service) ListDownloadedMods(ctx context.Context) ([]domain.DownloadedMo
 	if err != nil {
 		return nil, err
 	}
-	instanceNames := make(map[string]string, len(instances))
 	installedBySource := make(map[string][]domain.InstalledModInstance)
 	for _, instance := range instances {
-		instanceNames[instance.ID] = instance.Name
 		mods, listErr := s.store.ListMods(ctx, instance.ID)
 		if listErr != nil {
 			continue
@@ -102,18 +100,40 @@ func (s *Service) ListDownloadedMods(ctx context.Context) ([]domain.DownloadedMo
 	}
 	for index := range items {
 		items[index].InstalledInstances = installedBySource[modDownloadKey(items[index].ModID, items[index].VersionID)]
-		if s.modCatalog != nil {
-			if details, detailErr := s.modCatalog.Get(ctx, items[index].ModID); detailErr == nil {
-				items[index].LatestVersion = details.LatestVersion
-				items[index].UpdateAvailable = details.LatestVersion != "" && details.LatestVersion != items[index].DownloadedVersion
-			}
-		}
 	}
 	sort.Slice(items, func(left, right int) bool {
 		return items[left].DownloadedAt.After(items[right].DownloadedAt)
 	})
-	_ = instanceNames
 	return items, nil
+}
+
+func (s *Service) CheckModUpdates(
+	ctx context.Context,
+	modID string,
+) ([]domain.DownloadedMod, error) {
+	if s.modCatalog == nil || s.modDownloads == nil {
+		return nil, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
+	}
+	details, err := s.modCatalog.Get(ctx, modID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.modDownloads.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for index := range items {
+		if items[index].ModID != details.ID {
+			continue
+		}
+		items[index].LatestVersion = details.LatestVersion
+		items[index].UpdateAvailable = details.LatestVersion != "" &&
+			details.LatestVersion != items[index].DownloadedVersion
+		if err := s.modDownloads.Save(ctx, items[index]); err != nil {
+			return nil, err
+		}
+	}
+	return s.ListDownloadedMods(ctx)
 }
 
 func (s *Service) DownloadCatalogMod(

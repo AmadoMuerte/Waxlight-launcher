@@ -18,6 +18,11 @@ import type {
   LaunchValidation,
   LoginResult,
   Operation,
+	DownloadedMod,
+	ModDetails,
+	ModInstallResult,
+	ModSearchQuery,
+	ModSearchResult,
   Settings,
   Statistics,
 } from "./types";
@@ -110,6 +115,45 @@ export const modsApi = {
     ),
   remove: (id: string) =>
     call<void>("ModManagerController", "RemoveMod", id),
+};
+
+export const modCatalogApi = {
+  search: (query: ModSearchQuery) =>
+    call<ModSearchResult>("ModCatalogController", "SearchMods", query),
+  get: (modId: string) =>
+    call<ModDetails>("ModCatalogController", "GetMod", modId),
+  downloaded: () =>
+    call<DownloadedMod[]>("ModCatalogController", "ListDownloadedMods"),
+  download: (request: {
+    modId: string;
+    versionId: string;
+    instanceIds: string[];
+    downloadOnly: boolean;
+    allowIncompatible: boolean;
+  }) =>
+    call<ModInstallResult>("ModCatalogController", "DownloadMod", request),
+  installDownloaded: (request: {
+    modId: string;
+    versionId: string;
+    instanceIds: string[];
+    allowIncompatible: boolean;
+  }) =>
+    call<ModInstallResult>(
+      "ModCatalogController",
+      "InstallDownloadedMod",
+      request,
+    ),
+  removeDownloaded: (modId: string, versionId: string) =>
+    call<void>(
+      "ModCatalogController",
+      "RemoveDownloadedMod",
+      modId,
+      versionId,
+    ),
+  cancelTask: (taskId: string) =>
+    call<void>("ModCatalogController", "CancelModTask", taskId),
+  checkUpdates: (modId: string) =>
+    call<DownloadedMod[]>("ModCatalogController", "CheckModUpdates", modId),
 };
 
 export const launcherApi = {

@@ -113,8 +113,8 @@ type DownloadedMod struct {
 	DownloadURL        string                 `json:"downloadUrl"`
 	DownloadedAt       time.Time              `json:"downloadedAt"`
 	InstalledInstances []InstalledModInstance `json:"-"`
-	LatestVersion      string                 `json:"-"`
-	UpdateAvailable    bool                   `json:"-"`
+	LatestVersion      string                 `json:"latestVersion,omitempty"`
+	UpdateAvailable    bool                   `json:"updateAvailable"`
 }
 
 type DownloadModRequest struct {

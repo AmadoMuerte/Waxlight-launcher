@@ -22,7 +22,7 @@ func main() {
 		Title:            "Waxlight Launcher",
 		Width:            1240,
 		Height:           780,
-		MinWidth:         980,
+		MinWidth:         620,
 		MinHeight:        640,
 		AssetServer:      &assetserver.Options{Assets: frontendassets.Assets},
 		BackgroundColour: &options.RGBA{R: 13, G: 13, B: 16, A: 1},

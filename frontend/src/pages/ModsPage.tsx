@@ -1,0 +1,458 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+
+import {
+  modCatalogApi,
+  type DownloadedMod,
+  type GameVersion,
+  type Instance,
+  type ModDetails,
+  type ModSearchQuery,
+  type ModSummary,
+} from "../shared/api";
+import { errorMessage } from "../shared/api/bridge";
+import { Button, Empty, PageHeader } from "../shared/ui";
+import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
+import { ModCard } from "../features/mods/ModCard";
+import { ModsFilters } from "../features/mods/ModsFilters";
+
+type Notify = (message: string, type?: "ok" | "error") => void;
+
+interface ModsPageProps {
+  instances: Instance[];
+  versions: GameVersion[];
+  notify: Notify;
+}
+
+export function ModsPage({ instances, versions, notify }: ModsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
+  const [catalog, setCatalog] = useState<ModSummary[]>([]);
+  const [downloaded, setDownloaded] = useState<DownloadedMod[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [installing, setInstalling] = useState<{
+    details: ModDetails;
+    downloaded?: DownloadedMod;
+    preferredVersionId?: string;
+  }>();
+  const [layout, setLayout] = useState<"grid" | "list">(() =>
+    readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
+  );
+  const restoreScroll = useRef(true);
+
+  const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+  const instanceId = searchParams.get("instanceId") ?? "";
+  const contextInstance = instances.find((item) => item.id === instanceId);
+  const contextVersion = contextInstance
+    ? versions.find((item) => item.id === contextInstance.gameVersionId)
+    : undefined;
+  const query: ModSearchQuery = {
+    text: searchParams.get("q") ?? "",
+    gameVersion:
+      searchParams.get("gameVersion") ??
+      (contextVersion?.name || contextVersion?.id || ""),
+    side: (searchParams.get("side") ?? "") as ModSearchQuery["side"],
+    updatedAfter: searchParams.get("updatedAfter") ?? undefined,
+    tags: searchParams.getAll("tag"),
+    compatibleOnly: searchParams.get("compatible") === "1" || Boolean(contextInstance),
+    instanceId,
+    sort: (searchParams.get("sort") ?? "updated") as ModSearchQuery["sort"],
+    page,
+    pageSize: 24,
+  };
+  const requestKey = JSON.stringify(query);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const current = searchParams.get("q") ?? "";
+      if (searchText === current) return;
+      updateParams({ q: searchText, page: "1" }, true);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    let active = true;
+    if (view === "downloaded") {
+      setLoading(true);
+      modCatalogApi
+        .downloaded()
+        .then((items) => {
+          if (!active) return;
+          setDownloaded(items ?? []);
+          setError("");
+          for (const item of items ?? []) {
+            void modCatalogApi
+              .checkUpdates(item.modId)
+              .then((updated) => active && setDownloaded(updated ?? []))
+              .catch(() => undefined);
+          }
+        })
+        .catch((loadError) => active && setError(errorMessage(loadError)))
+        .finally(() => active && setLoading(false));
+      return () => {
+        active = false;
+      };
+    }
+
+    if (page === 1) setLoading(true);
+    else setLoadingMore(true);
+    modCatalogApi
+      .search(query)
+      .then((result) => {
+        if (!active) return;
+        setCatalog((items) => (page === 1 ? result.items ?? [] : mergeMods(items, result.items ?? [])));
+        setTotal(result.totalItems);
+        setHasNext(result.hasNext);
+        setError("");
+      })
+      .catch((loadError) => active && setError(errorMessage(loadError)))
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+        setLoadingMore(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestKey, view, reloadKey]);
+
+  useEffect(() => {
+    if (!loading && restoreScroll.current) {
+      restoreScroll.current = false;
+      const stored = readStorage("sessionStorage", `waxlight.mods.scroll:${location.search}`);
+      if (stored) window.scrollTo({ top: Number(stored) });
+    }
+  }, [loading, location.search]);
+
+  const filteredDownloaded = useMemo(() => {
+    let result = downloaded.filter((item) => {
+      const text = query.text.toLowerCase();
+      if (
+        text &&
+        !`${item.name} ${item.authorName} ${item.modId}`.toLowerCase().includes(text)
+      ) {
+        return false;
+      }
+      if (query.side && item.side !== query.side) return false;
+      if (
+        query.gameVersion &&
+        !item.gameVersions.some((version) => version.startsWith(query.gameVersion.replace(/x$/, "")))
+      ) {
+        return false;
+      }
+      return true;
+    });
+    result = [...result].sort((left, right) => {
+      if (query.sort === "name_asc") return left.name.localeCompare(right.name);
+      if (query.sort === "name_desc") return right.name.localeCompare(left.name);
+      return new Date(right.downloadedAt).getTime() - new Date(left.downloadedAt).getTime();
+    });
+    return result;
+  }, [downloaded, query.gameVersion, query.side, query.sort, query.text]);
+
+  function updateParams(values: Record<string, string | undefined>, replace = false) {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(values)) {
+      if (!value) next.delete(key);
+      else next.set(key, value);
+    }
+    setSearchParams(next, { replace });
+  }
+
+  function patchFilters(patch: Partial<ModSearchQuery>) {
+    const next: Record<string, string | undefined> = { page: "1" };
+    if ("gameVersion" in patch) next.gameVersion = patch.gameVersion || undefined;
+    if ("side" in patch) next.side = patch.side || undefined;
+    if ("updatedAfter" in patch) next.updatedAfter = patch.updatedAfter || undefined;
+    if ("sort" in patch) next.sort = patch.sort;
+    updateParams(next);
+  }
+
+  function clearFilters() {
+    const next = new URLSearchParams(searchParams);
+    ["gameVersion", "side", "updatedAfter", "tag", "compatible", "page"].forEach((key) =>
+      next.delete(key),
+    );
+    setSearchParams(next);
+  }
+
+  async function openInstaller(modId: string, local?: DownloadedMod) {
+    try {
+      const details = await modCatalogApi.get(modId);
+      setInstalling({
+        details,
+        downloaded: local,
+        preferredVersionId: local?.updateAvailable
+          ? details.versions[0]?.id
+          : local?.versionId,
+      });
+    } catch (loadError) {
+      notify(errorMessage(loadError), "error");
+    }
+  }
+
+  function openDetails(modId: string) {
+    writeStorage("sessionStorage", `waxlight.mods.scroll:${location.search}`, String(window.scrollY));
+    navigate(`/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`);
+  }
+
+  async function refreshDownloaded() {
+    setDownloaded((await modCatalogApi.downloaded()) ?? []);
+  }
+
+  const displayed = view === "all" ? catalog : filteredDownloaded.map(downloadedAsSummary);
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Mod Browser"
+        title="Mods"
+        description="Discover, download and install mods for your instances."
+        action={
+          <div className="modsSearch">
+            <span>⌕</span>
+            <input
+              aria-label="Search mods"
+              placeholder="Search mods…"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+            />
+            {searchText && (
+              <button aria-label="Clear search" onClick={() => setSearchText("")}>×</button>
+            )}
+          </div>
+        }
+      />
+
+      {contextInstance && (
+        <div className="instanceContext">
+          <span>Browsing for:</span>
+          <strong>{contextInstance.name}</strong>
+          <span>· Vintage Story {contextVersion?.name ?? contextInstance.gameVersionId}</span>
+          <button onClick={() => updateParams({ instanceId: undefined, compatible: undefined })}>
+            Clear instance context
+          </button>
+        </div>
+      )}
+
+      <div className="modsTabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={view === "all"}
+          className={view === "all" ? "active" : ""}
+          onClick={() => updateParams({ view: "all", page: "1" })}
+        >
+          All Mods
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === "downloaded"}
+          className={view === "downloaded" ? "active" : ""}
+          onClick={() => updateParams({ view: "downloaded", page: "1" })}
+        >
+          Downloaded <b>{downloaded.length || ""}</b>
+        </button>
+      </div>
+
+      <ModsFilters
+        query={query}
+        versions={versions}
+        mobileOpen={filtersOpen}
+        onMobileOpenChange={setFiltersOpen}
+        onChange={patchFilters}
+        onClear={clearFilters}
+      />
+
+      <div className="modsResultsHeader">
+        <span>
+          {view === "all" ? total : filteredDownloaded.length}{" "}
+          {view === "downloaded" ? "downloaded" : "mods"}
+        </span>
+        <div className="viewToggle" aria-label="Results layout">
+          <button
+            className={layout === "grid" ? "active" : ""}
+            aria-label="Grid view"
+            onClick={() => {
+              setLayout("grid");
+              writeStorage("localStorage", "waxlight.mods.layout", "grid");
+            }}
+          >
+            ▦
+          </button>
+          <button
+            className={layout === "list" ? "active" : ""}
+            aria-label="List view"
+            onClick={() => {
+              setLayout("list");
+              writeStorage("localStorage", "waxlight.mods.layout", "list");
+            }}
+          >
+            ☷
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className={`modGrid modGrid-${layout} modSkeletonGrid`} aria-label="Loading mods">
+          {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
+        </div>
+      ) : error ? (
+        <Empty
+          icon="!"
+          title="Could not load mods"
+          description={error}
+          action={
+            <Button
+              onClick={() =>
+                view === "all"
+                  ? setReloadKey((value) => value + 1)
+                  : void refreshDownloaded()
+              }
+            >
+              Retry
+            </Button>
+          }
+        />
+      ) : displayed.length === 0 ? (
+        <Empty
+          icon="◇"
+          title={view === "downloaded" ? "No downloaded mods yet" : "No mods found"}
+          description={
+            view === "downloaded"
+              ? "Mods you download will appear here."
+              : "Try changing your search or filters."
+          }
+          action={
+            view === "downloaded" ? (
+              <Button onClick={() => updateParams({ view: "all" })}>Browse mods</Button>
+            ) : (
+              <Button onClick={clearFilters}>Clear filters</Button>
+            )
+          }
+        />
+      ) : (
+        <div className={`modGrid modGrid-${layout}`}>
+          {displayed.map((mod) => {
+            const local = view === "downloaded"
+              ? filteredDownloaded.find((item) => item.modId === mod.id)
+              : undefined;
+            return (
+              <ModCard
+                key={`${mod.id}:${local?.versionId ?? "catalog"}`}
+                mod={mod}
+                downloaded={local}
+                layout={layout}
+                onOpen={() => openDetails(mod.id)}
+                onInstall={() => void openInstaller(mod.id, local)}
+                onDelete={
+                  local
+                    ? async () => {
+                        const warning = local.installedInstances.length > 0
+                          ? `This mod is installed in ${local.installedInstances.length} instances. Deleting the cached download will not remove those copies.`
+                          : "Delete this cached mod file?";
+                        if (!window.confirm(warning)) return;
+                        try {
+                          await modCatalogApi.removeDownloaded(local.modId, local.versionId);
+                          await refreshDownloaded();
+                          notify("Downloaded mod removed");
+                        } catch (removeError) {
+                          notify(errorMessage(removeError), "error");
+                        }
+                      }
+                    : undefined
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {view === "all" && hasNext && !loading && (
+        <div className="loadMore">
+          <Button
+            variant="secondary"
+            busy={loadingMore}
+            onClick={() => updateParams({ page: String(page + 1) })}
+          >
+            Load more
+          </Button>
+        </div>
+      )}
+
+      {installing && (
+        <InstancePickerDialog
+          mod={installing.details}
+          downloaded={installing.downloaded}
+          instances={instances}
+          gameVersions={versions}
+          preferredInstanceId={instanceId}
+          preferredVersionId={installing.preferredVersionId}
+          onClose={() => setInstalling(undefined)}
+          onDone={async () => {
+            await refreshDownloaded();
+            notify("Mod task completed");
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function mergeMods(current: ModSummary[], next: ModSummary[]): ModSummary[] {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  next.forEach((item) => byId.set(item.id, item));
+  return [...byId.values()];
+}
+
+function downloadedAsSummary(mod: DownloadedMod): ModSummary {
+  return {
+    id: mod.modId,
+    slug: mod.slug,
+    name: mod.name,
+    authorName: mod.authorName,
+    summary: `Downloaded version ${mod.downloadedVersion}`,
+    imageUrl: mod.imageUrl,
+    side: mod.side,
+    latestVersion: mod.latestVersion,
+    gameVersions: mod.gameVersions,
+    downloads: 0,
+    updatedAt: mod.downloadedAt,
+    tags: [],
+    isDownloaded: true,
+    isInstalled: mod.installedInstances.length > 0,
+    updateAvailable: mod.updateAvailable,
+  };
+}
+
+function readStorage(
+  storageName: "localStorage" | "sessionStorage",
+  key: string,
+): string | null {
+  try {
+    return globalThis[storageName]?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(
+  storageName: "localStorage" | "sessionStorage",
+  key: string,
+  value: string,
+) {
+  try {
+    globalThis[storageName]?.setItem(key, value);
+  } catch {
+    // Preference persistence is optional in restricted webviews.
+  }
+}

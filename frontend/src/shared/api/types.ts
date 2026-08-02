@@ -81,6 +81,135 @@ export interface InstalledMod {
   installedAt: string;
 }
 
+export type ModSide = "client" | "server" | "both" | "unknown";
+export type ModSort =
+  | "relevance"
+  | "updated"
+  | "newest"
+  | "downloads"
+  | "name_asc"
+  | "name_desc";
+
+export interface ModSummary {
+  id: string;
+  slug?: string;
+  name: string;
+  authorName: string;
+  summary: string;
+  imageUrl?: string;
+  side: ModSide;
+  latestVersion?: string;
+  gameVersions: string[];
+  downloads: number;
+  createdAt?: string;
+  updatedAt?: string;
+  tags: string[];
+  isDownloaded: boolean;
+  isInstalled: boolean;
+  updateAvailable: boolean;
+}
+
+export interface ModScreenshot {
+  url: string;
+  caption?: string;
+}
+
+export interface ModVersion {
+  id: string;
+  version: string;
+  gameVersions: string[];
+  releaseType: "stable" | "beta" | "alpha" | "unknown";
+  fileName: string;
+  fileSize: number;
+  publishedAt?: string;
+  changelog?: string;
+}
+
+export interface ModDetails extends ModSummary {
+  description: string;
+  screenshots: ModScreenshot[];
+  versions: ModVersion[];
+  websiteUrl?: string;
+  sourceUrl?: string;
+  license?: string;
+}
+
+export interface ModSearchQuery {
+  text: string;
+  gameVersion: string;
+  side: "" | ModSide;
+  updatedAfter?: string;
+  tags: string[];
+  compatibleOnly: boolean;
+  instanceId: string;
+  sort: ModSort;
+  page: number;
+  pageSize: number;
+}
+
+export interface ModSearchResult {
+  items: ModSummary[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+export interface InstalledModInstance {
+  instanceId: string;
+  instanceName: string;
+  version: string;
+  enabled: boolean;
+}
+
+export interface DownloadedMod {
+  modId: string;
+  slug?: string;
+  name: string;
+  authorName: string;
+  imageUrl?: string;
+  side: ModSide;
+  versionId: string;
+  downloadedVersion: string;
+  gameVersions: string[];
+  fileName: string;
+  fileSize: number;
+  downloadedAt: string;
+  installedInstances: InstalledModInstance[];
+  latestVersion?: string;
+  updateAvailable: boolean;
+}
+
+export interface ModInstallationResult {
+  instanceId: string;
+  instanceName: string;
+  installed: boolean;
+  message: string;
+}
+
+export interface ModInstallResult {
+  taskId: string;
+  downloaded: DownloadedMod;
+  installations: ModInstallationResult[];
+}
+
+export interface ModTaskProgress {
+  taskId: string;
+  modId: string;
+  phase:
+    | "preparing"
+    | "downloading"
+    | "verifying"
+    | "installing"
+    | "complete"
+    | "failed";
+  downloadedBytes: number;
+  totalBytes: number;
+  progress: number;
+  message: string;
+}
+
 export type OperationStatus =
   | "queued"
   | "running"

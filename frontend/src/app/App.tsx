@@ -19,12 +19,15 @@ import { errorMessage } from "../shared/api/bridge";
 import { AccountsPage } from "../pages/AccountsPage";
 import { LibraryPage } from "../pages/LibraryPage";
 import { OperationsPage } from "../pages/OperationsPage";
+import { ModsPage } from "../pages/ModsPage";
+import { ModDetailsPage } from "../pages/ModDetailsPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { StatisticsPage } from "../pages/StatisticsPage";
 import { VersionsPage } from "../pages/VersionsPage";
 
 const navigation = [
   { to: "/library", icon: "▦", label: "Library" },
+  { to: "/mods", icon: "◇", label: "Mods" },
   { to: "/versions", icon: "⬡", label: "Game versions" },
   { to: "/operations", icon: "⇣", label: "Operations" },
   { to: "/accounts", icon: "♙", label: "Accounts" },
@@ -191,6 +194,26 @@ export function App() {
                 accounts={accounts}
                 loading={loading}
                 refresh={refresh}
+                notify={notify}
+              />
+            }
+          />
+          <Route
+            path="/mods/:modId"
+            element={
+              <ModDetailsPage
+                instances={instances}
+                versions={versions}
+                notify={notify}
+              />
+            }
+          />
+          <Route
+            path="/mods"
+            element={
+              <ModsPage
+                instances={instances}
+                versions={versions}
                 notify={notify}
               />
             }

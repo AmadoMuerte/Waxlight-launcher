@@ -120,3 +120,14 @@ func (controller *ModCatalogController) RemoveDownloadedMod(
 func (controller *ModCatalogController) CancelModTask(taskID string) error {
 	return controller.svc.CancelModTask(taskID)
 }
+
+func (controller *ModCatalogController) CheckModUpdates(
+	modID string,
+) ([]DownloadedModDTO, error) {
+	mods, err := controller.svc.CheckModUpdates(context.Background(), modID)
+	dto := make([]DownloadedModDTO, 0, len(mods))
+	for _, mod := range mods {
+		dto = append(dto, downloadedModDTO(mod))
+	}
+	return dto, err
+}

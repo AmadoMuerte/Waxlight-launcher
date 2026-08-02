@@ -3,6 +3,7 @@ import type {
   FormEvent,
   ReactNode,
 } from "react";
+import { useEffect, useRef } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -38,6 +39,47 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const origin = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+    const dialog = dialogRef.current;
+    const focusable = dialog?.querySelector<HTMLElement>(
+      "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+    );
+    focusable?.focus();
+    function keydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const items = [...dialog.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      )];
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", keydown);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      origin?.focus();
+    };
+  }, []);
+
   return (
     <div
       className="modalBackdrop"
@@ -48,6 +90,7 @@ export function Modal({
       }}
     >
       <section
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -56,6 +99,7 @@ export function Modal({
         <div className="modalHeader">
           <h2>{title}</h2>
           <button
+            type="button"
             className="iconButton"
             aria-label="Close"
             onClick={onClose}
