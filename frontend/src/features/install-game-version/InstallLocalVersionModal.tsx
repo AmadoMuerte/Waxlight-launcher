@@ -67,80 +67,82 @@ export function InstallLocalVersionModal({
   }
 
   return (
-    <Modal title="Install a local version" onClose={onClose}>
-      <SubmitForm className="form" onSubmit={install}>
-        <div className="notice">
+    <Modal title="Install a local version" className="installVersionDialog" onClose={onClose}>
+      <SubmitForm className="dialogForm" onSubmit={install}>
+        <div className="modalBody formFields">
+          <div className="notice">
           <b>Local installation</b>
           <span>
             Use this for a distribution you already downloaded. Waxlight copies
             it into the shared version store.
           </span>
-        </div>
-        <div className="formRow">
-          <Field label="Version ID">
+          </div>
+          <div className="formRow">
+            <Field label="Version ID">
+              <input
+                autoFocus
+                required
+                value={id}
+                onChange={(event) => setID(event.target.value)}
+                placeholder="1.22.6"
+                aria-invalid={duplicateID}
+              />
+            </Field>
+            <Field label="Display name">
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Vintage Story 1.22.6"
+              />
+            </Field>
+          </div>
+          {duplicateID && (
+            <div className="inlineError">
+              Version {id.trim()} is already installed.
+            </div>
+          )}
+          <Field
+            label="Archive or directory"
+            hint="Supported archives: .zip, .tar.gz, and .tgz."
+          >
+            <div className="inputAction">
+              <input
+                required
+                value={sourcePath}
+                onChange={(event) => setSourcePath(event.target.value)}
+                placeholder="/path/to/vs_client_linux-x64_1.22.6.tar.gz"
+              />
+              <Button type="button" variant="secondary" onClick={() => void selectArchive()}>
+                Choose archive
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => void selectDirectory()}>
+                Directory
+              </Button>
+            </div>
+          </Field>
+          <Field
+            label="Executable path inside the archive"
+            hint="Leave empty to locate Vintagestory automatically."
+          >
             <input
-              autoFocus
-              required
-              value={id}
-              onChange={(event) => setID(event.target.value)}
-              placeholder="1.22.6"
-              aria-invalid={duplicateID}
+              value={executablePath}
+              onChange={(event) => setExecutablePath(event.target.value)}
+              placeholder="Vintagestory"
             />
           </Field>
-          <Field label="Display name">
+          <Field
+            label="SHA-256 checksum (optional)"
+            hint="Installation stops if the checksum does not match."
+          >
             <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Vintage Story 1.22.6"
+              value={checksum}
+              onChange={(event) => setChecksum(event.target.value)}
+              placeholder="64 hexadecimal characters"
             />
           </Field>
+          {error && <div className="inlineError" role="alert">{error}</div>}
         </div>
-        {duplicateID && (
-          <div className="inlineError">
-            Version {id.trim()} is already installed.
-          </div>
-        )}
-        <Field
-          label="Archive or directory"
-          hint="Supported archives: .zip, .tar.gz, and .tgz."
-        >
-          <div className="inputAction">
-            <input
-              required
-              value={sourcePath}
-              onChange={(event) => setSourcePath(event.target.value)}
-              placeholder="/path/to/vs_client_linux-x64_1.22.6.tar.gz"
-            />
-            <Button type="button" variant="secondary" onClick={() => void selectArchive()}>
-              Choose archive
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => void selectDirectory()}>
-              Directory
-            </Button>
-          </div>
-        </Field>
-        <Field
-          label="Executable path inside the archive"
-          hint="Leave empty to locate Vintagestory automatically."
-        >
-          <input
-            value={executablePath}
-            onChange={(event) => setExecutablePath(event.target.value)}
-            placeholder="Vintagestory"
-          />
-        </Field>
-        <Field
-          label="SHA-256 checksum (optional)"
-          hint="Installation stops if the checksum does not match."
-        >
-          <input
-            value={checksum}
-            onChange={(event) => setChecksum(event.target.value)}
-            placeholder="64 hexadecimal characters"
-          />
-        </Field>
-        {error && <div className="inlineError">{error}</div>}
-        <div className="modalActions">
+        <div className="dialogFooter">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>

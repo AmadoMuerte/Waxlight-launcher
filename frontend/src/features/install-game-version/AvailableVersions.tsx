@@ -6,7 +6,7 @@ import {
 } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { formatBytes } from "../../shared/lib";
-import { Button, Empty, StatusPill } from "../../shared/ui";
+import { Button, Empty, Select, StatusPill } from "../../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -117,7 +117,7 @@ export function AvailableVersions({
             placeholder="Search versions"
             aria-label="Search versions"
           />
-          <select
+          <Select
             value={channel}
             onChange={(event) => {
               setChannel(event.target.value as ChannelFilter);
@@ -128,7 +128,7 @@ export function AvailableVersions({
             <option value="stable">Stable</option>
             <option value="unstable">Preview and release candidates</option>
             <option value="all">All channels</option>
-          </select>
+          </Select>
         </div>
       </div>
 
