@@ -33,6 +33,9 @@ body {
   background:
     radial-gradient(circle at 70% -20%, #2b1d13 0, transparent 34%),
     var(--background);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 button,
@@ -189,14 +192,14 @@ button {
 
 .accountSwitcher summary small {
   color: #77716d;
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .accountSwitcher summary strong {
   margin-top: 2px;
   color: #d9d2ca;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .miniAvatar {
@@ -236,7 +239,7 @@ button {
   border-radius: 7px;
   color: #b8b1aa;
   background: transparent;
-  font-size: 10px;
+  font-size: 12px;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -269,7 +272,7 @@ button {
 .accountSwitcherMenu button small {
   margin-top: 2px;
   color: #716b68;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .navPulse {
@@ -286,7 +289,7 @@ button {
   margin-top: auto;
   padding: 20px 12px 0;
   color: #8e8984;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
 }
 
@@ -325,7 +328,7 @@ main {
 
 .eyebrow {
   color: var(--amber);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 2.8px;
   text-transform: uppercase;
@@ -342,7 +345,9 @@ main {
 .pageHeader p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  max-width: 680px;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .button {
@@ -358,7 +363,7 @@ main {
   border: 0;
   border-radius: 9px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -470,7 +475,8 @@ main {
   gap: 8px;
   width: min(310px, 100%);
   min-width: 0;
-  padding: 8px 11px;
+  min-height: 42px;
+  padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 9px;
   color: #777;
@@ -484,12 +490,13 @@ main {
   outline: 0;
   color: #eee;
   background: none;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .muted {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .instanceGrid {
@@ -556,7 +563,7 @@ main {
 
 .cardBody {
   min-width: 0;
-  padding: 17px;
+  padding: 20px;
 }
 
 .cardTitle {
@@ -572,7 +579,7 @@ main {
   margin: 0;
   overflow: hidden;
   font-family: Newsreader, Georgia, serif;
-  font-size: 22px;
+  font-size: 24px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -586,22 +593,22 @@ main {
 }
 
 .cardBody > p {
-  height: 38px;
-  margin: 7px 0 13px;
+  height: 44px;
+  margin: 8px 0 16px;
   overflow: hidden;
   color: #88837f;
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-bottom: 13px;
+  gap: 14px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #282629;
   color: #aaa39b;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .cardFooter {
@@ -610,9 +617,9 @@ main {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  padding-top: 12px;
+  padding-top: 16px;
   color: #716d6a;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .cardFooter > span {
@@ -638,7 +645,7 @@ main {
   border-radius: 999px;
   color: #aaa5a0;
   background: #242225;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.7px;
   text-overflow: ellipsis;
@@ -695,8 +702,8 @@ main {
   max-width: 440px;
   margin: 0 0 20px;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .skeletonGrid {
@@ -815,7 +822,7 @@ main {
 
 .field {
   display: flex;
-  flex: 1 1 220px;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
@@ -996,7 +1003,8 @@ select:disabled {
 .inlineError,
 .errorText {
   color: #ef8c84;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .inlineError {
