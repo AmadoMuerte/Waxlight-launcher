@@ -1,0 +1,22 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "waxlight",
+  "projectdir": "cmd/waxlight",
+  "frontend:dir": "../../frontend",
+  "build:dir": "../../build",
+  "build:tags": "webkit2_41",
+  "wailsjsdir": "../../frontend/src",
+  "outputfilename": "waxlight",
+  "frontend:install": "npm install --include=dev",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Waxlight contributors"
+  },
+  "info": {
+    "companyName": "Waxlight",
+    "productName": "Waxlight Launcher",
+    "productVersion": "0.1.0"
+  }
+}
