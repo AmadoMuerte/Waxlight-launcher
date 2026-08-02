@@ -11,6 +11,7 @@ import {
 } from "../../wailsjs/go/presentation/AccountController";
 import type {
   Account,
+  AvailableGameVersion,
   GameVersion,
   InstalledMod,
   Instance,
@@ -49,6 +50,17 @@ export const versionsApi = {
       "GameVersionController",
       "InstallLocalVersion",
       request,
+    ),
+  available: () =>
+    call<AvailableGameVersion[]>(
+      "GameVersionController",
+      "ListAvailableVersions",
+    ),
+  installAvailable: (versionId: string) =>
+    call<Operation>(
+      "GameVersionController",
+      "InstallVersion",
+      versionId,
     ),
   remove: (id: string, deleteFiles: boolean) =>
     call<void>("GameVersionController", "RemoveVersion", id, deleteFiles),
@@ -116,6 +128,8 @@ export const launcherApi = {
 
 export const operationsApi = {
   list: () => call<Operation[]>("OperationController", "ListOperations"),
+  cancel: (id: string) =>
+    call<void>("OperationController", "CancelOperation", id),
 };
 
 export const statisticsApi = {

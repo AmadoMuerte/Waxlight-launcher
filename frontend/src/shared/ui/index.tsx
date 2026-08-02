@@ -159,8 +159,13 @@ export function StatusPill({ status }: { status: string }) {
     ready: "Ready",
     running: "Running",
     installed: "Installed",
+    queued: "Queued",
     completed: "Completed",
+    cancelled: "Cancelled",
     failed: "Failed",
+    stable: "Stable",
+    unstable: "Preview",
+    unknown: "Unknown",
     local_profile: "Local profile",
   };
 

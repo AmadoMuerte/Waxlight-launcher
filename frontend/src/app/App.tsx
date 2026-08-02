@@ -129,10 +129,10 @@ export function App() {
                 .toUpperCase()}
             </span>
             <span>
-              <small>Аккаунт</small>
+              <small>Account</small>
               <strong>
                 {accounts.find((account) => account.isDefault)?.displayName ??
-                  "Не выбран"}
+                  "Not selected"}
               </strong>
             </span>
           </summary>
@@ -157,8 +157,8 @@ export function App() {
                 </span>
               </button>
             ))}
-            <NavLink to="/accounts?add=1">＋ Добавить аккаунт</NavLink>
-            <NavLink to="/accounts">Управление аккаунтами</NavLink>
+            <NavLink to="/accounts?add=1">＋ Add account</NavLink>
+            <NavLink to="/accounts">Manage accounts</NavLink>
           </div>
         </details>
 
@@ -207,7 +207,13 @@ export function App() {
           />
           <Route
             path="/operations"
-            element={<OperationsPage operations={operations} />}
+            element={
+              <OperationsPage
+                operations={operations}
+                refresh={refresh}
+                notify={notify}
+              />
+            }
           />
           <Route
             path="/accounts"

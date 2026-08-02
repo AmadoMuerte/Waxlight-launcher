@@ -27,18 +27,18 @@ interface AccountsPageProps {
 }
 
 export const authErrorMessages: Record<Exclude<LoginStatus, "success" | "totp_required">, string> = {
-  invalid_credentials: "Неверный email, пароль или код подтверждения.",
+  invalid_credentials: "The email, password, or verification code is incorrect.",
   ip_changed:
-    "Vintage Story обнаружил изменение IP-адреса. Проверьте почту или повторите попытку позже.",
+    "Vintage Story detected an IP address change. Check your email or try again later.",
   temporarily_blocked:
-    "Слишком много попыток входа. Авторизация временно заблокирована.",
+    "Too many sign-in attempts. Authentication is temporarily blocked.",
   network_error:
-    "Не удалось подключиться к серверу авторизации Vintage Story.",
+    "Could not connect to the Vintage Story authentication server.",
   server_error:
-    "Сервер авторизации Vintage Story временно недоступен.",
+    "The Vintage Story authentication server is temporarily unavailable.",
   invalid_response:
-    "Сервер авторизации Vintage Story вернул неожиданный ответ.",
-  unknown_error: "Не удалось выполнить вход. Повторите попытку позже.",
+    "The Vintage Story authentication server returned an unexpected response.",
+  unknown_error: "Could not sign in. Please try again later.",
 };
 
 export function isValidEmail(value: string): boolean {
@@ -71,7 +71,7 @@ export function AccountsPage({
     try {
       await accountsApi.setDefault(accountID);
       await refresh();
-      notify("Аккаунт выбран");
+      notify("Account selected");
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -80,7 +80,7 @@ export function AccountsPage({
   async function removeAccount(account: Account) {
     if (
       !window.confirm(
-        `Удалить аккаунт «${account.displayName}» из Waxlight Launcher? Серверная сессия на других устройствах не будет отозвана.`,
+        `Remove “${account.displayName}” from Waxlight Launcher? This will not revoke the server session on other devices.`,
       )
     ) {
       return;
@@ -89,7 +89,7 @@ export function AccountsPage({
     try {
       await accountsApi.remove(account.id);
       await refresh();
-      notify("Аккаунт удалён из лаунчера");
+      notify("Account removed from the launcher");
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -99,7 +99,7 @@ export function AccountsPage({
     try {
       await accountsApi.validate(account.id);
       await refresh();
-      notify("Сессия аккаунта действительна");
+      notify("The account session is valid");
     } catch (error) {
       await refresh();
       notify(errorMessage(error), "error");
@@ -110,25 +110,25 @@ export function AccountsPage({
     <>
       <PageHeader
         eyebrow="Vintage Story"
-        title="Аккаунты"
-        description="Выберите общий аккаунт или назначьте отдельный аккаунт каждой сборке."
-        action={<Button onClick={() => setLoginAccount(null)}>＋ Добавить аккаунт</Button>}
+        title="Accounts"
+        description="Select a global account or assign a different account to each instance."
+        action={<Button onClick={() => setLoginAccount(null)}>＋ Add account</Button>}
       />
 
       <div className="notice pageNotice">
-        <b>Пароль и код 2FA не сохраняются</b>
+        <b>Passwords and 2FA codes are never stored</b>
         <span>
-          Waxlight хранит только сессионные ключи. Удаление аккаунта удаляет его
-          из лаунчера, но не завершает сессию на других устройствах.
+          Waxlight stores only session credentials. Removing an account deletes
+          it from the launcher but does not sign out other devices.
         </span>
       </div>
 
       {accounts.length === 0 ? (
         <Empty
           icon="♙"
-          title="Нет сохранённых аккаунтов"
-          description="Войдите в официальный аккаунт Vintage Story, чтобы запускать игру уже авторизованным."
-          action={<Button onClick={() => setLoginAccount(null)}>Войти</Button>}
+          title="No saved accounts"
+          description="Sign in with your official Vintage Story account to launch the game already authenticated."
+          action={<Button onClick={() => setLoginAccount(null)}>Sign in</Button>}
         />
       ) : (
         <div className="accountGrid">
@@ -146,13 +146,13 @@ export function AccountsPage({
 
               <div className="accountActions">
                 {account.isDefault ? (
-                  <span className="defaultMark">★ Выбран</span>
+                  <span className="defaultMark">★ Selected</span>
                 ) : (
                   <Button
                     variant="secondary"
                     onClick={() => void selectAccount(account.id)}
                   >
-                    Выбрать
+                    Select
                   </Button>
                 )}
 
@@ -162,14 +162,14 @@ export function AccountsPage({
                     variant="secondary"
                     onClick={() => setLoginAccount(account)}
                   >
-                    Войти снова
+                    Sign in again
                   </Button>
                 ) : (
                   <Button
                     variant="ghost"
                     onClick={() => void validateAccount(account)}
                   >
-                    Проверить
+                    Validate
                   </Button>
                 )}
 
@@ -177,7 +177,7 @@ export function AccountsPage({
                   variant="ghost"
                   onClick={() => void removeAccount(account)}
                 >
-                  Удалить из лаунчера
+                  Remove from launcher
                 </Button>
               </div>
             </article>
@@ -192,7 +192,7 @@ export function AccountsPage({
           onDone={async () => {
             setLoginAccount(undefined);
             await refresh();
-            notify("Вход выполнен");
+            notify("Signed in successfully");
           }}
         />
       )}
@@ -220,12 +220,12 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   async function submitCredentials() {
     if (submitting.current) return;
     if (!isValidEmail(email)) {
-      setError("Введите корректный email.");
+      setError("Enter a valid email address.");
       setPassword("");
       return;
     }
     if (!password) {
-      setError("Введите пароль.");
+      setError("Enter your password.");
       return;
     }
 
@@ -257,7 +257,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   async function submitTOTP() {
     if (submitting.current) return;
     if (!totp || totp.length > 16) {
-      setError("Введите код подтверждения.");
+      setError("Enter the verification code.");
       return;
     }
     submitting.current = true;
@@ -301,7 +301,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
 
   return (
     <Modal
-      title={account ? "Повторный вход" : "Вход в Vintage Story"}
+      title={account ? "Sign in again" : "Sign in to Vintage Story"}
       onClose={() => void cancelFlow(true)}
     >
       {step === "credentials" ? (
@@ -318,7 +318,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
             />
           </Field>
 
-          <Field label="Пароль">
+          <Field label="Password">
             <div className="passwordField">
               <input
                 required
@@ -329,19 +329,19 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               />
               <button
                 type="button"
-                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 onClick={() => setShowPassword((value) => !value)}
               >
-                {showPassword ? "Скрыть" : "Показать"}
+                {showPassword ? "Hide" : "Show"}
               </button>
             </div>
           </Field>
 
           <div className="notice">
-            <b>Неофициальная интеграция</b>
+            <b>Unofficial integration</b>
             <span>
-              Waxlight обращается к серверу авторизации Vintage Story. Его API
-              публично не документирован и может измениться.
+              Waxlight connects to the Vintage Story authentication server. Its
+              API is not publicly documented and may change.
             </span>
           </div>
 
@@ -349,21 +349,21 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
 
           <div className="modalActions">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Отмена
+              Cancel
             </Button>
-            <Button busy={busy}>Войти</Button>
+            <Button busy={busy}>Sign in</Button>
           </div>
         </SubmitForm>
       ) : (
         <SubmitForm className="form" onSubmit={submitTOTP}>
           <div className="notice">
-            <b>Двухфакторная авторизация</b>
+            <b>Two-factor authentication</b>
             <span>
-              Аккаунт защищён 2FA. Введите код из приложения-аутентификатора.
+              This account uses 2FA. Enter the code from your authenticator app.
             </span>
           </div>
 
-          <Field label="Код подтверждения">
+          <Field label="Verification code">
             <input
               autoFocus
               required
@@ -385,16 +385,16 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               variant="ghost"
               onClick={() => void cancelFlow(false)}
             >
-              Назад
+              Back
             </Button>
             <Button
               type="button"
               variant="ghost"
               onClick={() => void cancelFlow(true)}
             >
-              Отмена
+              Cancel
             </Button>
-            <Button busy={busy}>Подтвердить</Button>
+            <Button busy={busy}>Verify</Button>
           </div>
         </SubmitForm>
       )}

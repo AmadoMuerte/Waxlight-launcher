@@ -871,6 +871,104 @@ main {
   margin-bottom: 20px;
 }
 
+.installedVersions,
+.versionCatalog {
+  margin-top: 34px;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.sectionHeading h2 {
+  margin: 5px 0 0;
+  color: #e7e0d8;
+  font-family: Newsreader, Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.versionFilters {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.versionFilters input,
+.versionFilters select {
+  min-height: 36px;
+  border: 1px solid #363238;
+  border-radius: 8px;
+  color: #d6d0ca;
+  background: #1a181c;
+  font-size: 11px;
+}
+
+.versionFilters input {
+  width: 170px;
+  padding: 0 11px;
+}
+
+.versionFilters select {
+  max-width: 220px;
+  padding: 0 9px;
+}
+
+.catalogState {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 34px;
+  padding: 24px;
+  border: 1px solid #2c292d;
+  border-radius: 12px;
+  color: #8f8984;
+  background: #151417;
+  font-size: 11px;
+}
+
+.availableVersionList {
+  overflow: hidden;
+  border: 1px solid #2c292d;
+  border-radius: 12px;
+  background: #151417;
+}
+
+.availableVersion {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto 112px;
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+  padding: 13px 18px;
+  border-top: 1px solid #252327;
+}
+
+.availableVersion:first-child {
+  border-top: 0;
+}
+
+.latestMark {
+  padding: 2px 6px;
+  border-radius: 99px;
+  color: #f2c77e;
+  background: #4a321f;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.loadMore {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 .table {
   overflow: hidden;
   border: 1px solid #2c292d;
@@ -1421,6 +1519,21 @@ main {
   .pageHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .versionFilters {
+    width: 100%;
+  }
+
+  .versionFilters input,
+  .versionFilters select {
+    flex: 1 1 0;
+    width: auto;
   }
 
   .statGrid {

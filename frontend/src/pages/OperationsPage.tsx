@@ -1,12 +1,29 @@
-import { Operation } from "../shared/api";
+import { Operation, operationsApi } from "../shared/api";
+import { errorMessage } from "../shared/api/bridge";
 import { formatBytes, formatDate } from "../shared/lib";
-import { Empty, PageHeader, StatusPill } from "../shared/ui";
+import { Button, Empty, PageHeader, StatusPill } from "../shared/ui";
 
 interface OperationsPageProps {
   operations: Operation[];
+  refresh: () => Promise<void>;
+  notify: (message: string, type?: "ok" | "error") => void;
 }
 
-export function OperationsPage({ operations }: OperationsPageProps) {
+export function OperationsPage({
+  operations,
+  refresh,
+  notify,
+}: OperationsPageProps) {
+  async function cancel(operation: Operation) {
+    try {
+      await operationsApi.cancel(operation.id);
+      await refresh();
+      notify("Operation cancelled");
+    } catch (cancelError) {
+      notify(errorMessage(cancelError), "error");
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -32,7 +49,18 @@ export function OperationsPage({ operations }: OperationsPageProps) {
               <div className="operationDetails">
                 <div className="row between">
                   <strong>{operation.title}</strong>
-                  <StatusPill status={operation.status} />
+                  <div className="row">
+                    <StatusPill status={operation.status} />
+                    {(operation.status === "queued" ||
+                      operation.status === "running") && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => void cancel(operation)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <small>
@@ -40,6 +68,9 @@ export function OperationsPage({ operations }: OperationsPageProps) {
                   {formatBytes(operation.currentBytes)}
                   {operation.totalBytes > 0
                     ? ` of ${formatBytes(operation.totalBytes)}`
+                    : ""}
+                  {operation.bytesPerSecond > 0
+                    ? ` · ${formatBytes(operation.bytesPerSecond)}/s`
                     : ""}
                 </small>
 

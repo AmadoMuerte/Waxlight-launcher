@@ -53,10 +53,10 @@ function renderPage(accounts: Account[] = []) {
 
 async function openAndFillCredentials() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: /добавить аккаунт/i }));
+  await user.click(screen.getByRole("button", { name: /add account/i }));
   const dialog = screen.getByRole("dialog");
   await user.type(within(dialog).getByLabelText("Email"), "player@example.com");
-  await user.type(within(dialog).getByLabelText("Пароль"), "super-secret");
+  await user.type(within(dialog).getByLabelText("Password"), "super-secret");
   return { user, dialog };
 }
 
@@ -85,15 +85,15 @@ describe("account authentication UI", () => {
   it("opens login, validates email, and clears the password", async () => {
     renderPage();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /добавить аккаунт/i }));
+    await user.click(screen.getByRole("button", { name: /add account/i }));
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Email"), "wrong-email");
-    const password = within(dialog).getByLabelText("Пароль") as HTMLInputElement;
+    const password = within(dialog).getByLabelText("Password") as HTMLInputElement;
     await user.type(password, "super-secret");
-    await user.click(within(dialog).getByRole("button", { name: /^войти$/i }));
+    await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
 
     expect(api.login).not.toHaveBeenCalled();
-    expect(await screen.findByText("Введите корректный email.")).toBeTruthy();
+    expect(await screen.findByText("Enter a valid email address.")).toBeTruthy();
     expect(password.value).toBe("");
   });
 
@@ -107,7 +107,7 @@ describe("account authentication UI", () => {
     const { refresh } = renderPage();
     const { dialog } = await openAndFillCredentials();
     const form = within(dialog)
-      .getByRole("button", { name: /^войти$/i })
+      .getByRole("button", { name: /^sign in$/i })
       .closest("form");
     if (!form) throw new Error("login form not found");
 
@@ -124,13 +124,13 @@ describe("account authentication UI", () => {
     api.completeTOTP.mockResolvedValue({ status: "success", account: validAccount });
     const { refresh } = renderPage();
     const { user, dialog } = await openAndFillCredentials();
-    await user.click(within(dialog).getByRole("button", { name: /^войти$/i }));
+    await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
 
-    const code = await screen.findByLabelText("Код подтверждения");
-    expect(screen.queryByLabelText("Пароль")).toBeNull();
+    const code = await screen.findByLabelText("Verification code");
+    expect(screen.queryByLabelText("Password")).toBeNull();
     await user.type(code, "12ab3456");
     expect((code as HTMLInputElement).value).toBe("123456");
-    await user.click(screen.getByRole("button", { name: /подтвердить/i }));
+    await user.click(screen.getByRole("button", { name: /verify/i }));
 
     expect(api.completeTOTP).toHaveBeenCalledWith("opaque-flow", "123456");
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
@@ -142,20 +142,20 @@ describe("account authentication UI", () => {
     api.login.mockResolvedValue({ status: "totp_required", flowId: "opaque-flow" });
     renderPage();
     const { user, dialog } = await openAndFillCredentials();
-    await user.click(within(dialog).getByRole("button", { name: /^войти$/i }));
-    await screen.findByLabelText("Код подтверждения");
-    await user.click(screen.getByRole("button", { name: /назад/i }));
+    await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
+    await screen.findByLabelText("Verification code");
+    await user.click(screen.getByRole("button", { name: /back/i }));
 
     expect(api.cancelLogin).toHaveBeenCalledWith("opaque-flow");
-    expect(await screen.findByLabelText("Пароль")).toBeTruthy();
+    expect(await screen.findByLabelText("Password")).toBeTruthy();
   });
 
   it("shows typed backend errors and clears the password after failure", async () => {
     api.login.mockResolvedValue({ status: "invalid_credentials" });
     renderPage();
     const { user, dialog } = await openAndFillCredentials();
-    const password = within(dialog).getByLabelText("Пароль") as HTMLInputElement;
-    await user.click(within(dialog).getByRole("button", { name: /^войти$/i }));
+    const password = within(dialog).getByLabelText("Password") as HTMLInputElement;
+    await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
 
     expect(await screen.findByText(authErrorMessages.invalid_credentials)).toBeTruthy();
     expect(password.value).toBe("");
@@ -176,22 +176,22 @@ describe("account authentication UI", () => {
 
     const expiredCard = screen.getByText("Expired").closest("article");
     if (!expiredCard) throw new Error("expired account card not found");
-    await user.click(within(expiredCard).getByRole("button", { name: "Выбрать" }));
+    await user.click(within(expiredCard).getByRole("button", { name: "Select" }));
     expect(api.setDefault).toHaveBeenCalledWith("expired");
 
-    await user.click(within(expiredCard).getByRole("button", { name: "Войти снова" }));
+    await user.click(within(expiredCard).getByRole("button", { name: "Sign in again" }));
     const dialog = screen.getByRole("dialog");
     expect((within(dialog).getByLabelText("Email") as HTMLInputElement).value).toBe(
       "expired@example.com",
     );
-    await user.click(within(dialog).getByRole("button", { name: "Отмена" }));
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     const validCard = screen.getByText("Waxlighter").closest("article");
     if (!validCard) throw new Error("valid account card not found");
-    await user.click(within(validCard).getByRole("button", { name: "Проверить" }));
+    await user.click(within(validCard).getByRole("button", { name: "Validate" }));
     expect(api.validate).toHaveBeenCalledWith("first");
     await user.click(
-      within(validCard).getByRole("button", { name: "Удалить из лаунчера" }),
+      within(validCard).getByRole("button", { name: "Remove from launcher" }),
     );
     expect(api.remove).toHaveBeenCalledWith("first");
     expect(refresh).toHaveBeenCalled();
@@ -202,7 +202,7 @@ describe("account authentication helpers", () => {
   it("validates email and contains only safe localized errors", () => {
     expect(isValidEmail("player@example.com")).toBe(true);
     expect(isValidEmail("not-an-email")).toBe(false);
-    expect(authErrorMessages.network_error).toContain("подключиться");
+    expect(authErrorMessages.network_error).toContain("connect");
     expect(JSON.stringify(authErrorMessages)).not.toMatch(
       /sessionkey|sessionsignature|prelogintoken/i,
     );

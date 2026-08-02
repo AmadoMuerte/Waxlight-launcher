@@ -346,12 +346,12 @@ function CreateInstanceModal({
             </select>
           </Field>
 
-          <Field label="Аккаунт для запуска">
+          <Field label="Launch account">
             <select
               value={accountID}
               onChange={(event) => setAccountID(event.target.value)}
             >
-              <option value="">Использовать выбранный глобально</option>
+              <option value="">Use the globally selected account</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.displayName}
@@ -647,12 +647,12 @@ function InstanceModal({
               </select>
             </Field>
 
-            <Field label="Аккаунт для запуска">
+            <Field label="Launch account">
               <select
                 value={accountID}
                 onChange={(event) => setAccountID(event.target.value)}
               >
-                <option value="">Использовать выбранный глобально</option>
+                <option value="">Use the globally selected account</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.displayName}

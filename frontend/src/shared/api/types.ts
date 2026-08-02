@@ -39,6 +39,18 @@ export interface GameVersion {
   installedAt: string;
 }
 
+export interface AvailableGameVersion {
+  id: string;
+  name: string;
+  channel: "stable" | "unstable" | "unknown";
+  platform: string;
+  architecture: string;
+  downloadSize: number;
+  latest: boolean;
+  installed: boolean;
+  installStatus?: string;
+}
+
 export interface Instance {
   id: string;
   name: string;
@@ -78,6 +90,7 @@ export interface Operation {
   progress: number;
   currentBytes: number;
   totalBytes: number;
+  bytesPerSecond: number;
   errorCode?: string;
   errorMessage?: string;
   createdAt: string;
