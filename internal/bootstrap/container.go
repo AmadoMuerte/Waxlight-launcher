@@ -14,6 +14,8 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
@@ -59,11 +61,13 @@ func New() (*Container, error) {
 		accountService,
 		filesystem.ClientSettingsService{},
 	)
+	downloadManager := downloader.NewManager(downloader.NewHTTPDownloader(), 3)
 	service.ConfigureVersionDownloads(
 		vintagestory.NewVersionCatalog(nil),
-		downloader.NewManager(downloader.NewHTTPDownloader(), 3),
+		downloadManager,
 		gameversion.NewInstaller(),
 	)
+	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
 	service.ConfigureDiskSpaceChecker(filesystem.DiskSpace{})
 	base := presentation.NewBase(service)
 	controllers := []any{
@@ -72,6 +76,7 @@ func New() (*Container, error) {
 		presentation.NewGameVersionController(service),
 		presentation.NewInstanceController(service),
 		presentation.NewModManagerController(service),
+		presentation.NewModCatalogController(service),
 		presentation.NewLaunchController(service),
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),

@@ -54,6 +54,9 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("download returned HTTP %d", resp.StatusCode)
 	}
+	if in.MaxBytes > 0 && resp.ContentLength > in.MaxBytes {
+		return fmt.Errorf("download exceeds the maximum allowed size")
+	}
 	if offset > 0 && resp.StatusCode != http.StatusPartialContent {
 		offset = 0
 		flags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
@@ -75,6 +78,11 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 		}
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
+			if in.MaxBytes > 0 && downloaded+int64(n) > in.MaxBytes {
+				out.Close()
+				_ = os.Remove(partial)
+				return fmt.Errorf("download exceeds the maximum allowed size")
+			}
 			if _, err = out.Write(buf[:n]); err != nil {
 				out.Close()
 				return err

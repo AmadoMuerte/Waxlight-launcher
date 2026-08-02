@@ -90,6 +90,7 @@ type ArchiveInstaller interface {
 type ModFileManager interface {
 	EnsureLayout(string) error
 	Install(context.Context, string, string) (string, int64, error)
+	InstallOrReplace(context.Context, string, string, string) (string, int64, error)
 	SetEnabled(string, string, bool) (string, error)
 }
 
@@ -121,6 +122,7 @@ type DownloadRequest struct {
 	ExpectedChecksum  string
 	ChecksumAlgorithm string
 	Resume            bool
+	MaxBytes          int64
 }
 
 type DownloadProgress struct {
@@ -147,4 +149,17 @@ type GamePackageInstaller interface {
 
 type DiskSpaceChecker interface {
 	Available(path string) (int64, error)
+}
+
+type ModCatalog interface {
+	Search(context.Context, domain.ModSearchQuery) (domain.ModSearchResult, error)
+	Get(context.Context, string) (domain.ModDetails, error)
+}
+
+type DownloadedModStore interface {
+	List(context.Context) ([]domain.DownloadedMod, error)
+	Get(context.Context, string, string) (domain.DownloadedMod, error)
+	Save(context.Context, domain.DownloadedMod) error
+	Delete(context.Context, string, string) error
+	FilePath(string, string, string) (string, error)
 }

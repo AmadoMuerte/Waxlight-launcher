@@ -111,6 +111,80 @@ func (ModFileManager) Install(
 	return destinationPath, info.Size(), nil
 }
 
+func (ModFileManager) InstallOrReplace(
+	ctx context.Context,
+	sourcePath string,
+	instanceDirectory string,
+	oldPath string,
+) (string, int64, error) {
+	if oldPath == "" {
+		return (ModFileManager{}).Install(ctx, sourcePath, instanceDirectory)
+	}
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return "", 0, err
+	}
+	if info.IsDir() {
+		return "", 0, fmt.Errorf("mod source must be a file")
+	}
+	extension := strings.ToLower(filepath.Ext(sourcePath))
+	if extension != ".zip" && extension != ".cs" && extension != ".dll" {
+		return "", 0, fmt.Errorf("unsupported mod file extension: %s", extension)
+	}
+	modsPath := filepath.Join(instanceDirectory, modsDirectory)
+	if err := os.MkdirAll(modsPath, 0o755); err != nil {
+		return "", 0, err
+	}
+	destinationPath := filepath.Join(modsPath, filepath.Base(sourcePath))
+	stagedPath := destinationPath + ".waxlight-new"
+	staged, err := os.OpenFile(stagedPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return "", 0, err
+	}
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		_ = staged.Close()
+		_ = os.Remove(stagedPath)
+		return "", 0, err
+	}
+	_, copyErr := io.Copy(staged, &contextReader{ctx: ctx, reader: source})
+	closeSourceErr := source.Close()
+	closeStagedErr := staged.Close()
+	if copyErr != nil || closeSourceErr != nil || closeStagedErr != nil {
+		_ = os.Remove(stagedPath)
+		if copyErr != nil {
+			return "", 0, copyErr
+		}
+		if closeSourceErr != nil {
+			return "", 0, closeSourceErr
+		}
+		return "", 0, closeStagedErr
+	}
+
+	backupPath := oldPath + ".waxlight-backup"
+	if _, err := os.Stat(oldPath); err == nil {
+		_ = os.Remove(backupPath)
+		if err := os.Rename(oldPath, backupPath); err != nil {
+			_ = os.Remove(stagedPath)
+			return "", 0, err
+		}
+	}
+	if destinationPath != oldPath {
+		if _, err := os.Stat(destinationPath); err == nil {
+			_ = os.Rename(backupPath, oldPath)
+			_ = os.Remove(stagedPath)
+			return "", 0, fmt.Errorf("mod file already exists")
+		}
+	}
+	if err := os.Rename(stagedPath, destinationPath); err != nil {
+		_ = os.Rename(backupPath, oldPath)
+		_ = os.Remove(stagedPath)
+		return "", 0, err
+	}
+	_ = os.Remove(backupPath)
+	return destinationPath, info.Size(), nil
+}
+
 func (ModFileManager) SetEnabled(
 	filePath string,
 	instanceDirectory string,
