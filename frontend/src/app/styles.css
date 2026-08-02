@@ -2035,8 +2035,9 @@ select:disabled {
 .modsSearch {
   display: flex;
   align-items: center;
-  width: min(360px, 42vw);
-  padding: 0 12px;
+  width: min(420px, 46vw);
+  min-height: 44px;
+  padding: 0 14px;
   border: 1px solid #373238;
   border-radius: 11px;
   background: #151417;
@@ -2055,7 +2056,7 @@ select:disabled {
   outline: 0;
   color: var(--cream);
   background: transparent;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .modsSearch button {
@@ -2069,14 +2070,14 @@ select:disabled {
 .instanceContext {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   margin: -14px 0 22px;
-  padding: 10px 13px;
+  padding: 12px 16px;
   border: 1px solid #503d28;
   border-radius: 9px;
   color: #b6aea5;
   background: #211a13;
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .instanceContext button {
@@ -2085,25 +2086,26 @@ select:disabled {
   color: #e9b66a;
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .modsTabs {
   display: flex;
   gap: 5px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   padding-bottom: 1px;
   border-bottom: 1px solid #29262a;
 }
 
 .modsTabs button {
-  padding: 10px 15px;
+  min-height: 44px;
+  padding: 10px 16px;
   border: 0;
   border-bottom: 2px solid transparent;
   color: #8c8782;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -2120,8 +2122,8 @@ select:disabled {
 .modsFilters {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr));
-  gap: 12px;
-  padding: 15px;
+  gap: 16px;
+  padding: 20px;
   border: 1px solid #2d292e;
   border-radius: 12px;
   background: #141316;
@@ -2141,18 +2143,19 @@ select:disabled {
 .filterChips {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .filterChips button {
-  padding: 7px 10px;
+  min-height: 34px;
+  padding: 7px 12px;
   border: 1px solid #45382a;
   border-radius: 999px;
   color: #d5b781;
   background: #211b15;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .filterChips button span {
@@ -2169,9 +2172,9 @@ select:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 20px 0 12px;
+  margin: 24px 0 14px;
   color: #77716e;
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .viewToggle {
@@ -2183,8 +2186,8 @@ select:disabled {
 }
 
 .viewToggle button {
-  width: 29px;
-  height: 26px;
+  width: 34px;
+  height: 32px;
   border: 0;
   border-radius: 6px;
   color: #746f6c;
@@ -2199,8 +2202,8 @@ select:disabled {
 
 .modGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 20px;
 }
 
 .modGrid-list {
@@ -2265,22 +2268,22 @@ select:disabled {
 .modArtworkFallback small {
   margin-top: -30px;
   color: #6c5845;
-  font-size: 7px;
-  letter-spacing: 4px;
+  font-size: 10px;
+  letter-spacing: 3px;
 }
 
 .modCardBody {
   display: flex;
-  min-height: 250px;
+  min-height: 278px;
   flex-direction: column;
-  padding: 16px;
+  padding: 20px;
 }
 
 .modCardTitle {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .modCardTitle > div {
@@ -2291,17 +2294,17 @@ select:disabled {
   margin: 0;
   overflow: hidden;
   font-family: Newsreader, Georgia, serif;
-  font-size: 19px;
+  font-size: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .modCardTitle > div > span {
   display: block;
-  margin-top: 3px;
+  margin-top: 4px;
   overflow: hidden;
   color: #8f8984;
-  font-size: 9px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2309,12 +2312,12 @@ select:disabled {
 .sideBadge,
 .releaseType {
   flex: 0 0 auto;
-  padding: 4px 7px;
+  padding: 5px 8px;
   border: 1px solid #3e3a3e;
   border-radius: 999px;
   color: #aaa5a0;
   background: #222024;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -2325,12 +2328,12 @@ select:disabled {
 
 .modSummary {
   display: -webkit-box;
-  min-height: 48px;
-  margin: 14px 0 11px;
+  min-height: 64px;
+  margin: 16px 0 14px;
   overflow: hidden;
   color: #aaa39e;
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
@@ -2338,23 +2341,28 @@ select:disabled {
 .modCardMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 7px 12px;
   color: #716c69;
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .modCardFooter {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: auto;
-  padding-top: 17px;
+  padding-top: 20px;
+}
+
+.modCardFooter .row {
+  margin-left: auto;
 }
 
 .modStateText {
   color: #8d9f82;
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .updateBadge {
@@ -2368,12 +2376,12 @@ select:disabled {
 
 .modCard-list .modArtwork {
   height: 100%;
-  min-height: 210px;
+  min-height: 240px;
   aspect-ratio: auto;
 }
 
 .modCard-list .modCardBody {
-  min-height: 210px;
+  min-height: 240px;
 }
 
 .loadMore {
@@ -2402,7 +2410,8 @@ select:disabled {
   justify-content: flex-end;
   padding-bottom: 5px;
   color: #aaa39d;
-  font-size: 10px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .releaseSummary small {
@@ -2413,6 +2422,7 @@ select:disabled {
 .instanceSearch {
   width: 100%;
   margin: 15px 0 9px;
+  min-height: 42px;
   padding: 10px 12px;
   border: 1px solid #373338;
   border-radius: 8px;
@@ -2433,7 +2443,7 @@ select:disabled {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 11px;
   align-items: center;
-  padding: 12px;
+  padding: 14px;
   border-bottom: 1px solid #29272a;
   cursor: pointer;
 }
@@ -2443,10 +2453,10 @@ select:disabled {
 .instanceChoice input { accent-color: var(--amber); }
 .instanceChoice strong,
 .instanceChoice small { display: block; }
-.instanceChoice small { margin-top: 3px; color: #75706c; font-size: 8px; }
+.instanceChoice small { margin-top: 3px; color: #8b8580; font-size: 12px; }
 
 .compatibility {
-  font-size: 8px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .compatibility-compatible { color: #8fc49a; }
@@ -2491,10 +2501,10 @@ select:disabled {
 .successMark { color: #9fd0a6; background: #1d3020; }
 .progressTrack { width: min(420px, 100%); height: 7px; margin: 18px 0 7px; overflow: hidden; border-radius: 9px; background: #29262a; }
 .progressTrack i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #b8712c, #f1bd61); transition: width .2s; }
-.taskProgress p { color: #77716d; font-size: 10px; }
+.taskProgress p { color: #8b8580; font-size: 13px; }
 
 .resultList { width: min(460px, 100%); margin: 15px 0; }
-.resultList > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #2a282b; font-size: 10px; }
+.resultList > div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid #2a282b; font-size: 13px; }
 .resultOk { color: #8fc49a; }
 .resultError { color: #e1847c; }
 
@@ -2505,15 +2515,16 @@ select:disabled {
   color: #b79b70;
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .modDetailsHeader {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr) auto;
-  gap: 24px;
+  gap: 28px;
   align-items: center;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid #302c31;
   border-radius: 16px;
   background: linear-gradient(135deg, #1d1918, #151417 55%);
@@ -2522,54 +2533,54 @@ select:disabled {
 .modDetailsArtwork { border-radius: 11px; }
 .modDetailsIdentity { min-width: 0; }
 .modDetailsIdentity h1 { margin: 6px 0 4px; overflow: hidden; font-family: Newsreader, Georgia, serif; font-size: clamp(30px, 4vw, 48px); text-overflow: ellipsis; }
-.modDetailsIdentity > p { margin: 0 0 12px; color: #9b948e; font-size: 11px; }
+.modDetailsIdentity > p { margin: 0 0 14px; color: #a9a29b; font-size: 14px; }
 .detailBadges,
 .detailStats { display: flex; flex-wrap: wrap; gap: 7px; }
-.detailBadges > span:not(.sideBadge) { padding: 4px 7px; border-radius: 999px; color: #9f9994; background: #242125; font-size: 8px; }
-.detailStats { margin-top: 10px; color: #77716e; font-size: 9px; }
+.detailBadges > span:not(.sideBadge) { padding: 5px 8px; border-radius: 999px; color: #b3ada7; background: #242125; font-size: 11px; }
+.detailStats { margin-top: 12px; color: #8f8984; font-size: 12px; }
 .modPrimaryAction { display: flex; align-items: center; flex-direction: column; gap: 6px; }
-.modPrimaryAction small { color: #79736e; font-size: 8px; }
+.modPrimaryAction small { color: #918a85; font-size: 12px; }
 
 .modDetailsLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 24px;
   align-items: start;
   margin-top: 22px;
 }
 
-.modDetailsMain { display: flex; flex-direction: column; gap: 18px; }
+.modDetailsMain { display: flex; flex-direction: column; gap: 20px; }
 .detailSection,
-.modInformation { padding: 22px; border: 1px solid #2e2a2f; border-radius: 13px; background: #151417; }
+.modInformation { padding: 24px; border: 1px solid #2e2a2f; border-radius: 13px; background: #151417; }
 .detailSection h2,
 .modInformation h2 { margin: 0 0 16px; font-family: Newsreader, Georgia, serif; font-size: 23px; }
-.safeDescription { color: #b2aba5; font-size: 12px; line-height: 1.72; white-space: pre-wrap; }
+.safeDescription { color: #c2bbb4; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
 
 .screenshotGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .screenshotGrid button { padding: 0; overflow: hidden; border: 1px solid #343035; border-radius: 9px; background: #111; cursor: zoom-in; aspect-ratio: 16/9; }
 .screenshotGrid img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
 .screenshotGrid button:hover img { transform: scale(1.03); }
 
-.releaseList article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 18px; align-items: center; padding: 15px 0; border-top: 1px solid #29272a; }
+.releaseList article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; align-items: center; padding: 18px 0; border-top: 1px solid #29272a; }
 .releaseList article:first-child { border-top: 0; }
 .releaseList article > div { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
-.releaseList article > div:last-of-type { justify-content: flex-end; color: #77716d; font-size: 9px; }
-.releaseList small { flex-basis: 100%; color: #77716d; font-size: 8px; }
-.releaseList p { grid-column: 1 / -1; margin: 0; color: #8b8580; font-size: 10px; line-height: 1.5; }
+.releaseList article > div:last-of-type { justify-content: flex-end; color: #918b86; font-size: 12px; }
+.releaseList small { flex-basis: 100%; color: #918b86; font-size: 12px; }
+.releaseList p { grid-column: 1 / -1; margin: 0; color: #a19a94; font-size: 13px; line-height: 1.55; }
 .release-stable { color: #9ac6a0; }
 .release-beta { color: #d8b978; }
 .release-alpha { color: #db8e86; }
 
-.installedInList > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; padding: 10px 0; border-top: 1px solid #29272a; font-size: 10px; }
+.installedInList > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; padding: 13px 0; border-top: 1px solid #29272a; font-size: 13px; }
 .installedInList span { color: #88827e; }
 
 .modInformation { position: sticky; top: 20px; }
 .modInformation dl { margin: 0; }
-.modInformation dl > div { display: flex; justify-content: space-between; gap: 15px; padding: 9px 0; border-top: 1px solid #29272a; font-size: 9px; }
+.modInformation dl > div { display: flex; justify-content: space-between; gap: 15px; padding: 11px 0; border-top: 1px solid #29272a; font-size: 12px; }
 .modInformation dt { color: #77716e; }
 .modInformation dd { margin: 0; text-align: right; }
 .detailTags { display: flex; flex-wrap: wrap; gap: 5px; margin: 13px 0; }
-.detailTags span { padding: 5px 7px; border-radius: 5px; color: #a49d97; background: #242125; font-size: 8px; }
+.detailTags span { padding: 6px 8px; border-radius: 6px; color: #b8b1aa; background: #242125; font-size: 11px; }
 .modInformation .button { width: 100%; }
 
 .modDetailsSkeleton { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
@@ -2581,7 +2592,7 @@ select:disabled {
 .lightbox .lightboxClose { position: absolute; top: 20px; right: 20px; width: 38px; height: 38px; }
 .lightbox figure { display: flex; max-height: calc(100vh - 80px); align-items: center; flex-direction: column; margin: 0; }
 .lightbox img { max-width: 100%; max-height: calc(100vh - 120px); object-fit: contain; }
-.lightbox figcaption { margin-top: 10px; color: #aaa; font-size: 10px; }
+.lightbox figcaption { margin-top: 10px; color: #bbb; font-size: 13px; }
 
 @media (max-width: 1050px) {
   .modsFilters { grid-template-columns: repeat(2, minmax(150px, 1fr)); }

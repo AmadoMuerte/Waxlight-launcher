@@ -1,5 +1,5 @@
 import type { GameVersion, ModSearchQuery } from "../../shared/api";
-import { Button, Field } from "../../shared/ui";
+import { Button, Field, Select } from "../../shared/ui";
 import { sideLabel } from "./lib";
 
 interface ModsFiltersProps {
@@ -56,7 +56,7 @@ export function ModsFilters({
           </button>
         </div>
         <Field label="Game version">
-          <select
+          <Select
             value={query.gameVersion}
             onChange={(event) => onChange({ gameVersion: event.target.value })}
           >
@@ -66,10 +66,10 @@ export function ModsFilters({
                 {version.name || version.id}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Side">
-          <select
+          <Select
             value={query.side}
             onChange={(event) =>
               onChange({ side: event.target.value as ModSearchQuery["side"] })
@@ -79,10 +79,10 @@ export function ModsFilters({
             <option value="client">Client</option>
             <option value="server">Server</option>
             <option value="both">Client &amp; Server</option>
-          </select>
+          </Select>
         </Field>
         <Field label="Updated">
-          <select
+          <Select
             value={query.updatedAfter ? updatedPeriod(query.updatedAfter) : ""}
             onChange={(event) =>
               onChange({ updatedAfter: dateFromPeriod(event.target.value) })
@@ -93,10 +93,10 @@ export function ModsFilters({
             <option value="30">Last 30 days</option>
             <option value="90">Last 3 months</option>
             <option value="365">Last year</option>
-          </select>
+          </Select>
         </Field>
         <Field label="Sort by">
-          <select
+          <Select
             value={query.sort}
             onChange={(event) =>
               onChange({ sort: event.target.value as ModSearchQuery["sort"] })
@@ -108,7 +108,7 @@ export function ModsFilters({
             <option value="downloads">Most downloaded</option>
             <option value="name_asc">Name: A–Z</option>
             <option value="name_desc">Name: Z–A</option>
-          </select>
+          </Select>
         </Field>
       </section>
 
