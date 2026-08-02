@@ -23,12 +23,20 @@ type Service struct {
 	accounts         *AccountService
 	clientSettings   ClientSettingsPatcher
 	installer        ArchiveInstaller
+	versionCatalog   GameVersionCatalog
+	downloader       Downloader
+	packageInstaller GamePackageInstaller
 	modFiles         ModFileManager
 	launcher         ProcessLauncher
 	dataRoot         string
 	events           EventPublisher
 	runningMu        sync.Mutex
 	versionInstallMu sync.Mutex
+	operationsMu     sync.Mutex
+	operationCancels map[string]context.CancelFunc
+	operationWG      sync.WaitGroup
+	shutdownCtx      context.Context
+	shutdownCancel   context.CancelFunc
 	running          map[string]runningGame
 }
 
@@ -46,14 +54,28 @@ func NewService(
 	launcher ProcessLauncher,
 	dataRoot string,
 ) *Service {
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	return &Service{
-		store:     store,
-		installer: installer,
-		modFiles:  modFiles,
-		launcher:  launcher,
-		dataRoot:  dataRoot,
-		running:   make(map[string]runningGame),
+		store:            store,
+		installer:        installer,
+		modFiles:         modFiles,
+		launcher:         launcher,
+		dataRoot:         dataRoot,
+		operationCancels: make(map[string]context.CancelFunc),
+		shutdownCtx:      shutdownCtx,
+		shutdownCancel:   shutdownCancel,
+		running:          make(map[string]runningGame),
 	}
+}
+
+func (s *Service) ConfigureVersionDownloads(
+	catalog GameVersionCatalog,
+	downloader Downloader,
+	installer GamePackageInstaller,
+) {
+	s.versionCatalog = catalog
+	s.downloader = downloader
+	s.packageInstaller = installer
 }
 
 func (s *Service) SetEventPublisher(publisher EventPublisher) {
@@ -74,6 +96,8 @@ func (s *Service) emit(name string, payload any) {
 	}
 }
 func (s *Service) Close() error {
+	s.shutdownCancel()
+	s.operationWG.Wait()
 	return s.store.Close()
 }
 

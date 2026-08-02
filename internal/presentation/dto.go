@@ -85,6 +85,34 @@ func versionDTO(version domain.GameVersion) GameVersionDTO {
 	}
 }
 
+type AvailableGameVersionDTO struct {
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Channel       string  `json:"channel"`
+	Platform      string  `json:"platform"`
+	Architecture  string  `json:"architecture"`
+	DownloadSize  int64   `json:"downloadSize"`
+	Latest        bool    `json:"latest"`
+	Installed     bool    `json:"installed"`
+	InstallStatus *string `json:"installStatus,omitempty"`
+}
+
+func availableVersionDTO(
+	version domain.AvailableGameVersion,
+) AvailableGameVersionDTO {
+	return AvailableGameVersionDTO{
+		ID:            version.ID,
+		Name:          version.Name,
+		Channel:       version.Channel,
+		Platform:      version.Platform,
+		Architecture:  version.Architecture,
+		DownloadSize:  version.DownloadSize,
+		Latest:        version.Latest,
+		Installed:     version.Installed,
+		InstallStatus: version.InstallStatus,
+	}
+}
+
 type InstanceDTO struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
@@ -156,34 +184,36 @@ func modDTO(mod domain.InstalledMod) InstalledModDTO {
 }
 
 type OperationDTO struct {
-	ID           string  `json:"id"`
-	Type         string  `json:"type"`
-	ResourceID   *string `json:"resourceId,omitempty"`
-	Title        string  `json:"title"`
-	Status       string  `json:"status"`
-	Progress     float64 `json:"progress"`
-	CurrentBytes int64   `json:"currentBytes"`
-	TotalBytes   int64   `json:"totalBytes"`
-	ErrorCode    *string `json:"errorCode,omitempty"`
-	ErrorMessage *string `json:"errorMessage,omitempty"`
-	CreatedAt    string  `json:"createdAt"`
-	StartedAt    *string `json:"startedAt,omitempty"`
-	FinishedAt   *string `json:"finishedAt,omitempty"`
+	ID             string  `json:"id"`
+	Type           string  `json:"type"`
+	ResourceID     *string `json:"resourceId,omitempty"`
+	Title          string  `json:"title"`
+	Status         string  `json:"status"`
+	Progress       float64 `json:"progress"`
+	CurrentBytes   int64   `json:"currentBytes"`
+	TotalBytes     int64   `json:"totalBytes"`
+	BytesPerSecond int64   `json:"bytesPerSecond"`
+	ErrorCode      *string `json:"errorCode,omitempty"`
+	ErrorMessage   *string `json:"errorMessage,omitempty"`
+	CreatedAt      string  `json:"createdAt"`
+	StartedAt      *string `json:"startedAt,omitempty"`
+	FinishedAt     *string `json:"finishedAt,omitempty"`
 }
 
 func operationDTO(operation domain.Operation) OperationDTO {
 	result := OperationDTO{
-		ID:           operation.ID,
-		Type:         operation.Type,
-		ResourceID:   operation.ResourceID,
-		Title:        operation.Title,
-		Status:       operation.Status,
-		Progress:     operation.Progress,
-		CurrentBytes: operation.CurrentBytes,
-		TotalBytes:   operation.TotalBytes,
-		ErrorCode:    operation.ErrorCode,
-		ErrorMessage: operation.ErrorMessage,
-		CreatedAt:    iso(operation.CreatedAt),
+		ID:             operation.ID,
+		Type:           operation.Type,
+		ResourceID:     operation.ResourceID,
+		Title:          operation.Title,
+		Status:         operation.Status,
+		Progress:       operation.Progress,
+		CurrentBytes:   operation.CurrentBytes,
+		TotalBytes:     operation.TotalBytes,
+		BytesPerSecond: operation.BytesPerSecond,
+		ErrorCode:      operation.ErrorCode,
+		ErrorMessage:   operation.ErrorMessage,
+		CreatedAt:      iso(operation.CreatedAt),
 	}
 	if operation.StartedAt != nil {
 		value := iso(*operation.StartedAt)

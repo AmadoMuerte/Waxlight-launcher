@@ -873,6 +873,8 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, o domain.Operation) err
 			created_at, started_at, finished_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			type = excluded.type,
+			title = excluded.title,
 			status = excluded.status,
 			progress = excluded.progress,
 			current_bytes = excluded.current_bytes,

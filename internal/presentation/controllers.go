@@ -135,6 +135,28 @@ func (controller *GameVersionController) ListInstalledVersions() (
 	return result, err
 }
 
+func (controller *GameVersionController) ListAvailableVersions() (
+	[]AvailableGameVersionDTO,
+	error,
+) {
+	versions, err := controller.svc.ListAvailableVersions(context.Background())
+	result := make([]AvailableGameVersionDTO, 0, len(versions))
+	for _, version := range versions {
+		result = append(result, availableVersionDTO(version))
+	}
+	return result, err
+}
+
+func (controller *GameVersionController) InstallVersion(
+	versionID string,
+) (OperationDTO, error) {
+	operation, err := controller.svc.InstallAvailableVersion(
+		context.Background(),
+		versionID,
+	)
+	return operationDTO(operation), err
+}
+
 func (controller *GameVersionController) InstallLocalVersion(
 	request InstallVersionRequest,
 ) (OperationDTO, error) {
@@ -395,6 +417,10 @@ func (controller *OperationController) ListOperations() ([]OperationDTO, error) 
 		result = append(result, operationDTO(operation))
 	}
 	return result, err
+}
+
+func (controller *OperationController) CancelOperation(id string) error {
+	return controller.svc.CancelOperation(id)
 }
 
 type SettingsController struct {

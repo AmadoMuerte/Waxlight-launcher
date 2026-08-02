@@ -55,6 +55,60 @@ type controllableProcess struct {
 	result chan processResult
 }
 
+type staticVersionCatalog struct {
+	versions []domain.AvailableGameVersion
+}
+
+func (catalog staticVersionCatalog) List(
+	_ context.Context,
+) ([]domain.AvailableGameVersion, error) {
+	return append([]domain.AvailableGameVersion(nil), catalog.versions...), nil
+}
+
+type recordingDownloader struct {
+	waitForCancellation bool
+}
+
+func (downloader recordingDownloader) Download(
+	ctx context.Context,
+	request application.DownloadRequest,
+	progress chan<- application.DownloadProgress,
+) error {
+	if downloader.waitForCancellation {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	if err := os.MkdirAll(filepath.Dir(request.DestinationPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(request.DestinationPath, []byte("package"), 0o644); err != nil {
+		return err
+	}
+	progress <- application.DownloadProgress{
+		DownloadedBytes: 7,
+		TotalBytes:      7,
+		BytesPerSecond:  7,
+	}
+	return nil
+}
+
+type fakeGamePackageInstaller struct{}
+
+func (fakeGamePackageInstaller) Install(
+	_ context.Context,
+	_ string,
+	targetPath string,
+) (string, int64, error) {
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		return "", 0, err
+	}
+	executablePath := filepath.Join(targetPath, "Vintagestory")
+	if err := os.WriteFile(executablePath, []byte("game"), 0o755); err != nil {
+		return "", 0, err
+	}
+	return executablePath, 4, nil
+}
+
 func newControllableProcess() *controllableProcess {
 	return &controllableProcess{
 		result: make(chan processResult, 1),
@@ -500,6 +554,102 @@ func TestInstallingAnExistingVersionIsRejected(t *testing.T) {
 	if version.Name != "1.20" {
 		t.Fatalf("the existing version was modified: %+v", version)
 	}
+}
+
+func TestAvailableVersionDownloadIsInstalledAndTracked(t *testing.T) {
+	fixture := newTestFixture(t)
+	release := domain.AvailableGameVersion{
+		ID:                "1.22.6",
+		Name:              "1.22.6",
+		Channel:           "stable",
+		Platform:          "linux",
+		Architecture:      "amd64",
+		Filename:          "vs_client_linux-x64_1.22.6.tar.gz",
+		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/stable/vs_client_linux-x64_1.22.6.tar.gz",
+		DownloadSize:      7,
+		Checksum:          "0123456789abcdef0123456789abcdef",
+		ChecksumAlgorithm: "md5",
+	}
+	fixture.service.ConfigureVersionDownloads(
+		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
+		recordingDownloader{},
+		fakeGamePackageInstaller{},
+	)
+
+	operation, err := fixture.service.InstallAvailableVersion(
+		context.Background(),
+		release.ID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForOperationStatus(t, fixture.store, operation.ID, "completed")
+
+	installed, err := fixture.store.GetVersion(context.Background(), release.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installed.Channel != "stable" || installed.Status != "installed" {
+		t.Fatalf("unexpected installed version: %+v", installed)
+	}
+	if _, err := os.Stat(installed.ExecutablePath); err != nil {
+		t.Fatalf("expected installed executable: %v", err)
+	}
+}
+
+func TestAvailableVersionDownloadCanBeCancelled(t *testing.T) {
+	fixture := newTestFixture(t)
+	release := domain.AvailableGameVersion{
+		ID:                "1.22.0-rc.1",
+		Name:              "1.22.0-rc.1",
+		Channel:           "unstable",
+		Platform:          "linux",
+		Architecture:      "amd64",
+		Filename:          "preview.tar.gz",
+		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/unstable/preview.tar.gz",
+		Checksum:          "0123456789abcdef0123456789abcdef",
+		ChecksumAlgorithm: "md5",
+	}
+	fixture.service.ConfigureVersionDownloads(
+		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
+		recordingDownloader{waitForCancellation: true},
+		fakeGamePackageInstaller{},
+	)
+
+	operation, err := fixture.service.InstallAvailableVersion(
+		context.Background(),
+		release.ID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.CancelOperation(operation.ID); err != nil {
+		t.Fatal(err)
+	}
+	waitForOperationStatus(t, fixture.store, operation.ID, "cancelled")
+}
+
+func waitForOperationStatus(
+	t *testing.T,
+	store *database.SQLiteStore,
+	operationID string,
+	wantedStatus string,
+) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		operations, err := store.ListOperations(context.Background(), 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, operation := range operations {
+			if operation.ID == operationID && operation.Status == wantedStatus {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("operation %s did not reach %s", operationID, wantedStatus)
 }
 
 func TestStatisticsAreCalculatedByBackend(t *testing.T) {

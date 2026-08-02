@@ -11,8 +11,11 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 )
 
@@ -55,6 +58,11 @@ func New() (*Container, error) {
 	service.ConfigureAuthentication(
 		accountService,
 		filesystem.ClientSettingsService{},
+	)
+	service.ConfigureVersionDownloads(
+		vintagestory.NewVersionCatalog(nil),
+		downloader.NewHTTPDownloader(),
+		gameversion.NewInstaller(),
 	)
 	base := presentation.NewBase(service)
 	controllers := []any{

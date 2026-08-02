@@ -40,6 +40,25 @@ type GameVersion struct {
 	SizeBytes       int64
 }
 
+// AvailableGameVersion describes a client distribution published by the
+// upstream game version catalog. It is deliberately separate from
+// GameVersion, which represents an installation owned by Waxlight.
+type AvailableGameVersion struct {
+	ID                string
+	Name              string
+	Channel           string
+	Platform          string
+	Architecture      string
+	Filename          string
+	DownloadURL       string
+	DownloadSize      int64
+	Checksum          string
+	ChecksumAlgorithm string
+	Latest            bool
+	Installed         bool
+	InstallStatus     *string
+}
+
 type Instance struct {
 	ID               string
 	Name             string

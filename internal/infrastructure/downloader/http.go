@@ -2,8 +2,10 @@ package downloader
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/sha256"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -101,25 +103,37 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	if err = out.Close(); err != nil {
 		return err
 	}
-	if in.ExpectedSHA256 != "" {
-		actual, err := sha256File(partial)
+	if in.ExpectedChecksum != "" {
+		actual, err := checksumFile(partial, in.ChecksumAlgorithm)
 		if err != nil {
 			return err
 		}
-		if !strings.EqualFold(actual, in.ExpectedSHA256) {
-			return fmt.Errorf("checksum mismatch")
+		if !strings.EqualFold(actual, in.ExpectedChecksum) {
+			return fmt.Errorf(
+				"checksum mismatch: expected %s, got %s",
+				in.ExpectedChecksum,
+				actual,
+			)
 		}
 	}
 	return os.Rename(partial, in.DestinationPath)
 }
 
-func sha256File(path string) (string, error) {
+func checksumFile(path string, algorithm string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
-	h := sha256.New()
+	var h hash.Hash
+	switch strings.ToLower(strings.TrimSpace(algorithm)) {
+	case "md5":
+		h = md5.New()
+	case "sha256", "sha-256", "":
+		h = sha256.New()
+	default:
+		return "", fmt.Errorf("unsupported checksum algorithm %q", algorithm)
+	}
 	if _, err = io.Copy(h, f); err != nil {
 		return "", err
 	}

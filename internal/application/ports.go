@@ -114,10 +114,11 @@ type EventPublisher interface {
 }
 
 type DownloadRequest struct {
-	URL             string
-	DestinationPath string
-	ExpectedSHA256  string
-	Resume          bool
+	URL               string
+	DestinationPath   string
+	ExpectedChecksum  string
+	ChecksumAlgorithm string
+	Resume            bool
 }
 
 type DownloadProgress struct {
@@ -128,4 +129,16 @@ type DownloadProgress struct {
 
 type Downloader interface {
 	Download(context.Context, DownloadRequest, chan<- DownloadProgress) error
+}
+
+type GameVersionCatalog interface {
+	List(context.Context) ([]domain.AvailableGameVersion, error)
+}
+
+type GamePackageInstaller interface {
+	Install(
+		ctx context.Context,
+		sourcePath string,
+		targetPath string,
+	) (executablePath string, size int64, err error)
 }
