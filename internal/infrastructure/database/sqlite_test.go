@@ -59,3 +59,46 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 		t.Fatalf("auth columns were not migrated: %#v", stored)
 	}
 }
+
+func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
+	store, err := database.Open(filepath.Join(t.TempDir(), "operations.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Now().UTC()
+	operations := []domain.Operation{
+		{ID: "running", Type: "download", Title: "Running", Status: "running", CreatedAt: now},
+		{ID: "completed", Type: "download", Title: "Completed", Status: "completed", CreatedAt: now},
+		{ID: "failed", Type: "download", Title: "Failed", Status: "failed", CreatedAt: now},
+		{ID: "cancelled", Type: "download", Title: "Cancelled", Status: "cancelled", CreatedAt: now},
+	}
+	for _, operation := range operations {
+		if err := store.SaveOperation(context.Background(), operation); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := store.DeleteFinishedOperation(context.Background(), "running"); err == nil {
+		t.Fatal("active operation was deletable")
+	}
+	if err := store.DeleteFinishedOperation(context.Background(), "completed"); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := store.ClearFinishedOperations(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 2 {
+		t.Fatalf("expected two remaining finished operations to be removed, got %d", removed)
+	}
+
+	remaining, err := store.ListOperations(context.Background(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(remaining) != 1 || remaining[0].ID != "running" {
+		t.Fatalf("unexpected remaining operations: %+v", remaining)
+	}
+}

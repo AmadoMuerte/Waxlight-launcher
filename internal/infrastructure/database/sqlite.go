@@ -907,6 +907,41 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, o domain.Operation) err
 	return e
 }
 
+func (s *SQLiteStore) DeleteFinishedOperation(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(
+		ctx,
+		`DELETE FROM operations
+		 WHERE id = ? AND status IN ('completed', 'failed', 'cancelled')`,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return domain.NewError(
+			domain.ErrOperationNotFound,
+			"The finished operation was not found",
+		)
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ClearFinishedOperations(ctx context.Context) (int64, error) {
+	result, err := s.db.ExecContext(
+		ctx,
+		`DELETE FROM operations
+		 WHERE status IN ('completed', 'failed', 'cancelled')`,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func (s *SQLiteStore) GetSettings(ctx context.Context) (domain.Settings, error) {
 	settings := domain.Settings{
 		Theme:                 "dark",

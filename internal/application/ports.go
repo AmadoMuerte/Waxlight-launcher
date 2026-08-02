@@ -69,6 +69,8 @@ type Store interface {
 
 	ListOperations(context.Context, int) ([]domain.Operation, error)
 	SaveOperation(context.Context, domain.Operation) error
+	DeleteFinishedOperation(context.Context, string) error
+	ClearFinishedOperations(context.Context) (int64, error)
 
 	GetSettings(context.Context) (domain.Settings, error)
 	SaveSettings(context.Context, domain.Settings) error

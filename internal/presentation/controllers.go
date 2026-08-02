@@ -423,6 +423,14 @@ func (controller *OperationController) CancelOperation(id string) error {
 	return controller.svc.CancelOperation(id)
 }
 
+func (controller *OperationController) DeleteOperation(id string) error {
+	return controller.svc.DeleteFinishedOperation(context.Background(), id)
+}
+
+func (controller *OperationController) ClearOperationHistory() (int64, error) {
+	return controller.svc.ClearFinishedOperations(context.Background())
+}
+
 type SettingsController struct {
 	svc  *application.Service
 	base *Base

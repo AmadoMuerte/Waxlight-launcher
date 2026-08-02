@@ -35,6 +35,7 @@ type Service struct {
 	versionInstallMu  sync.Mutex
 	operationsMu      sync.Mutex
 	operationCancels  map[string]context.CancelFunc
+	operationDone     map[string]<-chan error
 	versionOperations map[string]string
 	operationWG       sync.WaitGroup
 	shutdownCtx       context.Context
@@ -64,6 +65,7 @@ func NewService(
 		launcher:          launcher,
 		dataRoot:          dataRoot,
 		operationCancels:  make(map[string]context.CancelFunc),
+		operationDone:     make(map[string]<-chan error),
 		versionOperations: make(map[string]string),
 		shutdownCtx:       shutdownCtx,
 		shutdownCancel:    shutdownCancel,
@@ -1024,6 +1026,16 @@ func (s *Service) GetInstancePlaytime(ctx context.Context, instanceID string) (i
 }
 func (s *Service) ListOperations(ctx context.Context) ([]domain.Operation, error) {
 	return s.store.ListOperations(ctx, 100)
+}
+func (s *Service) DeleteFinishedOperation(ctx context.Context, operationID string) error {
+	operationID = strings.TrimSpace(operationID)
+	if operationID == "" {
+		return domain.NewError(domain.ErrValidation, "Select an operation to delete")
+	}
+	return s.store.DeleteFinishedOperation(ctx, operationID)
+}
+func (s *Service) ClearFinishedOperations(ctx context.Context) (int64, error) {
+	return s.store.ClearFinishedOperations(ctx)
 }
 func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
 	settings, err := s.store.GetSettings(ctx)

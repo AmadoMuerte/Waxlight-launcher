@@ -75,6 +75,16 @@ func (downloader recordingDownloader) Download(
 	progress chan<- application.DownloadProgress,
 ) error {
 	if downloader.waitForCancellation {
+		if err := os.MkdirAll(filepath.Dir(request.DestinationPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(
+			request.DestinationPath+".partial",
+			[]byte("unfinished package"),
+			0o644,
+		); err != nil {
+			return err
+		}
 		<-ctx.Done()
 		return ctx.Err()
 	}
@@ -638,7 +648,29 @@ func TestAvailableVersionDownloadCanBeCancelled(t *testing.T) {
 	if err := fixture.service.CancelOperation(operation.ID); err != nil {
 		t.Fatal(err)
 	}
-	waitForOperationStatus(t, fixture.store, operation.ID, "cancelled")
+	operations, err := fixture.store.ListOperations(context.Background(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stored := range operations {
+		if stored.ID == operation.ID {
+			t.Fatalf("cancelled operation was retained: %+v", stored)
+		}
+	}
+	partialPath := filepath.Join(
+		fixture.root,
+		"downloads",
+		release.Filename+".partial",
+	)
+	if _, err := os.Stat(partialPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("partial download was not removed: %v", err)
+	}
+	if _, err := fixture.service.InstallAvailableVersion(
+		context.Background(),
+		release.ID,
+	); err != nil {
+		t.Fatalf("version remained locked after cancellation: %v", err)
+	}
 }
 
 func TestAvailableVersionChecksDiskSpaceBeforeStarting(t *testing.T) {

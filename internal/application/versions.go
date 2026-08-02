@@ -149,21 +149,28 @@ func (s *Service) InstallAvailableVersion(
 	s.emit("operation:created", operation)
 
 	operationContext, cancel := context.WithCancel(s.shutdownCtx)
+	done := make(chan error, 1)
 	s.operationsMu.Lock()
 	s.operationCancels[operation.ID] = cancel
+	s.operationDone[operation.ID] = done
 	s.operationsMu.Unlock()
 
 	s.operationWG.Add(1)
 	go func(release domain.AvailableGameVersion, operation domain.Operation) {
 		defer s.operationWG.Done()
 		defer cancel()
-		defer func() {
-			s.operationsMu.Lock()
-			delete(s.operationCancels, operation.ID)
-			delete(s.versionOperations, release.ID)
-			s.operationsMu.Unlock()
-		}()
-		s.runAvailableVersionInstall(operationContext, release, operation)
+		operationErr := s.runAvailableVersionInstall(
+			operationContext,
+			release,
+			operation,
+		)
+		s.operationsMu.Lock()
+		delete(s.operationCancels, operation.ID)
+		delete(s.operationDone, operation.ID)
+		delete(s.versionOperations, release.ID)
+		s.operationsMu.Unlock()
+		done <- operationErr
+		close(done)
 	}(*selected, operation)
 
 	return operation, nil
@@ -172,6 +179,7 @@ func (s *Service) InstallAvailableVersion(
 func (s *Service) CancelOperation(operationID string) error {
 	s.operationsMu.Lock()
 	cancel, ok := s.operationCancels[operationID]
+	done := s.operationDone[operationID]
 	s.operationsMu.Unlock()
 	if !ok {
 		return domain.NewError(
@@ -180,6 +188,13 @@ func (s *Service) CancelOperation(operationID string) error {
 		)
 	}
 	cancel()
+	if cleanupErr := <-done; cleanupErr != nil {
+		return &domain.AppError{
+			Code:    domain.ErrFilePermission,
+			Message: "Could not fully clean up the cancelled operation",
+			Cause:   cleanupErr,
+		}
+	}
 	return nil
 }
 
@@ -187,7 +202,7 @@ func (s *Service) runAvailableVersionInstall(
 	ctx context.Context,
 	release domain.AvailableGameVersion,
 	operation domain.Operation,
-) {
+) error {
 	now := time.Now().UTC()
 	operation.StartedAt = &now
 	operation.Status = "running"
@@ -232,16 +247,18 @@ func (s *Service) runAvailableVersionInstall(
 			}
 		case err := <-downloadResult:
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return s.removeCancelledVersionOperation(operation, downloadPath)
+				}
 				s.finishVersionOperation(operation, err, domain.ErrDownloadFailed)
-				return
+				return nil
 			}
 			downloadFinished = true
 		}
 	}
 
 	if err := ctx.Err(); err != nil {
-		s.finishVersionOperation(operation, err, domain.ErrDownloadFailed)
-		return
+		return s.removeCancelledVersionOperation(operation, downloadPath)
 	}
 
 	operation.Type = "game_version_install"
@@ -257,8 +274,14 @@ func (s *Service) runAvailableVersionInstall(
 		targetPath,
 	)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return s.removeCancelledVersionOperation(operation, downloadPath)
+		}
 		s.finishVersionOperation(operation, err, domain.ErrArchiveInvalid)
-		return
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return s.removeCancelledVersionOperation(operation, downloadPath)
 	}
 	if err := os.WriteFile(
 		filepath.Join(targetPath, ".waxlight-version"),
@@ -266,7 +289,7 @@ func (s *Service) runAvailableVersionInstall(
 		0o600,
 	); err != nil {
 		s.finishVersionOperation(operation, err, domain.ErrFilePermission)
-		return
+		return nil
 	}
 
 	installedAt := time.Now().UTC()
@@ -284,8 +307,11 @@ func (s *Service) runAvailableVersionInstall(
 		SizeBytes:       size,
 	}
 	if err := s.store.SaveVersion(ctx, version); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return s.removeCancelledVersionOperation(operation, downloadPath)
+		}
 		s.finishVersionOperation(operation, err, domain.ErrFilePermission)
-		return
+		return nil
 	}
 
 	operation.Status = "completed"
@@ -295,6 +321,36 @@ func (s *Service) runAvailableVersionInstall(
 	s.saveOperation(operation, "operation:completed")
 	s.emit("version:installed", version)
 	_ = os.Remove(downloadPath)
+	return nil
+}
+
+func (s *Service) removeCancelledVersionOperation(
+	operation domain.Operation,
+	downloadPath string,
+) error {
+	for _, path := range []string{downloadPath + ".partial", downloadPath} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			s.finishVersionOperation(operation, err, domain.ErrFilePermission)
+			return err
+		}
+	}
+	// The guarded store method only deletes terminal operations, so transition
+	// without publishing a transient cancelled row to the UI and remove it next.
+	finishedAt := time.Now().UTC()
+	operation.Status = "cancelled"
+	operation.FinishedAt = &finishedAt
+	operation.BytesPerSecond = 0
+	if err := s.store.SaveOperation(context.Background(), operation); err != nil {
+		return err
+	}
+	if err := s.store.DeleteFinishedOperation(
+		context.Background(),
+		operation.ID,
+	); err != nil {
+		return err
+	}
+	s.emit("operation:removed", map[string]string{"id": operation.ID})
+	return nil
 }
 
 func (s *Service) finishVersionOperation(
@@ -305,16 +361,6 @@ func (s *Service) finishVersionOperation(
 	finishedAt := time.Now().UTC()
 	operation.FinishedAt = &finishedAt
 	operation.BytesPerSecond = 0
-	if errors.Is(err, context.Canceled) {
-		operation.Status = "cancelled"
-		code := "OPERATION_CANCELLED"
-		operation.ErrorCode = &code
-		message := "Operation cancelled"
-		operation.ErrorMessage = &message
-		s.saveOperation(operation, "operation:cancelled")
-		return
-	}
-
 	operation.Status = "failed"
 	code := defaultCode
 	if strings.Contains(strings.ToLower(err.Error()), "checksum") {
