@@ -142,3 +142,7 @@ type GamePackageInstaller interface {
 		targetPath string,
 	) (executablePath string, size int64, err error)
 }
+
+type DiskSpaceChecker interface {
+	Available(path string) (int64, error)
+}

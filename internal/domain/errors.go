@@ -37,6 +37,7 @@ const (
 	ErrDownloadFailed      = "DOWNLOAD_FAILED"
 	ErrVersionCatalog      = "VERSION_CATALOG_UNAVAILABLE"
 	ErrOperationNotFound   = "OPERATION_NOT_FOUND"
+	ErrInsufficientSpace   = "INSUFFICIENT_DISK_SPACE"
 	ErrModNotFound         = "MOD_NOT_FOUND"
 	ErrProcessStart        = "PROCESS_START_FAILED"
 	ErrProcessStop         = "PROCESS_STOP_FAILED"

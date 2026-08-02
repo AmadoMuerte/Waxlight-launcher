@@ -100,6 +100,24 @@ func (s *Service) InstallAvailableVersion(
 			"The selected version is not available for this platform",
 		)
 	}
+	if s.diskSpace != nil && selected.DownloadSize > 0 {
+		availableBytes, err := s.diskSpace.Available(s.dataRoot)
+		if err != nil {
+			return domain.Operation{}, &domain.AppError{
+				Code:    domain.ErrFilePermission,
+				Message: "Could not check available disk space",
+				Cause:   err,
+			}
+		}
+		// Keep room for both the downloaded package and its extracted files.
+		requiredBytes := selected.DownloadSize * 2
+		if availableBytes < requiredBytes {
+			return domain.Operation{}, domain.NewError(
+				domain.ErrInsufficientSpace,
+				"Not enough disk space to download and install this version",
+			)
+		}
+	}
 
 	now := time.Now().UTC()
 	resourceID := selected.ID
@@ -112,7 +130,20 @@ func (s *Service) InstallAvailableVersion(
 		TotalBytes: selected.DownloadSize,
 		CreatedAt:  now,
 	}
+	s.operationsMu.Lock()
+	if _, installing := s.versionOperations[selected.ID]; installing {
+		s.operationsMu.Unlock()
+		return domain.Operation{}, domain.NewError(
+			domain.ErrVersionExists,
+			"This game version is already being installed",
+		)
+	}
+	s.versionOperations[selected.ID] = operation.ID
+	s.operationsMu.Unlock()
 	if err := s.store.SaveOperation(ctx, operation); err != nil {
+		s.operationsMu.Lock()
+		delete(s.versionOperations, selected.ID)
+		s.operationsMu.Unlock()
 		return domain.Operation{}, err
 	}
 	s.emit("operation:created", operation)
@@ -129,6 +160,7 @@ func (s *Service) InstallAvailableVersion(
 		defer func() {
 			s.operationsMu.Lock()
 			delete(s.operationCancels, operation.ID)
+			delete(s.versionOperations, release.ID)
 			s.operationsMu.Unlock()
 		}()
 		s.runAvailableVersionInstall(operationContext, release, operation)

@@ -94,6 +94,12 @@ func (downloader recordingDownloader) Download(
 
 type fakeGamePackageInstaller struct{}
 
+type fixedDiskSpace int64
+
+func (space fixedDiskSpace) Available(string) (int64, error) {
+	return int64(space), nil
+}
+
 func (fakeGamePackageInstaller) Install(
 	_ context.Context,
 	_ string,
@@ -623,10 +629,48 @@ func TestAvailableVersionDownloadCanBeCancelled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, duplicateErr := fixture.service.InstallAvailableVersion(
+		context.Background(),
+		release.ID,
+	); !isErrorCode(duplicateErr, domain.ErrVersionExists) {
+		t.Fatalf("expected duplicate active install to be rejected, got %v", duplicateErr)
+	}
 	if err := fixture.service.CancelOperation(operation.ID); err != nil {
 		t.Fatal(err)
 	}
 	waitForOperationStatus(t, fixture.store, operation.ID, "cancelled")
+}
+
+func TestAvailableVersionChecksDiskSpaceBeforeStarting(t *testing.T) {
+	fixture := newTestFixture(t)
+	release := domain.AvailableGameVersion{
+		ID:                "1.22.5",
+		Name:              "1.22.5",
+		Filename:          "game.tar.gz",
+		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/stable/game.tar.gz",
+		DownloadSize:      1_000,
+		Checksum:          "0123456789abcdef0123456789abcdef",
+		ChecksumAlgorithm: "md5",
+	}
+	fixture.service.ConfigureVersionDownloads(
+		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
+		recordingDownloader{},
+		fakeGamePackageInstaller{},
+	)
+	fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(1_999))
+
+	_, err := fixture.service.InstallAvailableVersion(
+		context.Background(),
+		release.ID,
+	)
+	if !isErrorCode(err, domain.ErrInsufficientSpace) {
+		t.Fatalf("expected insufficient disk space error, got %v", err)
+	}
+}
+
+func isErrorCode(err error, code string) bool {
+	var applicationError *domain.AppError
+	return errors.As(err, &applicationError) && applicationError.Code == code
 }
 
 func waitForOperationStatus(

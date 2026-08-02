@@ -19,25 +19,27 @@ import (
 )
 
 type Service struct {
-	store            Store
-	accounts         *AccountService
-	clientSettings   ClientSettingsPatcher
-	installer        ArchiveInstaller
-	versionCatalog   GameVersionCatalog
-	downloader       Downloader
-	packageInstaller GamePackageInstaller
-	modFiles         ModFileManager
-	launcher         ProcessLauncher
-	dataRoot         string
-	events           EventPublisher
-	runningMu        sync.Mutex
-	versionInstallMu sync.Mutex
-	operationsMu     sync.Mutex
-	operationCancels map[string]context.CancelFunc
-	operationWG      sync.WaitGroup
-	shutdownCtx      context.Context
-	shutdownCancel   context.CancelFunc
-	running          map[string]runningGame
+	store             Store
+	accounts          *AccountService
+	clientSettings    ClientSettingsPatcher
+	installer         ArchiveInstaller
+	versionCatalog    GameVersionCatalog
+	downloader        Downloader
+	packageInstaller  GamePackageInstaller
+	diskSpace         DiskSpaceChecker
+	modFiles          ModFileManager
+	launcher          ProcessLauncher
+	dataRoot          string
+	events            EventPublisher
+	runningMu         sync.Mutex
+	versionInstallMu  sync.Mutex
+	operationsMu      sync.Mutex
+	operationCancels  map[string]context.CancelFunc
+	versionOperations map[string]string
+	operationWG       sync.WaitGroup
+	shutdownCtx       context.Context
+	shutdownCancel    context.CancelFunc
+	running           map[string]runningGame
 }
 
 type runningGame struct {
@@ -56,15 +58,16 @@ func NewService(
 ) *Service {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	return &Service{
-		store:            store,
-		installer:        installer,
-		modFiles:         modFiles,
-		launcher:         launcher,
-		dataRoot:         dataRoot,
-		operationCancels: make(map[string]context.CancelFunc),
-		shutdownCtx:      shutdownCtx,
-		shutdownCancel:   shutdownCancel,
-		running:          make(map[string]runningGame),
+		store:             store,
+		installer:         installer,
+		modFiles:          modFiles,
+		launcher:          launcher,
+		dataRoot:          dataRoot,
+		operationCancels:  make(map[string]context.CancelFunc),
+		versionOperations: make(map[string]string),
+		shutdownCtx:       shutdownCtx,
+		shutdownCancel:    shutdownCancel,
+		running:           make(map[string]runningGame),
 	}
 }
 
@@ -76,6 +79,10 @@ func (s *Service) ConfigureVersionDownloads(
 	s.versionCatalog = catalog
 	s.downloader = downloader
 	s.packageInstaller = installer
+}
+
+func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
+	s.diskSpace = checker
 }
 
 func (s *Service) SetEventPublisher(publisher EventPublisher) {

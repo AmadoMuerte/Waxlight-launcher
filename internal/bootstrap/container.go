@@ -61,9 +61,10 @@ func New() (*Container, error) {
 	)
 	service.ConfigureVersionDownloads(
 		vintagestory.NewVersionCatalog(nil),
-		downloader.NewHTTPDownloader(),
+		downloader.NewManager(downloader.NewHTTPDownloader(), 3),
 		gameversion.NewInstaller(),
 	)
+	service.ConfigureDiskSpaceChecker(filesystem.DiskSpace{})
 	base := presentation.NewBase(service)
 	controllers := []any{
 		presentation.NewAppController(base),
