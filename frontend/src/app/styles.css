@@ -1882,14 +1882,73 @@ select:disabled {
 }
 
 .settingsPanel {
-  max-width: 780px;
+  width: min(860px, 100%);
   padding: 0;
+  overflow: hidden;
 }
 
 .settingsPanel .form h2:not(:first-child) {
   margin-top: 10px;
   padding-top: 20px;
   border-top: 1px solid #2a282b;
+}
+
+.settingsPageForm {
+  display: flex;
+  flex-direction: column;
+}
+
+.settingsPageSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.settingsPageSection + .settingsPageSection {
+  border-top: 1px solid #2c292d;
+}
+
+.settingsPageSection header h2 {
+  margin: 0;
+  font-family: Newsreader, Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.settingsPageSection header p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.checkboxSetting {
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #141316;
+}
+
+.checkboxSetting .checkboxControl {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkboxSetting > small {
+  display: block;
+  margin: 5px 0 0 26px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settingsPageFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #302d31;
+  background: #171619;
 }
 
 .checkRow {
@@ -1916,8 +1975,9 @@ select:disabled {
 
 .legal {
   margin: 28px 4px;
-  color: #5f5a57;
-  font-size: 9px;
+  color: #77716d;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .backendError {
@@ -2708,6 +2768,8 @@ select:disabled {
   .dangerZone .button { align-self: flex-start; }
   .dialogFooter,
   .settingsFooter { padding: 16px 20px; }
+  .settingsPageSection { padding: 20px; }
+  .settingsPageFooter { padding: 16px 20px; }
   .lightbox { padding: 55px 8px 20px; gap: 5px; }
   .lightbox > button { width: 32px; }
 }
