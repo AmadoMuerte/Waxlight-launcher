@@ -1956,7 +1956,8 @@ select:disabled {
   align-items: flex-start;
   gap: 11px;
   min-width: 0;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .checkRow input {
@@ -2016,7 +2017,7 @@ select:disabled {
   margin-top: 2px;
   overflow: hidden;
   color: #bc8c87;
-  font-size: 10px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2026,7 +2027,7 @@ select:disabled {
   border: 0;
   color: #f0a69e;
   background: none;
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -2044,7 +2045,8 @@ select:disabled {
   border-radius: 9px;
   background: #20251f;
   box-shadow: 0 15px 50px #0009;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.45;
   animation: toastIn 0.25s;
 }
 
