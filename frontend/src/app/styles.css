@@ -1215,15 +1215,15 @@ select:disabled {
 .operationsList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .operation {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
-  padding: 15px;
+  padding: 18px 20px;
   border: 1px solid #2b292c;
   border-radius: 10px;
   background: #151417;
@@ -1232,11 +1232,12 @@ select:disabled {
 .operationIcon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 9px;
   color: var(--amber);
   background: #2b2117;
+  font-size: 18px;
 }
 
 .operationDetails {
@@ -1248,21 +1249,29 @@ select:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #eee8e1;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .operationDetails small {
   display: block;
-  margin-top: 3px;
-  color: #77716d;
-  font-size: 9px;
+  margin-top: 6px;
+  color: #918b86;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .progress {
-  height: 4px;
-  margin-top: 10px;
+  height: 7px;
+  margin-top: 14px;
   overflow: hidden;
   border-radius: 99px;
   background: #29262a;
+}
+
+.operationDetails .errorText {
+  margin: 12px 0 0;
 }
 
 .progress i {
