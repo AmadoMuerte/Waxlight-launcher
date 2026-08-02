@@ -6,6 +6,14 @@ export function InstallLocalVersion(arg1) {
   return window['go']['presentation']['GameVersionController']['InstallLocalVersion'](arg1);
 }
 
+export function InstallVersion(arg1) {
+  return window['go']['presentation']['GameVersionController']['InstallVersion'](arg1);
+}
+
+export function ListAvailableVersions() {
+  return window['go']['presentation']['GameVersionController']['ListAvailableVersions']();
+}
+
 export function ListInstalledVersions() {
   return window['go']['presentation']['GameVersionController']['ListInstalledVersions']();
 }

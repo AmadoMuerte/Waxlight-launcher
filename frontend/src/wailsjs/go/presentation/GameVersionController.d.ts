@@ -4,6 +4,10 @@ import {presentation} from '../models';
 
 export function InstallLocalVersion(arg1:presentation.InstallVersionRequest):Promise<presentation.OperationDTO>;
 
+export function InstallVersion(arg1:string):Promise<presentation.OperationDTO>;
+
+export function ListAvailableVersions():Promise<Array<presentation.AvailableGameVersionDTO>>;
+
 export function ListInstalledVersions():Promise<Array<presentation.GameVersionDTO>>;
 
 export function RemoveVersion(arg1:string,arg2:boolean):Promise<void>;
