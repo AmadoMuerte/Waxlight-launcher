@@ -1348,9 +1348,18 @@ select:disabled {
 }
 
 .defaultMark {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid #594329;
+  border-radius: 9px;
   color: #d7ad6c;
+  background: #2a2118;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   white-space: nowrap;
 }
 
