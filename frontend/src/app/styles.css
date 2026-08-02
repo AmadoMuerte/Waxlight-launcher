@@ -950,12 +950,13 @@ select:disabled {
   position: absolute;
   top: 50%;
   right: 7px;
-  padding: 5px 7px;
+  min-height: 28px;
+  padding: 5px 9px;
   border: 0;
   border-radius: 6px;
   color: #c5a878;
   background: #29241e;
-  font-size: 9px;
+  font-size: 12px;
   cursor: pointer;
   transform: translateY(-50%);
 }
@@ -1283,17 +1284,17 @@ select:disabled {
 
 .accountGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: 16px;
 }
 
 .accountCard {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 16px;
   align-items: center;
   min-width: 0;
-  padding: 17px;
+  padding: 20px;
   border: 1px solid #2d2a2e;
   border-radius: 12px;
   background: #161518;
@@ -1302,13 +1303,13 @@ select:disabled {
 .avatar {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   color: #f9d99e;
   background: linear-gradient(145deg, #5e3b22, #2f251e);
   font-family: Newsreader, Georgia, serif;
-  font-size: 23px;
+  font-size: 27px;
 }
 
 .accountIdentity {
@@ -1323,23 +1324,33 @@ select:disabled {
   white-space: nowrap;
 }
 
+.accountIdentity strong {
+  color: #eee8e1;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .accountIdentity small {
-  margin: 2px 0 7px;
-  color: #77716d;
-  font-size: 10px;
+  margin: 3px 0 9px;
+  color: #918b86;
+  font-size: 13px;
 }
 
 .accountActions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  grid-column: 1 / -1;
+  gap: 8px;
   min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid #2c292d;
 }
 
 .defaultMark {
   color: #d7ad6c;
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 

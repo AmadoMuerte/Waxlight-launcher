@@ -305,49 +305,51 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
       onClose={() => void cancelFlow(true)}
     >
       {step === "credentials" ? (
-        <SubmitForm className="form" noValidate onSubmit={submitCredentials}>
-          <Field label="Email">
-            <input
-              autoFocus
-              required
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-            />
-          </Field>
-
-          <Field label="Password">
-            <div className="passwordField">
+        <SubmitForm className="dialogForm" noValidate onSubmit={submitCredentials}>
+          <div className="modalBody formFields">
+            <Field label="Email">
               <input
+                autoFocus
                 required
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
               />
-              <button
-                type="button"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword((value) => !value)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-          </Field>
+            </Field>
 
-          <div className="notice">
-            <b>Unofficial integration</b>
-            <span>
-              Waxlight connects to the Vintage Story authentication server. Its
-              API is not publicly documented and may change.
-            </span>
+            <Field label="Password">
+              <div className="passwordField">
+                <input
+                  required
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </Field>
+
+            <div className="notice">
+              <b>Unofficial integration</b>
+              <span>
+                Waxlight connects to the Vintage Story authentication server. Its
+                API is not publicly documented and may change.
+              </span>
+            </div>
+
+            {error && <div className="inlineError" role="alert">{error}</div>}
           </div>
 
-          {error && <div className="inlineError">{error}</div>}
-
-          <div className="modalActions">
+          <div className="dialogFooter">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
@@ -355,31 +357,33 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
           </div>
         </SubmitForm>
       ) : (
-        <SubmitForm className="form" onSubmit={submitTOTP}>
-          <div className="notice">
-            <b>Two-factor authentication</b>
-            <span>
-              This account uses 2FA. Enter the code from your authenticator app.
-            </span>
+        <SubmitForm className="dialogForm" onSubmit={submitTOTP}>
+          <div className="modalBody formFields">
+            <div className="notice">
+              <b>Two-factor authentication</b>
+              <span>
+                This account uses 2FA. Enter the code from your authenticator app.
+              </span>
+            </div>
+
+            <Field label="Verification code">
+              <input
+                autoFocus
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={16}
+                value={totp}
+                onChange={(event) =>
+                  setTOTP(event.target.value.replace(/[^0-9]/g, ""))
+                }
+              />
+            </Field>
+
+            {error && <div className="inlineError" role="alert">{error}</div>}
           </div>
 
-          <Field label="Verification code">
-            <input
-              autoFocus
-              required
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={16}
-              value={totp}
-              onChange={(event) =>
-                setTOTP(event.target.value.replace(/[^0-9]/g, ""))
-              }
-            />
-          </Field>
-
-          {error && <div className="inlineError">{error}</div>}
-
-          <div className="modalActions">
+          <div className="dialogFooter">
             <Button
               type="button"
               variant="ghost"
