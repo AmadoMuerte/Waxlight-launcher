@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Operation, operationsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatBytes, formatDate } from "../shared/lib";
@@ -14,13 +16,61 @@ export function OperationsPage({
   refresh,
   notify,
 }: OperationsPageProps) {
+  const [pendingAction, setPendingAction] = useState<string>();
+  const finishedOperations = operations.filter((operation) =>
+    isFinishedOperation(operation),
+  );
+
   async function cancel(operation: Operation) {
+    setPendingAction(operation.id);
     try {
       await operationsApi.cancel(operation.id);
       await refresh();
-      notify("Operation cancelled");
+      notify("Operation cancelled and removed");
     } catch (cancelError) {
       notify(errorMessage(cancelError), "error");
+    } finally {
+      setPendingAction(undefined);
+    }
+  }
+
+  async function remove(operation: Operation) {
+    if (!window.confirm(`Delete “${operation.title}” from operation history?`)) {
+      return;
+    }
+    setPendingAction(operation.id);
+    try {
+      await operationsApi.remove(operation.id);
+      await refresh();
+      notify("Operation removed from history");
+    } catch (removeError) {
+      notify(errorMessage(removeError), "error");
+    } finally {
+      setPendingAction(undefined);
+    }
+  }
+
+  async function clearHistory() {
+    if (
+      !window.confirm(
+        "Clear all finished operations from history? Active operations will be kept.",
+      )
+    ) {
+      return;
+    }
+    setPendingAction("clear-history");
+    try {
+      const removed = await operationsApi.clearHistory();
+      await refresh();
+      notify(
+        removed === 1
+          ? "1 operation removed from history"
+          : `${removed} operations removed from history`,
+      );
+    } catch (clearError) {
+      notify(errorMessage(clearError), "error");
+    } finally {
+      setPendingAction(undefined);
     }
   }
 
@@ -30,6 +80,17 @@ export function OperationsPage({
         eyebrow="Activity log"
         title="Operations"
         description="Installations and other long-running actions are kept here."
+        action={
+          finishedOperations.length > 0 ? (
+            <Button
+              variant="secondary"
+              disabled={pendingAction !== undefined}
+              onClick={() => void clearHistory()}
+            >
+              {pendingAction === "clear-history" ? "Clearing…" : "Clear history"}
+            </Button>
+          ) : undefined
+        }
       />
 
       {operations.length === 0 ? (
@@ -55,9 +116,20 @@ export function OperationsPage({
                       operation.status === "running") && (
                       <Button
                         variant="ghost"
+                        disabled={pendingAction !== undefined}
                         onClick={() => void cancel(operation)}
                       >
-                        Cancel
+                        {pendingAction === operation.id ? "Cancelling…" : "Cancel"}
+                      </Button>
+                    )}
+                    {isFinishedOperation(operation) && (
+                      <Button
+                        variant="ghost"
+                        aria-label={`Delete ${operation.title}`}
+                        disabled={pendingAction !== undefined}
+                        onClick={() => void remove(operation)}
+                      >
+                        {pendingAction === operation.id ? "Deleting…" : "Delete"}
                       </Button>
                     )}
                   </div>
@@ -91,5 +163,13 @@ export function OperationsPage({
         </div>
       )}
     </>
+  );
+}
+
+export function isFinishedOperation(operation: Operation): boolean {
+  return (
+    operation.status === "completed" ||
+    operation.status === "failed" ||
+    operation.status === "cancelled"
   );
 }

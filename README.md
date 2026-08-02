@@ -32,6 +32,11 @@ cancellable, and shared by the Linux and Windows installation flows. See
 [the game version notes](docs/game-versions.md) for the confirmed contract and
 platform details.
 
+The Operations page keeps finished history while treating explicit download
+cancellation as a full rollback. Its deletion rules, cleanup sequence, and
+layer ownership are documented in
+[the operations page contract](docs/operations-page.md).
+
 ## Development
 
 Requirements: Go 1.24+, Node.js 22+, a C compiler for SQLite, Wails v2 platform dependencies.

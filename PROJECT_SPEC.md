@@ -2010,8 +2010,16 @@ CancelOperation(operationID string) error
 
 RetryOperation(operationID string) (OperationDTO, error)
 
-ClearCompletedOperations() error
+DeleteOperation(operationID string) error
+
+ClearOperationHistory() (int64, error)
 ```
+
+`DeleteOperation` и `ClearOperationHistory` удаляют только завершённые операции
+со статусами `completed`, `failed` или `cancelled`. Активные операции `queued` и
+`running` защищены на уровне persistence. Успешная явная отмена загрузки удаляет
+временные файлы и саму запись операции, поэтому новая запись `cancelled` в
+истории не создаётся.
 
 ## 41.2 OperationDTO
 

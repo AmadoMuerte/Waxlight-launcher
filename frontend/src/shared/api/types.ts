@@ -81,12 +81,19 @@ export interface InstalledMod {
   installedAt: string;
 }
 
+export type OperationStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
 export interface Operation {
   id: string;
   type: string;
   resourceId?: string;
   title: string;
-  status: string;
+  status: OperationStatus;
   progress: number;
   currentBytes: number;
   totalBytes: number;
