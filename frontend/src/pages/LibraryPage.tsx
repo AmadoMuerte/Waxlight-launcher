@@ -15,10 +15,12 @@ import { errorMessage } from "../shared/api/bridge";
 import { formatDate, formatDuration } from "../shared/lib";
 import {
   Button,
+  Checkbox,
   Empty,
   Field,
   Modal,
   PageHeader,
+  Select,
   StatusPill,
   SubmitForm,
 } from "../shared/ui";
@@ -312,59 +314,61 @@ function CreateInstanceModal({
   }
 
   return (
-    <Modal title="New instance" onClose={onClose}>
-      <SubmitForm className="form" onSubmit={createInstance}>
-        <Field label="Name">
-          <input
-            autoFocus
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="For example, A Warm Home"
-          />
-        </Field>
-
-        <Field label="Description">
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="What makes this instance special?"
-          />
-        </Field>
-
-        <div className="formRow">
-          <Field label="Game version">
-            <select
+    <Modal title="New instance" className="createInstanceDialog" onClose={onClose}>
+      <SubmitForm className="dialogForm" onSubmit={createInstance}>
+        <div className="modalBody formFields">
+          <Field label="Name">
+            <input
+              autoFocus
               required
-              value={versionID}
-              onChange={(event) => setVersionID(event.target.value)}
-            >
-              {versions.map((version) => (
-                <option key={version.id} value={version.id}>
-                  {version.name}
-                </option>
-              ))}
-            </select>
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="For example, A Warm Home"
+            />
           </Field>
 
-          <Field label="Launch account">
-            <select
-              value={accountID}
-              onChange={(event) => setAccountID(event.target.value)}
-            >
-              <option value="">Use the globally selected account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.displayName}
-                </option>
-              ))}
-            </select>
+          <Field label="Description">
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="What makes this instance special?"
+            />
           </Field>
+
+          <div className="formRow">
+            <Field label="Game version">
+              <Select
+                required
+                value={versionID}
+                onChange={(event) => setVersionID(event.target.value)}
+              >
+                {versions.map((version) => (
+                  <option key={version.id} value={version.id}>
+                    {version.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Launch account">
+              <Select
+                value={accountID}
+                onChange={(event) => setAccountID(event.target.value)}
+              >
+                <option value="">Use the globally selected account</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.displayName}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          {error && <div className="inlineError" role="alert">{error}</div>}
         </div>
 
-        {error && <div className="inlineError">{error}</div>}
-
-        <div className="modalActions">
+        <div className="dialogFooter">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -480,22 +484,52 @@ function InstanceModal({
     }
   }
 
+  const selectedVersion = versions.find(
+    (version) => version.id === instance.gameVersionId,
+  );
+  const selectedAccount = accounts.find(
+    (account) => account.id === instance.defaultAccountId,
+  );
+  const settingsDirty =
+    name !== instance.name ||
+    description !== instance.description ||
+    versionID !== instance.gameVersionId ||
+    accountID !== (instance.defaultAccountId ?? "") ||
+    argumentsText !== instance.launchArguments.join(" ");
+
+  function resetSettings() {
+    setName(instance.name);
+    setDescription(instance.description);
+    setVersionID(instance.gameVersionId);
+    setAccountID(instance.defaultAccountId ?? "");
+    setArgumentsText(instance.launchArguments.join(" "));
+  }
+
   return (
-    <Modal title={instance.name} onClose={onClose}>
-      <div className="tabs">
+    <Modal title={instance.name} className="instanceDialog" onClose={onClose}>
+      <div className="tabs" role="tablist" aria-label="Instance details">
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "overview"}
           className={tab === "overview" ? "active" : ""}
           onClick={() => setTab("overview")}
         >
           Overview
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "mods"}
           className={tab === "mods" ? "active" : ""}
           onClick={() => setTab("mods")}
         >
-          Mods <b>{mods.length}</b>
+          Mods <b className="tabBadge">{mods.length}</b>
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "settings"}
           className={tab === "settings" ? "active" : ""}
           onClick={() => setTab("settings")}
         >
@@ -504,57 +538,68 @@ function InstanceModal({
       </div>
 
       {tab === "overview" && (
-        <div className="detailOverview">
-          <div className="heroMark">W</div>
-          <div>
-            <StatusPill status={instance.status} />
-            <h2>{instance.name}</h2>
-            <p>{instance.description || "No description yet."}</p>
-          </div>
+        <div className="instanceTabBody detailOverview" role="tabpanel">
+          <section className="instanceHero">
+            <div className="heroMark" aria-hidden="true">W</div>
+            <div className="instanceHeroCopy">
+              <div className="instanceHeroTitle">
+                <h2 title={instance.name}>{instance.name}</h2>
+                <StatusPill status={instance.status} />
+              </div>
+              <p className={instance.description ? "" : "placeholderCopy"}>
+                {instance.description || "No description yet."}
+              </p>
+            </div>
+          </section>
 
-          <dl>
-            <div>
-              <dt>Version</dt>
-              <dd>
-                {versions.find((version) => version.id === instance.gameVersionId)
-                  ?.name ?? instance.gameVersionId}
-              </dd>
-            </div>
-            <div>
-              <dt>Mods</dt>
-              <dd>
-                {mods.filter((mod) => mod.enabled).length} of {mods.length}
-              </dd>
-            </div>
-            <div>
-              <dt>Playtime</dt>
-              <dd>{formatDuration(instance.playtimeSeconds)}</dd>
-            </div>
-            <div>
-              <dt>Data directory</dt>
-              <dd className="path">{instance.directory}</dd>
-            </div>
-          </dl>
+          <section className="instanceStats" aria-label="Instance statistics">
+            <article>
+              <span>Game version</span>
+              <strong>{selectedVersion?.name ?? instance.gameVersionId}</strong>
+            </article>
+            <article>
+              <span>Mods</span>
+              <strong>{mods.filter((mod) => mod.enabled).length} installed</strong>
+              <small>{mods.length} total</small>
+            </article>
+            <article>
+              <span>Playtime</span>
+              <strong>{formatDuration(instance.playtimeSeconds)}</strong>
+            </article>
+            <article>
+              <span>Launch account</span>
+              <strong>{selectedAccount?.displayName ?? "Global default"}</strong>
+            </article>
+          </section>
 
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              try {
-                await settingsApi.openDirectory(instance.directory);
-              } catch (error) {
-                notify(errorMessage(error), "error");
-              }
-            }}
-          >
-            Open data directory
-          </Button>
+          <section className="storageSection">
+            <div className="storageCopy">
+              <span>Data directory</span>
+              <code title={instance.directory}>{instance.directory}</code>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  await settingsApi.openDirectory(instance.directory);
+                } catch (error) {
+                  notify(errorMessage(error), "error");
+                }
+              }}
+            >
+              Open directory
+            </Button>
+          </section>
         </div>
       )}
 
       {tab === "mods" && (
-        <div>
-          <div className="sectionActions">
-            <p className="muted">Local .zip, .cs, and .dll files</p>
+        <div className="instanceTabBody modsTab" role="tabpanel">
+          <header className="instanceToolbar">
+            <div>
+              <h3>Mods</h3>
+              <p>Manage mods installed in this instance.</p>
+            </div>
             <div className="row">
               <Button
                 variant="secondary"
@@ -562,49 +607,58 @@ function InstanceModal({
               >
                 Browse mods
               </Button>
-              <Button onClick={() => void installMod()}>＋ Install file</Button>
+              <Button onClick={() => void installMod()}>
+                <span aria-hidden="true">＋</span> Install file
+              </Button>
             </div>
-          </div>
+          </header>
 
           {mods.length === 0 ? (
             <Empty
               icon="◇"
               title="No mods installed"
-              description="Install a local mod file for this instance."
+              description="Browse the mod catalog or install a local .zip, .cs, or .dll file."
+              action={
+                <div className="row">
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
+                  >
+                    Browse mods
+                  </Button>
+                  <Button onClick={() => void installMod()}>Install file</Button>
+                </div>
+              }
             />
           ) : (
-            <div className="list">
+            <div className="installedModList">
               {mods.map((mod) => (
-                <div className="listItem" key={mod.id}>
-                  <div>
+                <article className="installedModRow" key={mod.id}>
+                  <div className="modRowIcon" aria-hidden="true">◇</div>
+                  <div className="modRowCopy">
                     <strong>{mod.name}</strong>
-                    <small>
-                      {mod.version} · {mod.fileName}
-                    </small>
+                    <small>Version {mod.version}</small>
+                    <code title={mod.fileName}>{mod.fileName}</code>
                   </div>
-                  <div className="row">
-                    <label className="switch">
-                      <input
-                        type="checkbox"
-                        checked={mod.enabled}
-                        onChange={async (event) => {
-                          try {
-                            await modsApi.toggle(mod.id, event.target.checked);
-                            await loadMods();
-                            await refresh();
-                          } catch (error) {
-                            notify(errorMessage(error), "error");
-                          }
-                        }}
-                      />
-                      <span />
-                    </label>
+                  <div className="modRowActions">
+                    <Checkbox
+                      label="Enabled"
+                      checked={mod.enabled}
+                      onChange={async (event) => {
+                        try {
+                          await modsApi.toggle(mod.id, event.target.checked);
+                          await loadMods();
+                          await refresh();
+                        } catch (error) {
+                          notify(errorMessage(error), "error");
+                        }
+                      }}
+                    />
                     <Button
                       variant="ghost"
+                      className="dangerGhost"
                       onClick={async () => {
-                        if (!window.confirm(`Remove mod “${mod.name}”?`)) {
-                          return;
-                        }
+                        if (!window.confirm(`Remove mod “${mod.name}”?`)) return;
                         try {
                           await modsApi.remove(mod.id);
                           await loadMods();
@@ -617,7 +671,7 @@ function InstanceModal({
                       Remove
                     </Button>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
@@ -625,80 +679,90 @@ function InstanceModal({
       )}
 
       {tab === "settings" && (
-        <SubmitForm
-          className="form detailForm"
-          onSubmit={saveSettings}
-        >
-          <Field label="Name">
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
+        <SubmitForm className="dialogForm settingsForm" onSubmit={saveSettings}>
+          <div className="modalBody settingsBody" role="tabpanel">
+            <section className="settingsSection">
+              <header>
+                <h3>General</h3>
+                <p>Basic information and launch configuration.</p>
+              </header>
+              <div className="formFields">
+                <Field label="Name">
+                  <input value={name} onChange={(event) => setName(event.target.value)} />
+                </Field>
 
-          <Field label="Description">
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
+                <Field label="Description">
+                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+                </Field>
 
-          <div className="formRow">
-            <Field label="Game version">
-              <select
-                value={versionID}
-                onChange={(event) => setVersionID(event.target.value)}
+                <div className="formRow">
+                  <Field label="Game version">
+                    <Select value={versionID} onChange={(event) => setVersionID(event.target.value)}>
+                      {versions.map((version) => (
+                        <option key={version.id} value={version.id}>{version.name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+
+                  <Field label="Launch account">
+                    <Select value={accountID} onChange={(event) => setAccountID(event.target.value)}>
+                      <option value="">Use the globally selected account</option>
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>{account.displayName}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+            </section>
+
+            <section className="settingsSection advancedSection">
+              <header>
+                <h3>Advanced</h3>
+                <p>Optional arguments passed when Vintage Story starts.</p>
+              </header>
+              <Field
+                label="Launch arguments"
+                hint="Arguments are separated by spaces. Waxlight always appends its isolated data path."
               >
-                {versions.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    {version.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                <input
+                  className="codeInput"
+                  value={argumentsText}
+                  onChange={(event) => setArgumentsText(event.target.value)}
+                  placeholder="--tracelog"
+                />
+              </Field>
+            </section>
 
-            <Field label="Launch account">
-              <select
-                value={accountID}
-                onChange={(event) => setAccountID(event.target.value)}
-              >
-                <option value="">Use the globally selected account</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.displayName}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <section className="dangerSection">
+              <header>
+                <h3>Danger zone</h3>
+                <p>Irreversible actions for this instance.</p>
+              </header>
+              <div className="dangerZone">
+                <div>
+                  <strong>Delete instance</strong>
+                  <small>Permanently removes this instance and its data directory.</small>
+                </div>
+                <Button type="button" variant="danger" onClick={() => void deleteInstance()}>
+                  Delete instance
+                </Button>
+              </div>
+            </section>
           </div>
 
-          <Field
-            label="Launch arguments"
-            hint="Separate arguments with spaces. Waxlight always appends its isolated --dataPath."
-          >
-            <input
-              value={argumentsText}
-              onChange={(event) => setArgumentsText(event.target.value)}
-              placeholder="--tracelog"
-            />
-          </Field>
-
-          <div className="dangerZone">
-            <div>
-              <strong>Delete instance</strong>
-              <small>This also removes its data directory.</small>
+          <div className="settingsFooter">
+            <span className={settingsDirty ? "unsavedStatus active" : "unsavedStatus"}>
+              {settingsDirty ? "Unsaved changes" : "All changes saved"}
+            </span>
+            <div className="row">
+              <Button type="button" variant="ghost" disabled={!settingsDirty || busy} onClick={resetSettings}>
+                Reset
+              </Button>
+              <Button busy={busy} disabled={!settingsDirty}>
+                Save changes
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="danger"
-              onClick={() => void deleteInstance()}
-            >
-              Delete
-            </Button>
-          </div>
-
-          <div className="modalActions">
-            <Button busy={busy}>Save</Button>
           </div>
         </SubmitForm>
       )}

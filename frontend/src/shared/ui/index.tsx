@@ -1,7 +1,9 @@
 import type {
   ButtonHTMLAttributes,
+  InputHTMLAttributes,
   FormEvent,
   ReactNode,
+  SelectHTMLAttributes,
 } from "react";
 import { useEffect, useRef } from "react";
 
@@ -17,13 +19,15 @@ export function Button({
   children,
   variant = "primary",
   busy = false,
+  className = "",
+  disabled = false,
   ...props
 }: ButtonProps) {
   return (
     <button
-      className={`button ${variant}`}
-      disabled={busy || props.disabled}
       {...props}
+      className={`button ${variant} ${className}`.trim()}
+      disabled={busy || disabled}
     >
       {busy ? <span className="spinner" /> : children}
     </button>
@@ -34,10 +38,12 @@ export function Modal({
   title,
   onClose,
   children,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
@@ -91,7 +97,7 @@ export function Modal({
     >
       <section
         ref={dialogRef}
-        className="modal"
+        className={`modal ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -110,6 +116,35 @@ export function Modal({
         {children}
       </section>
     </div>
+  );
+}
+
+export function Select({
+  className = "",
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className={`selectControl ${className}`.trim()}>
+      <select {...props}>{children}</select>
+      <span className="selectChevron" aria-hidden="true">⌄</span>
+    </span>
+  );
+}
+
+export function Checkbox({
+  label,
+  className = "",
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  label: string;
+}) {
+  return (
+    <label className={`checkboxControl ${className}`.trim()}>
+      <input type="checkbox" {...props} />
+      <span className="checkboxBox" aria-hidden="true" />
+      <span>{label}</span>
+    </label>
   );
 }
 
