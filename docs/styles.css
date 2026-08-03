@@ -30,7 +30,7 @@ img{max-width:100%}
 .hero{padding:92px 0 60px}
 .hero-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:48px;align-items:center}
 .eyebrow{color:var(--accent);font-weight:800;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem}
-h1{font-size:clamp(3rem,8vw,6.4rem);line-height:.92;margin:.3em 0 .28em;letter-spacing:-.055em}
+h1{font-size:clamp(3rem,8vw,6.4rem);line-height:1.04;margin:.3em 0 .28em;letter-spacing:-.055em}
 .hero p{font-size:1.15rem;color:var(--muted);max-width:760px}
 .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:14px;font-weight:800;border:1px solid var(--line);background:var(--panel);transition:.2s transform,.2s border-color,.2s background}
