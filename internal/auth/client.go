@@ -1,12 +1,12 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -88,7 +88,7 @@ func (c *Client) Login(
 		return Session{}, nil, err
 	}
 
-	if response.Valid == 1 {
+	if bool(response.Valid) {
 		if response.SessionKey == nil || *response.SessionKey == "" ||
 			response.SessionSignature == nil || *response.SessionSignature == "" ||
 			response.UID == nil || *response.UID == "" ||
@@ -146,7 +146,7 @@ func (c *Client) Validate(ctx context.Context, uid, sessionKey string) (bool, er
 	if err := c.doJSON(request, &response); err != nil {
 		return false, err
 	}
-	return response.Valid == 1, nil
+	return bool(response.Valid), nil
 }
 
 func (c *Client) doJSON(request *http.Request, target any) error {
@@ -156,30 +156,103 @@ func (c *Client) doJSON(request *http.Request, target any) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode >= http.StatusInternalServerError {
-		return ErrServer
-	}
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return ErrServer
-	}
-	contentType, _, contentTypeErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
-	if contentTypeErr != nil || !strings.EqualFold(contentType, "application/json") {
-		return ErrInvalidAuthReply
+	contentType := response.Header.Get("Content-Type")
+
+	contents, err := io.ReadAll(
+		io.LimitReader(response.Body, maxResponseBytes+1),
+	)
+	if err != nil {
+		return &InvalidResponseError{
+			StatusCode:  response.StatusCode,
+			ContentType: contentType,
+			BodySize:    0,
+			Cause:       ErrInvalidAuthReply,
+		}
 	}
 
-	contents, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
-	if err != nil || len(contents) > maxResponseBytes {
-		return ErrInvalidAuthReply
+	if len(contents) > maxResponseBytes {
+		return &InvalidResponseError{
+			StatusCode:  response.StatusCode,
+			ContentType: contentType,
+			BodySize:    len(contents),
+			Cause:       ErrInvalidAuthReply,
+		}
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(contents)))
+
+	if response.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf(
+			"authentication server returned HTTP %d: %w",
+			response.StatusCode,
+			ErrServer,
+		)
+	}
+
+	if response.StatusCode < http.StatusOK ||
+		response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf(
+			"authentication server returned HTTP %d: %w",
+			response.StatusCode,
+			ErrServer,
+		)
+	}
+
+	trimmed := bytes.TrimSpace(contents)
+	if len(trimmed) == 0 {
+		return &InvalidResponseError{
+			StatusCode:  response.StatusCode,
+			ContentType: contentType,
+			BodySize:    0,
+			Cause:       ErrInvalidAuthReply,
+		}
+	}
+
+	if !json.Valid(trimmed) {
+		return &InvalidResponseError{
+			StatusCode:  response.StatusCode,
+			ContentType: contentType,
+			BodySize:    len(trimmed),
+			Cause:       ErrInvalidAuthReply,
+		}
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+
 	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("decode response: %w", ErrInvalidAuthReply)
+		return fmt.Errorf(
+			"decode authentication response: %w",
+			&InvalidResponseError{
+				StatusCode:  response.StatusCode,
+				ContentType: contentType,
+				BodySize:    len(trimmed),
+				Cause:       ErrInvalidAuthReply,
+			},
+		)
 	}
+
 	var trailing any
-	if err := decoder.Decode(&trailing); err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("decode trailing response: %w", ErrInvalidAuthReply)
-	} else if err == nil {
-		return ErrInvalidAuthReply
+	err = decoder.Decode(&trailing)
+
+	switch {
+	case errors.Is(err, io.EOF):
+		return nil
+
+	case err != nil:
+		return fmt.Errorf(
+			"decode trailing authentication response: %w",
+			&InvalidResponseError{
+				StatusCode:  response.StatusCode,
+				ContentType: contentType,
+				BodySize:    len(trimmed),
+				Cause:       ErrInvalidAuthReply,
+			},
+		)
+
+	default:
+		return &InvalidResponseError{
+			StatusCode:  response.StatusCode,
+			ContentType: contentType,
+			BodySize:    len(trimmed),
+			Cause:       ErrInvalidAuthReply,
+		}
 	}
-	return nil
 }

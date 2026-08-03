@@ -1,6 +1,9 @@
 package auth
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
@@ -13,3 +16,23 @@ var (
 	ErrServer             = errors.New("auth server error")
 	ErrUnknown            = errors.New("unknown auth error")
 )
+
+type InvalidResponseError struct {
+	StatusCode  int
+	ContentType string
+	BodySize    int
+	Cause       error
+}
+
+func (err *InvalidResponseError) Error() string {
+	return fmt.Sprintf(
+		"unexpected authentication response: status=%d content-type=%q size=%d",
+		err.StatusCode,
+		err.ContentType,
+		err.BodySize,
+	)
+}
+
+func (err *InvalidResponseError) Unwrap() error {
+	return err.Cause
+}

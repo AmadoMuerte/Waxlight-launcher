@@ -8,7 +8,7 @@ ifeq ($(shell $(GO) env GOOS),linux)
 WAILS_TAGS := $(WAILS_TAGS),webkit2_41
 endif
 
-.PHONY: build wails-build frontend test vet package-linux release-check clean
+.PHONY: build wails-build frontend test vet security package-linux release-check clean
 
 build: frontend
 	mkdir -p build
@@ -27,10 +27,14 @@ test: frontend
 vet: frontend
 	$(GO) vet ./...
 
+security:
+	./scripts/check-security-patterns.sh
+	govulncheck ./...
+
 package-linux:
 	./scripts/build-linux.sh $(VERSION) $(RELEASE_DIR)
 
-release-check: test vet
+release-check: test vet security
 	./scripts/check-version.sh $(VERSION)
 
 clean:

@@ -18,3 +18,9 @@ When redistributing Waxlight Launcher or a modified version of it, you must:
 
 Modified versions must not imply that they are official releases of Waxlight
 Launcher or that they are endorsed by the original author.
+
+Waxlight uses github.com/zalando/go-keyring under the MIT License to access
+Secret Service on Linux and Windows Credential Manager on Windows. Its direct
+platform dependencies github.com/godbus/dbus/v5 and
+github.com/danieljoos/wincred are also distributed under permissive licenses;
+their full notices are available in their upstream source distributions.

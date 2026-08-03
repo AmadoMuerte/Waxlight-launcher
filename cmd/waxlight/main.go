@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -15,7 +13,8 @@ import (
 func main() {
 	container, err := bootstrap.New()
 	if err != nil {
-		log.Fatal(err)
+		showFatalError(err.Error())
+		return
 	}
 
 	err = wails.Run(&options.App{
@@ -33,6 +32,6 @@ func main() {
 		Windows:          &windows.Options{WebviewIsTransparent: false, WindowIsTranslucent: false},
 	})
 	if err != nil {
-		log.Fatal(err)
+		showFatalError(err.Error())
 	}
 }

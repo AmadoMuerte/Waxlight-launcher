@@ -48,6 +48,7 @@ type AccountService struct {
 	flowTTL          time.Duration
 	now              func() time.Time
 	flowMu           sync.Mutex
+	persistMu        sync.Mutex
 	loginFlow        map[string]*PendingLogin
 	cleanupInstances func(context.Context, string) error
 }
@@ -194,6 +195,8 @@ func (service *AccountService) persistSession(
 	email string,
 	session auth.Session,
 ) (LoginResult, error) {
+	service.persistMu.Lock()
+	defer service.persistMu.Unlock()
 	accounts, err := service.store.ListAccounts(ctx)
 	if err != nil {
 		return LoginResult{}, err

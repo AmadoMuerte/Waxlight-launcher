@@ -124,6 +124,9 @@ func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
 		return err
 	}
 	for _, instance := range instances {
+		if err := hardenLogs(filepath.Join(instance.Directory, "Logs")); err != nil {
+			return err
+		}
 		if err := s.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
 			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
 		}
@@ -493,7 +496,9 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 	if e = s.modFiles.EnsureLayout(dir); e != nil {
 		return domain.Instance{}, e
 	}
-	_ = os.MkdirAll(filepath.Join(dir, "Logs"), 0o755)
+	if e = hardenLogs(filepath.Join(dir, "Logs")); e != nil {
+		return domain.Instance{}, e
+	}
 	if e = os.WriteFile(filepath.Join(dir, ".waxlight-instance"), []byte(id), 0o600); e != nil {
 		return domain.Instance{}, e
 	}
@@ -937,11 +942,7 @@ func (s *Service) Launch(
 		return domain.PlaySession{}, err
 	}
 	logsDirectory := filepath.Join(instance.Directory, "Logs")
-	if err := os.MkdirAll(logsDirectory, 0o700); err != nil {
-		_ = cleanupCredentials()
-		return domain.PlaySession{}, err
-	}
-	if err := securefs.Apply(logsDirectory, 0o700, true); err != nil {
+	if err := hardenLogs(logsDirectory); err != nil {
 		_ = cleanupCredentials()
 		return domain.PlaySession{}, err
 	}
@@ -1028,6 +1029,27 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
+}
+
+func hardenLogs(logsDirectory string) error {
+	if err := os.MkdirAll(logsDirectory, 0o700); err != nil {
+		return err
+	}
+	return filepath.Walk(logsDirectory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("log path contains a symlink")
+		}
+		if info.IsDir() {
+			return securefs.Apply(path, 0o700, true)
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("log path contains a non-regular file")
+		}
+		return securefs.Apply(path, 0o600, false)
+	})
 }
 
 func (s *Service) resolveAccountID(

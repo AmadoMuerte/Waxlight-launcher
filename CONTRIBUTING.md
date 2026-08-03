@@ -32,10 +32,14 @@ Run all required checks:
 
 ```bash
 go test ./...
-go vet ./...
 npm ci --prefix frontend
 npm --prefix frontend test
 npm --prefix frontend run build
+go test -race ./...
+go vet ./...
+go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+govulncheck ./...
+./scripts/check-security-patterns.sh
 ```
 
 Keep pull requests focused. Add or update tests for behavior changes and update
@@ -52,6 +56,17 @@ public documentation when user-visible behavior changes.
   installed files.
 - Never commit credentials, databases, logs, downloaded game files, generated
   release packages, or local environment files.
+- Never add plaintext credential persistence or a production fallback from the
+  native store. Developer-only memory stores must remain test-scoped and must
+  not be selectable by release builds.
+- Keep passwords, TOTP codes, pre-login tokens, session keys/signatures, and
+  equivalent bearer material out of DTOs, generated bindings, logs, errors,
+  fixtures, process arguments, environment variables, exports, and diagnostics.
+- Any feature that copies, exports, diagnoses, archives, or backs up an instance
+  must remove the four authentication properties from `clientsettings.json`.
+- Preserve fixed HTTPS authentication endpoints, normal TLS verification,
+  redirect rejection, body limits, and safe public error mapping.
+- Add failure-injection and sentinel leakage tests for authentication changes.
 
 ## Commit and pull request workflow
 

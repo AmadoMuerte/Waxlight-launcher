@@ -1,6 +1,29 @@
 package auth
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+type flexibleBool bool
+
+func (value *flexibleBool) UnmarshalJSON(data []byte) error {
+	normalized := strings.ToLower(strings.TrimSpace(string(data)))
+
+	switch normalized {
+	case "1", "true", `"1"`, `"true"`:
+		*value = true
+		return nil
+
+	case "0", "false", `"0"`, `"false"`:
+		*value = false
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported boolean representation: %q", normalized)
+	}
+}
 
 type Session struct {
 	SessionKey       string
@@ -21,11 +44,11 @@ type loginResponse struct {
 	Entitlements     json.RawMessage `json:"entitlements"`
 	PlayerName       *string         `json:"playername"`
 	HasGameServer    *bool           `json:"hasgameserver"`
-	Valid            int             `json:"valid"`
+	Valid            flexibleBool    `json:"valid"`
 	PreLoginToken    *string         `json:"prelogintoken"`
 	Reason           *string         `json:"reason"`
 }
 
 type validateResponse struct {
-	Valid int `json:"valid"`
+	Valid flexibleBool `json:"valid"`
 }

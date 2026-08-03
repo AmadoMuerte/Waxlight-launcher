@@ -1,5 +1,5 @@
 export namespace presentation {
-
+	
 	export class AccountDTO {
 	    id: string;
 	    username: string;
@@ -8,11 +8,11 @@ export namespace presentation {
 	    status: string;
 	    isDefault: boolean;
 	    lastValidatedAt?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AccountDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -34,11 +34,11 @@ export namespace presentation {
 	    latest: boolean;
 	    installed: boolean;
 	    installStatus?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AvailableGameVersionDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -59,11 +59,11 @@ export namespace presentation {
 	    defaultAccountId?: string;
 	    directory: string;
 	    launchArguments: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new CreateInstanceRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -80,11 +80,11 @@ export namespace presentation {
 	    instanceIds: string[];
 	    downloadOnly: boolean;
 	    allowIncompatible: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DownloadCatalogModRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -99,11 +99,11 @@ export namespace presentation {
 	    instanceName: string;
 	    version: string;
 	    enabled: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstalledModInstanceDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -128,11 +128,11 @@ export namespace presentation {
 	    installedInstances: InstalledModInstanceDTO[];
 	    latestVersion?: string;
 	    updateAvailable: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DownloadedModDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -151,7 +151,7 @@ export namespace presentation {
 	        this.latestVersion = source["latestVersion"];
 	        this.updateAvailable = source["updateAvailable"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -181,11 +181,11 @@ export namespace presentation {
 	    status: string;
 	    sizeBytes: number;
 	    installedAt: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new GameVersionDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -205,11 +205,11 @@ export namespace presentation {
 	    versionId: string;
 	    instanceIds: string[];
 	    allowIncompatible: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstallDownloadedModRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -223,11 +223,11 @@ export namespace presentation {
 	    sourcePath: string;
 	    name: string;
 	    version: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstallModFileRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -242,11 +242,11 @@ export namespace presentation {
 	    sourcePath: string;
 	    executableRelativePath: string;
 	    expectedSha256: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstallVersionRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -268,11 +268,11 @@ export namespace presentation {
 	    source: string;
 	    sizeBytes: number;
 	    installedAt: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstalledModDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -288,7 +288,7 @@ export namespace presentation {
 	        this.installedAt = source["installedAt"];
 	    }
 	}
-
+	
 	export class InstanceDTO {
 	    id: string;
 	    name: string;
@@ -303,11 +303,11 @@ export namespace presentation {
 	    enabledModCount: number;
 	    totalModCount: number;
 	    playtimeSeconds: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstanceDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -328,11 +328,11 @@ export namespace presentation {
 	export class LaunchRequest {
 	    instanceId: string;
 	    accountId?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new LaunchRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -343,11 +343,11 @@ export namespace presentation {
 	    valid: boolean;
 	    issues: string[];
 	    warnings: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new LaunchValidationDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.valid = source["valid"];
@@ -360,11 +360,11 @@ export namespace presentation {
 	    account?: AccountDTO;
 	    flowId?: string;
 	    message?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new LoginResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.status = source["status"];
@@ -372,7 +372,7 @@ export namespace presentation {
 	        this.flowId = source["flowId"];
 	        this.message = source["message"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -400,11 +400,11 @@ export namespace presentation {
 	    fileSize: number;
 	    publishedAt?: string;
 	    changelog?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModVersionDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -420,11 +420,11 @@ export namespace presentation {
 	export class ModScreenshotDTO {
 	    url: string;
 	    caption?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModScreenshotDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.url = source["url"];
@@ -454,11 +454,11 @@ export namespace presentation {
 	    websiteUrl?: string;
 	    sourceUrl?: string;
 	    license?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModDetailsDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -484,7 +484,7 @@ export namespace presentation {
 	        this.sourceUrl = source["sourceUrl"];
 	        this.license = source["license"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -508,11 +508,11 @@ export namespace presentation {
 	    instanceName: string;
 	    installed: boolean;
 	    message: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModInstallationResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -525,18 +525,18 @@ export namespace presentation {
 	    taskId: string;
 	    downloaded: DownloadedModDTO;
 	    installations: ModInstallationResultDTO[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModInstallResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.taskId = source["taskId"];
 	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
 	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -555,8 +555,8 @@ export namespace presentation {
 		    return a;
 		}
 	}
-
-
+	
+	
 	export class ModSearchRequest {
 	    text: string;
 	    gameVersion: string;
@@ -568,11 +568,11 @@ export namespace presentation {
 	    sort: string;
 	    page: number;
 	    pageSize: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModSearchRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.text = source["text"];
@@ -604,11 +604,11 @@ export namespace presentation {
 	    isDownloaded: boolean;
 	    isInstalled: boolean;
 	    updateAvailable: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModSummaryDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -636,11 +636,11 @@ export namespace presentation {
 	    totalItems: number;
 	    totalPages: number;
 	    hasNext: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModSearchResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.items = this.convertValues(source["items"], ModSummaryDTO);
@@ -650,7 +650,7 @@ export namespace presentation {
 	        this.totalPages = source["totalPages"];
 	        this.hasNext = source["hasNext"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -669,8 +669,8 @@ export namespace presentation {
 		    return a;
 		}
 	}
-
-
+	
+	
 	export class OperationDTO {
 	    id: string;
 	    type: string;
@@ -686,11 +686,11 @@ export namespace presentation {
 	    createdAt: string;
 	    startedAt?: string;
 	    finishedAt?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new OperationDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -720,11 +720,11 @@ export namespace presentation {
 	    exitCode?: number;
 	    crashed: boolean;
 	    recovered: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PlaySessionDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -746,11 +746,11 @@ export namespace presentation {
 	    confirmDeletion: boolean;
 	    minSessionDurationSec: number;
 	    globalLaunchArguments: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.theme = source["theme"];
@@ -767,11 +767,11 @@ export namespace presentation {
 	    averageSessionSeconds: number;
 	    mostPlayedInstanceId?: string;
 	    recentSessions: PlaySessionDTO[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new StatisticsDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.totalPlaytimeSeconds = source["totalPlaytimeSeconds"];
@@ -780,7 +780,7 @@ export namespace presentation {
 	        this.mostPlayedInstanceId = source["mostPlayedInstanceId"];
 	        this.recentSessions = this.convertValues(source["recentSessions"], PlaySessionDTO);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -806,11 +806,11 @@ export namespace presentation {
 	    gameVersionId: string;
 	    defaultAccountId?: string;
 	    launchArguments: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new UpdateInstanceRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];

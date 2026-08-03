@@ -101,7 +101,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y dbus-x11 gnome-keyring
       - name: Test Linux Secret Service adapter
         if: runner.os == 'Linux'
-        run: dbus-run-session -- bash -c 'printf "\n" | gnome-keyring-daemon --unlock >/dev/null && go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip'
+        run: dbus-run-session -- bash -c 'eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)" && go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip'
       - name: Test Windows Credential Manager adapter
         if: runner.os == 'Windows'
         run: go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip

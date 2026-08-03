@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
@@ -15,6 +17,7 @@ import (
 )
 
 type fakeAuthClient struct {
+	mu               sync.Mutex
 	session          auth.Session
 	challenge        bool
 	loginErr         error
@@ -34,6 +37,8 @@ func (client *fakeAuthClient) Login(
 	totp string,
 	preLogin string,
 ) (auth.Session, *auth.TOTPChallenge, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	client.lastPassword = password
 	client.lastTOTP = totp
 	client.lastPreLogin = preLogin
@@ -48,6 +53,8 @@ func (client *fakeAuthClient) Validate(
 	uid string,
 	sessionKey string,
 ) (bool, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	client.validationUID = uid
 	client.validationSecret = sessionKey
 	return client.validateResult, client.validateErr
@@ -145,6 +152,35 @@ func TestAccountLoginStoresMetadataAndSecretSeparately(t *testing.T) {
 	}
 }
 
+func TestDatabaseContainsNoAuthenticationSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "accounts.db")
+	metadata, err := database.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeAuthClient{session: auth.Session{
+		SessionKey:       "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK",
+		SessionSignature: "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK",
+		UID:              "server-uid", PlayerName: "Waxlighter",
+	}}
+	service := application.NewAccountService(metadata, client, newMemorySecretStore())
+	if _, err := service.Login(context.Background(), "player@example.com", "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK"); err != nil {
+		t.Fatal(err)
+	}
+	if err := metadata.Close(); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sentinel := range []string{"WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK", "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK"} {
+		if strings.Contains(string(contents), sentinel) {
+			t.Fatalf("database contains secret sentinel %s", sentinel)
+		}
+	}
+}
+
 func TestAccountLoginUpdatesByUIDAndSupportsSeveralAccounts(t *testing.T) {
 	service, _, client, _ := newAccountFixture(t)
 	first, err := service.Login(context.Background(), "old@example.com", "password")
@@ -167,6 +203,31 @@ func TestAccountLoginUpdatesByUIDAndSupportsSeveralAccounts(t *testing.T) {
 	accounts, err := service.ListAccounts(context.Background())
 	if err != nil || len(accounts) != 2 {
 		t.Fatalf("expected two accounts, got %d, %v", len(accounts), err)
+	}
+}
+
+func TestConcurrentDuplicateLoginCreatesOneAccount(t *testing.T) {
+	service, _, _, _ := newAccountFixture(t)
+	var wait sync.WaitGroup
+	errorsFound := make(chan error, 2)
+	for range 2 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, err := service.Login(context.Background(), "player@example.com", "password")
+			errorsFound <- err
+		}()
+	}
+	wait.Wait()
+	close(errorsFound)
+	for err := range errorsFound {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	accounts, err := service.ListAccounts(context.Background())
+	if err != nil || len(accounts) != 1 {
+		t.Fatalf("concurrent duplicate created %d accounts: %v", len(accounts), err)
 	}
 }
 

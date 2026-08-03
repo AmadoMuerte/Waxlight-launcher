@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -260,6 +261,35 @@ func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected a directory conflict")
+	}
+}
+
+func TestStartupReconciliationHardensExistingLogs(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "Logs", GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logs := filepath.Join(instance.Directory, "Logs")
+	logPath := filepath.Join(logs, "legacy.log")
+	if err := os.WriteFile(logPath, []byte("safe log"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	accountService := application.NewAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore())
+	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
+	if err := fixture.service.ReconcileInjectedCredentials(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" {
+		directoryInfo, _ := os.Stat(logs)
+		fileInfo, _ := os.Stat(logPath)
+		if directoryInfo.Mode().Perm() != 0o700 || fileInfo.Mode().Perm() != 0o600 {
+			t.Fatalf("logs were not hardened: directory=%o file=%o", directoryInfo.Mode().Perm(), fileInfo.Mode().Perm())
+		}
 	}
 }
 
@@ -541,6 +571,21 @@ func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	}
 	if strings.Contains(string(contents), "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK") {
 		t.Fatal("credential remained after launch failure")
+	}
+	if err := filepath.Walk(instance.Directory, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil || info.IsDir() {
+			return walkErr
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		if strings.Contains(string(data), "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK") {
+			t.Fatalf("credential leaked to application file %s", path)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -104,8 +104,10 @@ operating system's user configuration directory:
 - Linux: `~/.config/waxlight/`
 - Windows: `%AppData%\waxlight\`
 
-Back up this directory before moving a library between computers. Never attach
-the credentials file or the entire data directory to a public issue.
+Stop all games before backing up or moving this directory. Never attach the
+entire data directory, instance `clientsettings.json` files, or logs to a public
+issue. Persistent session credentials are held by the operating-system
+credential store and are not transferred with the Waxlight data directory.
 
 ## Project status
 
@@ -114,10 +116,18 @@ early release: back up important saves, review compatibility before installing
 mods, and expect the UI and local data model to evolve.
 
 Authentication is isolated behind a Go backend client. Passwords and TOTP codes
-are not persisted or sent to React. Session credentials currently use an
-owner-readable local file; native Secret Service and Windows Credential Manager
-integration is planned. See
-[the authentication notes](docs/authentication.md) for technical details.
+are never persisted. Persistent session keys and signatures use Secret Service
+on Linux and Windows Credential Manager on Windows; production has no plaintext
+fallback. React receives allow-listed account DTOs and cannot retrieve raw
+session credentials through the Wails API.
+
+For a game launch, the four fields required by Vintage Story are written to that
+instance's `clientsettings.json` only after session validation. Waxlight removes
+them after normal exit and launch failure, and reconciles stale fields at the
+next startup after a crash. Removing an account clears affected instance
+settings, but local deletion cannot be claimed to revoke an already issued
+server session. See [the authentication notes](docs/authentication.md) and
+[security policy](SECURITY.md) for the precise model and limitations.
 
 Game downloads support progress, cancellation, resume where possible, and
 checksum validation. See [the game-version notes](docs/game-versions.md) for
@@ -141,6 +151,7 @@ Clone and verify the project:
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
 npm ci --include=dev --prefix frontend
+go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
 make release-check
 ```
 
@@ -170,6 +181,7 @@ make vet                  # Go static analysis
 make frontend             # TypeScript and Vite production build
 make package-linux        # Local .deb, .rpm, and portable archive
 make release-check        # Full pre-release validation
+make security             # Prohibited-pattern and vulnerability checks
 ```
 
 ## Architecture
@@ -217,7 +229,9 @@ For vulnerabilities or accidental credential exposure, follow
 ## Releases
 
 Every push and pull request to `main` runs tests, static analysis, the frontend
-build, and a Linux Wails build. Pushing a semantic version tag such as `v0.1.0`
+build, native credential-store integration tests on Linux and Windows,
+vulnerability and secret scans, and a Linux Wails build. Pushing a semantic
+version tag such as `v0.1.0`
 starts the release workflow, which:
 
 1. validates the tag against the application version;
@@ -225,6 +239,11 @@ starts the release workflow, which:
 3. validates the generated packages;
 4. creates `SHA256SUMS`;
 5. publishes a GitHub Release with generated release notes.
+
+Workflow actions are pinned to immutable commits and release assets receive
+SHA-256 checksums. Release signing is not currently configured; published
+checksums provide integrity verification after obtaining `SHA256SUMS`, but do
+not replace an authenticated signing chain.
 
 Before tagging, update the version in both Wails configuration files. Existing
 release tags must never be moved.
