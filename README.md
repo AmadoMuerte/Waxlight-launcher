@@ -140,7 +140,7 @@ Clone and verify the project:
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
-npm ci --prefix frontend
+npm ci --include=dev --prefix frontend
 make release-check
 ```
 

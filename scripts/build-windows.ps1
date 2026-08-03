@@ -26,7 +26,7 @@ if ($RootConfig.info.productVersion -ne $ReleaseVersion -or $CommandConfig.info.
 $ResolvedOutput = [System.IO.Path]::GetFullPath((Join-Path $ProjectRoot $OutputDirectory))
 New-Item -ItemType Directory -Force -Path $ResolvedOutput | Out-Null
 
-npm ci --prefix (Join-Path $ProjectRoot "frontend")
+npm ci --include=dev --prefix (Join-Path $ProjectRoot "frontend")
 npm --prefix (Join-Path $ProjectRoot "frontend") run build
 
 Push-Location (Join-Path $ProjectRoot "cmd/waxlight")

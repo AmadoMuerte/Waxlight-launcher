@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --include=dev --prefix frontend
 
       - name: Test backend
         run: go test ./...
@@ -88,4 +88,3 @@ jobs:
           mkdir -p "$XDG_CONFIG_HOME"
           cd cmd/waxlight
           wails build -clean -platform linux/amd64
-

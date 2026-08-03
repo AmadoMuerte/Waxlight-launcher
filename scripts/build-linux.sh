@@ -22,7 +22,7 @@ trap 'rm -rf "$build_config_directory"' EXIT
 "${project_root}/scripts/check-version.sh" "$release_version"
 mkdir -p "$output_directory"
 
-npm ci --prefix "${project_root}/frontend"
+npm ci --include=dev --prefix "${project_root}/frontend"
 npm --prefix "${project_root}/frontend" run build
 
 (
