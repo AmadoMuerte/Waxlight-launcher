@@ -1,67 +1,239 @@
-# Waxlight Launcher
+<div align="center">
+  <img src="packaging/linux/com.waxlight.launcher.svg" alt="Waxlight Launcher icon" width="112" height="112">
 
-Waxlight Launcher is a modern unofficial launcher for Vintage Story.
+  # Waxlight Launcher
 
-> Waxlight Launcher is not affiliated with or endorsed by the developers of Vintage Story.
+  **A warm, focused, unofficial launcher for Vintage Story.**
 
-## MVP
+  [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
+  [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
+  [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+</div>
 
-The current MVP provides a Wails v2 desktop shell with a React/TypeScript interface and a Go/SQLite core:
+> [!IMPORTANT]
+> Waxlight Launcher is an independent community project. It is not affiliated
+> with, endorsed by, or an official product of the developers of Vintage Story.
 
-- isolated game instances;
-- browsing and installing multiple versions from the official Vintage Story
-  release catalog, with local archive import as a fallback;
-- official Vintage Story account login, including TOTP/2FA;
-- multiple accounts with global and per-instance selection;
-- local mod installation, enable/disable and removal;
-- game process launch/stop, logs and play-session tracking;
-- total and per-instance playtime;
-- operation history and basic settings;
-- Linux and Windows process implementations.
+Waxlight puts accounts, game versions, isolated game setups, mods, launches,
+and playtime in one desktop application. It is built with Go, Wails, React,
+TypeScript, and SQLite, and supports Windows and Linux.
 
-Waxlight uses Vintage Story's currently available, but publicly undocumented,
-authentication endpoints. The protocol is isolated behind a Go client because it
-may change. Passwords and TOTP codes are never persisted or sent to React;
-session credentials are treated as secrets. See
-[the authentication notes](docs/authentication.md) for the protocol, storage,
-and launch-pipeline details.
+Waxlight does not distribute the game or bypass its licensing. A valid Vintage
+Story account and the right to download the game are required.
 
-Game releases are discovered through Vintage Story's official version feed and
-downloaded from its official CDN. Downloads are resumable, checksum-verified,
-cancellable, and shared by the Linux and Windows installation flows. See
-[the game version notes](docs/game-versions.md) for the confirmed contract and
-platform details.
+## What Waxlight does
 
-The Operations page keeps finished history while treating explicit download
-cancellation as a full rollback. Its deletion rules, cleanup sequence, and
-layer ownership are documented in
-[the operations page contract](docs/operations-page.md).
+- Manages multiple Vintage Story accounts, including TOTP/2FA login.
+- Discovers releases from the Vintage Story version feed and installs several
+  game versions side by side.
+- Creates isolated game setups so mods and settings do not leak between them.
+- Browses Vintage Story ModDB with search, filters, sorting, and mod details.
+- Downloads, installs, updates, enables, disables, and removes mods per setup.
+- Validates the selected account and game version before launch.
+- Starts and stops the game, records logs, and prevents conflicting launches.
+- Tracks individual play sessions and total or per-setup playtime.
+- Shows current and completed downloads and other long-running operations.
 
-## Development
+## Download
 
-Requirements: Go 1.24+, Node.js 22+, a C compiler for SQLite, Wails v2 platform dependencies.
+Download the newest build from [GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest).
+
+| Platform | File | Recommended for |
+| --- | --- | --- |
+| Windows x64 | `*-windows-amd64-installer.exe` | Normal installation with shortcuts and an uninstaller |
+| Windows x64 | `*-windows-amd64-portable.zip` | Portable use without installation |
+| Debian / Ubuntu x64 | `*-linux-amd64.deb` | Debian, Ubuntu, Mint, and compatible distributions |
+| Fedora / RPM x64 | `*-linux-amd64.rpm` | Fedora and compatible RPM distributions |
+| Linux x64 | `*-linux-amd64.tar.gz` | Other distributions with the required runtime libraries |
+
+Every release also contains `SHA256SUMS`. Verify a download on Linux with:
 
 ```bash
-npm --prefix frontend install
-make test
-make build
-./build/waxlight
+sha256sum --check SHA256SUMS --ignore-missing
 ```
 
-`make build` adds the required Wails production tags. A plain `go build` creates a stub that exits with “correct build tags”, so it must not be used for the desktop binary.
+### Windows installation
 
-For the usual live-reload workflow, install the Wails v2 CLI. Linux builds use
-the installed WebKitGTK 4.1 development package through the `webkit2_41` tag.
+Download and run the installer. Alternatively, extract the portable ZIP and
+start `waxlight.exe`. Waxlight needs the Microsoft Edge WebView2 Runtime, which
+is included with current Windows installations and can be installed by the
+Waxlight installer when missing.
 
-Wails v2.11 generates bindings from the current package directory. With
-Waxlight's `cmd/waxlight` layout, run `wails dev` or `wails build` from that
-directory; `make wails-build` is the repository-root shortcut. A matching
-configuration beside `main.go` keeps generated bindings in
-`frontend/src/wailsjs`.
+Early unsigned builds may trigger a Microsoft Defender SmartScreen warning.
+Check that the file came from this repository's Releases page and verify its
+checksum before choosing to run it.
 
-Application data is stored under the operating system user config directory in
-`waxlight/`. Account metadata lives in SQLite. Session keys currently use a
-separate atomic `account-secrets.json` fallback with owner-only permissions on
-POSIX systems; migration to Secret Service on Linux and Credential Manager on
-Windows remains planned. Long-running downloads use one context-aware manager
-with a default limit of three concurrent transfers.
+### Debian and Ubuntu installation
+
+```bash
+sudo apt install ./Waxlight-Launcher-v0.1.0-linux-amd64.deb
+```
+
+### Fedora installation
+
+```bash
+sudo dnf install ./Waxlight-Launcher-v0.1.0-linux-amd64.rpm
+```
+
+### Portable Linux installation
+
+The portable build requires GTK 3 and WebKitGTK 4.1 at runtime. Install those
+packages using your distribution's package manager, then extract and run it:
+
+```bash
+tar -xzf Waxlight-Launcher-v0.1.0-linux-amd64.tar.gz
+cd Waxlight-Launcher-v0.1.0-linux-amd64
+./waxlight
+```
+
+An AppImage is not published yet. The portable archive is the distribution-
+neutral option for the first release.
+
+## First launch
+
+1. Open **Accounts** and sign in with a Vintage Story account.
+2. Open **Game Versions** and install a supported version.
+3. Create a setup from **Library** and select its game version and account.
+4. Optionally install mods from **Mods**.
+5. Select the setup and press **Play**.
+
+Waxlight stores its local database, downloaded files, and settings in the
+operating system's user configuration directory:
+
+- Linux: `~/.config/waxlight/`
+- Windows: `%AppData%\waxlight\`
+
+Back up this directory before moving a library between computers. Never attach
+the credentials file or the entire data directory to a public issue.
+
+## Project status
+
+Waxlight is under active development. Version `0.1.x` should be treated as an
+early release: back up important saves, review compatibility before installing
+mods, and expect the UI and local data model to evolve.
+
+Authentication uses Vintage Story endpoints that are publicly available but
+not formally documented. The integration is isolated behind a backend client
+because the protocol may change. Passwords and TOTP codes are not persisted or
+sent to React. Session credentials currently use an owner-readable local file;
+native Secret Service and Windows Credential Manager integration is planned.
+See [the authentication notes](docs/authentication.md) for details.
+
+Game downloads come from the official Vintage Story release feed and CDN. They
+support progress, cancellation, resume where possible, and checksum validation.
+See [the game-version notes](docs/game-versions.md) for the current contract.
+
+## Build from source
+
+### Requirements
+
+- Go 1.24 or newer;
+- Node.js 22 and npm;
+- Wails CLI 2.11;
+- a C compiler;
+- the [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/)
+  for your operating system;
+- on Linux, GTK 3 and WebKitGTK 4.1 development packages.
+
+Clone and verify the project:
+
+```bash
+git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
+cd Waxlight-launcher
+npm ci --prefix frontend
+make release-check
+```
+
+Run the desktop application with live reload:
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+cd cmd/waxlight
+wails dev
+```
+
+Build a production desktop binary:
+
+```bash
+make wails-build
+```
+
+The Wails command must run from `cmd/waxlight`; the root `Makefile` provides
+shortcuts for common tasks. A plain `go build` without Waxlight's desktop tags
+does not produce the supported GUI build.
+
+Useful commands:
+
+```bash
+make test                 # Go and frontend tests
+make vet                  # Go static analysis
+make frontend             # TypeScript and Vite production build
+make package-linux        # Local .deb, .rpm, and portable archive
+make release-check        # Full pre-release validation
+```
+
+## Architecture
+
+The Go application follows a layered structure:
+
+```text
+Presentation (Wails) -> Application -> Domain
+Infrastructure -------> Application / Domain
+```
+
+The React frontend talks to generated Wails bindings through a shared API
+layer. Business rules, downloads, filesystem changes, authentication, process
+management, and playtime calculation remain in Go rather than UI components.
+
+Important directories:
+
+```text
+cmd/waxlight/             Desktop entry point and Wails configuration
+internal/domain/          Core models and domain errors
+internal/application/     Use cases and service interfaces
+internal/infrastructure/  SQLite, HTTP, filesystem, credentials, processes
+internal/presentation/    Wails controllers and DTOs
+frontend/src/             React and TypeScript interface
+packaging/                Linux desktop and package metadata
+scripts/                  Reproducible release scripts
+.github/workflows/        CI and release automation
+```
+
+## Contributing
+
+Contributions are welcome. Before opening a pull request:
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Create a focused branch from `main`.
+3. Keep business logic outside React components and Wails controllers.
+4. Add or update tests for behavior changes.
+5. Run `make release-check`.
+6. Explain the user-facing change and testing performed in the pull request.
+
+Use the issue templates for reproducible bugs and focused feature proposals.
+For vulnerabilities or accidental credential exposure, follow
+[SECURITY.md](SECURITY.md) instead of opening a public issue.
+
+## Releases
+
+Every push and pull request to `main` runs tests, static analysis, the frontend
+build, and a Linux Wails build. Pushing a semantic version tag such as `v0.1.0`
+starts the release workflow, which:
+
+1. validates the tag against the application version;
+2. builds Windows and Linux artifacts on native GitHub runners;
+3. validates the generated packages;
+4. creates `SHA256SUMS`;
+5. publishes a GitHub Release with generated release notes.
+
+Maintainers should update the version in both Wails configuration files before
+tagging. Existing release tags must never be moved.
+
+## License and trademarks
+
+Waxlight Launcher is free software licensed under the
+[GNU General Public License v3.0](LICENSE). See [NOTICE](NOTICE) for third-party
+and project notices.
+
+Vintage Story and related names and artwork belong to their respective owners.
+Their use here only describes compatibility and does not imply endorsement.
