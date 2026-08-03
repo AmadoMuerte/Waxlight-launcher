@@ -7,7 +7,8 @@ import {
 } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { formatBytes } from "../../shared/lib";
-import { Button, Empty, Select, StatusPill } from "../../shared/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button, Empty, StatusPill } from "../../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -121,15 +122,17 @@ export function AvailableVersions({
           />
           <Select
             value={channel}
-            onChange={(event) => {
-              setChannel(event.target.value as ChannelFilter);
+            onValueChange={(value) => {
+              setChannel(value as ChannelFilter);
               setVisibleCount(20);
             }}
-            aria-label={t("release_channel")}
           >
-            <option value="stable">{t("stable")}</option>
-            <option value="unstable">{t("preview_and_release_candidates")}</option>
-            <option value="all">{t("all_channels")}</option>
+            <SelectTrigger aria-label={t("release_channel")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stable">{t("stable")}</SelectItem>
+              <SelectItem value="unstable">{t("preview_and_release_candidates")}</SelectItem>
+              <SelectItem value="all">{t("all_channels")}</SelectItem>
+            </SelectContent>
           </Select>
         </div>
       </div>

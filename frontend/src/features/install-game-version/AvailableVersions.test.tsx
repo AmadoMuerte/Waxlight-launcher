@@ -76,10 +76,9 @@ describe("official version catalog", () => {
       />,
     );
     await screen.findByText("1.22.6");
-    await userEvent.setup().selectOptions(
-      screen.getByLabelText("Release channel"),
-      "unstable",
-    );
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText("Release channel"));
+    await user.click(screen.getByRole("option", { name: /Preview/ }));
 
     expect(await screen.findByText("1.23.0-pre.1")).toBeTruthy();
     expect(

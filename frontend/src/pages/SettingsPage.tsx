@@ -5,7 +5,8 @@ import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
 
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Button, Checkbox, Field, PageHeader, Select, SubmitForm } from "../shared/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button, Checkbox, Field, PageHeader, SubmitForm } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -71,20 +72,26 @@ export function SettingsPage({
             </header>
             <div className="formRow">
               <Field label={t("language")}>
-                <Select value={normalizeLanguage(value.language)} onChange={(event) => setValue({ ...value, language: normalizeLanguage(event.target.value) })}>
-                  {supportedLanguages.map((language) => <option key={language.code} value={language.code}>{language.nativeName}</option>)}
+                <Select value={normalizeLanguage(value.language)} onValueChange={(language) => setValue({ ...value, language: normalizeLanguage(language) })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {supportedLanguages.map((language) => <SelectItem key={language.code} value={language.code}>{language.nativeName}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </Field>
 
               <Field label={t("theme")}>
                 <Select
                   value={value.theme}
-                  onChange={(event) =>
-                    setValue({ ...value, theme: event.target.value })
+                  onValueChange={(theme) =>
+                    setValue({ ...value, theme })
                   }
                 >
-                  <option value="dark">{t("dark")}</option>
-                  <option value="system">{t("system")}</option>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dark">{t("dark")}</SelectItem>
+                    <SelectItem value="system">{t("system")}</SelectItem>
+                  </SelectContent>
                 </Select>
               </Field>
             </div>

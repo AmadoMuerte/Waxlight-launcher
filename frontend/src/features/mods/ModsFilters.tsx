@@ -1,6 +1,7 @@
 import type { GameVersion, ModSearchQuery } from "../../shared/api";
 import { useTranslation } from "react-i18next";
-import { Button, Field, Select } from "../../shared/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button, Field } from "../../shared/ui";
 import { sideLabel } from "./lib";
 
 interface ModsFiltersProps {
@@ -59,52 +60,69 @@ export function ModsFilters({
         </div>
         <Field label={t("game_version")}>
           <Select
-            value={query.gameVersion}
-            onChange={(event) => onChange({ gameVersion: event.target.value })}
+            value={query.gameVersion ? `version:${query.gameVersion}` : "all"}
+            onValueChange={(value) => onChange({ gameVersion: value === "all" ? "" : value.slice("version:".length) })}
           >
-            <option value="">{t("all_versions")}</option>
-            {versions.map((version) => (
-              <option key={version.id} value={version.name || version.id}>
-                {version.name || version.id}
-              </option>
-            ))}
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("all_versions")}</SelectItem>
+              {versions.map((version) => (
+                <SelectItem key={version.id} value={`version:${version.name || version.id}`}>
+                  {version.name || version.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </Field>
         <Field label={t("side")}>
           <Select
-            value={query.side}
-            onChange={(event) =>
-              onChange({ side: event.target.value as ModSearchQuery["side"] })
+            value={query.side || "all"}
+            onValueChange={(value) =>
+              onChange({ side: value === "all" ? "" : value as ModSearchQuery["side"] })
             }
           >
-            <option value="">{t("all_sides")}</option>
-            <option value="client">{t("client")}</option>
-            <option value="server">{t("server")}</option>
-            <option value="both">{t("client_and_server")}</option>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("all_sides")}</SelectItem>
+              <SelectItem value="client">{t("client")}</SelectItem>
+              <SelectItem value="server">{t("server")}</SelectItem>
+              <SelectItem value="both">{t("client_and_server")}</SelectItem>
+            </SelectContent>
           </Select>
         </Field>
         <Field label={t("updated")}>
           <Select
-            value={query.updatedAfter ? updatedPeriod(query.updatedAfter) : ""}
-            onChange={(event) =>
-              onChange({ updatedAfter: dateFromPeriod(event.target.value) })
+            value={query.updatedAfter ? updatedPeriod(query.updatedAfter) : "any"}
+            onValueChange={(value) =>
+              onChange({ updatedAfter: dateFromPeriod(value === "any" ? "" : value) })
             }
           >
-            <option value="">{t("any_time")}</option><option value="7">{t("last_7_days")}</option>
-            <option value="30">{t("last_30_days")}</option><option value="90">{t("last_3_months")}</option>
-            <option value="365">{t("last_year")}</option>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">{t("any_time")}</SelectItem>
+              <SelectItem value="7">{t("last_7_days")}</SelectItem>
+              <SelectItem value="30">{t("last_30_days")}</SelectItem>
+              <SelectItem value="90">{t("last_3_months")}</SelectItem>
+              <SelectItem value="365">{t("last_year")}</SelectItem>
+            </SelectContent>
           </Select>
         </Field>
         <Field label={t("sort_by")}>
           <Select
             value={query.sort}
-            onChange={(event) =>
-              onChange({ sort: event.target.value as ModSearchQuery["sort"] })
+            onValueChange={(value) =>
+              onChange({ sort: value as ModSearchQuery["sort"] })
             }
           >
-            <option value="relevance">{t("relevance")}</option><option value="updated">{t("recently_updated")}</option>
-            <option value="newest">{t("newest")}</option><option value="downloads">{t("most_downloaded")}</option>
-            <option value="name_asc">{t("name_ascending")}</option><option value="name_desc">{t("name_descending")}</option>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">{t("relevance")}</SelectItem>
+              <SelectItem value="updated">{t("recently_updated")}</SelectItem>
+              <SelectItem value="newest">{t("newest")}</SelectItem>
+              <SelectItem value="downloads">{t("most_downloaded")}</SelectItem>
+              <SelectItem value="name_asc">{t("name_ascending")}</SelectItem>
+              <SelectItem value="name_desc">{t("name_descending")}</SelectItem>
+            </SelectContent>
           </Select>
         </Field>
       </section>
