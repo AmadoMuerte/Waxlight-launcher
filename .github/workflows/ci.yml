@@ -51,7 +51,9 @@ jobs:
         run: npm --prefix frontend test
 
       - name: Validate release metadata
-        run: ./scripts/check-version.sh 0.1.1
+        run: |
+          version="$(node -p "require('./wails.json').info.productVersion")"
+          ./scripts/check-version.sh "$version"
 
   linux-build:
     name: Linux desktop build
