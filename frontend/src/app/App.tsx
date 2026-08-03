@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import {
@@ -38,6 +38,7 @@ const navigation = [
 type ToastType = "ok" | "error";
 
 export function App() {
+  const accountSwitcherRef = useRef<HTMLDetailsElement>(null);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [versions, setVersions] = useState<GameVersion[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -89,6 +90,18 @@ export function App() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    function closeAccountSwitcher(event: PointerEvent) {
+      const switcher = accountSwitcherRef.current;
+      if (switcher?.open && !switcher.contains(event.target as Node)) {
+        switcher.open = false;
+      }
+    }
+
+    window.addEventListener("pointerdown", closeAccountSwitcher);
+    return () => window.removeEventListener("pointerdown", closeAccountSwitcher);
+  }, []);
+
   function notify(message: string, type: ToastType = "ok") {
     setToast({ message, type });
     window.setTimeout(() => setToast(undefined), 3_800);
@@ -124,7 +137,7 @@ export function App() {
           ))}
         </nav>
 
-        <details className="accountSwitcher">
+        <details ref={accountSwitcherRef} className="accountSwitcher">
           <summary>
             <span className="miniAvatar">
               {(accounts.find((account) => account.isDefault)?.displayName ?? "?")
@@ -145,6 +158,7 @@ export function App() {
                 key={account.id}
                 className={account.isDefault ? "selected" : ""}
                 onClick={async () => {
+                  accountSwitcherRef.current?.removeAttribute("open");
                   try {
                     await accountsApi.setDefault(account.id);
                     await refresh();
@@ -160,8 +174,18 @@ export function App() {
                 </span>
               </button>
             ))}
-            <NavLink to="/accounts?add=1">＋ Add account</NavLink>
-            <NavLink to="/accounts">Manage accounts</NavLink>
+            <NavLink
+              to="/accounts?add=1"
+              onClick={() => accountSwitcherRef.current?.removeAttribute("open")}
+            >
+              ＋ Add account
+            </NavLink>
+            <NavLink
+              to="/accounts"
+              onClick={() => accountSwitcherRef.current?.removeAttribute("open")}
+            >
+              Manage accounts
+            </NavLink>
           </div>
         </details>
 

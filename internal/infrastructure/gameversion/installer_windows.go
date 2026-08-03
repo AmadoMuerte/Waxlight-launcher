@@ -38,6 +38,7 @@ func (installer Installer) installPlatform(
 		"/NORESTART",
 		"/CURRENTUSER",
 		"/NOICONS",
+		"/MERGETASKS=!desktopicon",
 		"/DIR="+targetPath,
 	)
 	if output, err := command.CombinedOutput(); err != nil {
