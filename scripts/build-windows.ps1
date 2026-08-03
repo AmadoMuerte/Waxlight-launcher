@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-foreach ($RequiredCommand in @("node", "npm", "wails")) {
+foreach ($RequiredCommand in @("node", "npm", "wails", "makensis")) {
     if (-not (Get-Command $RequiredCommand -ErrorAction SilentlyContinue)) {
         throw "Required build command is unavailable: $RequiredCommand"
     }
