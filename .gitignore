@@ -1,8 +1,58 @@
+# Build and release output
 /build/
-/frontend/node_modules/
+/dist/
+/release/
+/artifacts/
 /frontend/dist/
+
+# Frontend dependencies and caches
+/frontend/node_modules/
+/frontend/.vite/
+/frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go output and coverage
+*.test
+*.out
+coverage.out
+/coverage/
+/vendor/
+
+# Waxlight local data
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
 *.log
+account-secrets.json
 
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+/tmp/
+/temp/
+*.tmp
+*.bak
+*.orig

@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible problem in Waxlight Launcher
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include passwords, session keys, signatures, tokens, or personal data.
+        Report security vulnerabilities privately according to SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Waxlight version
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, Fedora 42, etc.
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: Vintage Story version
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: Tell us what you did and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove credentials and personal data before pasting logs.
+      render: text
