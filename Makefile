@@ -1,6 +1,6 @@
 GO ?= go
 NPM ?= npm
-VERSION ?= 0.1.1
+VERSION ?= 0.1.2
 RELEASE_DIR ?= release
 WAILS_TAGS := desktop,production
 
