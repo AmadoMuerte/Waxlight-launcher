@@ -217,6 +217,12 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
 
+  useEffect(() => {
+    return () => {
+      if (flowID) void accountsApi.cancelLogin(flowID).catch(() => undefined);
+    };
+  }, [flowID]);
+
   async function submitCredentials() {
     if (submitting.current) return;
     if (!isValidEmail(email)) {
@@ -350,7 +356,11 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
           </div>
 
           <div className="dialogFooter">
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void cancelFlow(true)}
+            >
               Cancel
             </Button>
             <Button busy={busy}>Sign in</Button>

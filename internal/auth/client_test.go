@@ -63,6 +63,7 @@ func TestLoginScenarios(t *testing.T) {
 
 func TestCompleteTOTPSendsFlowFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
 		if err := request.ParseForm(); err != nil {
 			t.Fatal(err)
 		}
@@ -92,6 +93,7 @@ func TestLoginHTTPAndTimeoutErrors(t *testing.T) {
 	}
 
 	timeoutServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
 		time.Sleep(100 * time.Millisecond)
 		_, _ = io.WriteString(writer, `{"valid":1}`)
 	}))
@@ -105,6 +107,7 @@ func TestLoginHTTPAndTimeoutErrors(t *testing.T) {
 
 func TestValidateUsesPOSTForm(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
 		if request.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", request.Method)
 		}
@@ -140,6 +143,7 @@ func TestValidateFailures(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				writer.Header().Set("Content-Type", "application/json")
 				_, _ = io.WriteString(writer, test.body)
 			}))
 			defer server.Close()
@@ -165,6 +169,7 @@ func TestValidateNetworkFailure(t *testing.T) {
 
 func TestErrorsDoNotContainSecrets(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(writer, `{`)
 	}))
 	defer server.Close()
@@ -172,5 +177,30 @@ func TestErrorsDoNotContainSecrets(t *testing.T) {
 	_, _, err := client.Login(context.Background(), "a@b.test", "do-not-leak", "", "")
 	if err == nil || strings.Contains(err.Error(), "do-not-leak") {
 		t.Fatalf("secret leaked in error: %v", err)
+	}
+}
+
+func TestClientRejectsRedirectOversizedAndInvalidContent(t *testing.T) {
+	for name, handler := range map[string]http.HandlerFunc{
+		"redirect": func(writer http.ResponseWriter, request *http.Request) {
+			http.Redirect(writer, request, "https://different-origin.example/login", http.StatusFound)
+		},
+		"oversized": func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(writer, strings.Repeat(" ", maxResponseBytes)+`{"valid":0}`)
+		},
+		"invalid-content": func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "text/plain")
+			_, _ = io.WriteString(writer, `{"valid":0}`)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(handler)
+			defer server.Close()
+			client := NewClientWithURLs(server.Client(), server.URL, server.URL)
+			if _, _, err := client.Login(context.Background(), "a@b.test", "secret", "", ""); err == nil {
+				t.Fatal("expected hardened response rejection")
+			}
+		})
 	}
 }

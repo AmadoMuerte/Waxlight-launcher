@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,10 +29,21 @@ type Client struct {
 
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 20 * time.Second}
+		httpClient = &http.Client{
+			Timeout: 20 * time.Second,
+			Transport: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+				TLSHandshakeTimeout:   5 * time.Second,
+				ResponseHeaderTimeout: 10 * time.Second,
+				ExpectContinueTimeout: time.Second,
+			},
+		}
 	}
+	clone := *httpClient
+	clone.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{
-		httpClient:  httpClient,
+		httpClient:  &clone,
 		loginURL:    VintageStoryLoginURL,
 		validateURL: VintageStoryValidateURL,
 	}
@@ -149,8 +162,16 @@ func (c *Client) doJSON(request *http.Request, target any) error {
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return ErrServer
 	}
+	contentType, _, contentTypeErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	if contentTypeErr != nil || !strings.EqualFold(contentType, "application/json") {
+		return ErrInvalidAuthReply
+	}
 
-	decoder := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes))
+	contents, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil || len(contents) > maxResponseBytes {
+		return ErrInvalidAuthReply
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(contents)))
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("decode response: %w", ErrInvalidAuthReply)
 	}
