@@ -17,6 +17,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 )
@@ -35,8 +36,11 @@ func New() (*Container, error) {
 	}
 
 	dataRoot := filepath.Join(configDirectory, "waxlight")
-	if err := os.MkdirAll(dataRoot, 0o755); err != nil {
+	if err := os.MkdirAll(dataRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
+	}
+	if err := securefs.Apply(dataRoot, 0o700, true); err != nil {
+		return nil, fmt.Errorf("secure data directory: %w", err)
 	}
 
 	store, err := database.Open(filepath.Join(dataRoot, "waxlight.db"))
@@ -52,15 +56,41 @@ func New() (*Container, error) {
 		processinfra.Launcher{},
 		dataRoot,
 	)
+	secretStore := credentials.NewStore(dataRoot)
+	if err := secretStore.Probe(context.Background()); err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("native credential store is unavailable or locked; unlock it and retry: %w", err)
+	}
+	accounts, err := store.ListAccounts(context.Background())
+	if err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("list accounts for credential migration: %w", err)
+	}
+	accountIDs := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		accountIDs = append(accountIDs, account.ID)
+	}
+	if err := secretStore.ReconcilePending(context.Background(), accountIDs); err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("reconcile interrupted credential commit: %w", err)
+	}
+	if err := credentials.NewMigrator(dataRoot, secretStore).Run(context.Background(), accountIDs); err != nil {
+		_ = store.Close()
+		return nil, err
+	}
 	accountService := application.NewAccountService(
 		store,
 		auth.NewClient(nil),
-		credentials.NewFileStore(credentials.DefaultPath(dataRoot)),
+		secretStore,
 	)
 	service.ConfigureAuthentication(
 		accountService,
 		filesystem.ClientSettingsService{},
 	)
+	if err := service.ReconcileInjectedCredentials(context.Background()); err != nil {
+		_ = store.Close()
+		return nil, err
+	}
 	downloadManager := downloader.NewManager(downloader.NewHTTPDownloader(), 3)
 	service.ConfigureVersionDownloads(
 		vintagestory.NewVersionCatalog(nil),

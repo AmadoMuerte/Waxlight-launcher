@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ type recordingLauncher struct {
 	workingDirectory string
 	environment      map[string]string
 	process          *controllableProcess
+	startErr         error
 }
 
 func (launcher *recordingLauncher) Start(
@@ -38,6 +41,9 @@ func (launcher *recordingLauncher) Start(
 	launcher.arguments = append([]string(nil), arguments...)
 	launcher.workingDirectory = workingDirectory
 	launcher.environment = environment
+	if launcher.startErr != nil {
+		return nil, launcher.startErr
+	}
 
 	if launcher.process == nil {
 		launcher.process = newControllableProcess()
@@ -474,6 +480,67 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	}
 	if err := fixture.service.Stop(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		contents, err = os.ReadFile(settingsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(contents), "session-key") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("credentials were not cleaned after process exit")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if strings.Contains(strings.Join(fixture.launcher.arguments, " "), "session-key") ||
+		strings.Contains(fmt.Sprint(fixture.launcher.environment), "session-key") {
+		t.Fatal("credentials were passed through process arguments or environment")
+	}
+	if _, err := (filesystem.ClientSettingsService{}).Inject(settingsPath, domain.Account{
+		SessionKey: "stale-key", SessionSignature: "stale-signature", UID: "player-uid", Username: "Waxlighter",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := accountService.RemoveAccount(ctx, accountID); err != nil {
+		t.Fatal(err)
+	}
+	contents, err = os.ReadFile(settingsPath)
+	if err != nil || strings.Contains(string(contents), "stale-key") {
+		t.Fatalf("account removal left instance credentials: %s, %v", contents, err)
+	}
+	updatedInstance, err := fixture.store.GetInstance(ctx, instance.ID)
+	if err != nil || updatedInstance.DefaultAccountID != nil {
+		t.Fatalf("account reference was not cleared: %#v, %v", updatedInstance, err)
+	}
+}
+
+func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	authClient := &fakeAuthClient{session: auth.Session{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
+	accountService := application.NewAccountService(fixture.store, authClient, newMemorySecretStore())
+	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
+	login, err := accountService.Login(ctx, "player@example.com", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "Failure cleanup", GameVersionID: "1.20", DefaultAccountID: &login.Account.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.launcher.startErr = errors.New("injected process start failure")
+	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err == nil {
+		t.Fatal("expected launch failure")
+	}
+	contents, err := os.ReadFile(filepath.Join(instance.Directory, "clientsettings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK") {
+		t.Fatal("credential remained after launch failure")
 	}
 }
 

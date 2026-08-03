@@ -6,18 +6,40 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 )
 
 type SQLiteStore struct {
 	db *sql.DB
 }
 
+const saveAccountSQL = `
+	INSERT INTO accounts(
+		id, username, display_name, email, uid, status, is_default,
+		last_validated_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET
+		username = excluded.username,
+		display_name = excluded.display_name,
+		email = excluded.email,
+		uid = excluded.uid,
+		status = excluded.status,
+		is_default = excluded.is_default,
+		last_validated_at = excluded.last_validated_at,
+		updated_at = excluded.updated_at
+`
+
 func Open(path string) (*SQLiteStore, error) {
+	if err := prepareDatabasePath(path); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("sqlite3", path+"?_foreign_keys=on&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
@@ -28,7 +50,35 @@ func Open(path string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := securefs.Apply(path, 0o600, false); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return s, nil
+}
+
+func prepareDatabasePath(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return errors.New("database path is not a regular file")
+		}
+		return securefs.Apply(path, 0o600, false)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return securefs.Apply(path, 0o600, false)
 }
 
 func (s *SQLiteStore) Close() error {
@@ -92,6 +142,13 @@ INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime
 		ctx,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (2, datetime('now'))`,
 	)
+	if err != nil {
+		return err
+	}
+	if _, err = s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS accounts_uid_lookup ON accounts(uid) WHERE uid <> ''`); err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (3, datetime('now'))`)
 	return err
 }
 
@@ -234,25 +291,9 @@ func (s *SQLiteStore) GetAccount(ctx context.Context, id string) (domain.Account
 }
 
 func (s *SQLiteStore) SaveAccount(ctx context.Context, a domain.Account) error {
-	const query = `
-		INSERT INTO accounts(
-			id, username, display_name, email, uid, status, is_default,
-			last_validated_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			username = excluded.username,
-			display_name = excluded.display_name,
-			email = excluded.email,
-			uid = excluded.uid,
-			status = excluded.status,
-			is_default = excluded.is_default,
-			last_validated_at = excluded.last_validated_at,
-			updated_at = excluded.updated_at
-	`
-
 	_, err := s.db.ExecContext(
 		ctx,
-		query,
+		saveAccountSQL,
 		a.ID,
 		a.Username,
 		a.DisplayName,
@@ -265,6 +306,26 @@ func (s *SQLiteStore) SaveAccount(ctx context.Context, a domain.Account) error {
 		ts(a.UpdatedAt),
 	)
 	return err
+}
+
+func (s *SQLiteStore) SaveAccountAndSelect(ctx context.Context, a domain.Account, selectAccount bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if selectAccount {
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET is_default=0`); err != nil {
+			return err
+		}
+		a.IsDefault = true
+	}
+	if _, err := tx.ExecContext(ctx, saveAccountSQL,
+		a.ID, a.Username, a.DisplayName, a.Email, a.UID, a.Status, btoi(a.IsDefault),
+		optTS(a.LastValidatedAt), ts(a.CreatedAt), ts(a.UpdatedAt)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 func (s *SQLiteStore) SetDefaultAccount(ctx context.Context, id string) error {
 	tx, e := s.db.BeginTx(ctx, nil)

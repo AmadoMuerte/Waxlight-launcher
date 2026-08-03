@@ -10,9 +10,6 @@ type AppError struct {
 }
 
 func (e *AppError) Error() string {
-	if e.Cause != nil {
-		return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.Cause)
-	}
 	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 

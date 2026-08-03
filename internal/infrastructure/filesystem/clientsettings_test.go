@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -25,7 +26,7 @@ func TestPatchClientSettingsPreservesValues(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := (ClientSettingsService{}).Patch(path, testAccount()); err != nil {
+	if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err != nil {
 		t.Fatal(err)
 	}
 	var result map[string]map[string]any
@@ -72,7 +73,7 @@ func TestPatchClientSettingsCreatesMissingStructures(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := (ClientSettingsService{}).Patch(path, testAccount()); err != nil {
+			if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -91,7 +92,7 @@ func TestPatchClientSettingsRejectsInvalidInput(t *testing.T) {
 			if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := (ClientSettingsService{}).Patch(path, testAccount()); err == nil {
+			if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err == nil {
 				t.Fatal("expected invalid settings error")
 			}
 		})
@@ -100,7 +101,7 @@ func TestPatchClientSettingsRejectsInvalidInput(t *testing.T) {
 
 func TestClearClientSettingsRemovesOnlyAuthentication(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "clientsettings.json")
-	if err := (ClientSettingsService{}).Patch(path, testAccount()); err != nil {
+	if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err != nil {
 		t.Fatal(err)
 	}
 	if err := (ClientSettingsService{}).Clear(path); err != nil {
@@ -126,7 +127,68 @@ func TestPatchClientSettingsReportsWriteError(t *testing.T) {
 	if err := os.WriteFile(parentFile, []byte("block"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := (ClientSettingsService{}).Patch(filepath.Join(parentFile, "clientsettings.json"), testAccount()); err == nil {
+	if _, err := (ClientSettingsService{}).Inject(filepath.Join(parentFile, "clientsettings.json"), testAccount()); err == nil {
 		t.Fatal("expected write error")
 	}
+}
+
+func TestInjectionCleanupAndCrashReconciliation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clientsettings.json")
+	cleanup, err := (ClientSettingsService{}).Inject(path, testAccount())
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := path + injectionJournalSuffix
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(journal)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("unsafe journal permissions: %v, %v", info, err)
+		}
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatalf("cleanup is not idempotent: %v", err)
+	}
+	contents, _ := os.ReadFile(path)
+	if string(contents) == "" || stringContainsAuth(contents) {
+		t.Fatalf("credentials remain after cleanup: %s", contents)
+	}
+
+	if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err != nil {
+		t.Fatal(err)
+	}
+	if err := (ClientSettingsService{}).Reconcile(path); err != nil {
+		t.Fatal(err)
+	}
+	contents, _ = os.ReadFile(path)
+	if stringContainsAuth(contents) {
+		t.Fatalf("credentials remain after crash reconciliation: %s", contents)
+	}
+}
+
+func TestClientSettingsRejectsSymlink(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.json")
+	if err := os.WriteFile(target, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "clientsettings.json")
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err == nil {
+		t.Fatal("symlink target was accepted")
+	}
+}
+
+func stringContainsAuth(contents []byte) bool {
+	text := string(contents)
+	for _, value := range []string{"session-key", "session-signature", `"sessionkey"`, `"sessionsignature"`, `"playeruid"`, `"playername"`} {
+		if strings.Contains(text, value) {
+			return true
+		}
+	}
+	return false
 }

@@ -3,7 +3,9 @@ package database_test
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -57,6 +59,35 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 	}
 	if stored.Email != account.Email || stored.UID != account.UID {
 		t.Fatalf("auth columns were not migrated: %#v", stored)
+	}
+}
+
+func TestDatabaseRejectsSymlinkAndUsesOwnerOnlyPermissions(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "waxlight.db")
+	store, err := database.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("unexpected database permissions: %v, %v", info, err)
+		}
+	}
+	target := filepath.Join(root, "target.db")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link.db")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := database.Open(link); err == nil {
+		t.Fatal("database symlink was accepted")
 	}
 }
 

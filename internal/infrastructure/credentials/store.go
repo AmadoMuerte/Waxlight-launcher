@@ -1,0 +1,132 @@
+package credentials
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/waxlight/waxlight-launcher/internal/application"
+	keyring "github.com/zalando/go-keyring"
+)
+
+const ServiceNamespace = "com.waxlight.launcher"
+
+type keyringBackend interface {
+	Get(service, user string) (string, error)
+	Set(service, user, password string) error
+	Delete(service, user string) error
+}
+
+type systemBackend struct{}
+
+func (systemBackend) Get(service, user string) (string, error) { return keyring.Get(service, user) }
+func (systemBackend) Set(service, user, password string) error {
+	return keyring.Set(service, user, password)
+}
+func (systemBackend) Delete(service, user string) error { return keyring.Delete(service, user) }
+
+// Store persists versioned session material in the operating system's native
+// credential service. It intentionally has no file or in-memory fallback.
+type Store struct {
+	backend     keyringBackend
+	pendingPath string
+	pendingMu   sync.Mutex
+}
+
+func NewStore(dataRoot string) *Store {
+	return &Store{backend: systemBackend{}, pendingPath: filepath.Join(dataRoot, "security", "pending-credential-commits.json")}
+}
+
+func newStoreWithBackend(backend keyringBackend) *Store { return &Store{backend: backend} }
+
+func (store *Store) Probe(ctx context.Context) error {
+	random := make([]byte, 16)
+	if _, err := rand.Read(random); err != nil {
+		return application.ErrStoreUnavailable
+	}
+	id := "probe-" + hex.EncodeToString(random)
+	secret := application.Secret{SessionKey: "credential-store-probe", SessionSignature: "credential-store-probe"}
+	if err := store.Set(ctx, id, secret); err != nil {
+		return err
+	}
+	defer store.Delete(context.Background(), id)
+	got, err := store.Get(ctx, id)
+	if err != nil || got != secret {
+		return application.ErrStoreUnavailable
+	}
+	if err := store.Delete(ctx, id); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (store *Store) Get(ctx context.Context, accountID string) (application.Secret, error) {
+	if err := validateRequest(ctx, accountID); err != nil {
+		return application.Secret{}, err
+	}
+	value, err := store.backend.Get(ServiceNamespace, accountID)
+	if err != nil {
+		return application.Secret{}, mapStoreError(err)
+	}
+	return decodeSecret(value)
+}
+
+func (store *Store) Set(ctx context.Context, accountID string, secret application.Secret) error {
+	if err := validateRequest(ctx, accountID); err != nil {
+		return err
+	}
+	value, err := encodeSecret(secret)
+	if err != nil {
+		return err
+	}
+	if err := store.backend.Set(ServiceNamespace, accountID, value); err != nil {
+		return mapStoreError(err)
+	}
+	return nil
+}
+
+func (store *Store) Delete(ctx context.Context, accountID string) error {
+	if err := validateRequest(ctx, accountID); err != nil {
+		return err
+	}
+	if err := store.backend.Delete(ServiceNamespace, accountID); err != nil {
+		return mapStoreError(err)
+	}
+	return nil
+}
+
+func validateRequest(ctx context.Context, accountID string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("%w: operation cancelled", application.ErrStoreUnavailable)
+	}
+	if accountID == "" || len(accountID) > 128 || strings.ContainsAny(accountID, "\x00\r\n") {
+		return fmt.Errorf("%w: invalid account identifier", application.ErrPermissionDenied)
+	}
+	return nil
+}
+
+func mapStoreError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, keyring.ErrNotFound) {
+		return application.ErrSecretNotFound
+	}
+	if errors.Is(err, keyring.ErrUnsupportedPlatform) {
+		return application.ErrStoreUnavailable
+	}
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "locked"), strings.Contains(message, "islocked"):
+		return fmt.Errorf("%w: native credential store is locked", application.ErrStoreLocked)
+	case strings.Contains(message, "denied"), strings.Contains(message, "permission"), strings.Contains(message, "access is denied"):
+		return fmt.Errorf("%w: native credential store denied access", application.ErrPermissionDenied)
+	default:
+		return fmt.Errorf("%w: native credential store operation failed", application.ErrStoreUnavailable)
+	}
+}

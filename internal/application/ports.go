@@ -9,7 +9,13 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
-var ErrSecretNotFound = errors.New("account secret not found")
+var (
+	ErrSecretNotFound   = errors.New("account secret not found")
+	ErrStoreLocked      = errors.New("credential store locked")
+	ErrStoreUnavailable = errors.New("credential store unavailable")
+	ErrPermissionDenied = errors.New("credential store permission denied")
+	ErrCorruptSecret    = errors.New("stored account secret is corrupt")
+)
 
 type Secret struct {
 	SessionKey       string `json:"-"`
@@ -17,9 +23,15 @@ type Secret struct {
 }
 
 type SecretStore interface {
-	Get(accountID string) (Secret, error)
-	Set(accountID string, secret Secret) error
-	Delete(accountID string) error
+	Get(context.Context, string) (Secret, error)
+	Set(context.Context, string, Secret) error
+	Delete(context.Context, string) error
+}
+
+type PendingSecretStore interface {
+	SecretStore
+	MarkPending(context.Context, string) error
+	ClearPending(context.Context, string) error
 }
 
 type AuthClient interface {
@@ -34,8 +46,9 @@ type AuthClient interface {
 }
 
 type ClientSettingsPatcher interface {
-	Patch(path string, account domain.Account) error
+	Inject(path string, account domain.Account) (func() error, error)
 	Clear(path string) error
+	Reconcile(path string) error
 }
 
 type Store interface {
@@ -74,6 +87,12 @@ type Store interface {
 
 	GetSettings(context.Context) (domain.Settings, error)
 	SaveSettings(context.Context, domain.Settings) error
+}
+
+// AccountCommitter atomically persists account metadata and its default
+// selection. Production metadata stores must implement this boundary.
+type AccountCommitter interface {
+	SaveAccountAndSelect(context.Context, domain.Account, bool) error
 }
 
 type ArchiveInstaller interface {

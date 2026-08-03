@@ -3,6 +3,7 @@ package application_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -53,14 +54,16 @@ func (client *fakeAuthClient) Validate(
 }
 
 type memorySecretStore struct {
-	values map[string]application.Secret
+	values    map[string]application.Secret
+	setErr    error
+	deleteErr error
 }
 
 func newMemorySecretStore() *memorySecretStore {
 	return &memorySecretStore{values: map[string]application.Secret{}}
 }
 
-func (store *memorySecretStore) Get(id string) (application.Secret, error) {
+func (store *memorySecretStore) Get(_ context.Context, id string) (application.Secret, error) {
 	secret, ok := store.values[id]
 	if !ok {
 		return application.Secret{}, application.ErrSecretNotFound
@@ -68,14 +71,29 @@ func (store *memorySecretStore) Get(id string) (application.Secret, error) {
 	return secret, nil
 }
 
-func (store *memorySecretStore) Set(id string, secret application.Secret) error {
+func (store *memorySecretStore) Set(_ context.Context, id string, secret application.Secret) error {
+	if store.setErr != nil {
+		return store.setErr
+	}
 	store.values[id] = secret
 	return nil
 }
 
-func (store *memorySecretStore) Delete(id string) error {
+func (store *memorySecretStore) Delete(_ context.Context, id string) error {
+	if store.deleteErr != nil {
+		return store.deleteErr
+	}
 	delete(store.values, id)
 	return nil
+}
+
+type failingAccountCommitStore struct {
+	application.Store
+	err error
+}
+
+func (store failingAccountCommitStore) SaveAccountAndSelect(context.Context, domain.Account, bool) error {
+	return store.err
 }
 
 func newAccountFixture(t *testing.T) (*application.AccountService, *database.SQLiteStore, *fakeAuthClient, *memorySecretStore) {
@@ -149,6 +167,55 @@ func TestAccountLoginUpdatesByUIDAndSupportsSeveralAccounts(t *testing.T) {
 	accounts, err := service.ListAccounts(context.Background())
 	if err != nil || len(accounts) != 2 {
 		t.Fatalf("expected two accounts, got %d, %v", len(accounts), err)
+	}
+}
+
+func TestLoginRollsBackCredentialWhenSecretOrMetadataCommitFails(t *testing.T) {
+	service, metadata, client, secrets := newAccountFixture(t)
+	secrets.setErr = application.ErrStoreLocked
+	result, err := service.Login(context.Background(), "player@example.com", "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK")
+	if err == nil || result.Account != nil {
+		t.Fatalf("expected closed credential-store failure: %#v, %v", result, err)
+	}
+	accounts, listErr := metadata.ListAccounts(context.Background())
+	if listErr != nil || len(accounts) != 0 {
+		t.Fatalf("metadata committed after secret failure: %#v, %v", accounts, listErr)
+	}
+	if strings.Contains(err.Error(), "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK") {
+		t.Fatalf("password leaked in error: %v", err)
+	}
+
+	secrets.setErr = nil
+	wrapped := failingAccountCommitStore{Store: metadata, err: errors.New("injected metadata failure")}
+	service = application.NewAccountService(wrapped, client, secrets)
+	result, err = service.Login(context.Background(), "player@example.com", "password")
+	if err == nil || result.Account != nil {
+		t.Fatalf("expected metadata failure: %#v, %v", result, err)
+	}
+	if len(secrets.values) != 0 {
+		t.Fatalf("orphaned credential after metadata failure: %#v", secrets.values)
+	}
+}
+
+func TestReauthenticationRestoresPreviousCredentialOnMetadataFailure(t *testing.T) {
+	service, metadata, client, secrets := newAccountFixture(t)
+	created, err := service.Login(context.Background(), "player@example.com", "password")
+	if err != nil || created.Account == nil {
+		t.Fatal(err)
+	}
+	id := created.Account.ID
+	previous := secrets.values[id]
+	client.session.SessionKey = "replacement-key"
+	client.session.SessionSignature = "replacement-signature"
+	failing := application.NewAccountService(
+		failingAccountCommitStore{Store: metadata, err: errors.New("selection commit failed")},
+		client, secrets,
+	)
+	if _, err := failing.ReauthenticateAccount(context.Background(), id, "player@example.com", "password"); err == nil {
+		t.Fatal("expected transactional metadata failure")
+	}
+	if got := secrets.values[id]; got != previous {
+		t.Fatalf("previous credential was not restored: %#v", got)
 	}
 }
 

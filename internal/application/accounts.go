@@ -42,13 +42,18 @@ type PendingLogin struct {
 }
 
 type AccountService struct {
-	store     Store
-	client    AuthClient
-	secrets   SecretStore
-	flowTTL   time.Duration
-	now       func() time.Time
-	flowMu    sync.Mutex
-	loginFlow map[string]*PendingLogin
+	store            Store
+	client           AuthClient
+	secrets          SecretStore
+	flowTTL          time.Duration
+	now              func() time.Time
+	flowMu           sync.Mutex
+	loginFlow        map[string]*PendingLogin
+	cleanupInstances func(context.Context, string) error
+}
+
+func (service *AccountService) ConfigureInstanceCleanup(cleanup func(context.Context, string) error) {
+	service.cleanupInstances = cleanup
 }
 
 func NewAccountService(store Store, client AuthClient, secrets SecretStore) *AccountService {
@@ -233,12 +238,48 @@ func (service *AccountService) persistSession(
 		SessionKey:       session.SessionKey,
 		SessionSignature: session.SessionSignature,
 	}
-	if err := service.secrets.Set(account.ID, secret); err != nil {
-		return LoginResult{}, &domain.AppError{Code: domain.ErrSecretStorage, Message: "Could not save the account session", Cause: err}
+	previousSecret, previousErr := service.secrets.Get(ctx, account.ID)
+	hadPreviousSecret := previousErr == nil
+	if previousErr != nil && !errors.Is(previousErr, ErrSecretNotFound) {
+		return LoginResult{}, secretStoreError("Could not read the existing account session", previousErr)
 	}
-	if err := service.store.SaveAccount(ctx, account); err != nil {
-		_ = service.secrets.Delete(account.ID)
+	pendingStore, supportsCrashRecovery := service.secrets.(PendingSecretStore)
+	if supportsCrashRecovery {
+		if err := pendingStore.MarkPending(ctx, account.ID); err != nil {
+			return LoginResult{}, secretStoreError("Could not prepare the account session commit", err)
+		}
+	}
+	if err := service.secrets.Set(ctx, account.ID, secret); err != nil {
+		if supportsCrashRecovery {
+			_ = pendingStore.ClearPending(context.Background(), account.ID)
+		}
+		return LoginResult{}, secretStoreError("Could not save the account session", err)
+	}
+	committer, ok := service.store.(AccountCommitter)
+	if !ok {
+		if hadPreviousSecret {
+			_ = service.secrets.Set(context.Background(), account.ID, previousSecret)
+		} else {
+			_ = service.secrets.Delete(context.Background(), account.ID)
+		}
+		if supportsCrashRecovery {
+			_ = pendingStore.ClearPending(context.Background(), account.ID)
+		}
+		return LoginResult{}, errors.New("account metadata store does not support transactional commits")
+	}
+	if err := committer.SaveAccountAndSelect(ctx, account, account.IsDefault); err != nil {
+		if hadPreviousSecret {
+			_ = service.secrets.Set(context.Background(), account.ID, previousSecret)
+		} else {
+			_ = service.secrets.Delete(context.Background(), account.ID)
+		}
+		if supportsCrashRecovery {
+			_ = pendingStore.ClearPending(context.Background(), account.ID)
+		}
 		return LoginResult{}, err
+	}
+	if supportsCrashRecovery {
+		_ = pendingStore.ClearPending(context.Background(), account.ID)
 	}
 
 	safeAccount := account
@@ -285,10 +326,45 @@ func (service *AccountService) RemoveAccount(ctx context.Context, accountID stri
 	if _, err := service.store.GetAccount(ctx, accountID); err != nil {
 		return err
 	}
-	if err := service.secrets.Delete(accountID); err != nil {
+	if service.cleanupInstances != nil {
+		if err := service.cleanupInstances(ctx, accountID); err != nil {
+			return err
+		}
+	}
+	secret, secretErr := service.secrets.Get(ctx, accountID)
+	if secretErr != nil && !errors.Is(secretErr, ErrSecretNotFound) {
+		return secretStoreError("Could not read the saved account session", secretErr)
+	}
+	if err := service.secrets.Delete(ctx, accountID); err != nil && !errors.Is(err, ErrSecretNotFound) {
 		return &domain.AppError{Code: domain.ErrSecretStorage, Message: "Could not remove the saved account session", Cause: err}
 	}
-	return service.store.DeleteAccount(ctx, accountID)
+	if err := service.store.DeleteAccount(ctx, accountID); err != nil {
+		if secretErr == nil {
+			_ = service.secrets.Set(context.Background(), accountID, secret)
+		}
+		return err
+	}
+	return nil
+}
+
+// LogOutLocally removes the bearer credential while preserving non-secret
+// profile metadata for an explicit future reauthentication.
+func (service *AccountService) LogOutLocally(ctx context.Context, accountID string) error {
+	account, err := service.store.GetAccount(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	if service.cleanupInstances != nil {
+		if err := service.cleanupInstances(ctx, accountID); err != nil {
+			return err
+		}
+	}
+	if err := service.secrets.Delete(ctx, accountID); err != nil && !errors.Is(err, ErrSecretNotFound) {
+		return secretStoreError("Could not remove the saved account session", err)
+	}
+	account.Status = domain.AccountStatusNeedsReauth
+	account.UpdatedAt = service.now()
+	return service.store.SaveAccount(ctx, account)
 }
 
 func (service *AccountService) ValidateAccount(
@@ -344,7 +420,7 @@ func (service *AccountService) authorizedAccount(
 	if err != nil {
 		return account, err
 	}
-	secret, err := service.secrets.Get(accountID)
+	secret, err := service.secrets.Get(ctx, accountID)
 	if errors.Is(err, ErrSecretNotFound) {
 		account.Status = domain.AccountStatusNeedsReauth
 		account.UpdatedAt = service.now()
@@ -357,6 +433,21 @@ func (service *AccountService) authorizedAccount(
 	account.SessionKey = secret.SessionKey
 	account.SessionSignature = secret.SessionSignature
 	return account, nil
+}
+
+func secretStoreError(message string, err error) error {
+	switch {
+	case errors.Is(err, ErrStoreLocked):
+		message = "The operating-system credential store is locked. Unlock it and retry"
+	case errors.Is(err, ErrPermissionDenied):
+		message = "The operating-system credential store denied access"
+	case errors.Is(err, ErrStoreUnavailable):
+		message = "The operating-system credential store is unavailable. Check the desktop keyring service and retry"
+	case errors.Is(err, ErrCorruptSecret):
+		message = "The saved account session is corrupt and must be replaced"
+	}
+	retryable := errors.Is(err, ErrStoreLocked) || errors.Is(err, ErrStoreUnavailable)
+	return &domain.AppError{Code: domain.ErrSecretStorage, Message: message, Cause: err, Retryable: retryable}
 }
 
 func safeAccount(account domain.Account) domain.Account {

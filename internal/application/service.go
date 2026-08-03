@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 )
 
 type Service struct {
@@ -34,6 +35,7 @@ type Service struct {
 	dataRoot           string
 	events             EventPublisher
 	runningMu          sync.Mutex
+	launchMu           sync.Mutex
 	versionInstallMu   sync.Mutex
 	operationsMu       sync.Mutex
 	operationCancels   map[string]context.CancelFunc
@@ -51,6 +53,7 @@ type runningGame struct {
 	sessionID string
 	started   time.Time
 	log       io.Closer
+	cleanup   func() error
 }
 
 func NewService(
@@ -109,6 +112,46 @@ func (s *Service) ConfigureAuthentication(
 ) {
 	s.accounts = accounts
 	s.clientSettings = clientSettings
+	accounts.ConfigureInstanceCleanup(s.clearAccountFromInstances)
+}
+
+func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
+	if s.clientSettings == nil {
+		return nil
+	}
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		if err := s.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
+			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
+		}
+	}
+	return nil
+}
+
+func (s *Service) clearAccountFromInstances(ctx context.Context, accountID string) error {
+	if s.clientSettings == nil {
+		return nil
+	}
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		if err := s.clientSettings.Clear(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
+			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear account authentication from an instance", Cause: err}
+		}
+		if instance.DefaultAccountID != nil && *instance.DefaultAccountID == accountID {
+			instance.DefaultAccountID = nil
+			instance.UpdatedAt = time.Now().UTC()
+			if err := s.store.SaveInstance(ctx, instance); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) emit(name string, payload any) {
@@ -495,6 +538,11 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 	in.LastPlayedAt = old.LastPlayedAt
 	in.Status = old.Status
 	in.UpdatedAt = time.Now().UTC()
+	if !sameOptionalString(old.DefaultAccountID, in.DefaultAccountID) && s.clientSettings != nil {
+		if e = s.clientSettings.Clear(filepath.Join(old.Directory, "clientsettings.json")); e != nil {
+			return in, e
+		}
+	}
 	e = s.store.SaveInstance(ctx, in)
 	if e == nil {
 		s.emit("instance:updated", in)
@@ -517,11 +565,23 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 			return e
 		}
 	}
+	if !deleteFiles && s.clientSettings != nil {
+		if e = s.clientSettings.Clear(filepath.Join(i.Directory, "clientsettings.json")); e != nil {
+			return e
+		}
+	}
 	if e = s.store.DeleteInstance(ctx, id); e != nil {
 		return e
 	}
 	s.emit("instance:deleted", map[string]string{"id": id})
 	return nil
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 func safeRemoveAll(path, dataRoot, marker string) error {
 	abs, e := filepath.Abs(path)
@@ -809,6 +869,8 @@ func (s *Service) Launch(
 	instanceID string,
 	accountID *string,
 ) (domain.PlaySession, error) {
+	s.launchMu.Lock()
+	defer s.launchMu.Unlock()
 	validation, err := s.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
 		return domain.PlaySession{}, err
@@ -842,6 +904,7 @@ func (s *Service) Launch(
 	}
 
 	clientSettingsPath := filepath.Join(instance.Directory, "clientsettings.json")
+	cleanupCredentials := func() error { return nil }
 	if accountID != nil {
 		if s.accounts == nil || s.clientSettings == nil {
 			return domain.PlaySession{}, domain.NewError(domain.ErrValidation, "Account authentication is unavailable")
@@ -850,13 +913,15 @@ func (s *Service) Launch(
 		if validateErr != nil {
 			return domain.PlaySession{}, validateErr
 		}
-		if patchErr := s.clientSettings.Patch(clientSettingsPath, account); patchErr != nil {
+		cleanup, patchErr := s.clientSettings.Inject(clientSettingsPath, account)
+		if patchErr != nil {
 			return domain.PlaySession{}, &domain.AppError{
 				Code:    domain.ErrClientSettings,
 				Message: "Could not write authentication to the instance settings",
 				Cause:   patchErr,
 			}
 		}
+		cleanupCredentials = cleanup
 	} else if s.clientSettings != nil {
 		if clearErr := s.clientSettings.Clear(clientSettingsPath); clearErr != nil {
 			return domain.PlaySession{}, &domain.AppError{
@@ -868,15 +933,22 @@ func (s *Service) Launch(
 	}
 
 	if err := s.modFiles.EnsureLayout(instance.Directory); err != nil {
+		_ = cleanupCredentials()
 		return domain.PlaySession{}, err
 	}
 	logsDirectory := filepath.Join(instance.Directory, "Logs")
-	if err := os.MkdirAll(logsDirectory, 0o755); err != nil {
+	if err := os.MkdirAll(logsDirectory, 0o700); err != nil {
+		_ = cleanupCredentials()
+		return domain.PlaySession{}, err
+	}
+	if err := securefs.Apply(logsDirectory, 0o700, true); err != nil {
+		_ = cleanupCredentials()
 		return domain.PlaySession{}, err
 	}
 
 	settings, err := s.store.GetSettings(ctx)
 	if err != nil {
+		_ = cleanupCredentials()
 		return domain.PlaySession{}, err
 	}
 	arguments := append([]string{}, settings.GlobalLaunchArguments...)
@@ -885,14 +957,20 @@ func (s *Service) Launch(
 
 	logPath := filepath.Join(
 		logsDirectory,
-		time.Now().Format("20060102-150405")+".log",
+		time.Now().Format("20060102-150405.000000000")+".log",
 	)
 	logFile, err := os.OpenFile(
 		logPath,
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
-		0o644,
+		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
+		0o600,
 	)
 	if err != nil {
+		_ = cleanupCredentials()
+		return domain.PlaySession{}, err
+	}
+	if err := securefs.Apply(logPath, 0o600, false); err != nil {
+		_ = logFile.Close()
+		_ = cleanupCredentials()
 		return domain.PlaySession{}, err
 	}
 
@@ -907,6 +985,7 @@ func (s *Service) Launch(
 	)
 	if err != nil {
 		_ = logFile.Close()
+		_ = cleanupCredentials()
 		return domain.PlaySession{}, &domain.AppError{
 			Code:    domain.ErrProcessStart,
 			Message: "Failed to start Vintage Story",
@@ -927,6 +1006,7 @@ func (s *Service) Launch(
 	if err := s.store.SaveSession(ctx, session); err != nil {
 		_ = process.Kill()
 		_ = logFile.Close()
+		_ = cleanupCredentials()
 		return session, err
 	}
 
@@ -941,11 +1021,12 @@ func (s *Service) Launch(
 		sessionID: session.ID,
 		started:   now,
 		log:       logFile,
+		cleanup:   cleanupCredentials,
 	}
 	s.runningMu.Unlock()
 
 	s.emit("game:started", session)
-	go s.waitForGame(instance, process, session.ID, now, logFile)
+	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
 }
 
@@ -987,9 +1068,11 @@ func (s *Service) waitForGame(
 	sessionID string,
 	startedAt time.Time,
 	logFile io.Closer,
+	cleanupCredentials func() error,
 ) {
 	exitCode, waitErr := process.Wait()
 	_ = logFile.Close()
+	_ = cleanupCredentials()
 
 	durationSeconds := int64(time.Since(startedAt).Seconds())
 	crashed := waitErr != nil || exitCode != 0
