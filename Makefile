@@ -20,17 +20,17 @@ wails-build:
 frontend:
 	$(NPM) --prefix frontend run build
 
-test:
+test: frontend
 	$(GO) test ./...
 	$(NPM) --prefix frontend test
 
-vet:
+vet: frontend
 	$(GO) vet ./...
 
 package-linux:
 	./scripts/build-linux.sh $(VERSION) $(RELEASE_DIR)
 
-release-check: test vet frontend
+release-check: test vet
 	./scripts/check-version.sh $(VERSION)
 
 clean:
