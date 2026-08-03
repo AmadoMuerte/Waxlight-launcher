@@ -257,6 +257,36 @@ func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
 	}
 }
 
+func TestDeleteVersionRemovesFilesAndEmptyLibraryDirectory(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	markerPath := filepath.Join(filepath.Dir(fixture.executable), ".waxlight-version")
+	if err := os.WriteFile(markerPath, []byte("1.20"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(filepath.Dir(fixture.executable), "readme.txt"),
+		[]byte("installed game"),
+		0o444,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fixture.service.DeleteVersion(ctx, "1.20", true); err != nil {
+		t.Fatal(err)
+	}
+	versionDirectory := filepath.Dir(fixture.executable)
+	if _, err := os.Stat(versionDirectory); !os.IsNotExist(err) {
+		t.Fatalf("version directory still exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Dir(versionDirectory)); !os.IsNotExist(err) {
+		t.Fatalf("empty versions directory still exists: %v", err)
+	}
+	if _, err := fixture.store.GetVersion(ctx, "1.20"); err == nil {
+		t.Fatal("deleted version is still stored")
+	}
+}
+
 func TestLocalModLifecycle(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()

@@ -222,10 +222,18 @@ func migrateDirectory(oldPath string, newPath string) error {
 		return fmt.Errorf("legacy mod path is not a directory: %s", oldPath)
 	}
 
-	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+	newInfo, err := os.Stat(newPath)
+	if os.IsNotExist(err) {
 		return os.Rename(oldPath, newPath)
 	} else if err != nil {
 		return err
+	}
+
+	// Windows resolves `mods` and `Mods` to the same directory. Treat that as
+	// an already-migrated layout instead of moving its entries onto themselves
+	// and then trying to remove the still-populated directory.
+	if os.SameFile(oldInfo, newInfo) {
+		return nil
 	}
 
 	entries, err := os.ReadDir(oldPath)

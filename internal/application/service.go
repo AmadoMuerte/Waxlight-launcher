@@ -381,10 +381,28 @@ func (s *Service) DeleteVersion(ctx context.Context, id string, deleteFiles bool
 	}
 	if deleteFiles {
 		if e = safeRemoveAll(v.InstallationDir, s.dataRoot, ".waxlight-version"); e != nil {
-			return e
+			var appError *domain.AppError
+			if errors.As(e, &appError) {
+				return e
+			}
+			return &domain.AppError{
+				Code:    domain.ErrFilePermission,
+				Message: "Could not remove the game version files. Close the game and try again",
+				Cause:   e,
+			}
 		}
 	}
-	return s.store.DeleteVersion(ctx, id)
+	if e = s.store.DeleteVersion(ctx, id); e != nil {
+		return e
+	}
+	versionsRoot := filepath.Join(s.dataRoot, "versions")
+	if deleteFiles && samePath(filepath.Dir(v.InstallationDir), versionsRoot) {
+		// Keep shared roots while they contain other versions, but do not leave
+		// an empty `versions` directory after the final version is removed.
+		_ = os.Remove(versionsRoot)
+	}
+	s.emit("version:removed", map[string]string{"id": id})
+	return nil
 }
 
 type CreateInstanceInput struct {
@@ -522,7 +540,50 @@ func safeRemoveAll(path, dataRoot, marker string) error {
 	if _, e = os.Stat(filepath.Join(abs, marker)); e != nil {
 		return domain.NewError(domain.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
 	}
-	return os.RemoveAll(abs)
+	return removeAllReliably(abs)
+}
+
+func samePath(left string, right string) bool {
+	left = filepath.Clean(left)
+	right = filepath.Clean(right)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(left, right)
+	}
+	return left == right
+}
+
+func removeAllReliably(path string) error {
+	var lastError error
+	for attempt := 0; attempt < 5; attempt++ {
+		if runtime.GOOS == "windows" {
+			// Extracted installers may leave read-only attributes behind. Go's
+			// chmod implementation clears that attribute on Windows.
+			_ = filepath.Walk(path, func(currentPath string, info os.FileInfo, walkErr error) error {
+				if walkErr != nil || info == nil {
+					return nil
+				}
+				_ = os.Chmod(currentPath, info.Mode()|0o200)
+				return nil
+			})
+		}
+
+		lastError = os.RemoveAll(path)
+		if lastError == nil {
+			_, statError := os.Lstat(path)
+			if errors.Is(statError, os.ErrNotExist) {
+				return nil
+			}
+			if statError != nil {
+				return statError
+			}
+			lastError = fmt.Errorf("directory still exists after recursive removal: %s", path)
+		}
+		if runtime.GOOS != "windows" {
+			break
+		}
+		time.Sleep(time.Duration(attempt+1) * 50 * time.Millisecond)
+	}
+	return lastError
 }
 
 func (s *Service) ListMods(ctx context.Context, instanceID string) ([]domain.InstalledMod, error) {
@@ -711,7 +772,6 @@ func (s *Service) ValidateLaunch(
 			"The Vintagestory executable could not be found",
 		)
 	}
-
 	chosen, chooseErr := s.resolveAccountID(ctx, instance, accountID)
 	if chooseErr != nil {
 		validation.Valid = false
