@@ -2,22 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   quality:
     name: Tests and static checks
     runs-on: ubuntu-24.04
+
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -54,6 +59,7 @@ jobs:
         run: npm --prefix frontend test
 
       - name: Validate release metadata
+        shell: bash
         run: |
           version="$(node -p "require('./wails.json').info.productVersion")"
           ./scripts/check-version.sh "$version"
@@ -64,51 +70,90 @@ jobs:
   security:
     name: Vulnerability and secret scanning
     runs-on: ubuntu-24.04
+
     steps:
       - name: Check out full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - name: Set up Go
+
+      # govulncheck v1.6.0 requires Go 1.25 or newer.
+      # The application itself may remain on Go 1.24.
+      - name: Set up Go for security tools
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version-file: go.mod
+          go-version: "1.25.x"
+          cache: true
+
       - name: Run govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck ./...
+
+      - name: Install gitleaks
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+
       - name: Scan Git history for secrets
-        run: |
-          go install github.com/zricethezav/gitleaks/v8@v8.30.1
-          gitleaks git --redact --no-banner
+        run: gitleaks git --redact --no-banner
 
   native-credential-store:
     name: Native credential store (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
-    runs-on: ${{ matrix.os }}
+        os:
+          - ubuntu-24.04
+          - windows-latest
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
+          cache: true
+
       - name: Install Linux Secret Service implementation
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y dbus-x11 gnome-keyring
+          sudo apt-get install \
+            --no-install-recommends \
+            -y \
+            dbus-x11 \
+            gnome-keyring
+
       - name: Test Linux Secret Service adapter
         if: runner.os == 'Linux'
-        run: dbus-run-session -- bash -c 'eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)" && go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip'
+        shell: bash
+        run: |
+          dbus-run-session -- bash -c '
+            eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)"
+            go test \
+              -tags=integration \
+              ./internal/infrastructure/credentials \
+              -run TestNativeCredentialStoreRoundTrip
+          '
+
       - name: Test Windows Credential Manager adapter
         if: runner.os == 'Windows'
-        run: go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip
+        shell: powershell
+        run: |
+          go test `
+            -tags=integration `
+            ./internal/infrastructure/credentials `
+            -run TestNativeCredentialStoreRoundTrip
 
   linux-build:
-    name: Linux desktop build
+    name: Linux production build
     runs-on: ubuntu-24.04
+    needs:
+      - quality
+
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -126,23 +171,135 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Prepare frontend assets
-        run: |
-          npm ci --include=dev --prefix frontend
-          npm --prefix frontend run build
-
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install \
+            --no-install-recommends \
+            -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
+      - name: Install frontend dependencies
+        run: npm ci --include=dev --prefix frontend
+
       - name: Build Linux application
+        shell: bash
         env:
+          CGO_ENABLED: "1"
           XDG_CONFIG_HOME: ${{ runner.temp }}/waxlight-config
         run: |
           mkdir -p "$XDG_CONFIG_HOME"
+
           cd cmd/waxlight
-          wails build -clean -platform linux/amd64
+
+          wails build \
+            -clean \
+            -platform linux/amd64 \
+            -trimpath \
+            -ldflags="-s -w"
+
+      - name: Verify Linux executable
+        shell: bash
+        run: |
+          test -x build/bin/waxlight
+          file build/bin/waxlight
+          ls -lh build/bin/waxlight
+
+  windows-build:
+    name: Windows production build
+    runs-on: windows-latest
+    needs:
+      - quality
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install MinGW
+        shell: powershell
+        run: |
+          choco install mingw --no-progress -y
+
+          $Gcc = Get-ChildItem `
+            -Path "$env:ChocolateyInstall\lib\mingw" `
+            -Filter "gcc.exe" `
+            -Recurse |
+            Select-Object -First 1
+
+          if (-not $Gcc) {
+            throw "Chocolatey installed MinGW, but gcc.exe was not found"
+          }
+
+          $MingwBin = $Gcc.Directory.FullName
+          $MingwBin |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+          Write-Host "MinGW path: $MingwBin"
+
+      - name: Install Wails CLI
+        shell: powershell
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+
+          (go env GOPATH) + "\bin" |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+      - name: Install frontend dependencies
+        shell: powershell
+        run: npm ci --include=dev --prefix frontend
+
+      - name: Build Windows application with CGO
+        shell: powershell
+        env:
+          CGO_ENABLED: "1"
+          CC: gcc
+          CXX: g++
+        run: |
+          gcc --version
+
+          Write-Host "CGO_ENABLED=$env:CGO_ENABLED"
+          Write-Host "CC=$env:CC"
+          Write-Host "CXX=$env:CXX"
+
+          Set-Location cmd/waxlight
+
+          wails build `
+            -clean `
+            -platform windows/amd64 `
+            -trimpath `
+            -ldflags="-s -w"
+
+      - name: Verify Windows executable
+        shell: powershell
+        run: |
+          $Binary = "build/bin/waxlight.exe"
+
+          if (-not (Test-Path $Binary)) {
+            throw "Windows binary was not created: $Binary"
+          }
+
+          Get-Item $Binary |
+            Format-List Name, Length, FullName
