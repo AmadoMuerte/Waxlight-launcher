@@ -20,16 +20,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -44,6 +44,9 @@ jobs:
       - name: Test backend
         run: go test ./...
 
+      - name: Race-test backend
+        run: go test -race ./...
+
       - name: Vet backend
         run: go vet ./...
 
@@ -55,21 +58,69 @@ jobs:
           version="$(node -p "require('./wails.json').info.productVersion")"
           ./scripts/check-version.sh "$version"
 
+      - name: Check prohibited security patterns
+        run: ./scripts/check-security-patterns.sh
+
+  security:
+    name: Vulnerability and secret scanning
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
+      - name: Scan Git history for secrets
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          gitleaks git --redact --no-banner
+
+  native-credential-store:
+    name: Native credential store (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Install Linux Secret Service implementation
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y dbus-x11 gnome-keyring
+      - name: Test Linux Secret Service adapter
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- bash -c 'printf "\n" | gnome-keyring-daemon --unlock >/dev/null && go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip'
+      - name: Test Windows Credential Manager adapter
+        if: runner.os == 'Windows'
+        run: go test -tags=integration ./internal/infrastructure/credentials -run TestNativeCredentialStoreRoundTrip
+
   linux-build:
     name: Linux desktop build
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
