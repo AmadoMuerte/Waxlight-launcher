@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run check:i18n && tsc && vite build",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "test": "node scripts/test.mjs"
   },
   "dependencies": {
+    "i18next": "^26.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-i18next": "^17.0.11",
     "react-router-dom": "7.18.2"
   },
   "devDependencies": {

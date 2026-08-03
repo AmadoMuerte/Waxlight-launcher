@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 import {
@@ -18,6 +19,7 @@ import {
   compatibilityLabel,
   formatBytes,
   instanceGameVersion,
+  releaseTypeLabel,
 } from "./lib";
 
 interface InstancePickerDialogProps {
@@ -41,6 +43,7 @@ export function InstancePickerDialog({
   onClose,
   onDone,
 }: InstancePickerDialogProps) {
+  const { t } = useTranslation();
   const preferredInstance = instances.find((item) => item.id === preferredInstanceId);
   const preferredVersion = preferredInstance
     ? instanceGameVersion(preferredInstance, gameVersions)
@@ -89,11 +92,11 @@ export function InstancePickerDialog({
 
   async function start(downloadOnly: boolean) {
     if (!release) {
-      setError("No downloadable version is available.");
+      setError(t("no_downloadable_mod_version"));
       return;
     }
     if (!downloadOnly && selected.length === 0) {
-      setError("Select at least one instance or choose Download only.");
+      setError(t("select_instance_or_download_only"));
       return;
     }
     const hasIncompatible = selected.some((id) => {
@@ -103,7 +106,7 @@ export function InstancePickerDialog({
     if (
       hasIncompatible &&
       !window.confirm(
-        "This release does not list support for one or more selected game versions. Installing it may cause crashes or corrupted saves. Install anyway?",
+        t("unsupported_mod_warning"),
       )
     ) {
       return;
@@ -150,22 +153,22 @@ export function InstancePickerDialog({
   }
 
   return (
-    <Modal title={`${downloaded ? "Install" : "Download"} “${mod.name}”`} onClose={() => void cancel()}>
+    <Modal title={t(downloaded ? "install_named_mod" : "download_named_mod", { name: mod.name })} onClose={() => void cancel()}>
       {phase === "select" && (
         <div className="instancePicker">
-          <p className="muted">Select one or more instances.</p>
+          <p className="muted">{t("select_one_or_more_instances")}</p>
           <div className="formRow">
-            <Field label="Mod version">
+            <Field label={t("mod_version")}>
               <select value={releaseId} onChange={(event) => setReleaseId(event.target.value)}>
                 {mod.versions.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.version} · {item.releaseType}
+                    {item.version} · {releaseTypeLabel(item.releaseType)}
                   </option>
                 ))}
               </select>
             </Field>
             <div className="releaseSummary">
-              <span>{release?.gameVersions.join(", ") || "Compatibility unknown"}</span>
+              <span>{release?.gameVersions.join(", ") || t("compatibility_unknown")}</span>
               <small>{formatBytes(release?.fileSize ?? 0)}</small>
             </div>
           </div>
@@ -173,15 +176,15 @@ export function InstancePickerDialog({
           {instances.length === 0 ? (
             <Empty
               icon="◌"
-              title="No instances available"
-              description="Create an instance before installing mods. You can still download the file now."
+              title={t("no_instances_available")}
+              description={t("create_instance_before_mods")}
             />
           ) : (
             <>
               <input
                 className="instanceSearch"
-                aria-label="Search instances"
-                placeholder="Search instances…"
+                aria-label={t("search_instances")}
+                placeholder={t("search_instances_placeholder")}
                 value={instanceQuery}
                 onChange={(event) => setInstanceQuery(event.target.value)}
               />
@@ -221,20 +224,20 @@ export function InstancePickerDialog({
                   checked={showIncompatible}
                   onChange={(event) => setShowIncompatible(event.target.checked)}
                 />
-                Show incompatible instances
+                {t("show_incompatible_instances")}
               </label>
             </>
           )}
           {error && <div className="inlineError" role="alert">{error}</div>}
           <div className="modalActions">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button variant="ghost" onClick={onClose}>{t("cancel")}</Button>
             {!downloaded && (
               <Button variant="secondary" busy={busy} onClick={() => void start(true)}>
-                Download only
+                {t("download_only")}
               </Button>
             )}
             <Button busy={busy} disabled={selected.length === 0} onClick={() => void start(false)}>
-              {downloaded ? "Install" : "Download & Install"}
+              {downloaded ? t("install") : t("download_and_install")}
             </Button>
           </div>
         </div>
@@ -243,14 +246,14 @@ export function InstancePickerDialog({
       {phase === "progress" && (
         <div className="taskProgress" aria-live="polite">
           <div className="progressOrb">⇣</div>
-          <h3>{progress?.message || `Preparing ${mod.name}`}</h3>
+          <h3>{progress?.message || t("preparing_mod", { name: mod.name })}</h3>
           <div className="progressTrack"><i style={{ width: `${Math.round((progress?.progress ?? 0.05) * 100)}%` }} /></div>
           <p>
             {progress?.totalBytes
-              ? `${formatBytes(progress.downloadedBytes)} of ${formatBytes(progress.totalBytes)}`
-              : "Contacting the mod database…"}
+              ? t("download_progress", { downloaded: formatBytes(progress.downloadedBytes), total: formatBytes(progress.totalBytes) })
+              : t("contacting_mod_database")}
           </p>
-          <Button variant="ghost" onClick={() => void cancel()}>Cancel</Button>
+          <Button variant="ghost" onClick={() => void cancel()}>{t("cancel")}</Button>
         </div>
       )}
 
@@ -259,8 +262,8 @@ export function InstancePickerDialog({
           <div className="successMark">✓</div>
           <h3>
             {result.installations.length === 0
-              ? "Mod downloaded successfully"
-              : `Installed to ${result.installations.filter((item) => item.installed).length} of ${result.installations.length} instances`}
+              ? t("mod_downloaded_successfully")
+              : t("installed_to_instances", { installed: result.installations.filter((item) => item.installed).length, total: result.installations.length })}
           </h3>
           {result.installations.length > 0 && (
             <div className="resultList">
@@ -274,7 +277,7 @@ export function InstancePickerDialog({
               ))}
             </div>
           )}
-          <div className="modalActions"><Button onClick={onClose}>Done</Button></div>
+          <div className="modalActions"><Button onClick={onClose}>{t("done")}</Button></div>
         </div>
       )}
     </Modal>

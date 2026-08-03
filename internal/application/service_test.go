@@ -919,3 +919,61 @@ func TestStatisticsAreCalculatedByBackend(t *testing.T) {
 		t.Fatalf("unexpected average session: %+v", statistics)
 	}
 }
+
+func TestSettingsLanguageNormalization(t *testing.T) {
+	cases := map[string]string{
+		"en": "en", "EN": "en", "en-US": "en",
+		"ru": "ru", "RU": "ru", "ru_RU": "ru",
+		"  ru-RU  ": "ru", "": "en", "fr": "en",
+	}
+	for input, expected := range cases {
+		t.Run(input, func(t *testing.T) {
+			fixture := newTestFixture(t)
+			ctx := context.Background()
+			settings, err := fixture.service.GetSettings(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			settings.Language = input
+			settings.DownloadsParallel = 4
+			saved, err := fixture.service.SaveSettings(ctx, settings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if saved.Language != expected {
+				t.Fatalf("normalize %q: got %q, want %q", input, saved.Language, expected)
+			}
+			if saved.DownloadsParallel != 4 {
+				t.Fatal("language save changed unrelated settings")
+			}
+		})
+	}
+}
+
+func TestGetSettingsRepairsAndPersistsInvalidLanguage(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	settings, err := fixture.store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.Language = "unsupported"
+	if err := fixture.store.SaveSettings(ctx, settings); err != nil {
+		t.Fatal(err)
+	}
+
+	repaired, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repaired.Language != "en" {
+		t.Fatalf("got %q", repaired.Language)
+	}
+	persisted, err := fixture.store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Language != "en" {
+		t.Fatalf("repair was not persisted: %q", persisted.Language)
+	}
+}

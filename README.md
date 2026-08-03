@@ -1,13 +1,16 @@
 <div align="center">
   <img src="packaging/linux/com.waxlight.launcher.svg" alt="Waxlight Launcher icon" width="112" height="112">
 
-  # Waxlight Launcher
+# Waxlight Launcher
 
-  **A warm, focused launcher for Vintage Story.**
+**A warm, focused launcher for Vintage Story.**
 
-  [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
-  [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
-  [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+**English** | [Русский](README.ru.md)
+
+[![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+
 </div>
 
 Waxlight Launcher was created and is developed solely by
@@ -24,28 +27,30 @@ Story account and the right to download the game are required.
 
 ## What Waxlight does
 
-- Manages multiple Vintage Story accounts, including TOTP/2FA login.
-- Discovers releases from the Vintage Story version feed and installs several
+* Manages multiple Vintage Story accounts, including TOTP/2FA login.
+* Discovers releases from the Vintage Story version feed and installs several
   game versions side by side.
-- Creates isolated game setups so mods and settings do not leak between them.
-- Browses Vintage Story ModDB with search, filters, sorting, and mod details.
-- Downloads, installs, updates, enables, disables, and removes mods per setup.
-- Validates the selected account and game version before launch.
-- Starts and stops the game, records logs, and prevents conflicting launches.
-- Tracks individual play sessions and total or per-setup playtime.
-- Shows current and completed downloads and other long-running operations.
+* Creates isolated game setups so mods and settings do not leak between them.
+* Browses Vintage Story ModDB with search, filters, sorting, and mod details.
+* Downloads, installs, updates, enables, disables, and removes mods per setup.
+* Validates the selected account and game version before launch.
+* Starts and stops the game, records logs, and prevents conflicting launches.
+* Tracks individual play sessions and total or per-setup playtime.
+* Shows current and completed downloads and other long-running operations.
+* Supports multiple interface languages with a persistent language preference.
 
 ## Download
 
-Download the newest build from [GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest).
+Download the newest build from
+[GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest).
 
-| Platform | File | Recommended for |
-| --- | --- | --- |
-| Windows x64 | `*-windows-amd64-installer.exe` | Normal installation with shortcuts and an uninstaller |
-| Windows x64 | `*-windows-amd64-portable.zip` | Portable use without installation |
-| Debian / Ubuntu x64 | `*-linux-amd64.deb` | Debian, Ubuntu, Mint, and compatible distributions |
-| Fedora / RPM x64 | `*-linux-amd64.rpm` | Fedora and compatible RPM distributions |
-| Linux x64 | `*-linux-amd64.tar.gz` | Other distributions with the required runtime libraries |
+| Platform            | File                            | Recommended for                                         |
+| ------------------- | ------------------------------- | ------------------------------------------------------- |
+| Windows x64         | `*-windows-amd64-installer.exe` | Normal installation with shortcuts and an uninstaller   |
+| Windows x64         | `*-windows-amd64-portable.zip`  | Portable use without installation                       |
+| Debian / Ubuntu x64 | `*-linux-amd64.deb`             | Debian, Ubuntu, Mint, and compatible distributions      |
+| Fedora / RPM x64    | `*-linux-amd64.rpm`             | Fedora and compatible RPM distributions                 |
+| Linux x64           | `*-linux-amd64.tar.gz`          | Other distributions with the required runtime libraries |
 
 Every release also contains `SHA256SUMS`. Verify a download on Linux with:
 
@@ -101,13 +106,55 @@ neutral option for the first release.
 Waxlight stores its local database, downloaded files, and settings in the
 operating system's user configuration directory:
 
-- Linux: `~/.config/waxlight/`
-- Windows: `%AppData%\waxlight\`
+* Linux: `~/.config/waxlight/`
+* Windows: `%AppData%\waxlight\`
 
 Stop all games before backing up or moving this directory. Never attach the
 entire data directory, instance `clientsettings.json` files, or logs to a public
 issue. Persistent session credentials are held by the operating-system
 credential store and are not transferred with the Waxlight data directory.
+
+## Interface languages
+
+Waxlight currently includes:
+
+* English;
+* Russian.
+
+The selected language is stored in the application settings and restored the
+next time Waxlight starts.
+
+Translation resources are located in:
+
+```text
+frontend/src/i18n/locales/
+```
+
+Each language uses one JSON file with stable `snake_case` keys:
+
+```text
+en.json
+ru.json
+```
+
+English is the canonical source and fallback language. Contributors are welcome
+to improve existing translations or add new ones.
+
+When editing translations:
+
+* translate values only;
+* do not rename existing keys;
+* preserve interpolation expressions such as `{{name}}`;
+* preserve plural key suffixes such as `_one`, `_few`, `_many`, and `_other`;
+* keep technical names, paths, URLs and version identifiers unchanged.
+
+Validate translation files with:
+
+```bash
+npm run check:i18n --prefix frontend
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contribution process.
 
 ## Project status
 
@@ -137,13 +184,13 @@ implementation details.
 
 ### Requirements
 
-- Go 1.24 or newer;
-- Node.js 22 and npm;
-- Wails CLI 2.11;
-- a C compiler;
-- the [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/)
+* Go 1.24 or newer;
+* Node.js 22 and npm;
+* Wails CLI 2.11;
+* a C compiler;
+* the [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/)
   for your operating system;
-- on Linux, GTK 3 and WebKitGTK 4.1 development packages.
+* on Linux, GTK 3 and WebKitGTK 4.1 development packages.
 
 Clone and verify the project:
 
@@ -206,6 +253,7 @@ internal/application/     Use cases and service interfaces
 internal/infrastructure/  SQLite, HTTP, filesystem, credentials, processes
 internal/presentation/    Wails controllers and DTOs
 frontend/src/             React and TypeScript interface
+frontend/src/i18n/        Interface localization
 packaging/                Linux desktop and package metadata
 scripts/                  Reproducible release scripts
 .github/workflows/        CI and release automation
@@ -226,13 +274,18 @@ Use the issue templates for reproducible bugs and focused feature proposals.
 For vulnerabilities or accidental credential exposure, follow
 [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+Translation contributions are also welcome. Keep translation keys synchronized
+with `frontend/src/i18n/locales/en.json` and run the i18n validation command
+before submitting a pull request.
+
 ## Releases
 
 Every push and pull request to `main` runs tests, static analysis, the frontend
 build, native credential-store integration tests on Linux and Windows,
-vulnerability and secret scans, and a Linux Wails build. Pushing a semantic
-version tag such as `v0.1.0`
-starts the release workflow, which:
+vulnerability and secret scans, and a Linux Wails build.
+
+Pushing a semantic version tag such as `v0.1.0` starts the release workflow,
+which:
 
 1. validates the tag against the application version;
 2. builds Windows and Linux artifacts on native GitHub runners;

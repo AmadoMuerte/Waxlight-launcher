@@ -45,6 +45,26 @@ govulncheck ./...
 Keep pull requests focused. Add or update tests for behavior changes and update
 public documentation when user-visible behavior changes.
 
+## Localization
+
+English is the source and fallback language. To add a language, copy
+`frontend/src/i18n/locales/en.json` to `<language-code>.json` and translate only
+the values. Keep every key unchanged, including plural suffixes, and preserve
+interpolation expressions such as `{{name}}`.
+
+Then add the language to `frontend/src/i18n/languages.ts`, register its resource
+in `frontend/src/i18n/index.ts`, and allow it in the backend language validation.
+Run the translation check and both test suites before opening a pull request:
+
+```bash
+npm run check:i18n --prefix frontend
+npm test --prefix frontend
+go test ./...
+```
+
+Mention added or changed languages in the pull request description so reviewers
+can verify terminology and plural forms.
+
 ## Architecture expectations
 
 - Keep domain and application logic independent from Wails and React.

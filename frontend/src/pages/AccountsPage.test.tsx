@@ -157,7 +157,7 @@ describe("account authentication UI", () => {
     const password = within(dialog).getByLabelText("Password") as HTMLInputElement;
     await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
 
-    expect(await screen.findByText(authErrorMessages.invalid_credentials)).toBeTruthy();
+    expect(await screen.findByText("The email, password, or verification code is incorrect.")).toBeTruthy();
     expect(password.value).toBe("");
   });
 
@@ -174,7 +174,7 @@ describe("account authentication UI", () => {
     const { refresh } = renderPage([validAccount, expired]);
     const user = userEvent.setup();
 
-    const expiredCard = screen.getByText("Expired").closest("article");
+    const expiredCard = screen.getByText("Expired", { selector: "strong" }).closest("article");
     if (!expiredCard) throw new Error("expired account card not found");
     await user.click(within(expiredCard).getByRole("button", { name: "Select" }));
     expect(api.setDefault).toHaveBeenCalledWith("expired");
@@ -202,7 +202,7 @@ describe("account authentication helpers", () => {
   it("validates email and contains only safe localized errors", () => {
     expect(isValidEmail("player@example.com")).toBe(true);
     expect(isValidEmail("not-an-email")).toBe(false);
-    expect(authErrorMessages.network_error).toContain("connect");
+    expect(authErrorMessages.network_error).toBe("auth_network_error");
     expect(JSON.stringify(authErrorMessages)).not.toMatch(
       /sessionkey|sessionsignature|prelogintoken/i,
     );

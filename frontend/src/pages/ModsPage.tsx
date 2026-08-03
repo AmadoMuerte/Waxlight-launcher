@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import {
   modCatalogApi,
@@ -25,6 +27,7 @@ interface ModsPageProps {
 }
 
 export function ModsPage({ instances, versions, notify }: ModsPageProps) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -210,25 +213,25 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
     setDownloaded((await modCatalogApi.downloaded()) ?? []);
   }
 
-  const displayed = view === "all" ? catalog : filteredDownloaded.map(downloadedAsSummary);
+  const displayed = view === "all" ? catalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
 
   return (
     <>
       <PageHeader
-        eyebrow="Mod Browser"
-        title="Mods"
-        description="Discover, download and install mods for your instances."
+        eyebrow={t("mod_browser")}
+        title={t("mods")}
+        description={t("mods_description")}
         action={
           <div className="modsSearch">
             <span>⌕</span>
             <input
-              aria-label="Search mods"
-              placeholder="Search mods…"
+              aria-label={t("search_mods")}
+              placeholder={t("search_mods_placeholder")}
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
             />
             {searchText && (
-              <button aria-label="Clear search" onClick={() => setSearchText("")}>×</button>
+              <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>×</button>
             )}
           </div>
         }
@@ -236,11 +239,11 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
 
       {contextInstance && (
         <div className="instanceContext">
-          <span>Browsing for:</span>
+          <span>{t("browsing_for")}</span>
           <strong>{contextInstance.name}</strong>
           <span>· Vintage Story {contextVersion?.name ?? contextInstance.gameVersionId}</span>
           <button onClick={() => updateParams({ instanceId: undefined, compatible: undefined })}>
-            Clear instance context
+            {t("clear_instance_context")}
           </button>
         </div>
       )}
@@ -252,7 +255,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           className={view === "all" ? "active" : ""}
           onClick={() => updateParams({ view: "all", page: "1" })}
         >
-          All Mods
+          {t("all_mods")}
         </button>
         <button
           role="tab"
@@ -260,7 +263,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           className={view === "downloaded" ? "active" : ""}
           onClick={() => updateParams({ view: "downloaded", page: "1" })}
         >
-          Downloaded <b>{downloaded.length || ""}</b>
+          {t("downloaded")} <b>{downloaded.length || ""}</b>
         </button>
       </div>
 
@@ -275,13 +278,12 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
 
       <div className="modsResultsHeader">
         <span>
-          {view === "all" ? total : filteredDownloaded.length}{" "}
-          {view === "downloaded" ? "downloaded" : "mods"}
+          {view === "downloaded" ? t("downloaded_count", { count: filteredDownloaded.length }) : t("mods_count", { count: total })}
         </span>
-        <div className="viewToggle" aria-label="Results layout">
+        <div className="viewToggle" aria-label={t("results_layout")}>
           <button
             className={layout === "grid" ? "active" : ""}
-            aria-label="Grid view"
+            aria-label={t("grid_view")}
             onClick={() => {
               setLayout("grid");
               writeStorage("localStorage", "waxlight.mods.layout", "grid");
@@ -291,7 +293,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           </button>
           <button
             className={layout === "list" ? "active" : ""}
-            aria-label="List view"
+            aria-label={t("list_view")}
             onClick={() => {
               setLayout("list");
               writeStorage("localStorage", "waxlight.mods.layout", "list");
@@ -303,13 +305,13 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       </div>
 
       {loading ? (
-        <div className={`modGrid modGrid-${layout} modSkeletonGrid`} aria-label="Loading mods">
+        <div className={`modGrid modGrid-${layout} modSkeletonGrid`} aria-label={t("loading_mods")}>
           {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
         </div>
       ) : error ? (
         <Empty
           icon="!"
-          title="Could not load mods"
+          title={t("could_not_load_mods")}
           description={error}
           action={
             <Button
@@ -319,24 +321,24 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
                   : void refreshDownloaded()
               }
             >
-              Retry
+              {t("retry")}
             </Button>
           }
         />
       ) : displayed.length === 0 ? (
         <Empty
           icon="◇"
-          title={view === "downloaded" ? "No downloaded mods yet" : "No mods found"}
+          title={view === "downloaded" ? t("no_downloaded_mods") : t("no_mods_found")}
           description={
             view === "downloaded"
-              ? "Mods you download will appear here."
-              : "Try changing your search or filters."
+              ? t("downloaded_mods_empty_description")
+              : t("try_changing_mod_filters")
           }
           action={
             view === "downloaded" ? (
-              <Button onClick={() => updateParams({ view: "all" })}>Browse mods</Button>
+              <Button onClick={() => updateParams({ view: "all" })}>{t("browse_mods")}</Button>
             ) : (
-              <Button onClick={clearFilters}>Clear filters</Button>
+              <Button onClick={clearFilters}>{t("clear_filters")}</Button>
             )
           }
         />
@@ -358,13 +360,13 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
                   local
                     ? async () => {
                         const warning = local.installedInstances.length > 0
-                          ? `This mod is installed in ${local.installedInstances.length} instances. Deleting the cached download will not remove those copies.`
-                          : "Delete this cached mod file?";
+                          ? t("delete_cached_installed_mod_confirmation", { count: local.installedInstances.length })
+                          : t("delete_cached_mod_confirmation");
                         if (!window.confirm(warning)) return;
                         try {
                           await modCatalogApi.removeDownloaded(local.modId, local.versionId);
                           await refreshDownloaded();
-                          notify("Downloaded mod removed");
+                          notify(t("downloaded_mod_removed"));
                         } catch (removeError) {
                           notify(errorMessage(removeError), "error");
                         }
@@ -384,7 +386,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
             busy={loadingMore}
             onClick={() => updateParams({ page: String(page + 1) })}
           >
-            Load more
+            {t("load_more")}
           </Button>
         </div>
       )}
@@ -400,7 +402,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           onClose={() => setInstalling(undefined)}
           onDone={async () => {
             await refreshDownloaded();
-            notify("Mod task completed");
+            notify(t("mod_task_completed"));
           }}
         />
       )}
@@ -414,13 +416,13 @@ function mergeMods(current: ModSummary[], next: ModSummary[]): ModSummary[] {
   return [...byId.values()];
 }
 
-function downloadedAsSummary(mod: DownloadedMod): ModSummary {
+function downloadedAsSummary(mod: DownloadedMod, t: TFunction): ModSummary {
   return {
     id: mod.modId,
     slug: mod.slug,
     name: mod.name,
     authorName: mod.authorName,
-    summary: `Downloaded version ${mod.downloadedVersion}`,
+    summary: t("downloaded_version", { version: mod.downloadedVersion }),
     imageUrl: mod.imageUrl,
     side: mod.side,
     latestVersion: mod.latestVersion,

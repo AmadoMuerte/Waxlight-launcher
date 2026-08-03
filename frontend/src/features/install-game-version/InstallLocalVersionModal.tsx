@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { settingsApi, versionsApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
@@ -20,6 +21,7 @@ export function InstallLocalVersionModal({
   onClose,
   onDone,
 }: InstallLocalVersionModalProps) {
+  const { t } = useTranslation();
   const [id, setID] = useState("");
   const [name, setName] = useState("");
   const [sourcePath, setSourcePath] = useState("");
@@ -31,7 +33,7 @@ export function InstallLocalVersionModal({
 
   async function install() {
     if (duplicateID) {
-      setError("This game version is already installed.");
+      setError(t("version_already_installed"));
       return;
     }
     setBusy(true);
@@ -67,18 +69,15 @@ export function InstallLocalVersionModal({
   }
 
   return (
-    <Modal title="Install a local version" className="installVersionDialog" onClose={onClose}>
+    <Modal title={t("install_local_version")} className="installVersionDialog" onClose={onClose}>
       <SubmitForm className="dialogForm" onSubmit={install}>
         <div className="modalBody formFields">
           <div className="notice">
-          <b>Local installation</b>
-          <span>
-            Use this for a distribution you already downloaded. Waxlight copies
-            it into the shared version store.
-          </span>
+          <b>{t("local_installation")}</b>
+          <span>{t("local_installation_description")}</span>
           </div>
           <div className="formRow">
-            <Field label="Version ID">
+            <Field label={t("version_id")}>
               <input
                 autoFocus
                 required
@@ -88,7 +87,7 @@ export function InstallLocalVersionModal({
                 aria-invalid={duplicateID}
               />
             </Field>
-            <Field label="Display name">
+            <Field label={t("display_name")}>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -98,12 +97,12 @@ export function InstallLocalVersionModal({
           </div>
           {duplicateID && (
             <div className="inlineError">
-              Version {id.trim()} is already installed.
+              {t("version_already_installed_detail", { id: id.trim() })}
             </div>
           )}
           <Field
-            label="Archive or directory"
-            hint="Supported archives: .zip, .tar.gz, and .tgz."
+            label={t("archive_or_directory")}
+            hint={t("supported_archives_hint")}
           >
             <div className="inputAction">
               <input
@@ -113,16 +112,16 @@ export function InstallLocalVersionModal({
                 placeholder="/path/to/vs_client_linux-x64_1.22.6.tar.gz"
               />
               <Button type="button" variant="secondary" onClick={() => void selectArchive()}>
-                Choose archive
+                {t("choose_archive")}
               </Button>
               <Button type="button" variant="ghost" onClick={() => void selectDirectory()}>
-                Directory
+                {t("directory")}
               </Button>
             </div>
           </Field>
           <Field
-            label="Executable path inside the archive"
-            hint="Leave empty to locate Vintagestory automatically."
+            label={t("executable_path_inside_archive")}
+            hint={t("locate_executable_hint")}
           >
             <input
               value={executablePath}
@@ -131,23 +130,23 @@ export function InstallLocalVersionModal({
             />
           </Field>
           <Field
-            label="SHA-256 checksum (optional)"
-            hint="Installation stops if the checksum does not match."
+            label={t("sha256_checksum_optional")}
+            hint={t("checksum_mismatch_hint")}
           >
             <input
               value={checksum}
               onChange={(event) => setChecksum(event.target.value)}
-              placeholder="64 hexadecimal characters"
+              placeholder={t("hexadecimal_characters_64")}
             />
           </Field>
           {error && <div className="inlineError" role="alert">{error}</div>}
         </div>
         <div className="dialogFooter">
           <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button busy={busy} disabled={duplicateID}>
-            Install
+            {t("install")}
           </Button>
         </div>
       </SubmitForm>

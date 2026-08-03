@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import {
   instancesApi,
@@ -44,6 +45,7 @@ export function LibraryPage({
   refresh,
   notify,
 }: LibraryPageProps) {
+  const { t } = useTranslation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
   const [query, setQuery] = useState("");
@@ -66,17 +68,17 @@ export function LibraryPage({
       const warnings = validation?.warnings ?? [];
 
       if (!validation?.valid) {
-        throw new Error(issues.join(". ") || "The instance cannot be launched.");
+        throw new Error(issues.join(". ") || t("instance_cannot_launch"));
       }
       if (
         warnings.length > 0 &&
-        !window.confirm(`${warnings.join("\n")}\n\nLaunch anyway?`)
+        !window.confirm(`${warnings.join("\n")}\n\n${t("launch_anyway")}`)
       ) {
         return;
       }
 
       await launcherApi.launch(instance.id, instance.defaultAccountId);
-      notify(`Started “${instance.name}”`);
+      notify(t("started_instance", { name: instance.name }));
       await refresh();
     } catch (error) {
       notify(errorMessage(error), "error");
@@ -86,12 +88,12 @@ export function LibraryPage({
   return (
     <>
       <PageHeader
-        eyebrow="Your worlds"
-        title="Library"
-        description="Every Vintage Story instance, neatly arranged."
+        eyebrow={t("your_worlds")}
+        title={t("library")}
+        description={t("library_description")}
         action={
           <Button onClick={() => setCreateDialogOpen(true)}>
-            ＋ New instance
+            ＋ {t("new_instance")}
           </Button>
         }
       />
@@ -101,14 +103,14 @@ export function LibraryPage({
           <div className="search">
             <span>⌕</span>
             <input
-              aria-label="Search instances"
-              placeholder="Find an instance…"
+              aria-label={t("search_instances")}
+              placeholder={t("find_instance_placeholder")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
           <span className="muted">
-            {visibleInstances.length} {visibleInstances.length === 1 ? "instance" : "instances"}
+            {t("instances_count", { count: visibleInstances.length })}
           </span>
         </div>
       )}
@@ -122,11 +124,11 @@ export function LibraryPage({
       ) : visibleInstances.length === 0 ? (
         <Empty
           icon="◌"
-          title={query ? "Nothing found" : "Light your first world"}
+          title={query ? t("nothing_found") : t("light_your_first_world")}
           description={
             query
-              ? "Try another instance name."
-              : "Create an isolated instance, select an installed game version, and start playing."
+              ? t("try_another_instance_name")
+              : t("create_first_instance_description")
           }
           action={
             !query && (
@@ -135,8 +137,8 @@ export function LibraryPage({
                 disabled={versions.length === 0}
               >
                 {versions.length > 0
-                  ? "Create instance"
-                  : "Install a game version first"}
+                  ? t("create_instance")
+                  : t("install_game_version_first")}
               </Button>
             )
           }
@@ -155,7 +157,7 @@ export function LibraryPage({
               onStop={async () => {
                 try {
                   await launcherApi.stop(instance.id);
-                  notify("A graceful stop signal was sent");
+                  notify(t("stop_signal_sent"));
                 } catch (error) {
                   notify(errorMessage(error), "error");
                 }
@@ -173,7 +175,7 @@ export function LibraryPage({
           onDone={async () => {
             setCreateDialogOpen(false);
             await refresh();
-            notify("Instance created");
+            notify(t("instance_created"));
           }}
         />
       )}
@@ -210,6 +212,7 @@ function InstanceCard({
   onLaunch,
   onStop,
 }: InstanceCardProps) {
+  const { t } = useTranslation();
   return (
     <article
       className="instanceCard"
@@ -230,18 +233,18 @@ function InstanceCard({
       <div className="cardBody">
         <div className="cardTitle">
           <h3>{instance.name}</h3>
-          <button className="more" aria-label="Open instance details">
+          <button className="more" aria-label={t("open_instance_details")}>
             •••
           </button>
         </div>
 
         <p>
-          {instance.description || "A quiet place for your next adventure."}
+          {instance.description || t("instance_default_description")}
         </p>
 
         <div className="meta">
           <span>◈ {version?.name ?? instance.gameVersionId}</span>
-          <span>◇ {instance.enabledModCount} mods</span>
+          <span>◇ {t("mods_count", { count: instance.enabledModCount })}</span>
           <span>◷ {formatDuration(instance.playtimeSeconds)}</span>
         </div>
 
@@ -255,7 +258,7 @@ function InstanceCard({
                 void onStop();
               }}
             >
-              Stop
+              {t("stop")}
             </Button>
           ) : (
             <Button
@@ -264,7 +267,7 @@ function InstanceCard({
                 onLaunch();
               }}
             >
-              ▶ Play
+              ▶ {t("play")}
             </Button>
           )}
         </div>
@@ -286,6 +289,7 @@ function CreateInstanceModal({
   onClose,
   onDone,
 }: CreateInstanceModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [versionID, setVersionID] = useState(versions[0]?.id ?? "");
@@ -314,29 +318,29 @@ function CreateInstanceModal({
   }
 
   return (
-    <Modal title="New instance" className="createInstanceDialog" onClose={onClose}>
+    <Modal title={t("new_instance")} className="createInstanceDialog" onClose={onClose}>
       <SubmitForm className="dialogForm" onSubmit={createInstance}>
         <div className="modalBody formFields">
-          <Field label="Name">
+          <Field label={t("name")}>
             <input
               autoFocus
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="For example, A Warm Home"
+              placeholder={t("instance_name_example")}
             />
           </Field>
 
-          <Field label="Description">
+          <Field label={t("description")}>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What makes this instance special?"
+              placeholder={t("instance_description_prompt")}
             />
           </Field>
 
           <div className="formRow">
-            <Field label="Game version">
+            <Field label={t("game_version")}>
               <Select
                 required
                 value={versionID}
@@ -350,12 +354,12 @@ function CreateInstanceModal({
               </Select>
             </Field>
 
-            <Field label="Launch account">
+            <Field label={t("launch_account")}>
               <Select
                 value={accountID}
                 onChange={(event) => setAccountID(event.target.value)}
               >
-                <option value="">Use the globally selected account</option>
+                <option value="">{t("use_globally_selected_account")}</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.displayName}
@@ -370,10 +374,10 @@ function CreateInstanceModal({
 
         <div className="dialogFooter">
           <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button busy={busy} disabled={versions.length === 0}>
-            Create
+            {t("create")}
           </Button>
         </div>
       </SubmitForm>
@@ -400,6 +404,7 @@ function InstanceModal({
   refresh,
   notify,
 }: InstanceModalProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<InstanceTab>("overview");
   const [mods, setMods] = useState<InstalledMod[]>([]);
@@ -438,7 +443,7 @@ function InstanceModal({
       });
       await loadMods();
       await refresh();
-      notify("Mod installed");
+      notify(t("mod_installed"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -458,7 +463,7 @@ function InstanceModal({
           : [],
       });
       await refresh();
-      notify("Instance settings saved");
+      notify(t("instance_settings_saved"));
     } catch (error) {
       notify(errorMessage(error), "error");
     } finally {
@@ -468,7 +473,7 @@ function InstanceModal({
 
   async function deleteInstance() {
     const confirmed = window.confirm(
-      `Delete “${instance.name}” and all of its files?`,
+      t("delete_instance_confirmation", { name: instance.name }),
     );
     if (!confirmed) {
       return;
@@ -478,7 +483,7 @@ function InstanceModal({
       await instancesApi.remove(instance.id, true);
       onClose();
       await refresh();
-      notify("Instance deleted");
+      notify(t("instance_deleted"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -507,7 +512,7 @@ function InstanceModal({
 
   return (
     <Modal title={instance.name} className="instanceDialog" onClose={onClose}>
-      <div className="tabs" role="tablist" aria-label="Instance details">
+      <div className="tabs" role="tablist" aria-label={t("instance_details")}>
         <button
           type="button"
           role="tab"
@@ -515,7 +520,7 @@ function InstanceModal({
           className={tab === "overview" ? "active" : ""}
           onClick={() => setTab("overview")}
         >
-          Overview
+          {t("overview")}
         </button>
         <button
           type="button"
@@ -524,7 +529,7 @@ function InstanceModal({
           className={tab === "mods" ? "active" : ""}
           onClick={() => setTab("mods")}
         >
-          Mods <b className="tabBadge">{mods.length}</b>
+          {t("mods")} <b className="tabBadge">{mods.length}</b>
         </button>
         <button
           type="button"
@@ -533,7 +538,7 @@ function InstanceModal({
           className={tab === "settings" ? "active" : ""}
           onClick={() => setTab("settings")}
         >
-          Settings
+          {t("settings")}
         </button>
       </div>
 
@@ -547,34 +552,34 @@ function InstanceModal({
                 <StatusPill status={instance.status} />
               </div>
               <p className={instance.description ? "" : "placeholderCopy"}>
-                {instance.description || "No description yet."}
+                {instance.description || t("no_description_yet")}
               </p>
             </div>
           </section>
 
-          <section className="instanceStats" aria-label="Instance statistics">
+          <section className="instanceStats" aria-label={t("instance_statistics")}>
             <article>
-              <span>Game version</span>
+              <span>{t("game_version")}</span>
               <strong>{selectedVersion?.name ?? instance.gameVersionId}</strong>
             </article>
             <article>
-              <span>Mods</span>
-              <strong>{mods.filter((mod) => mod.enabled).length} installed</strong>
-              <small>{mods.length} total</small>
+              <span>{t("mods")}</span>
+              <strong>{t("installed_count", { count: mods.filter((mod) => mod.enabled).length })}</strong>
+              <small>{t("total_count", { count: mods.length })}</small>
             </article>
             <article>
-              <span>Playtime</span>
+              <span>{t("playtime")}</span>
               <strong>{formatDuration(instance.playtimeSeconds)}</strong>
             </article>
             <article>
-              <span>Launch account</span>
-              <strong>{selectedAccount?.displayName ?? "Global default"}</strong>
+              <span>{t("launch_account")}</span>
+              <strong>{selectedAccount?.displayName ?? t("global_default")}</strong>
             </article>
           </section>
 
           <section className="storageSection">
             <div className="storageCopy">
-              <span>Data directory</span>
+              <span>{t("data_directory")}</span>
               <code title={instance.directory}>{instance.directory}</code>
             </div>
             <Button
@@ -587,7 +592,7 @@ function InstanceModal({
                 }
               }}
             >
-              Open directory
+              {t("open_directory")}
             </Button>
           </section>
         </div>
@@ -597,18 +602,18 @@ function InstanceModal({
         <div className="instanceTabBody modsTab" role="tabpanel">
           <header className="instanceToolbar">
             <div>
-              <h3>Mods</h3>
-              <p>Manage mods installed in this instance.</p>
+              <h3>{t("mods")}</h3>
+              <p>{t("manage_instance_mods")}</p>
             </div>
             <div className="row">
               <Button
                 variant="secondary"
                 onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
               >
-                Browse mods
+                {t("browse_mods")}
               </Button>
               <Button onClick={() => void installMod()}>
-                <span aria-hidden="true">＋</span> Install file
+                <span aria-hidden="true">＋</span> {t("install_file")}
               </Button>
             </div>
           </header>
@@ -616,17 +621,17 @@ function InstanceModal({
           {mods.length === 0 ? (
             <Empty
               icon="◇"
-              title="No mods installed"
-              description="Browse the mod catalog or install a local .zip, .cs, or .dll file."
+              title={t("no_mods_installed")}
+              description={t("browse_or_install_mod_file")}
               action={
                 <div className="row">
                   <Button
                     variant="secondary"
                     onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
                   >
-                    Browse mods
+                    {t("browse_mods")}
                   </Button>
-                  <Button onClick={() => void installMod()}>Install file</Button>
+                  <Button onClick={() => void installMod()}>{t("install_file")}</Button>
                 </div>
               }
             />
@@ -637,12 +642,12 @@ function InstanceModal({
                   <div className="modRowIcon" aria-hidden="true">◇</div>
                   <div className="modRowCopy">
                     <strong>{mod.name}</strong>
-                    <small>Version {mod.version}</small>
+                    <small>{t("version_value", { version: mod.version })}</small>
                     <code title={mod.fileName}>{mod.fileName}</code>
                   </div>
                   <div className="modRowActions">
                     <Checkbox
-                      label="Enabled"
+                      label={t("enabled")}
                       checked={mod.enabled}
                       onChange={async (event) => {
                         try {
@@ -658,7 +663,7 @@ function InstanceModal({
                       variant="ghost"
                       className="dangerGhost"
                       onClick={async () => {
-                        if (!window.confirm(`Remove mod “${mod.name}”?`)) return;
+                        if (!window.confirm(t("remove_mod_confirmation", { name: mod.name }))) return;
                         try {
                           await modsApi.remove(mod.id);
                           await loadMods();
@@ -668,7 +673,7 @@ function InstanceModal({
                         }
                       }}
                     >
-                      Remove
+                      {t("remove")}
                     </Button>
                   </div>
                 </article>
@@ -683,20 +688,20 @@ function InstanceModal({
           <div className="modalBody settingsBody" role="tabpanel">
             <section className="settingsSection">
               <header>
-                <h3>General</h3>
-                <p>Basic information and launch configuration.</p>
+                <h3>{t("general")}</h3>
+                <p>{t("instance_basic_information_description")}</p>
               </header>
               <div className="formFields">
-                <Field label="Name">
+                <Field label={t("name")}>
                   <input value={name} onChange={(event) => setName(event.target.value)} />
                 </Field>
 
-                <Field label="Description">
+                <Field label={t("description")}>
                   <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
                 </Field>
 
                 <div className="formRow">
-                  <Field label="Game version">
+                  <Field label={t("game_version")}>
                     <Select value={versionID} onChange={(event) => setVersionID(event.target.value)}>
                       {versions.map((version) => (
                         <option key={version.id} value={version.id}>{version.name}</option>
@@ -704,9 +709,9 @@ function InstanceModal({
                     </Select>
                   </Field>
 
-                  <Field label="Launch account">
+                  <Field label={t("launch_account")}>
                     <Select value={accountID} onChange={(event) => setAccountID(event.target.value)}>
-                      <option value="">Use the globally selected account</option>
+                      <option value="">{t("use_globally_selected_account")}</option>
                       {accounts.map((account) => (
                         <option key={account.id} value={account.id}>{account.displayName}</option>
                       ))}
@@ -718,12 +723,12 @@ function InstanceModal({
 
             <section className="settingsSection advancedSection">
               <header>
-                <h3>Advanced</h3>
-                <p>Optional arguments passed when Vintage Story starts.</p>
+                <h3>{t("advanced")}</h3>
+                <p>{t("optional_vintage_story_launch_arguments")}</p>
               </header>
               <Field
-                label="Launch arguments"
-                hint="Arguments are separated by spaces. Waxlight always appends its isolated data path."
+                label={t("launch_arguments")}
+                hint={t("launch_arguments_hint")}
               >
                 <input
                   className="codeInput"
@@ -736,16 +741,16 @@ function InstanceModal({
 
             <section className="dangerSection">
               <header>
-                <h3>Danger zone</h3>
-                <p>Irreversible actions for this instance.</p>
+                <h3>{t("danger_zone")}</h3>
+                <p>{t("instance_irreversible_actions")}</p>
               </header>
               <div className="dangerZone">
                 <div>
-                  <strong>Delete instance</strong>
-                  <small>Permanently removes this instance and its data directory.</small>
+                  <strong>{t("delete_instance")}</strong>
+                  <small>{t("instance_permanent_removal_warning")}</small>
                 </div>
                 <Button type="button" variant="danger" onClick={() => void deleteInstance()}>
-                  Delete instance
+                  {t("delete_instance")}
                 </Button>
               </div>
             </section>
@@ -753,14 +758,14 @@ function InstanceModal({
 
           <div className="settingsFooter">
             <span className={settingsDirty ? "unsavedStatus active" : "unsavedStatus"}>
-              {settingsDirty ? "Unsaved changes" : "All changes saved"}
+              {settingsDirty ? t("unsaved_changes") : t("all_changes_saved")}
             </span>
             <div className="row">
               <Button type="button" variant="ghost" disabled={!settingsDirty || busy} onClick={resetSettings}>
-                Reset
+                {t("reset")}
               </Button>
               <Button busy={busy} disabled={!settingsDirty}>
-                Save changes
+                {t("save_changes")}
               </Button>
             </div>
           </div>

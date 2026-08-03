@@ -1,4 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { DownloadedMod, ModSummary } from "../../shared/api";
 import { Button } from "../../shared/ui";
@@ -22,6 +23,7 @@ export function ModCard({
   onInstall,
   onDelete,
 }: ModCardProps) {
+  const { t } = useTranslation();
   function openFromKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -36,15 +38,15 @@ export function ModCard({
 
   const actionLabel = downloaded
     ? downloaded.updateAvailable
-      ? "Update"
+      ? t("update")
       : downloaded.installedInstances.length > 0
-        ? "Install to another"
-        : "Install to instance"
+        ? t("install_to_another")
+        : t("install_to_instance")
     : mod.updateAvailable
-      ? "Update"
+      ? t("update")
       : mod.isDownloaded
-        ? "Install to instance"
-        : "Download";
+        ? t("install_to_instance")
+        : t("download");
 
   return (
     <article
@@ -52,29 +54,29 @@ export function ModCard({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={openFromKeyboard}
-      aria-label={`Open ${mod.name}`}
+      aria-label={t("open_mod", { name: mod.name })}
     >
-      <ModArtwork src={downloaded?.imageUrl ?? mod.imageUrl} alt={`${mod.name} cover`} />
+      <ModArtwork src={downloaded?.imageUrl ?? mod.imageUrl} alt={t("cover_alt", { name: mod.name })} />
       <div className="modCardBody">
         <div className="modCardTitle">
           <div>
             <h3>{mod.name}</h3>
-            <span>by {mod.authorName}</span>
+            <span>{t("by_author", { name: mod.authorName })}</span>
           </div>
           <span className={`sideBadge side-${mod.side}`}>{sideLabel(mod.side)}</span>
         </div>
 
         {downloaded ? (
           <p className="modSummary">
-            Version {downloaded.downloadedVersion} · {formatBytes(downloaded.fileSize)}
+            {t("version_with_size", { version: downloaded.downloadedVersion, size: formatBytes(downloaded.fileSize) })}
           </p>
         ) : (
-          <p className="modSummary">{mod.summary || "No description provided."}</p>
+          <p className="modSummary">{mod.summary || t("no_description_provided")}</p>
         )}
 
         <div className="modCardMeta">
-          <span>{mod.gameVersions.slice(-2).join(", ") || "Versions in details"}</span>
-          <span>Updated {relativeDate(mod.updatedAt)}</span>
+          <span>{mod.gameVersions.slice(-2).join(", ") || t("versions_in_details")}</span>
+          <span>{t("updated_relative", { date: relativeDate(mod.updatedAt) })}</span>
           <span>↓ {formatDownloads(mod.downloads)}</span>
         </div>
 
@@ -87,19 +89,19 @@ export function ModCard({
             ) : downloaded ? (
               <span>
                 {downloaded.installedInstances.length > 0
-                  ? `Installed in ${downloaded.installedInstances.length}`
-                  : "Downloaded · Not installed"}
+                  ? t("installed_in_count", { count: downloaded.installedInstances.length })
+                  : t("downloaded_not_installed")}
               </span>
             ) : mod.isInstalled ? (
-              <span>✓ Installed</span>
+              <span>{t("installed_status")}</span>
             ) : mod.isDownloaded ? (
-              <span>✓ Downloaded</span>
+              <span>{t("downloaded_status")}</span>
             ) : null}
           </div>
           <div className="row">
             {onDelete && (
               <Button variant="ghost" onClick={(event) => action(event, onDelete)}>
-                Delete
+                {t("delete")}
               </Button>
             )}
             <Button onClick={(event) => action(event, onInstall)}>{actionLabel}</Button>

@@ -1214,14 +1214,34 @@ func (s *Service) DeleteFinishedOperation(ctx context.Context, operationID strin
 func (s *Service) ClearFinishedOperations(ctx context.Context) (int64, error) {
 	return s.store.ClearFinishedOperations(ctx)
 }
+
+const defaultLanguage = "en"
+
+var supportedLanguages = map[string]struct{}{
+	"en": {},
+	"ru": {},
+}
+
+func normalizeLanguage(language string) string {
+	language = strings.ToLower(strings.TrimSpace(language))
+	if separator := strings.IndexAny(language, "-_"); separator >= 0 {
+		language = language[:separator]
+	}
+	if _, supported := supportedLanguages[language]; supported {
+		return language
+	}
+	return defaultLanguage
+}
+
 func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
 	settings, err := s.store.GetSettings(ctx)
 	if err != nil {
 		return settings, err
 	}
 
-	if settings.Language != "en" {
-		settings.Language = "en"
+	normalizedLanguage := normalizeLanguage(settings.Language)
+	if settings.Language != normalizedLanguage {
+		settings.Language = normalizedLanguage
 		if err := s.store.SaveSettings(ctx, settings); err != nil {
 			return settings, err
 		}
@@ -1236,6 +1256,6 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 	if v.MinSessionDurationSec < 0 {
 		return v, domain.NewError(domain.ErrValidation, "Session duration threshold cannot be negative")
 	}
-	v.Language = "en"
+	v.Language = normalizeLanguage(v.Language)
 	return v, s.store.SaveSettings(ctx, v)
 }

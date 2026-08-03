@@ -1,11 +1,13 @@
+import i18n from "../i18n";
+
 export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
 
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return i18n.t("duration_hours_minutes", { hours, minutes });
   }
-  return `${minutes}m`;
+  return i18n.t("duration_minutes", { minutes });
 }
 
 export function formatBytes(bytes: number): string {
@@ -20,15 +22,16 @@ export function formatBytes(bytes: number): string {
   );
   const value = bytes / 1024 ** unitIndex;
 
-  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  const digits = unitIndex === 0 ? 0 : 1;
+  return `${new Intl.NumberFormat(i18n.resolvedLanguage, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)} ${units[unitIndex]}`;
 }
 
 export function formatDate(value?: string): string {
   if (!value) {
-    return "Never";
+    return i18n.t("never");
   }
 
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(i18n.resolvedLanguage, {
     day: "numeric",
     month: "short",
     hour: "2-digit",

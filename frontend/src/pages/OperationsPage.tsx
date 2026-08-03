@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Operation, operationsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
@@ -16,6 +17,7 @@ export function OperationsPage({
   refresh,
   notify,
 }: OperationsPageProps) {
+  const { t } = useTranslation();
   const [pendingAction, setPendingAction] = useState<string>();
   const finishedOperations = operations.filter((operation) =>
     isFinishedOperation(operation),
@@ -26,7 +28,7 @@ export function OperationsPage({
     try {
       await operationsApi.cancel(operation.id);
       await refresh();
-      notify("Operation cancelled and removed");
+      notify(t("operation_cancelled_removed"));
     } catch (cancelError) {
       notify(errorMessage(cancelError), "error");
     } finally {
@@ -35,14 +37,14 @@ export function OperationsPage({
   }
 
   async function remove(operation: Operation) {
-    if (!window.confirm(`Delete “${operation.title}” from operation history?`)) {
+    if (!window.confirm(t("delete_operation_confirmation", { title: operation.title }))) {
       return;
     }
     setPendingAction(operation.id);
     try {
       await operationsApi.remove(operation.id);
       await refresh();
-      notify("Operation removed from history");
+      notify(t("operation_removed"));
     } catch (removeError) {
       notify(errorMessage(removeError), "error");
     } finally {
@@ -53,7 +55,7 @@ export function OperationsPage({
   async function clearHistory() {
     if (
       !window.confirm(
-        "Clear all finished operations from history? Active operations will be kept.",
+        t("clear_history_confirmation"),
       )
     ) {
       return;
@@ -62,11 +64,7 @@ export function OperationsPage({
     try {
       const removed = await operationsApi.clearHistory();
       await refresh();
-      notify(
-        removed === 1
-          ? "1 operation removed from history"
-          : `${removed} operations removed from history`,
-      );
+      notify(t("operations_removed", { count: removed }));
     } catch (clearError) {
       notify(errorMessage(clearError), "error");
     } finally {
@@ -77,9 +75,9 @@ export function OperationsPage({
   return (
     <>
       <PageHeader
-        eyebrow="Activity log"
-        title="Operations"
-        description="Installations and other long-running actions are kept here."
+        eyebrow={t("activity_log")}
+        title={t("operations")}
+        description={t("operations_description")}
         action={
           finishedOperations.length > 0 ? (
             <Button
@@ -87,7 +85,7 @@ export function OperationsPage({
               disabled={pendingAction !== undefined}
               onClick={() => void clearHistory()}
             >
-              {pendingAction === "clear-history" ? "Clearing…" : "Clear history"}
+              {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
             </Button>
           ) : undefined
         }
@@ -96,8 +94,8 @@ export function OperationsPage({
       {operations.length === 0 ? (
         <Empty
           icon="⇣"
-          title="No operations yet"
-          description="Game and mod installation progress will appear here."
+          title={t("no_operations")}
+          description={t("operations_empty_description")}
         />
       ) : (
         <div className="operationsList">
@@ -119,17 +117,17 @@ export function OperationsPage({
                         disabled={pendingAction !== undefined}
                         onClick={() => void cancel(operation)}
                       >
-                        {pendingAction === operation.id ? "Cancelling…" : "Cancel"}
+                        {pendingAction === operation.id ? t("cancelling") : t("cancel")}
                       </Button>
                     )}
                     {isFinishedOperation(operation) && (
                       <Button
                         variant="ghost"
-                        aria-label={`Delete ${operation.title}`}
+                        aria-label={t("delete_operation", { title: operation.title })}
                         disabled={pendingAction !== undefined}
                         onClick={() => void remove(operation)}
                       >
-                        {pendingAction === operation.id ? "Deleting…" : "Delete"}
+                        {pendingAction === operation.id ? t("deleting") : t("delete")}
                       </Button>
                     )}
                   </div>
@@ -137,10 +135,9 @@ export function OperationsPage({
 
                 <small>
                   {formatDate(operation.createdAt)} ·{" "}
-                  {formatBytes(operation.currentBytes)}
                   {operation.totalBytes > 0
-                    ? ` of ${formatBytes(operation.totalBytes)}`
-                    : ""}
+                    ? t("bytes_of_total", { current: formatBytes(operation.currentBytes), total: formatBytes(operation.totalBytes) })
+                    : formatBytes(operation.currentBytes)}
                   {operation.bytesPerSecond > 0
                     ? ` · ${formatBytes(operation.bytesPerSecond)}/s`
                     : ""}

@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { changeAppLanguage } from "../i18n";
+import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
 
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
@@ -17,6 +20,7 @@ export function SettingsPage({
   notify,
   onSaved,
 }: SettingsPageProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
   const [busy, setBusy] = useState(false);
 
@@ -38,10 +42,11 @@ export function SettingsPage({
     try {
       const saved = await settingsApi.update({
         ...value,
-        language: "en",
+        language: normalizeLanguage(value.language),
       });
+      await changeAppLanguage(saved.language);
       onSaved(saved);
-      notify("Settings saved");
+      notify(t("settings_saved"));
     } catch (error) {
       notify(errorMessage(error), "error");
     } finally {
@@ -52,34 +57,34 @@ export function SettingsPage({
   return (
     <>
       <PageHeader
-        eyebrow="Make it yours"
-        title="Settings"
-        description="Basic Waxlight and game launch preferences."
+        eyebrow={t("make_it_yours")}
+        title={t("settings")}
+        description={t("basic_launcher_preferences")}
       />
 
       <section className="settingsPanel">
         <SubmitForm className="settingsPageForm" onSubmit={save}>
           <section className="settingsPageSection">
             <header>
-              <h2>Interface</h2>
-              <p>Language and appearance preferences for Waxlight.</p>
+              <h2>{t("interface")}</h2>
+              <p>{t("language_and_appearance_preferences")}</p>
             </header>
             <div className="formRow">
-              <Field label="Language">
-                <Select value="en" disabled>
-                  <option value="en">English</option>
+              <Field label={t("language")}>
+                <Select value={normalizeLanguage(value.language)} onChange={(event) => setValue({ ...value, language: normalizeLanguage(event.target.value) })}>
+                  {supportedLanguages.map((language) => <option key={language.code} value={language.code}>{language.nativeName}</option>)}
                 </Select>
               </Field>
 
-              <Field label="Theme">
+              <Field label={t("theme")}>
                 <Select
                   value={value.theme}
                   onChange={(event) =>
                     setValue({ ...value, theme: event.target.value })
                   }
                 >
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
+                  <option value="dark">{t("dark")}</option>
+                  <option value="system">{t("system")}</option>
                 </Select>
               </Field>
             </div>
@@ -87,12 +92,12 @@ export function SettingsPage({
 
           <section className="settingsPageSection">
             <header>
-              <h2>Downloads and game</h2>
-              <p>Control background work and the default launch configuration.</p>
+              <h2>{t("downloads_and_game")}</h2>
+              <p>{t("background_work_and_launch_configuration")}</p>
             </header>
             <div className="formFields">
               <div className="formRow">
-                <Field label="Parallel downloads">
+                <Field label={t("parallel_downloads")}>
                   <input
                     type="number"
                     min={1}
@@ -107,7 +112,7 @@ export function SettingsPage({
                   />
                 </Field>
 
-                <Field label="Minimum session duration, seconds">
+                <Field label={t("minimum_session_duration_seconds")}>
                   <input
                     type="number"
                     min={0}
@@ -123,8 +128,8 @@ export function SettingsPage({
               </div>
 
               <Field
-                label="Global launch arguments"
-                hint="These arguments are added to every game launch."
+                label={t("global_launch_arguments")}
+                hint={t("global_launch_arguments_hint")}
               >
                 <input
                   className="codeInput"
@@ -144,26 +149,25 @@ export function SettingsPage({
 
               <div className="checkboxSetting">
                 <Checkbox
-                  label="Confirm deletion"
+                  label={t("confirm_deletion")}
                   checked={value.confirmDeletion}
                   onChange={(event) =>
                     setValue({ ...value, confirmDeletion: event.target.checked })
                   }
                 />
-                <small>Ask before removing instances, versions, and mods.</small>
+                <small>{t("confirm_before_removing_items")}</small>
               </div>
             </div>
           </section>
 
           <div className="settingsPageFooter">
-            <Button busy={busy}>Save settings</Button>
+            <Button busy={busy}>{t("save_settings")}</Button>
           </div>
         </SubmitForm>
       </section>
 
       <footer className="legal">
-        Waxlight Launcher is not affiliated with or endorsed by the developers
-        of Vintage Story.
+        {t("not_affiliated_notice")}
       </footer>
     </>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AvailableVersions } from "../features/install-game-version/AvailableVersions";
 import { InstallLocalVersionModal } from "../features/install-game-version/InstallLocalVersionModal";
@@ -22,11 +23,12 @@ export function VersionsPage({
   refresh,
   notify,
 }: VersionsPageProps) {
+  const { t } = useTranslation();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
   async function removeVersion(version: GameVersion) {
     const confirmed = window.confirm(
-      `Remove Vintage Story ${version.name} and its installed files?`,
+      t("remove_version_confirmation", { name: version.name }),
     );
     if (!confirmed) {
       return;
@@ -35,7 +37,7 @@ export function VersionsPage({
     try {
       await versionsApi.remove(version.id, true);
       await refresh();
-      notify("Game version removed");
+      notify(t("game_version_removed"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -44,12 +46,12 @@ export function VersionsPage({
   return (
     <>
       <PageHeader
-        eyebrow="Game runtime"
-        title="Game versions"
-        description="Keep multiple Vintage Story versions in one tidy library."
+        eyebrow={t("game_runtime")}
+        title={t("game_versions")}
+        description={t("versions_description")}
         action={
           <Button variant="secondary" onClick={() => setInstallDialogOpen(true)}>
-            Install from file
+            {t("install_from_file")}
           </Button>
         }
       />
@@ -58,16 +60,16 @@ export function VersionsPage({
         <section className="installedVersions">
           <div className="sectionHeading">
             <div>
-              <span className="eyebrow">Shared runtime library</span>
-              <h2>Installed versions</h2>
+              <span className="eyebrow">{t("shared_runtime_library")}</span>
+              <h2>{t("installed_versions")}</h2>
             </div>
           </div>
         <div className="table versionTable">
           <div className="tableHead">
-            <span>Version</span>
-            <span>Platform</span>
-            <span>Size</span>
-            <span>Installed</span>
+            <span>{t("version")}</span>
+            <span>{t("platform")}</span>
+            <span>{t("size")}</span>
+            <span>{t("installed")}</span>
             <span />
           </div>
 
@@ -91,7 +93,7 @@ export function VersionsPage({
                   variant="ghost"
                   onClick={() => void removeVersion(version)}
                 >
-                  Remove
+                  {t("remove")}
                 </Button>
               </span>
             </div>
@@ -113,7 +115,7 @@ export function VersionsPage({
           onDone={async () => {
             setInstallDialogOpen(false);
             await refresh();
-            notify("Game version installed");
+            notify(t("game_version_installed"));
           }}
         />
       )}

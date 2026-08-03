@@ -6,6 +6,7 @@ import type {
   SelectHTMLAttributes,
 } from "react";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -45,6 +46,7 @@ export function Modal({
   children: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -107,7 +109,7 @@ export function Modal({
           <button
             type="button"
             className="iconButton"
-            aria-label="Close"
+            aria-label={t("close")}
             onClick={onClose}
           >
             ×
@@ -234,23 +236,18 @@ export function SubmitForm({
 }
 
 export function StatusPill({ status }: { status: string }) {
+  const { t } = useTranslation();
   const labels: Record<string, string> = {
-    ready: "Ready",
-    running: "Running",
-    installed: "Installed",
-    queued: "Queued",
-    completed: "Completed",
-    cancelled: "Cancelled",
-    failed: "Failed",
-    stable: "Stable",
-    unstable: "Preview",
-    unknown: "Unknown",
-    local_profile: "Local profile",
+    ready: "status_ready", running: "status_running", installed: "status_installed",
+    queued: "status_queued", completed: "status_completed", cancelled: "status_cancelled",
+    failed: "status_failed", stable: "stable", unstable: "preview", unknown: "status_unknown",
+    local_profile: "status_local_profile",
+    valid: "status_valid", expired: "status_expired", needs_reauth: "status_needs_reauth",
   };
 
   return (
     <span className={`status status-${status}`}>
-      {labels[status] ?? status}
+      {labels[status] ? t(labels[status]) : status}
     </span>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import {
   accountsApi,
@@ -27,29 +29,21 @@ interface AccountsPageProps {
 }
 
 export const authErrorMessages: Record<Exclude<LoginStatus, "success" | "totp_required">, string> = {
-  invalid_credentials: "The email, password, or verification code is incorrect.",
-  ip_changed:
-    "Vintage Story detected an IP address change. Check your email or try again later.",
-  temporarily_blocked:
-    "Too many sign-in attempts. Authentication is temporarily blocked.",
-  network_error:
-    "Could not connect to the Vintage Story authentication server.",
-  server_error:
-    "The Vintage Story authentication server is temporarily unavailable.",
-  invalid_response:
-    "The Vintage Story authentication server returned an unexpected response.",
-  unknown_error: "Could not sign in. Please try again later.",
+  invalid_credentials: "auth_invalid_credentials", ip_changed: "auth_ip_blocked",
+  temporarily_blocked: "auth_rate_limited", network_error: "auth_network_error",
+  server_error: "auth_service_unavailable", invalid_response: "auth_unexpected_response",
+  unknown_error: "auth_unknown_error",
 };
 
 export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function resultError(result: LoginResult): string {
+function resultError(result: LoginResult, t: TFunction): string {
   if (result.status === "success" || result.status === "totp_required") {
     return "";
   }
-  return authErrorMessages[result.status];
+  return t(authErrorMessages[result.status]);
 }
 
 export function AccountsPage({
@@ -57,6 +51,7 @@ export function AccountsPage({
   refresh,
   notify,
 }: AccountsPageProps) {
+  const { t } = useTranslation();
   const [loginAccount, setLoginAccount] = useState<Account | null>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -71,7 +66,7 @@ export function AccountsPage({
     try {
       await accountsApi.setDefault(accountID);
       await refresh();
-      notify("Account selected");
+      notify(t("account_selected"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -80,7 +75,7 @@ export function AccountsPage({
   async function removeAccount(account: Account) {
     if (
       !window.confirm(
-        `Remove “${account.displayName}” from Waxlight Launcher? This will not revoke the server session on other devices.`,
+        t("remove_account_confirmation", { name: account.displayName }),
       )
     ) {
       return;
@@ -89,7 +84,7 @@ export function AccountsPage({
     try {
       await accountsApi.remove(account.id);
       await refresh();
-      notify("Account removed from the launcher");
+      notify(t("account_removed"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -99,7 +94,7 @@ export function AccountsPage({
     try {
       await accountsApi.validate(account.id);
       await refresh();
-      notify("The account session is valid");
+      notify(t("account_session_valid"));
     } catch (error) {
       await refresh();
       notify(errorMessage(error), "error");
@@ -110,25 +105,22 @@ export function AccountsPage({
     <>
       <PageHeader
         eyebrow="Vintage Story"
-        title="Accounts"
-        description="Select a global account or assign a different account to each instance."
-        action={<Button onClick={() => setLoginAccount(null)}>＋ Add account</Button>}
+        title={t("accounts")}
+        description={t("accounts_description")}
+        action={<Button onClick={() => setLoginAccount(null)}>{t("add_account")}</Button>}
       />
 
       <div className="notice pageNotice">
-        <b>Passwords and 2FA codes are never stored</b>
-        <span>
-          Waxlight stores only session credentials. Removing an account deletes
-          it from the launcher but does not sign out other devices.
-        </span>
+        <b>{t("credentials_never_stored")}</b>
+        <span>{t("session_credentials_notice")}</span>
       </div>
 
       {accounts.length === 0 ? (
         <Empty
           icon="♙"
-          title="No saved accounts"
-          description="Sign in with your official Vintage Story account to launch the game already authenticated."
-          action={<Button onClick={() => setLoginAccount(null)}>Sign in</Button>}
+          title={t("no_saved_accounts")}
+          description={t("official_account_description")}
+          action={<Button onClick={() => setLoginAccount(null)}>{t("sign_in")}</Button>}
         />
       ) : (
         <div className="accountGrid">
@@ -146,13 +138,13 @@ export function AccountsPage({
 
               <div className="accountActions">
                 {account.isDefault ? (
-                  <span className="defaultMark">★ Selected</span>
+                  <span className="defaultMark">{t("selected_status")}</span>
                 ) : (
                   <Button
                     variant="secondary"
                     onClick={() => void selectAccount(account.id)}
                   >
-                    Select
+                    {t("select")}
                   </Button>
                 )}
 
@@ -162,14 +154,14 @@ export function AccountsPage({
                     variant="secondary"
                     onClick={() => setLoginAccount(account)}
                   >
-                    Sign in again
+                    {t("sign_in_again")}
                   </Button>
                 ) : (
                   <Button
                     variant="ghost"
                     onClick={() => void validateAccount(account)}
                   >
-                    Validate
+                    {t("validate")}
                   </Button>
                 )}
 
@@ -177,7 +169,7 @@ export function AccountsPage({
                   variant="ghost"
                   onClick={() => void removeAccount(account)}
                 >
-                  Remove from launcher
+                  {t("remove_from_launcher")}
                 </Button>
               </div>
             </article>
@@ -192,7 +184,7 @@ export function AccountsPage({
           onDone={async () => {
             setLoginAccount(undefined);
             await refresh();
-            notify("Signed in successfully");
+            notify(t("signed_in_successfully"));
           }}
         />
       )}
@@ -207,6 +199,7 @@ interface LoginModalProps {
 }
 
 function LoginModal({ account, onClose, onDone }: LoginModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<"credentials" | "totp">("credentials");
   const [email, setEmail] = useState(account?.email ?? "");
   const [password, setPassword] = useState("");
@@ -226,12 +219,12 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   async function submitCredentials() {
     if (submitting.current) return;
     if (!isValidEmail(email)) {
-      setError("Enter a valid email address.");
+      setError(t("enter_valid_email"));
       setPassword("");
       return;
     }
     if (!password) {
-      setError("Enter your password.");
+      setError(t("enter_password"));
       return;
     }
 
@@ -249,7 +242,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
         setFlowID(result.flowId);
         setStep("totp");
       } else {
-        setError(resultError(result));
+        setError(resultError(result, t));
       }
     } catch (submitError) {
       setPassword("");
@@ -263,7 +256,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   async function submitTOTP() {
     if (submitting.current) return;
     if (!totp || totp.length > 16) {
-      setError("Enter the verification code.");
+      setError(t("enter_verification_code"));
       return;
     }
     submitting.current = true;
@@ -275,7 +268,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
       if (result.status === "success") {
         await onDone();
       } else {
-        setError(resultError(result));
+        setError(resultError(result, t));
       }
     } catch (submitError) {
       setTOTP("");
@@ -307,13 +300,13 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
 
   return (
     <Modal
-      title={account ? "Sign in again" : "Sign in to Vintage Story"}
+      title={account ? t("sign_in_again") : t("sign_in_to_vintage_story")}
       onClose={() => void cancelFlow(true)}
     >
       {step === "credentials" ? (
         <SubmitForm className="dialogForm" noValidate onSubmit={submitCredentials}>
           <div className="modalBody formFields">
-            <Field label="Email">
+            <Field label={t("email")}>
               <input
                 autoFocus
                 required
@@ -325,7 +318,7 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               />
             </Field>
 
-            <Field label="Password">
+            <Field label={t("password")}>
               <div className="passwordField">
                 <input
                   required
@@ -336,20 +329,17 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
                 />
                 <button
                   type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("hide_password") : t("show_password")}
                   onClick={() => setShowPassword((value) => !value)}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? t("hide") : t("show")}
                 </button>
               </div>
             </Field>
 
             <div className="notice">
-              <b>Unofficial integration</b>
-              <span>
-                Waxlight connects to the Vintage Story authentication server. Its
-                API is not publicly documented and may change.
-              </span>
+              <b>{t("unofficial_integration")}</b>
+              <span>{t("unofficial_integration_notice")}</span>
             </div>
 
             {error && <div className="inlineError" role="alert">{error}</div>}
@@ -361,22 +351,20 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               variant="ghost"
               onClick={() => void cancelFlow(true)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
-            <Button busy={busy}>Sign in</Button>
+            <Button busy={busy}>{t("sign_in")}</Button>
           </div>
         </SubmitForm>
       ) : (
         <SubmitForm className="dialogForm" onSubmit={submitTOTP}>
           <div className="modalBody formFields">
             <div className="notice">
-              <b>Two-factor authentication</b>
-              <span>
-                This account uses 2FA. Enter the code from your authenticator app.
-              </span>
+              <b>{t("two_factor_authentication")}</b>
+              <span>{t("two_factor_prompt")}</span>
             </div>
 
-            <Field label="Verification code">
+            <Field label={t("verification_code")}>
               <input
                 autoFocus
                 required
@@ -399,16 +387,16 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               variant="ghost"
               onClick={() => void cancelFlow(false)}
             >
-              Back
+              {t("back")}
             </Button>
             <Button
               type="button"
               variant="ghost"
               onClick={() => void cancelFlow(true)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
-            <Button busy={busy}>Verify</Button>
+            <Button busy={busy}>{t("verify")}</Button>
           </div>
         </SubmitForm>
       )}

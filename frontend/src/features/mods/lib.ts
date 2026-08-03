@@ -4,6 +4,7 @@ import type {
   ModSide,
   ModVersion,
 } from "../../shared/api";
+import i18n from "../../i18n";
 
 export type Compatibility =
   | "compatible"
@@ -13,22 +14,20 @@ export type Compatibility =
 
 export function sideLabel(side: ModSide): string {
   return {
-    client: "Client",
-    server: "Server",
-    both: "Client & Server",
-    unknown: "Unknown side",
+    client: i18n.t("client"), server: i18n.t("server"),
+    both: i18n.t("client_and_server"), unknown: i18n.t("unknown_side"),
   }[side];
 }
 
 export function formatDownloads(value: number): string {
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat(i18n.resolvedLanguage, {
     notation: value >= 1000 ? "compact" : "standard",
     maximumFractionDigits: 1,
   }).format(value);
 }
 
 export function formatBytes(value: number): string {
-  if (!value) return "Size unavailable";
+  if (!value) return i18n.t("size_unavailable");
   const units = ["B", "KB", "MB", "GB"];
   let amount = value;
   let unit = 0;
@@ -36,14 +35,14 @@ export function formatBytes(value: number): string {
     amount /= 1024;
     unit += 1;
   }
-  return `${amount.toFixed(amount >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+  return `${new Intl.NumberFormat(i18n.resolvedLanguage, { maximumFractionDigits: amount >= 10 || unit === 0 ? 0 : 1 }).format(amount)} ${units[unit]}`;
 }
 
 export function relativeDate(value?: string): string {
-  if (!value) return "Update date unknown";
+  if (!value) return i18n.t("update_date_unknown");
   const date = new Date(value);
   const days = Math.round((date.getTime() - Date.now()) / 86_400_000);
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat(i18n.resolvedLanguage, { numeric: "auto" });
   if (Math.abs(days) < 30) return formatter.format(days, "day");
   const months = Math.round(days / 30);
   if (Math.abs(months) < 12) return formatter.format(months, "month");
@@ -87,10 +86,15 @@ export function compatibilityFor(
 
 export function compatibilityLabel(value: Compatibility): string {
   return {
-    compatible: "Compatible",
-    possibly_compatible: "Possibly compatible",
-    incompatible: "Incompatible",
-    unknown: "Unknown compatibility",
+    compatible: i18n.t("compatible"), possibly_compatible: i18n.t("possibly_compatible"),
+    incompatible: i18n.t("incompatible"), unknown: i18n.t("unknown_compatibility"),
+  }[value];
+}
+
+export function releaseTypeLabel(value: ModVersion["releaseType"]): string {
+  return {
+    stable: i18n.t("stable"), beta: i18n.t("beta"),
+    alpha: i18n.t("alpha"), unknown: i18n.t("status_unknown"),
   }[value];
 }
 

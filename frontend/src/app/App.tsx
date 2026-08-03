@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { changeAppLanguage } from "../i18n";
 
 import {
   accountsApi,
@@ -26,18 +28,19 @@ import { StatisticsPage } from "../pages/StatisticsPage";
 import { VersionsPage } from "../pages/VersionsPage";
 
 const navigation = [
-  { to: "/library", icon: "▦", label: "Library" },
-  { to: "/mods", icon: "◇", label: "Mods" },
-  { to: "/versions", icon: "⬡", label: "Game versions" },
-  { to: "/operations", icon: "⇣", label: "Operations" },
-  { to: "/accounts", icon: "♙", label: "Accounts" },
-  { to: "/statistics", icon: "◷", label: "Statistics" },
-  { to: "/settings", icon: "⚙", label: "Settings" },
-];
+  { to: "/library", icon: "▦", labelKey: "library" },
+  { to: "/mods", icon: "◇", labelKey: "mods" },
+  { to: "/versions", icon: "⬡", labelKey: "game_versions" },
+  { to: "/operations", icon: "⇣", labelKey: "operations" },
+  { to: "/accounts", icon: "♙", labelKey: "accounts" },
+  { to: "/statistics", icon: "◷", labelKey: "statistics" },
+  { to: "/settings", icon: "⚙", labelKey: "settings" },
+] as const;
 
 type ToastType = "ok" | "error";
 
 export function App() {
+  const { t } = useTranslation();
   const accountSwitcherRef = useRef<HTMLDetailsElement>(null);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [versions, setVersions] = useState<GameVersion[]>([]);
@@ -75,6 +78,7 @@ export function App() {
       setAccounts(accountItems ?? []);
       setOperations(operationItems ?? []);
       setStatistics(statisticsOverview);
+      await changeAppLanguage(applicationSettings.language);
       setSettings(applicationSettings);
       setFatalError("");
     } catch (error) {
@@ -107,6 +111,10 @@ export function App() {
     window.setTimeout(() => setToast(undefined), 3_800);
   }
 
+  if (loading) {
+    return <div className="appLoading"><span className="spinner" /></div>;
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -116,7 +124,7 @@ export function App() {
           </div>
           <div>
             <strong>Waxlight</strong>
-            <span>LAUNCHER</span>
+            <span>{t("launcher_uppercase")}</span>
           </div>
         </div>
 
@@ -128,7 +136,7 @@ export function App() {
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               <i>{item.icon}</i>
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
               {item.to === "/operations" &&
                 operations.some((operation) => operation.status === "running") && (
                   <b className="navPulse" />
@@ -145,10 +153,10 @@ export function App() {
                 .toUpperCase()}
             </span>
             <span>
-              <small>Account</small>
+              <small>{t("account")}</small>
               <strong>
                 {accounts.find((account) => account.isDefault)?.displayName ??
-                  "Not selected"}
+                  t("account_not_selected")}
               </strong>
             </span>
           </summary>
@@ -178,21 +186,21 @@ export function App() {
               to="/accounts?add=1"
               onClick={() => accountSwitcherRef.current?.removeAttribute("open")}
             >
-              ＋ Add account
+              {t("add_account")}
             </NavLink>
             <NavLink
               to="/accounts"
               onClick={() => accountSwitcherRef.current?.removeAttribute("open")}
             >
-              Manage accounts
+              {t("manage_accounts")}
             </NavLink>
           </div>
         </details>
 
         <div className="sidebarFoot">
           <div className="warmLine" />
-          <span>Unofficial launcher</span>
-          <small>for Vintage Story</small>
+          <span>{t("unofficial_launcher")}</span>
+          <small>{t("for_vintage_story")}</small>
         </div>
       </aside>
 
@@ -201,10 +209,10 @@ export function App() {
           <div className="backendError">
             <span>!</span>
             <div>
-              <strong>Could not connect to the core</strong>
+              <strong>{t("could_not_connect_to_core")}</strong>
               <p>{fatalError}</p>
             </div>
-            <button onClick={() => void refresh()}>Retry</button>
+            <button onClick={() => void refresh()}>{t("retry")}</button>
           </div>
         )}
 

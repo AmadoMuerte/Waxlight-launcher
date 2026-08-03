@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   versionsApi,
@@ -23,6 +24,7 @@ export function AvailableVersions({
   notify,
   onOperationStarted,
 }: AvailableVersionsProps) {
+  const { t } = useTranslation();
   const [versions, setVersions] = useState<AvailableGameVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -78,7 +80,7 @@ export function AvailableVersions({
     try {
       await versionsApi.installAvailable(version.id);
       await onOperationStarted();
-      notify(`Downloading Vintage Story ${version.name}`);
+      notify(t("downloading_version", { name: version.name }));
     } catch (installError) {
       notify(errorMessage(installError), "error");
     } finally {
@@ -87,13 +89,13 @@ export function AvailableVersions({
   }
 
   if (loading) {
-    return <div className="catalogState">Loading the official version catalog…</div>;
+    return <div className="catalogState">{t("loading_official_version_catalog")}</div>;
   }
 
   if (error) {
     return (
       <div className="catalogState errorText">
-        <strong>Could not load available versions</strong>
+        <strong>{t("could_not_load_available_versions")}</strong>
         <span>{error}</span>
       </div>
     );
@@ -103,8 +105,8 @@ export function AvailableVersions({
     <section className="versionCatalog">
       <div className="sectionHeading">
         <div>
-          <span className="eyebrow">Official releases</span>
-          <h2>Available to download</h2>
+          <span className="eyebrow">{t("official_releases")}</span>
+          <h2>{t("available_to_download")}</h2>
         </div>
         <div className="versionFilters">
           <input
@@ -114,8 +116,8 @@ export function AvailableVersions({
               setSearch(event.target.value);
               setVisibleCount(20);
             }}
-            placeholder="Search versions"
-            aria-label="Search versions"
+            placeholder={t("search_versions")}
+            aria-label={t("search_versions")}
           />
           <Select
             value={channel}
@@ -123,11 +125,11 @@ export function AvailableVersions({
               setChannel(event.target.value as ChannelFilter);
               setVisibleCount(20);
             }}
-            aria-label="Release channel"
+            aria-label={t("release_channel")}
           >
-            <option value="stable">Stable</option>
-            <option value="unstable">Preview and release candidates</option>
-            <option value="all">All channels</option>
+            <option value="stable">{t("stable")}</option>
+            <option value="unstable">{t("preview_and_release_candidates")}</option>
+            <option value="all">{t("all_channels")}</option>
           </Select>
         </div>
       </div>
@@ -135,8 +137,8 @@ export function AvailableVersions({
       {filtered.length === 0 ? (
         <Empty
           icon="⌕"
-          title="No matching versions"
-          description="Try another version number or release channel."
+          title={t("no_matching_versions")}
+          description={t("try_other_version_filter")}
         />
       ) : (
         <>
@@ -148,7 +150,7 @@ export function AvailableVersions({
                   <div className="versionIdentity">
                     <div className="row">
                       <strong>{version.name}</strong>
-                      {version.latest && <span className="latestMark">Latest</span>}
+                      {version.latest && <span className="latestMark">{t("latest")}</span>}
                     </div>
                     <small>
                       {version.platform} · {version.architecture} ·{" "}
@@ -162,7 +164,7 @@ export function AvailableVersions({
                     disabled={isInstalled}
                     onClick={() => void install(version)}
                   >
-                    {isInstalled ? "Installed" : "Download"}
+                    {isInstalled ? t("installed") : t("download")}
                   </Button>
                 </article>
               );
@@ -174,7 +176,7 @@ export function AvailableVersions({
                 variant="ghost"
                 onClick={() => setVisibleCount((count) => count + 20)}
               >
-                Show more versions
+                {t("show_more_versions")}
               </Button>
             </div>
           )}

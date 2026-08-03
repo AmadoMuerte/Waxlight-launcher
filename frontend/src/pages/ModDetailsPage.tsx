@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BrowserOpenURL } from "../wailsjs/runtime/runtime";
+import { useTranslation } from "react-i18next";
 
 import {
   modCatalogApi,
@@ -18,6 +19,7 @@ import {
   formatDownloads,
   plainText,
   relativeDate,
+  releaseTypeLabel,
   sideLabel,
 } from "../features/mods/lib";
 
@@ -32,6 +34,7 @@ export function ModDetailsPage({
   versions: GameVersion[];
   notify: Notify;
 }) {
+  const { t, i18n } = useTranslation();
   const { modId = "" } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -93,9 +96,9 @@ export function ModDetailsPage({
     return (
       <Empty
         icon="!"
-        title="Could not load this mod"
-        description={error || "Mod not found"}
-        action={<Button onClick={() => void load()}>Retry</Button>}
+        title={t("could_not_load_mod")}
+        description={error || t("mod_not_found")}
+        action={<Button onClick={() => void load()}>{t("retry")}</Button>}
       />
     );
   }
@@ -106,7 +109,7 @@ export function ModDetailsPage({
 
   function openExternal(url: string) {
     if (!url.startsWith("https://")) return;
-    if (window.confirm(`Open this link in your browser?\n\n${url}`)) {
+    if (window.confirm(t("open_external_link_confirmation", { url }))) {
       try {
         BrowserOpenURL(url);
       } catch {
@@ -118,50 +121,50 @@ export function ModDetailsPage({
   return (
     <>
       <button className="backToMods" onClick={() => navigate(`/mods${from}`)}>
-        ← Back to Mods
+        ← {t("back_to_mods")}
       </button>
 
       <header className="modDetailsHeader">
-        <ModArtwork src={mod.imageUrl} alt={`${mod.name} cover`} className="modDetailsArtwork" />
+        <ModArtwork src={mod.imageUrl} alt={t("cover_alt", { name: mod.name })} className="modDetailsArtwork" />
         <div className="modDetailsIdentity">
-          <span className="eyebrow">Vintage Story ModDB</span>
+          <span className="eyebrow">{t("vintage_story_moddb")}</span>
           <h1>{mod.name}</h1>
-          <p>by {mod.authorName}</p>
+          <p>{t("by_author", { name: mod.authorName })}</p>
           <div className="detailBadges">
             <span className={`sideBadge side-${mod.side}`}>{sideLabel(mod.side)}</span>
             {mod.gameVersions.slice(-3).map((version) => <span key={version}>{version}</span>)}
           </div>
           <div className="detailStats">
-            <span>↓ {formatDownloads(mod.downloads)} downloads</span>
-            <span>Updated {relativeDate(mod.updatedAt)}</span>
+            <span>{t("downloads_count", { count: mod.downloads, formatted: formatDownloads(mod.downloads) })}</span>
+            <span>{t("updated_relative", { date: relativeDate(mod.updatedAt) })}</span>
           </div>
         </div>
         <div className="modPrimaryAction">
           <Button onClick={() => setInstallVersion(local?.updateAvailable ? mod.versions[0]?.id : local?.versionId ?? mod.versions[0]?.id)}>
             {local?.updateAvailable
-              ? `Update to ${local.latestVersion}`
+              ? t("update_to_version", { version: local.latestVersion })
               : local
-                ? "Install to instance"
-                : "Download"}
+                ? t("install_to_instance")
+                : t("download")}
           </Button>
-          {local && <small>Downloaded {local.downloadedVersion}</small>}
+          {local && <small>{t("downloaded_version", { version: local.downloadedVersion })}</small>}
         </div>
       </header>
 
       <div className="modDetailsLayout">
         <div className="modDetailsMain">
           <section className="detailSection">
-            <h2>Description</h2>
+            <h2>{t("description")}</h2>
             <div className="safeDescription">{plainText(mod.description) || mod.summary}</div>
           </section>
 
           {mod.screenshots.length > 0 && (
             <section className="detailSection">
-              <h2>Screenshots</h2>
+              <h2>{t("screenshots")}</h2>
               <div className="screenshotGrid">
                 {mod.screenshots.map((screenshot, index) => (
                   <button key={screenshot.url} onClick={() => setLightbox(index)}>
-                    <img src={screenshot.url} alt={screenshot.caption || `${mod.name} screenshot ${index + 1}`} loading="lazy" />
+                    <img src={screenshot.url} alt={screenshot.caption || t("screenshot_alt", { name: mod.name, number: index + 1 })} loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -169,22 +172,22 @@ export function ModDetailsPage({
           )}
 
           <section className="detailSection">
-            <h2>Versions</h2>
+            <h2>{t("versions")}</h2>
             {mod.versions.length === 0 ? (
-              <p className="muted">No downloadable releases are available.</p>
+              <p className="muted">{t("no_downloadable_releases")}</p>
             ) : (
               <div className="releaseList">
                 {mod.versions.map((release) => (
                   <article key={release.id}>
                     <div>
                       <strong>{release.version}</strong>
-                      <span className={`releaseType release-${release.releaseType}`}>{release.releaseType}</span>
-                      <small>{release.gameVersions.join(", ") || "Compatibility unknown"}</small>
+                      <span className={`releaseType release-${release.releaseType}`}>{releaseTypeLabel(release.releaseType)}</span>
+                      <small>{release.gameVersions.join(", ") || t("compatibility_unknown")}</small>
                     </div>
                     <div>
                       <span>{formatBytes(release.fileSize)}</span>
                       <Button variant="secondary" onClick={() => setInstallVersion(release.id)}>
-                        Download
+                        {t("download")}
                       </Button>
                     </div>
                     {release.changelog && <p>{plainText(release.changelog)}</p>}
@@ -196,13 +199,13 @@ export function ModDetailsPage({
 
           {local?.installedInstances && local.installedInstances.length > 0 && (
             <section className="detailSection">
-              <h2>Installed in</h2>
+              <h2>{t("installed_in")}</h2>
               <div className="installedInList">
                 {local.installedInstances.map((installed) => (
                   <div key={installed.instanceId}>
                     <strong>{installed.instanceName}</strong>
-                    <span>Version {installed.version}</span>
-                    <span>{installed.enabled ? "Enabled" : "Disabled"}</span>
+                    <span>{t("version_value", { version: installed.version })}</span>
+                    <span>{installed.enabled ? t("enabled") : t("disabled")}</span>
                   </div>
                 ))}
               </div>
@@ -211,19 +214,19 @@ export function ModDetailsPage({
         </div>
 
         <aside className="modInformation">
-          <h2>Information</h2>
+          <h2>{t("information")}</h2>
           <dl>
-            <div><dt>Author</dt><dd>{mod.authorName}</dd></div>
-            {mod.latestVersion && <div><dt>Latest version</dt><dd>{mod.latestVersion}</dd></div>}
-            <div><dt>Side</dt><dd>{sideLabel(mod.side)}</dd></div>
-            <div><dt>Downloads</dt><dd>{formatDownloads(mod.downloads)}</dd></div>
-            {mod.createdAt && <div><dt>Created</dt><dd>{new Date(mod.createdAt).toLocaleDateString()}</dd></div>}
-            {mod.updatedAt && <div><dt>Last updated</dt><dd>{new Date(mod.updatedAt).toLocaleDateString()}</dd></div>}
-            {mod.license && <div><dt>License</dt><dd>{mod.license}</dd></div>}
+            <div><dt>{t("author")}</dt><dd>{mod.authorName}</dd></div>
+            {mod.latestVersion && <div><dt>{t("latest_version")}</dt><dd>{mod.latestVersion}</dd></div>}
+            <div><dt>{t("side")}</dt><dd>{sideLabel(mod.side)}</dd></div>
+            <div><dt>{t("downloads")}</dt><dd>{formatDownloads(mod.downloads)}</dd></div>
+            {mod.createdAt && <div><dt>{t("created")}</dt><dd>{new Date(mod.createdAt).toLocaleDateString(i18n.resolvedLanguage)}</dd></div>}
+            {mod.updatedAt && <div><dt>{t("last_updated")}</dt><dd>{new Date(mod.updatedAt).toLocaleDateString(i18n.resolvedLanguage)}</dd></div>}
+            {mod.license && <div><dt>{t("license")}</dt><dd>{mod.license}</dd></div>}
           </dl>
           {mod.tags.length > 0 && <div className="detailTags">{mod.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
-          {mod.websiteUrl && <Button variant="ghost" onClick={() => openExternal(mod.websiteUrl!)}>Website ↗</Button>}
-          {mod.sourceUrl && <Button variant="ghost" onClick={() => openExternal(mod.sourceUrl!)}>Source code ↗</Button>}
+          {mod.websiteUrl && <Button variant="ghost" onClick={() => openExternal(mod.websiteUrl!)}>{t("website_external")}</Button>}
+          {mod.sourceUrl && <Button variant="ghost" onClick={() => openExternal(mod.sourceUrl!)}>{t("source_code_external")}</Button>}
         </aside>
       </div>
 
@@ -239,20 +242,20 @@ export function ModDetailsPage({
           onDone={async () => {
             const items = await modCatalogApi.downloaded();
             setDownloaded((items ?? []).filter((item) => item.modId === mod.id));
-            notify("Mod task completed");
+            notify(t("mod_task_completed"));
           }}
         />
       )}
 
       {lightbox !== undefined && mod.screenshots[lightbox] && (
-        <div className="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot viewer">
-          <button className="lightboxClose" aria-label="Close" onClick={() => setLightbox(undefined)}>×</button>
-          <button aria-label="Previous screenshot" onClick={() => setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)}>‹</button>
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label={t("screenshot_viewer")}>
+          <button className="lightboxClose" aria-label={t("close")} onClick={() => setLightbox(undefined)}>×</button>
+          <button aria-label={t("previous_screenshot")} onClick={() => setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)}>‹</button>
           <figure>
-            <img src={mod.screenshots[lightbox].url} alt={mod.screenshots[lightbox].caption || `${mod.name} screenshot`} />
+            <img src={mod.screenshots[lightbox].url} alt={mod.screenshots[lightbox].caption || t("screenshot_alt", { name: mod.name, number: lightbox + 1 })} />
             {mod.screenshots[lightbox].caption && <figcaption>{mod.screenshots[lightbox].caption}</figcaption>}
           </figure>
-          <button aria-label="Next screenshot" onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}>›</button>
+          <button aria-label={t("next_screenshot")} onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}>›</button>
         </div>
       )}
     </>
