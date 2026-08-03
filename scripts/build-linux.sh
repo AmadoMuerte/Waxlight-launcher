@@ -25,9 +25,19 @@ mkdir -p "$output_directory"
 npm ci --include=dev --prefix "${project_root}/frontend"
 npm --prefix "${project_root}/frontend" run build
 
+if [[ ! -f "${project_root}/frontend/dist/index.html" ]]; then
+  echo "frontend build did not produce frontend/dist/index.html" >&2
+  exit 1
+fi
+
 (
   cd "${project_root}/cmd/waxlight"
-  XDG_CONFIG_HOME="$build_config_directory" wails build -clean -platform linux/amd64
+  XDG_CONFIG_HOME="$build_config_directory" \
+    wails build \
+      -clean \
+      -platform linux/amd64 \
+      -trimpath \
+      -ldflags="-s -w"
 )
 
 binary_path="${project_root}/build/bin/waxlight"

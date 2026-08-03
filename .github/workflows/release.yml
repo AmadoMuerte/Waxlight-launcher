@@ -195,29 +195,48 @@ jobs:
         run: |
           choco install mingw nsis --no-progress -y
 
-          $Gcc = Get-ChildItem `
-            -Path "$env:ChocolateyInstall\lib\mingw" `
-            -Filter "gcc.exe" `
-            -Recurse |
+          $CandidateDirectories = @(
+            "C:\ProgramData\mingw64\mingw64\bin",
+            "C:\ProgramData\mingw64\mingw32\bin",
+            "$env:ChocolateyInstall\bin"
+          )
+
+          $MingwBin = $CandidateDirectories |
+            Where-Object {
+              Test-Path (Join-Path $_ "gcc.exe")
+            } |
             Select-Object -First 1
 
-          if (-not $Gcc) {
-            throw "Chocolatey installed MinGW, but gcc.exe was not found"
+          if (-not $MingwBin) {
+            $Gcc = Get-ChildItem `
+              -Path "C:\ProgramData" `
+              -Filter "gcc.exe" `
+              -Recurse `
+              -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+
+            if ($Gcc) {
+              $MingwBin = $Gcc.Directory.FullName
+            }
           }
 
-          $MingwBin = $Gcc.Directory.FullName
-
-          $MingwBin |
-            Out-File `
-              -FilePath $env:GITHUB_PATH `
-              -Encoding utf8 `
-              -Append
+          if (-not $MingwBin) {
+            throw "Chocolatey installed MinGW, but gcc.exe was not found"
+          }
 
           $NsisDirectory = "${env:ProgramFiles(x86)}\NSIS"
 
           if (-not (Test-Path (Join-Path $NsisDirectory "makensis.exe"))) {
             throw "Chocolatey did not install makensis.exe in $NsisDirectory"
           }
+
+          $env:Path = "$MingwBin;$NsisDirectory;$env:Path"
+
+          $MingwBin |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
 
           $NsisDirectory |
             Out-File `
@@ -227,6 +246,10 @@ jobs:
 
           Write-Host "MinGW path: $MingwBin"
           Write-Host "NSIS path: $NsisDirectory"
+
+          gcc --version
+          g++ --version
+          makensis /VERSION
 
       - name: Install Wails CLI
         shell: powershell

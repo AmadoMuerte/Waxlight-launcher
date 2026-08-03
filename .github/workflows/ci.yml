@@ -183,8 +183,12 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
-      - name: Install frontend dependencies
-        run: npm ci --include=dev --prefix frontend
+      - name: Install and build frontend
+        shell: bash
+        run: |
+          npm ci --include=dev --prefix frontend
+          npm --prefix frontend run build
+          test -f frontend/dist/index.html
 
       - name: Build Linux application
         shell: bash
@@ -237,17 +241,37 @@ jobs:
         run: |
           choco install mingw --no-progress -y
 
-          $Gcc = Get-ChildItem `
-            -Path "$env:ChocolateyInstall\lib\mingw" `
-            -Filter "gcc.exe" `
-            -Recurse |
+          $CandidateDirectories = @(
+            "C:\ProgramData\mingw64\mingw64\bin",
+            "C:\ProgramData\mingw64\mingw32\bin",
+            "$env:ChocolateyInstall\bin"
+          )
+
+          $MingwBin = $CandidateDirectories |
+            Where-Object {
+              Test-Path (Join-Path $_ "gcc.exe")
+            } |
             Select-Object -First 1
 
-          if (-not $Gcc) {
+          if (-not $MingwBin) {
+            $Gcc = Get-ChildItem `
+              -Path "C:\ProgramData" `
+              -Filter "gcc.exe" `
+              -Recurse `
+              -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+
+            if ($Gcc) {
+              $MingwBin = $Gcc.Directory.FullName
+            }
+          }
+
+          if (-not $MingwBin) {
             throw "Chocolatey installed MinGW, but gcc.exe was not found"
           }
 
-          $MingwBin = $Gcc.Directory.FullName
+          $env:Path = "$MingwBin;$env:Path"
+
           $MingwBin |
             Out-File `
               -FilePath $env:GITHUB_PATH `
@@ -255,6 +279,8 @@ jobs:
               -Append
 
           Write-Host "MinGW path: $MingwBin"
+          gcc --version
+          g++ --version
 
       - name: Install Wails CLI
         shell: powershell
@@ -267,9 +293,15 @@ jobs:
               -Encoding utf8 `
               -Append
 
-      - name: Install frontend dependencies
+      - name: Install and build frontend
         shell: powershell
-        run: npm ci --include=dev --prefix frontend
+        run: |
+          npm ci --include=dev --prefix frontend
+          npm --prefix frontend run build
+
+          if (-not (Test-Path "frontend/dist/index.html")) {
+            throw "Frontend build did not produce frontend/dist/index.html"
+          }
 
       - name: Build Windows application with CGO
         shell: powershell
@@ -279,6 +311,7 @@ jobs:
           CXX: g++
         run: |
           gcc --version
+          g++ --version
 
           Write-Host "CGO_ENABLED=$env:CGO_ENABLED"
           Write-Host "CC=$env:CC"
