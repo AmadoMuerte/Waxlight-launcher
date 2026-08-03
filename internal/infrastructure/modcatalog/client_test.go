@@ -68,3 +68,35 @@ func TestClientMapsDetailsWithoutComments(t *testing.T) {
 		t.Fatal("download URL was not mapped")
 	}
 }
+
+func TestSearchPreservesSummaryWhenFilteringByGameVersion(t *testing.T) {
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Path {
+		case "/mods":
+			return jsonResponse(`{"statuscode":"200","mods":[
+				{"modid":51,"downloads":42,"name":"Player Corpse","summary":"Creates a recoverable corpse after death.","author":"Ada","side":"both","type":"mod","lastreleased":"2026-08-01 10:00:00"}
+			]}`), nil
+		case "/mod/51":
+			return jsonResponse(`{"statuscode":"200","mod":{
+				"modid":51,"name":"Player Corpse","text":"<p>Full description</p>","author":"Ada","side":"both","type":"mod","downloads":42,
+				"lastreleased":"2026-08-01 10:00:00","releases":[{"releaseid":7,"tags":["1.22.6"],"modversion":"2.0.0"}]
+			}}`), nil
+		default:
+			t.Fatalf("unexpected path %s", request.URL.Path)
+			return nil, nil
+		}
+	})
+	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
+	result, err := client.Search(context.Background(), domain.ModSearchQuery{
+		GameVersion: "1.22.6", Page: 1, PageSize: 24,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("unexpected search result: %#v", result)
+	}
+	if result.Items[0].Summary != "Creates a recoverable corpse after death." {
+		t.Fatalf("summary was lost after compatibility enrichment: %q", result.Items[0].Summary)
+	}
+}

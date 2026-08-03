@@ -374,7 +374,11 @@ func (client *Client) enrichCompatible(
 		if !ok || !supportsVersion(details.GameVersions, gameVersion) {
 			continue
 		}
-		compatible = append(compatible, details.ModSummary)
+		summary := details.ModSummary
+		// The details endpoint has the full description, but no short summary.
+		// Keep the summary returned by the catalog endpoint when enriching cards.
+		summary.Summary = items[index].Summary
+		compatible = append(compatible, summary)
 	}
 	return compatible
 }
