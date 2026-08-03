@@ -33,5 +33,5 @@ install -Dm644 %{waxlight_readme} %{buildroot}/usr/share/doc/waxlight/README.md
 /usr/share/doc/waxlight/README.md
 
 %changelog
-* Mon Aug 03 2026 Waxlight contributors <noreply@waxlight.local> - %{waxlight_version}-1
+* Mon Aug 03 2026 AmadoMuerte <noreply@waxlight.local> - %{waxlight_version}-1
 - Automated Waxlight Launcher release.

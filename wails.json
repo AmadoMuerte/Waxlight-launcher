@@ -12,7 +12,7 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Waxlight contributors"
+    "name": "AmadoMuerte"
   },
   "info": {
     "companyName": "Waxlight",

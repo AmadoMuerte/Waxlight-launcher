@@ -3,16 +3,17 @@
 
   # Waxlight Launcher
 
-  **A warm, focused, unofficial launcher for Vintage Story.**
+  **A warm, focused launcher for Vintage Story.**
 
   [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
   [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
   [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 </div>
 
-> [!IMPORTANT]
-> Waxlight Launcher is an independent community project. It is not affiliated
-> with, endorsed by, or an official product of the developers of Vintage Story.
+Waxlight Launcher was created and is developed solely by
+[AmadoMuerte](https://github.com/AmadoMuerte). It is his personal independent
+project. Its development has involved no contact, collaboration, approval, or
+other relationship with the developers of Vintage Story.
 
 Waxlight puts accounts, game versions, isolated game setups, mods, launches,
 and playtime in one desktop application. It is built with Go, Wails, React,
@@ -112,16 +113,15 @@ Waxlight is under active development. Version `0.1.x` should be treated as an
 early release: back up important saves, review compatibility before installing
 mods, and expect the UI and local data model to evolve.
 
-Authentication uses Vintage Story endpoints that are publicly available but
-not formally documented. The integration is isolated behind a backend client
-because the protocol may change. Passwords and TOTP codes are not persisted or
-sent to React. Session credentials currently use an owner-readable local file;
-native Secret Service and Windows Credential Manager integration is planned.
-See [the authentication notes](docs/authentication.md) for details.
+Authentication is isolated behind a Go backend client. Passwords and TOTP codes
+are not persisted or sent to React. Session credentials currently use an
+owner-readable local file; native Secret Service and Windows Credential Manager
+integration is planned. See
+[the authentication notes](docs/authentication.md) for technical details.
 
-Game downloads come from the official Vintage Story release feed and CDN. They
-support progress, cancellation, resume where possible, and checksum validation.
-See [the game-version notes](docs/game-versions.md) for the current contract.
+Game downloads support progress, cancellation, resume where possible, and
+checksum validation. See [the game-version notes](docs/game-versions.md) for
+implementation details.
 
 ## Build from source
 
@@ -226,14 +226,16 @@ starts the release workflow, which:
 4. creates `SHA256SUMS`;
 5. publishes a GitHub Release with generated release notes.
 
-Maintainers should update the version in both Wails configuration files before
-tagging. Existing release tags must never be moved.
+Before tagging, update the version in both Wails configuration files. Existing
+release tags must never be moved.
 
-## License and trademarks
+## Author
+
+Waxlight Launcher is designed and developed by
+[AmadoMuerte](https://github.com/AmadoMuerte).
+
+## License
 
 Waxlight Launcher is free software licensed under the
 [GNU General Public License v3.0](LICENSE). See [NOTICE](NOTICE) for third-party
 and project notices.
-
-Vintage Story and related names and artwork belong to their respective owners.
-Their use here only describes compatibility and does not imply endorsement.
