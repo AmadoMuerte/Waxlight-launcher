@@ -1,3 +1,19 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+}
+
 :root {
   color: #eeeae4;
   background: #0d0d10;
@@ -18,6 +34,15 @@
   --amber: #e5a84b;
   --amber-light: #ffc96c;
   --danger: #e07168;
+  --foreground: var(--text-primary);
+  --popover: var(--panel-raised);
+  --popover-foreground: var(--text-primary);
+  --muted-foreground: var(--text-muted);
+  --border: var(--border-default);
+  --input: var(--surface-input);
+  --ring: var(--amber);
+  --accent: var(--surface-input-hover);
+  --accent-foreground: var(--text-primary);
 }
 
 * {
@@ -40,7 +65,6 @@ body {
 
 button,
 input,
-select,
 textarea {
   min-width: 0;
   font: inherit;
@@ -839,7 +863,6 @@ main {
 }
 
 .field input,
-.field select,
 .field textarea {
   width: 100%;
   min-height: 42px;
@@ -855,7 +878,6 @@ main {
 }
 
 .field input:hover,
-.field select:hover,
 .field textarea:hover {
   border-color: #504b51;
   background: var(--surface-input-hover);
@@ -865,75 +887,6 @@ main {
 .field textarea::placeholder {
   color: #77726e;
   opacity: 1;
-}
-
-.selectControl {
-  position: relative;
-  display: block;
-  width: 100%;
-  min-width: 0;
-}
-
-.selectControl select,
-select {
-  width: 100%;
-  min-height: 42px;
-  padding: 0 40px 0 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 9px;
-  color: var(--text-primary);
-  color-scheme: dark;
-  background: var(--surface-input);
-  background-image: linear-gradient(45deg, transparent 50%, #aaa39c 50%), linear-gradient(135deg, #aaa39c 50%, transparent 50%);
-  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
-  background-repeat: no-repeat;
-  background-size: 5px 5px, 5px 5px;
-  font-size: 14px;
-  cursor: pointer;
-  appearance: none;
-}
-
-.selectControl select {
-  background-image: none;
-}
-
-select option,
-select optgroup {
-  color: var(--text-primary);
-  background: #1b1a1e;
-}
-
-select:hover {
-  border-color: #504b51;
-  background-color: var(--surface-input-hover);
-}
-
-select:focus-visible {
-  border-color: #c48740;
-  outline: 0;
-  box-shadow: 0 0 0 3px #d5953a20;
-}
-
-.selectChevron {
-  position: absolute;
-  top: 50%;
-  right: 13px;
-  color: #aaa39c;
-  font-size: 17px;
-  line-height: 1;
-  pointer-events: none;
-  transform: translateY(-55%);
-}
-
-.selectControl:focus-within .selectChevron {
-  color: var(--amber-light);
-}
-
-select:disabled {
-  color: #8e8984;
-  background: #141316;
-  cursor: not-allowed;
-  opacity: .65;
 }
 
 .passwordField {
@@ -962,7 +915,6 @@ select:disabled {
 }
 
 .field input:focus,
-.field select:focus,
 .field textarea:focus {
   border-color: #b67a38;
   box-shadow: 0 0 0 3px #d5953a12;
@@ -1065,7 +1017,7 @@ select:disabled {
 }
 
 .versionFilters input,
-.versionFilters select {
+.versionFilters [data-slot="select-trigger"] {
   min-height: 42px;
   border: 1px solid #363238;
   border-radius: 8px;
@@ -1079,12 +1031,8 @@ select:disabled {
   padding: 0 12px;
 }
 
-.versionFilters select {
+.versionFilters [data-slot="select-trigger"] {
   max-width: 250px;
-}
-
-.versionFilters .selectControl {
-  width: 250px;
 }
 
 .catalogState {
@@ -2133,13 +2081,8 @@ select:disabled {
   }
 
   .versionFilters input,
-  .versionFilters select {
+  .versionFilters [data-slot="select-trigger"] {
     flex: 1 1 0;
-    width: auto;
-  }
-
-  .versionFilters .selectControl {
-    flex: 1 1 220px;
     width: auto;
   }
 

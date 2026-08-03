@@ -3,7 +3,6 @@ import type {
   InputHTMLAttributes,
   FormEvent,
   ReactNode,
-  SelectHTMLAttributes,
 } from "react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -57,18 +56,22 @@ export function Modal({
       : undefined;
     const dialog = dialogRef.current;
     const focusable = dialog?.querySelector<HTMLElement>(
-      "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
     );
-    focusable?.focus();
+      focusable?.focus();
     function keydown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        // Radix Select renders its open menu in a portal and owns this Escape key.
+        if (document.querySelector('[data-slot="select-content"][data-state="open"]')) {
+          return;
+        }
         event.preventDefault();
         onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !dialog) return;
       const items = [...dialog.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
       )];
       if (items.length === 0) return;
       const first = items[0];
@@ -118,19 +121,6 @@ export function Modal({
         {children}
       </section>
     </div>
-  );
-}
-
-export function Select({
-  className = "",
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <span className={`selectControl ${className}`.trim()}>
-      <select {...props}>{children}</select>
-      <span className="selectChevron" aria-hidden="true">⌄</span>
-    </span>
   );
 }
 

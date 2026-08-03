@@ -14,6 +14,7 @@ import {
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatDate, formatDuration } from "../shared/lib";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Button,
   Checkbox,
@@ -21,7 +22,6 @@ import {
   Field,
   Modal,
   PageHeader,
-  Select,
   StatusPill,
   SubmitForm,
 } from "../shared/ui";
@@ -49,6 +49,7 @@ export function LibraryPage({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
   const [query, setQuery] = useState("");
+  const navigate = useNavigate();
 
   const visibleInstances = useMemo(
     () =>
@@ -92,7 +93,7 @@ export function LibraryPage({
         title={t("library")}
         description={t("library_description")}
         action={
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          versions.length === 0 ? undefined : <Button onClick={() => setCreateDialogOpen(true)}>
             ＋ {t("new_instance")}
           </Button>
         }
@@ -133,8 +134,11 @@ export function LibraryPage({
           action={
             !query && (
               <Button
-                onClick={() => setCreateDialogOpen(true)}
-                disabled={versions.length === 0}
+                onClick={
+                  versions.length > 0
+                    ? () => setCreateDialogOpen(true)
+                    : () => navigate('/versions')
+                  }
               >
                 {versions.length > 0
                   ? t("create_instance")
@@ -342,29 +346,30 @@ function CreateInstanceModal({
           <div className="formRow">
             <Field label={t("game_version")}>
               <Select
-                required
                 value={versionID}
-                onChange={(event) => setVersionID(event.target.value)}
+                onValueChange={setVersionID}
               >
-                {versions.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    {version.name}
-                  </option>
-                ))}
+                <SelectTrigger><SelectValue placeholder={t("game_version")} /></SelectTrigger>
+                <SelectContent>
+                  {versions.map((version) => (
+                    <SelectItem key={version.id} value={version.id}>{version.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
 
             <Field label={t("launch_account")}>
               <Select
-                value={accountID}
-                onChange={(event) => setAccountID(event.target.value)}
+                value={accountID ? `account:${accountID}` : "global"}
+                onValueChange={(value) => setAccountID(value === "global" ? "" : value.slice("account:".length))}
               >
-                <option value="">{t("use_globally_selected_account")}</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.displayName}
-                  </option>
-                ))}
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">{t("use_globally_selected_account")}</SelectItem>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={`account:${account.id}`}>{account.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
           </div>
@@ -702,19 +707,28 @@ function InstanceModal({
 
                 <div className="formRow">
                   <Field label={t("game_version")}>
-                    <Select value={versionID} onChange={(event) => setVersionID(event.target.value)}>
-                      {versions.map((version) => (
-                        <option key={version.id} value={version.id}>{version.name}</option>
-                      ))}
+                    <Select value={versionID} onValueChange={setVersionID}>
+                      <SelectTrigger><SelectValue placeholder={t("game_version")} /></SelectTrigger>
+                      <SelectContent>
+                        {versions.map((version) => (
+                          <SelectItem key={version.id} value={version.id}>{version.name}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </Field>
 
                   <Field label={t("launch_account")}>
-                    <Select value={accountID} onChange={(event) => setAccountID(event.target.value)}>
-                      <option value="">{t("use_globally_selected_account")}</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>{account.displayName}</option>
-                      ))}
+                    <Select
+                      value={accountID ? `account:${accountID}` : "global"}
+                      onValueChange={(value) => setAccountID(value === "global" ? "" : value.slice("account:".length))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">{t("use_globally_selected_account")}</SelectItem>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={`account:${account.id}`}>{account.displayName}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </Field>
                 </div>

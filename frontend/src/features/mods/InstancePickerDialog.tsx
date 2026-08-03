@@ -12,6 +12,7 @@ import {
   type ModTaskProgress,
 } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, Empty, Field, Modal } from "../../shared/ui";
 import {
   chooseRelease,
@@ -159,13 +160,16 @@ export function InstancePickerDialog({
           <p className="muted">{t("select_one_or_more_instances")}</p>
           <div className="formRow">
             <Field label={t("mod_version")}>
-              <select value={releaseId} onChange={(event) => setReleaseId(event.target.value)}>
-                {mod.versions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.version} · {releaseTypeLabel(item.releaseType)}
-                  </option>
-                ))}
-              </select>
+              <Select value={releaseId} onValueChange={setReleaseId}>
+                <SelectTrigger><SelectValue placeholder={t("mod_version")} /></SelectTrigger>
+                <SelectContent>
+                  {mod.versions.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.version} · {releaseTypeLabel(item.releaseType)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <div className="releaseSummary">
               <span>{release?.gameVersions.join(", ") || t("compatibility_unknown")}</span>

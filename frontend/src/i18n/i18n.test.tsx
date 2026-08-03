@@ -52,9 +52,10 @@ describe("i18n", () => {
     render(<SettingsPage settings={settings} notify={vi.fn()} onSaved={vi.fn()} />);
     const user = userEvent.setup();
     const language = screen.getAllByRole("combobox")[0];
+    await user.click(language);
     expect(screen.getByRole("option", { name: "English" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Русский" })).toBeTruthy();
-    await user.selectOptions(language, "ru");
+    await user.click(screen.getByRole("option", { name: "Русский" }));
     await user.click(screen.getByRole("button", { name: "Save settings" }));
     expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "ru" }));
     await waitFor(() => expect(i18n.resolvedLanguage).toBe("ru"));
@@ -72,7 +73,8 @@ describe("i18n", () => {
     api.update.mockRejectedValue(new Error("save failed"));
     render(<SettingsPage settings={settings} notify={vi.fn()} onSaved={vi.fn()} />);
     const user = userEvent.setup();
-    await user.selectOptions(screen.getAllByRole("combobox")[0], "ru");
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(screen.getByRole("option", { name: "Русский" }));
     await user.click(screen.getByRole("button", { name: "Save settings" }));
     expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "ru" }));
     expect(i18n.resolvedLanguage).toBe("en");
