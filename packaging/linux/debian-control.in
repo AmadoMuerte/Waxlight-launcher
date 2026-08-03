@@ -1,0 +1,11 @@
+Package: waxlight
+Version: @VERSION@
+Section: games
+Priority: optional
+Architecture: amd64
+Maintainer: Waxlight contributors <noreply@waxlight.local>
+Depends: libgtk-3-0, libwebkit2gtk-4.1-0
+Homepage: https://github.com/AmadoMuerte/Waxlight-launcher
+Description: Unofficial launcher for Vintage Story
+ Waxlight Launcher manages isolated game instances, installed game versions,
+ accounts, mods, launch operations, and playtime statistics.

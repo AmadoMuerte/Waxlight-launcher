@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Waxlight Launcher
+Comment=Unofficial launcher for Vintage Story
+Exec=waxlight
+Icon=com.waxlight.launcher
+Terminal=false
+Categories=Game;
+StartupNotify=true
+StartupWMClass=waxlight

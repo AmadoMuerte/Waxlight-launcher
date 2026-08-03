@@ -7,7 +7,7 @@
   "build:tags": "webkit2_41",
   "wailsjsdir": "../../frontend/src",
   "outputfilename": "waxlight",
-  "frontend:install": "npm install --include=dev",
+  "frontend:install": "npm ci --include=dev",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
