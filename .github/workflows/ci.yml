@@ -51,7 +51,7 @@ jobs:
         run: npm --prefix frontend test
 
       - name: Validate release metadata
-        run: ./scripts/check-version.sh 0.1.0
+        run: ./scripts/check-version.sh 0.1.1
 
   linux-build:
     name: Linux desktop build

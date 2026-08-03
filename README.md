@@ -67,13 +67,13 @@ checksum before choosing to run it.
 ### Debian and Ubuntu installation
 
 ```bash
-sudo apt install ./Waxlight-Launcher-v0.1.0-linux-amd64.deb
+sudo apt install ./Waxlight-Launcher-v0.1.1-linux-amd64.deb
 ```
 
 ### Fedora installation
 
 ```bash
-sudo dnf install ./Waxlight-Launcher-v0.1.0-linux-amd64.rpm
+sudo dnf install ./Waxlight-Launcher-v0.1.1-linux-amd64.rpm
 ```
 
 ### Portable Linux installation
@@ -82,8 +82,8 @@ The portable build requires GTK 3 and WebKitGTK 4.1 at runtime. Install those
 packages using your distribution's package manager, then extract and run it:
 
 ```bash
-tar -xzf Waxlight-Launcher-v0.1.0-linux-amd64.tar.gz
-cd Waxlight-Launcher-v0.1.0-linux-amd64
+tar -xzf Waxlight-Launcher-v0.1.1-linux-amd64.tar.gz
+cd Waxlight-Launcher-v0.1.1-linux-amd64
 ./waxlight
 ```
 
