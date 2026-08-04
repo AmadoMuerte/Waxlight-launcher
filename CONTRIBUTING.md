@@ -17,6 +17,11 @@ make test
 make build
 ```
 
+Installing frontend dependencies also installs Git hooks. Before each commit, the
+pre-commit hook checks Go and frontend formatting and static analysis. Fix any
+reported problem before committing; use `git commit --no-verify` only for an
+emergency bypass.
+
 For live Wails development, install the matching CLI and run it from the command
 directory:
 
