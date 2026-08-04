@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { changeAppLanguage } from "../i18n";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
+import { changeAppLanguage } from "../i18n";
+import { AccountsPage } from "../pages/AccountsPage";
+import { LibraryPage } from "../pages/LibraryPage";
+import { ModDetailsPage } from "../pages/ModDetailsPage";
+import { ModsPage } from "../pages/ModsPage";
+import { OperationsPage } from "../pages/OperationsPage";
+import { SettingsPage } from "../pages/SettingsPage";
+import { StatisticsPage } from "../pages/StatisticsPage";
+import { VersionsPage } from "../pages/VersionsPage";
 import {
   accountsApi,
   instancesApi,
@@ -18,14 +26,6 @@ import {
   type Statistics,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { AccountsPage } from "../pages/AccountsPage";
-import { LibraryPage } from "../pages/LibraryPage";
-import { OperationsPage } from "../pages/OperationsPage";
-import { ModsPage } from "../pages/ModsPage";
-import { ModDetailsPage } from "../pages/ModDetailsPage";
-import { SettingsPage } from "../pages/SettingsPage";
-import { StatisticsPage } from "../pages/StatisticsPage";
-import { VersionsPage } from "../pages/VersionsPage";
 
 const navigation = [
   { to: "/library", icon: "▦", labelKey: "library" },
@@ -97,7 +97,7 @@ export function App() {
   useEffect(() => {
     function closeAccountSwitcher(event: PointerEvent) {
       const switcher = accountSwitcherRef.current;
-      if (switcher?.open && !switcher.contains(event.target as Node)) {
+      if (switcher?.open && event.target instanceof Node && !switcher.contains(event.target)) {
         switcher.open = false;
       }
     }
@@ -112,7 +112,11 @@ export function App() {
   }
 
   if (loading) {
-    return <div className="appLoading"><span className="spinner" /></div>;
+    return (
+      <div className="appLoading">
+        <span className="spinner" />
+      </div>
+    );
   }
 
   return (
@@ -232,72 +236,31 @@ export function App() {
           />
           <Route
             path="/mods/:modId"
-            element={
-              <ModDetailsPage
-                instances={instances}
-                versions={versions}
-                notify={notify}
-              />
-            }
+            element={<ModDetailsPage instances={instances} versions={versions} notify={notify} />}
           />
           <Route
             path="/mods"
-            element={
-              <ModsPage
-                instances={instances}
-                versions={versions}
-                notify={notify}
-              />
-            }
+            element={<ModsPage instances={instances} versions={versions} notify={notify} />}
           />
           <Route
             path="/versions"
-            element={
-              <VersionsPage
-                versions={versions}
-                refresh={refresh}
-                notify={notify}
-              />
-            }
+            element={<VersionsPage versions={versions} refresh={refresh} notify={notify} />}
           />
           <Route
             path="/operations"
-            element={
-              <OperationsPage
-                operations={operations}
-                refresh={refresh}
-                notify={notify}
-              />
-            }
+            element={<OperationsPage operations={operations} refresh={refresh} notify={notify} />}
           />
           <Route
             path="/accounts"
-            element={
-              <AccountsPage
-                accounts={accounts}
-                refresh={refresh}
-                notify={notify}
-              />
-            }
+            element={<AccountsPage accounts={accounts} refresh={refresh} notify={notify} />}
           />
           <Route
             path="/statistics"
-            element={
-              <StatisticsPage
-                statistics={statistics}
-                instances={instances}
-              />
-            }
+            element={<StatisticsPage statistics={statistics} instances={instances} />}
           />
           <Route
             path="/settings"
-            element={
-              <SettingsPage
-                settings={settings}
-                notify={notify}
-                onSaved={setSettings}
-              />
-            }
+            element={<SettingsPage settings={settings} notify={notify} onSaved={setSettings} />}
           />
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>

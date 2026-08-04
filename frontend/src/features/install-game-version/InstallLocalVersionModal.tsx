@@ -3,12 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { settingsApi, versionsApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import {
-  Button,
-  Field,
-  Modal,
-  SubmitForm,
-} from "../../shared/ui";
+import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
 
 interface InstallLocalVersionModalProps {
   installedVersionIDs: Set<string>;
@@ -73,13 +68,12 @@ export function InstallLocalVersionModal({
       <SubmitForm className="dialogForm" onSubmit={install}>
         <div className="modalBody formFields">
           <div className="notice">
-          <b>{t("local_installation")}</b>
-          <span>{t("local_installation_description")}</span>
+            <b>{t("local_installation")}</b>
+            <span>{t("local_installation_description")}</span>
           </div>
           <div className="formRow">
             <Field label={t("version_id")}>
               <input
-                autoFocus
                 required
                 value={id}
                 onChange={(event) => setID(event.target.value)}
@@ -100,10 +94,7 @@ export function InstallLocalVersionModal({
               {t("version_already_installed_detail", { id: id.trim() })}
             </div>
           )}
-          <Field
-            label={t("archive_or_directory")}
-            hint={t("supported_archives_hint")}
-          >
+          <Field label={t("archive_or_directory")} hint={t("supported_archives_hint")}>
             <div className="inputAction">
               <input
                 required
@@ -119,27 +110,25 @@ export function InstallLocalVersionModal({
               </Button>
             </div>
           </Field>
-          <Field
-            label={t("executable_path_inside_archive")}
-            hint={t("locate_executable_hint")}
-          >
+          <Field label={t("executable_path_inside_archive")} hint={t("locate_executable_hint")}>
             <input
               value={executablePath}
               onChange={(event) => setExecutablePath(event.target.value)}
               placeholder="Vintagestory"
             />
           </Field>
-          <Field
-            label={t("sha256_checksum_optional")}
-            hint={t("checksum_mismatch_hint")}
-          >
+          <Field label={t("sha256_checksum_optional")} hint={t("checksum_mismatch_hint")}>
             <input
               value={checksum}
               onChange={(event) => setChecksum(event.target.value)}
               placeholder={t("hexadecimal_characters_64")}
             />
           </Field>
-          {error && <div className="inlineError" role="alert">{error}</div>}
+          {error && (
+            <div className="inlineError" role="alert">
+              {error}
+            </div>
+          )}
         </div>
         <div className="dialogFooter">
           <Button type="button" variant="ghost" onClick={onClose}>

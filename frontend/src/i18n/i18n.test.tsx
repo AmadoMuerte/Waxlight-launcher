@@ -5,9 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import i18n, { changeAppLanguage } from ".";
-import { normalizeLanguage } from "./languages";
 import { SettingsPage } from "../pages/SettingsPage";
 import type { Settings } from "../shared/api";
+import { normalizeLanguage } from "./languages";
 
 const api = vi.hoisted(() => ({ update: vi.fn() }));
 vi.mock("../shared/api", () => ({ settingsApi: api }));

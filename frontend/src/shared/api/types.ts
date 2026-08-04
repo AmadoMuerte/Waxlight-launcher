@@ -82,13 +82,7 @@ export interface InstalledMod {
 }
 
 export type ModSide = "client" | "server" | "both" | "unknown";
-export type ModSort =
-  | "relevance"
-  | "updated"
-  | "newest"
-  | "downloads"
-  | "name_asc"
-  | "name_desc";
+export type ModSort = "relevance" | "updated" | "newest" | "downloads" | "name_asc" | "name_desc";
 
 export interface ModSummary {
   id: string;
@@ -197,25 +191,14 @@ export interface ModInstallResult {
 export interface ModTaskProgress {
   taskId: string;
   modId: string;
-  phase:
-    | "preparing"
-    | "downloading"
-    | "verifying"
-    | "installing"
-    | "complete"
-    | "failed";
+  phase: "preparing" | "downloading" | "verifying" | "installing" | "complete" | "failed";
   downloadedBytes: number;
   totalBytes: number;
   progress: number;
   message: string;
 }
 
-export type OperationStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
+export type OperationStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export interface Operation {
   id: string;

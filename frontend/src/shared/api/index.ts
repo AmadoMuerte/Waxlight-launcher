@@ -1,4 +1,4 @@
-import { call } from "./bridge";
+import type { presentation } from "../../wailsjs/go/models";
 import {
   CancelLogin,
   CompleteTOTP,
@@ -9,6 +9,7 @@ import {
   SetDefaultAccount,
   ValidateAccount,
 } from "../../wailsjs/go/presentation/AccountController";
+import { call } from "./bridge";
 import type {
   Account,
   AvailableGameVersion,
@@ -18,55 +19,40 @@ import type {
   LaunchValidation,
   LoginResult,
   Operation,
-	DownloadedMod,
-	ModDetails,
-	ModInstallResult,
-	ModSearchQuery,
-	ModSearchResult,
+  DownloadedMod,
+  ModDetails,
+  ModInstallResult,
+  ModSearchQuery,
+  ModSearchResult,
   Settings,
   Statistics,
 } from "./types";
 
 export const accountsApi = {
   list: async () => (await ListAccounts()) as Account[],
-  login: (email: string, password: string) =>
-    Login(email, password) as Promise<LoginResult>,
-  completeTOTP: (flowId: string, code: string) =>
-    CompleteTOTP(flowId, code) as Promise<LoginResult>,
+  login: async (email: string, password: string) => loginResult(await Login(email, password)),
+  completeTOTP: async (flowId: string, code: string) =>
+    loginResult(await CompleteTOTP(flowId, code)),
   cancelLogin: (flowId: string) => CancelLogin(flowId),
-  reauthenticate: (accountId: string, email: string, password: string) =>
-    ReauthenticateAccount(accountId, email, password) as Promise<LoginResult>,
-  validate: async (id: string) => (await ValidateAccount(id)) as Account,
+  reauthenticate: async (accountId: string, email: string, password: string) =>
+    loginResult(await ReauthenticateAccount(accountId, email, password)),
+  validate: async (id: string) => await ValidateAccount(id),
   setDefault: (id: string) => SetDefaultAccount(id),
   remove: (id: string) => RemoveAccount(id),
 };
 
 export const versionsApi = {
-  list: () =>
-    call<GameVersion[]>("GameVersionController", "ListInstalledVersions"),
+  list: () => call<GameVersion[]>("GameVersionController", "ListInstalledVersions"),
   install: (request: {
     id: string;
     name: string;
     sourcePath: string;
     executableRelativePath: string;
     expectedSha256: string;
-  }) =>
-    call<Operation>(
-      "GameVersionController",
-      "InstallLocalVersion",
-      request,
-    ),
-  available: () =>
-    call<AvailableGameVersion[]>(
-      "GameVersionController",
-      "ListAvailableVersions",
-    ),
+  }) => call<Operation>("GameVersionController", "InstallLocalVersion", request),
+  available: () => call<AvailableGameVersion[]>("GameVersionController", "ListAvailableVersions"),
   installAvailable: (versionId: string) =>
-    call<Operation>(
-      "GameVersionController",
-      "InstallVersion",
-      versionId,
-    ),
+    call<Operation>("GameVersionController", "InstallVersion", versionId),
   remove: (id: string, deleteFiles: boolean) =>
     call<void>("GameVersionController", "RemoveVersion", id, deleteFiles),
 };
@@ -95,63 +81,35 @@ export const instancesApi = {
 
 export const modsApi = {
   list: (instanceId: string) =>
-    call<InstalledMod[]>(
-      "ModManagerController",
-      "ListInstalledMods",
-      instanceId,
-    ),
-  install: (request: {
-    instanceId: string;
-    sourcePath: string;
-    name: string;
-    version: string;
-  }) => call<Operation>("ModManagerController", "InstallModFile", request),
+    call<InstalledMod[]>("ModManagerController", "ListInstalledMods", instanceId),
+  install: (request: { instanceId: string; sourcePath: string; name: string; version: string }) =>
+    call<Operation>("ModManagerController", "InstallModFile", request),
   toggle: (id: string, enabled: boolean) =>
-    call<InstalledMod>(
-      "ModManagerController",
-      "SetModEnabled",
-      id,
-      enabled,
-    ),
-  remove: (id: string) =>
-    call<void>("ModManagerController", "RemoveMod", id),
+    call<InstalledMod>("ModManagerController", "SetModEnabled", id, enabled),
+  remove: (id: string) => call<void>("ModManagerController", "RemoveMod", id),
 };
 
 export const modCatalogApi = {
   search: (query: ModSearchQuery) =>
     call<ModSearchResult>("ModCatalogController", "SearchMods", query),
-  get: (modId: string) =>
-    call<ModDetails>("ModCatalogController", "GetMod", modId),
-  downloaded: () =>
-    call<DownloadedMod[]>("ModCatalogController", "ListDownloadedMods"),
+  get: (modId: string) => call<ModDetails>("ModCatalogController", "GetMod", modId),
+  downloaded: () => call<DownloadedMod[]>("ModCatalogController", "ListDownloadedMods"),
   download: (request: {
     modId: string;
     versionId: string;
     instanceIds: string[];
     downloadOnly: boolean;
     allowIncompatible: boolean;
-  }) =>
-    call<ModInstallResult>("ModCatalogController", "DownloadMod", request),
+  }) => call<ModInstallResult>("ModCatalogController", "DownloadMod", request),
   installDownloaded: (request: {
     modId: string;
     versionId: string;
     instanceIds: string[];
     allowIncompatible: boolean;
-  }) =>
-    call<ModInstallResult>(
-      "ModCatalogController",
-      "InstallDownloadedMod",
-      request,
-    ),
+  }) => call<ModInstallResult>("ModCatalogController", "InstallDownloadedMod", request),
   removeDownloaded: (modId: string, versionId: string) =>
-    call<void>(
-      "ModCatalogController",
-      "RemoveDownloadedMod",
-      modId,
-      versionId,
-    ),
-  cancelTask: (taskId: string) =>
-    call<void>("ModCatalogController", "CancelModTask", taskId),
+    call<void>("ModCatalogController", "RemoveDownloadedMod", modId, versionId),
+  cancelTask: (taskId: string) => call<void>("ModCatalogController", "CancelModTask", taskId),
   checkUpdates: (modId: string) =>
     call<DownloadedMod[]>("ModCatalogController", "CheckModUpdates", modId),
 };
@@ -164,39 +122,54 @@ export const launcherApi = {
     }),
   launch: (instanceId: string, accountId?: string) =>
     call("LaunchController", "LaunchInstance", { instanceId, accountId }),
-  stop: (instanceId: string) =>
-    call<void>("LaunchController", "StopInstance", instanceId),
-  running: () =>
-    call<string[]>("LaunchController", "GetRunningInstances"),
+  stop: (instanceId: string) => call<void>("LaunchController", "StopInstance", instanceId),
+  running: () => call<string[]>("LaunchController", "GetRunningInstances"),
 };
 
 export const operationsApi = {
   list: () => call<Operation[]>("OperationController", "ListOperations"),
-  cancel: (id: string) =>
-    call<void>("OperationController", "CancelOperation", id),
-  remove: (id: string) =>
-    call<void>("OperationController", "DeleteOperation", id),
-  clearHistory: () =>
-    call<number>("OperationController", "ClearOperationHistory"),
+  cancel: (id: string) => call<void>("OperationController", "CancelOperation", id),
+  remove: (id: string) => call<void>("OperationController", "DeleteOperation", id),
+  clearHistory: () => call<number>("OperationController", "ClearOperationHistory"),
 };
 
 export const statisticsApi = {
-  overview: () =>
-    call<Statistics>("StatisticsController", "GetOverviewStatistics"),
+  overview: () => call<Statistics>("StatisticsController", "GetOverviewStatistics"),
 };
 
 export const settingsApi = {
   get: () => call<Settings>("SettingsController", "GetSettings"),
-  update: (settings: Settings) =>
-    call<Settings>("SettingsController", "UpdateSettings", settings),
-  selectGameArchive: () =>
-    call<string>("SettingsController", "SelectGameArchive"),
-  selectGameDirectory: () =>
-    call<string>("SettingsController", "SelectGameDirectory"),
-  selectModFile: () =>
-    call<string>("SettingsController", "SelectModFile"),
-  openDirectory: (path: string) =>
-    call<void>("SettingsController", "OpenDirectory", path),
+  update: (settings: Settings) => call<Settings>("SettingsController", "UpdateSettings", settings),
+  selectGameArchive: () => call<string>("SettingsController", "SelectGameArchive"),
+  selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
+  selectModFile: () => call<string>("SettingsController", "SelectModFile"),
+  openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),
 };
 
 export * from "./types";
+
+function loginResult(result: presentation.LoginResultDTO): LoginResult {
+  return {
+    status: loginStatus(result.status),
+    account: result.account,
+    flowId: result.flowId,
+    message: result.message,
+  };
+}
+
+function loginStatus(status: string): LoginResult["status"] {
+  switch (status) {
+    case "success":
+    case "totp_required":
+    case "invalid_credentials":
+    case "ip_changed":
+    case "temporarily_blocked":
+    case "network_error":
+    case "server_error":
+    case "invalid_response":
+    case "unknown_error":
+      return status;
+    default:
+      return "unknown_error";
+  }
+}

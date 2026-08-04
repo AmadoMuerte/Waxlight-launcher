@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { changeAppLanguage } from "../i18n";
 import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
-
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, Checkbox, Field, PageHeader, SubmitForm } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
@@ -16,11 +23,7 @@ interface SettingsPageProps {
   onSaved: (settings: Settings) => void;
 }
 
-export function SettingsPage({
-  settings,
-  notify,
-  onSaved,
-}: SettingsPageProps) {
+export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
   const [busy, setBusy] = useState(false);
@@ -72,10 +75,21 @@ export function SettingsPage({
             </header>
             <div className="formRow">
               <Field label={t("language")}>
-                <Select value={normalizeLanguage(value.language)} onValueChange={(language) => setValue({ ...value, language: normalizeLanguage(language) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={normalizeLanguage(value.language)}
+                  onValueChange={(language) =>
+                    setValue({ ...value, language: normalizeLanguage(language) })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {supportedLanguages.map((language) => <SelectItem key={language.code} value={language.code}>{language.nativeName}</SelectItem>)}
+                    {supportedLanguages.map((language) => (
+                      <SelectItem key={language.code} value={language.code}>
+                        {language.nativeName}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
@@ -83,11 +97,11 @@ export function SettingsPage({
               <Field label={t("theme")}>
                 <Select
                   value={value.theme}
-                  onValueChange={(theme) =>
-                    setValue({ ...value, theme })
-                  }
+                  onValueChange={(theme) => setValue({ ...value, theme })}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="dark">{t("dark")}</SelectItem>
                     <SelectItem value="system">{t("system")}</SelectItem>
@@ -134,10 +148,7 @@ export function SettingsPage({
                 </Field>
               </div>
 
-              <Field
-                label={t("global_launch_arguments")}
-                hint={t("global_launch_arguments_hint")}
-              >
+              <Field label={t("global_launch_arguments")} hint={t("global_launch_arguments_hint")}>
                 <input
                   className="codeInput"
                   value={value.globalLaunchArguments.join(" ")}
@@ -145,9 +156,7 @@ export function SettingsPage({
                     const argumentsValue = event.target.value.trim();
                     setValue({
                       ...value,
-                      globalLaunchArguments: argumentsValue
-                        ? argumentsValue.split(/\s+/)
-                        : [],
+                      globalLaunchArguments: argumentsValue ? argumentsValue.split(/\s+/) : [],
                     });
                   }}
                   placeholder="--debug"
@@ -173,9 +182,7 @@ export function SettingsPage({
         </SubmitForm>
       </section>
 
-      <footer className="legal">
-        {t("not_affiliated_notice")}
-      </footer>
+      <footer className="legal">{t("not_affiliated_notice")}</footer>
     </>
   );
 }

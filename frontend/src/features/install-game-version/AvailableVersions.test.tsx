@@ -58,9 +58,7 @@ describe("official version catalog", () => {
 
     expect(await screen.findByText("1.22.6")).toBeTruthy();
     expect(screen.queryByText("1.23.0-pre.1")).toBeNull();
-    await userEvent.setup().click(
-      screen.getByRole("button", { name: "Download" }),
-    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
 
     expect(api.installAvailable).toHaveBeenCalledWith("1.22.6");
     await waitFor(() => expect(onOperationStarted).toHaveBeenCalled());
@@ -81,9 +79,9 @@ describe("official version catalog", () => {
     await user.click(screen.getByRole("option", { name: /Preview/ }));
 
     expect(await screen.findByText("1.23.0-pre.1")).toBeTruthy();
-    expect(
-      (screen.getByRole("button", { name: "Installed" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    const installedButton = screen.getByRole("button", { name: "Installed" });
+    if (!(installedButton instanceof HTMLButtonElement))
+      throw new Error("installed control is not a button");
+    expect(installedButton.disabled).toBe(true);
   });
 });

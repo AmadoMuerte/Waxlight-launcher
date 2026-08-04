@@ -16,10 +16,7 @@ export function formatBytes(bytes: number): string {
   }
 
   const units = ["B", "KB", "MB", "GB"];
-  const unitIndex = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** unitIndex;
 
   const digits = unitIndex === 0 ? 0 : 1;
