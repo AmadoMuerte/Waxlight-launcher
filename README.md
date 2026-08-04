@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="packaging/linux/com.waxlight.launcher.svg" alt="Waxlight Launcher icon" width="112" height="112">
+  <img src="./waxlight.png" alt="Waxlight Launcher icon" width="300" height="300">
 
 # Waxlight Launcher
 
