@@ -11,6 +11,7 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "prepare": "cd .. && husky frontend/.husky",
     "test": "node scripts/test.mjs"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
+    "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "oxfmt": "^0.62.0",
     "oxlint": "^1.77.0",
