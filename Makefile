@@ -2,6 +2,7 @@ SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
 
 GO ?= go
+GOFMT ?= gofmt
 NPM ?= npm
 GIT ?= git
 
@@ -35,6 +36,9 @@ RELEASE_TAG = v$(VERSION)
 	test \
 	test-backend \
 	test-frontend \
+	format \
+	format-check \
+	lint \
 	race \
 	vet \
 	security \
@@ -72,6 +76,15 @@ help:
 	@echo
 	@echo "  make vet"
 	@echo "      Run go vet."
+	@echo
+	@echo "  make format"
+	@echo "      Format Go and frontend source files."
+	@echo
+	@echo "  make format-check"
+	@echo "      Check Go and frontend source formatting."
+	@echo
+	@echo "  make lint"
+	@echo "      Run Go and frontend static analysis."
 	@echo
 	@echo "  make security"
 	@echo "      Run security-pattern and vulnerability checks."
@@ -199,6 +212,24 @@ test-frontend:
 	$(NPM) --prefix frontend test
 
 test: frontend test-backend test-frontend
+
+format:
+	$(GOFMT) -w $$($(GIT) ls-files '*.go')
+	$(NPM) --prefix frontend run format
+
+format-check:
+	@unformatted="$$($(GOFMT) -l $$($(GIT) ls-files '*.go'))"; \
+	if [[ -n "$$unformatted" ]]; then \
+		echo "error: Go files need formatting:"; \
+		printf '%s\n' "$$unformatted"; \
+		exit 1; \
+	fi
+	$(NPM) --prefix frontend run format:check
+
+# CI validates Linux build-tagged source; use same target for cross-platform hooks.
+lint:
+	GOOS=linux $(GO) vet ./...
+	$(NPM) --prefix frontend run lint
 
 race:
 	$(GO) test -race ./...
