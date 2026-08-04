@@ -2,10 +2,12 @@
 
 ## Workflow
 
-- Frontend lives in `frontend/`; install its locked dependencies with `npm ci --include=dev --prefix frontend`.
+- Frontend lives in `frontend/`; install its locked dependencies with `npm ci --include=dev --prefix frontend`. This also registers the Husky pre-commit hook from `frontend/.husky`.
 - `make test` first runs the frontend production build (including i18n and TypeScript checks), then Go and frontend tests.
 - Run focused Go tests with `go test ./path/to/package -run TestName`.
-- Run `make vet` for Go static analysis and `make security` for prohibited-pattern and vulnerability checks.
+- Run `make format` to format Go and frontend sources. Use `make format-check` to validate `gofmt` and `oxfmt --check` without changing files.
+- Run `make lint` for Linux-targeted Go static analysis and frontend `oxlint`; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
+- Pre-commit runs `make format-check lint` and blocks commits on failure. Use `git commit --no-verify` only for an emergency bypass.
 - Full release validation requires a version: `make release-check VERSION=X.Y.Z`.
 - `make release VERSION=X.Y.Z` requires clean, synchronized `main` and then commits version files, pushes `main`, and creates and pushes a release tag.
 - Run `wails dev` only from `cmd/waxlight`. Build supported desktop artifacts with `make wails-build`; plain `go build` without Wails desktop tags is not a supported GUI build.
