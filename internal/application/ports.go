@@ -108,6 +108,7 @@ type ArchiveInstaller interface {
 
 type ModFileManager interface {
 	EnsureLayout(string) error
+	Scan(string) ([]domain.DiscoveredMod, error)
 	Install(context.Context, string, string) (string, int64, error)
 	InstallOrReplace(context.Context, string, string, string) (string, int64, error)
 	SetEnabled(string, string, bool) (string, error)

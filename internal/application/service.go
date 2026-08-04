@@ -36,6 +36,7 @@ type Service struct {
 	events             EventPublisher
 	runningMu          sync.Mutex
 	launchMu           sync.Mutex
+	modsMu             sync.Mutex
 	versionInstallMu   sync.Mutex
 	operationsMu       sync.Mutex
 	operationCancels   map[string]context.CancelFunc
@@ -652,6 +653,9 @@ func removeAllReliably(path string) error {
 }
 
 func (s *Service) ListMods(ctx context.Context, instanceID string) ([]domain.InstalledMod, error) {
+	s.modsMu.Lock()
+	defer s.modsMu.Unlock()
+
 	instance, e := s.store.GetInstance(ctx, instanceID)
 	if e != nil {
 		return nil, e
@@ -663,23 +667,80 @@ func (s *Service) ListMods(ctx context.Context, instanceID string) ([]domain.Ins
 	if e != nil {
 		return nil, e
 	}
+	discovered, e := s.modFiles.Scan(instance.Directory)
+	if e != nil {
+		return nil, e
+	}
+
+	matched := make([]bool, len(discovered))
+	now := time.Now().UTC()
 	for index := range mods {
-		if _, statErr := os.Stat(mods[index].FilePath); statErr == nil {
+		discoveredIndex := findDiscoveredMod(discovered, matched, mods[index])
+		if discoveredIndex < 0 {
+			if e = s.store.DeleteMod(ctx, mods[index].ID); e != nil {
+				return nil, e
+			}
 			continue
 		}
 
-		directory := "ModsDisabled"
-		if mods[index].Enabled {
-			directory = "Mods"
-		}
-		candidate := filepath.Join(instance.Directory, directory, mods[index].FileName)
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			mods[index].FilePath = candidate
-			mods[index].UpdatedAt = time.Now().UTC()
-			_ = s.store.SaveMod(ctx, mods[index])
+		found := discovered[discoveredIndex]
+		matched[discoveredIndex] = true
+		mods[index].FileName = found.FileName
+		mods[index].FilePath = found.FilePath
+		mods[index].Enabled = found.Enabled
+		mods[index].SizeBytes = found.SizeBytes
+		mods[index].UpdatedAt = now
+		if e = s.store.SaveMod(ctx, mods[index]); e != nil {
+			return nil, e
 		}
 	}
-	return mods, nil
+
+	for index, found := range discovered {
+		if matched[index] {
+			continue
+		}
+		installedAt := found.ModifiedAt.UTC()
+		if installedAt.IsZero() {
+			installedAt = now
+		}
+		mod := domain.InstalledMod{
+			ID:          newID(),
+			InstanceID:  instanceID,
+			Name:        found.Name,
+			Version:     found.Version,
+			FileName:    found.FileName,
+			FilePath:    found.FilePath,
+			Enabled:     found.Enabled,
+			Managed:     false,
+			Source:      "local",
+			SizeBytes:   found.SizeBytes,
+			InstalledAt: installedAt,
+			UpdatedAt:   now,
+		}
+		if e = s.store.SaveMod(ctx, mod); e != nil {
+			return nil, e
+		}
+	}
+
+	return s.store.ListMods(ctx, instanceID)
+}
+
+func findDiscoveredMod(
+	discovered []domain.DiscoveredMod,
+	matched []bool,
+	installed domain.InstalledMod,
+) int {
+	for index := range discovered {
+		if !matched[index] && samePath(discovered[index].FilePath, installed.FilePath) {
+			return index
+		}
+	}
+	for index := range discovered {
+		if !matched[index] && strings.EqualFold(discovered[index].FileName, installed.FileName) {
+			return index
+		}
+	}
+	return -1
 }
 func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, name, version string) (domain.Operation, error) {
 	i, e := s.store.GetInstance(ctx, instanceID)
