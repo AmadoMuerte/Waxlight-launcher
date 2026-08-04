@@ -170,40 +170,41 @@ foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
     }
 }
 
-Invoke-CheckedCommand `
-    -Description "Installing frontend dependencies..." `
-    -Command {
-        npm ci `
-            --include=dev `
-            --prefix $FrontendDirectory
-    }
-
-Invoke-CheckedCommand `
-    -Description "Building frontend assets..." `
-    -Command {
-        npm `
-            --prefix $FrontendDirectory `
-            run build
-    }
-
-if (-not (Test-Path -LiteralPath $FrontendEntry)) {
-    throw "Frontend build did not create: $FrontendEntry"
-}
-
-if ((Get-Item -LiteralPath $FrontendEntry).Length -le 0) {
-    throw "Frontend entry file is empty: $FrontendEntry"
-}
-
 try {
+    Invoke-CheckedCommand `
+        -Description "Installing frontend dependencies..." `
+        -Command {
+            npm ci `
+                --include=dev `
+                --prefix $FrontendDirectory
+        }
+
+    Invoke-CheckedCommand `
+        -Description "Building frontend assets..." `
+        -Command {
+            npm `
+                --prefix $FrontendDirectory `
+                run build
+        }
+
+    if (-not (Test-Path -LiteralPath $FrontendEntry)) {
+        throw "Frontend build did not create: $FrontendEntry"
+    }
+
+    if ((Get-Item -LiteralPath $FrontendEntry).Length -le 0) {
+        throw "Frontend entry file is empty: $FrontendEntry"
+    }
+
     Push-Location $WailsProjectDirectory
 
     try {
         Invoke-CheckedCommand `
-            -Description "Building Windows application..." `
+            -Description "Building Windows application and NSIS installer..." `
             -Command {
                 wails build `
                     -clean `
                     -platform windows/amd64 `
+                    -nsis `
                     -trimpath `
                     -ldflags="-s -w"
             }
@@ -243,6 +244,10 @@ try {
         ForEach-Object FullName
 
     if (-not $InstallerExecutable) {
+        Write-Host "Files found in $BuildBinDirectory:"
+        Get-ChildItem -Path $BuildBinDirectory -File -Recurse |
+            Format-Table FullName, Length
+
         throw "NSIS installer was not found in $BuildBinDirectory"
     }
 

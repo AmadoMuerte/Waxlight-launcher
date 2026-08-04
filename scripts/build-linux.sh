@@ -37,15 +37,14 @@ if [[ "$release_version" == *-* ]]; then
     prerelease="${release_version#*-}"
 fi
 
-# Debian sorts 0.2.0~beta.1 before 0.2.0.
+# Debian uses '~' so a prerelease sorts before the final version.
 if [[ -n "$prerelease" ]]; then
     deb_version="${base_version}~${prerelease}"
 else
     deb_version="$base_version"
 fi
 
-# RPM does not allow '-' in Version.
-# Pre-release versions must therefore be represented through Release.
+# RPM does not allow '-' in Version, so prerelease data belongs in Release.
 rpm_version="$base_version"
 
 if [[ -n "$prerelease" ]]; then
@@ -56,11 +55,12 @@ fi
 
 architecture="amd64"
 package_name="waxlight"
-application_name="Waxlight Launcher"
 
 build_directory="$repository_root/build"
 build_bin_directory="$build_directory/bin"
 application_binary="$build_bin_directory/waxlight"
+frontend_directory="$repository_root/frontend"
+frontend_entry="$frontend_directory/dist/index.html"
 
 staging_root="$build_directory/package-linux"
 portable_root="$staging_root/portable"
@@ -112,7 +112,10 @@ install_optional_file() {
 
     if [[ -n "$source" && -f "$source" ]]; then
         install -Dm"$mode" "$source" "$destination"
+        return 0
     fi
+
+    return 1
 }
 
 rm -rf "$staging_root"
@@ -125,17 +128,15 @@ echo "-----------------------------------"
 
 npm ci \
     --include=dev \
-    --prefix "$repository_root/frontend"
+    --prefix "$frontend_directory"
 
 echo
 echo "Building frontend assets..."
 echo "---------------------------"
 
 npm \
-    --prefix "$repository_root/frontend" \
+    --prefix "$frontend_directory" \
     run build
-
-frontend_entry="$repository_root/frontend/dist/index.html"
 
 if [[ ! -s "$frontend_entry" ]]; then
     echo "error: frontend build did not create: $frontend_entry" >&2
@@ -156,6 +157,11 @@ echo "-----------------------------"
         -trimpath \
         -ldflags="-s -w"
 )
+
+if [[ ! -s "$application_binary" ]]; then
+    echo "error: Wails binary was not created: $application_binary" >&2
+    exit 1
+fi
 
 chmod 0755 "$application_binary"
 
@@ -196,17 +202,17 @@ install \
 install_optional_file \
     "$desktop_file" \
     "$portable_root/$portable_name/waxlight.desktop" \
-    0644
+    0644 || true
 
 install_optional_file \
     "$icon_file" \
     "$portable_root/$portable_name/waxlight.png" \
-    0644
+    0644 || true
 
 install_optional_file \
     "$license_file" \
     "$portable_root/$portable_name/LICENSE" \
-    0644
+    0644 || true
 
 tar \
     -C "$portable_root" \
@@ -231,19 +237,19 @@ install \
 install_optional_file \
     "$desktop_file" \
     "$deb_root/usr/share/applications/waxlight.desktop" \
-    0644
+    0644 || true
 
 install_optional_file \
     "$icon_file" \
     "$deb_root/usr/share/icons/hicolor/256x256/apps/waxlight.png" \
-    0644
+    0644 || true
 
 install_optional_file \
     "$license_file" \
     "$deb_root/usr/share/doc/$package_name/LICENSE" \
-    0644
+    0644 || true
 
-cat >"$deb_root/DEBIAN/control" <<EOF
+cat >"$deb_root/DEBIAN/control" <<EOF_CONTROL
 Package: $package_name
 Version: $deb_version
 Section: games
@@ -253,7 +259,7 @@ Maintainer: AmadoMuerte
 Depends: libgtk-3-0, libwebkit2gtk-4.1-0
 Description: Waxlight Launcher for Vintage Story
  A modern, lightweight and cross-platform launcher for Vintage Story.
-EOF
+EOF_CONTROL
 
 chmod 0755 "$deb_root/DEBIAN"
 chmod 0644 "$deb_root/DEBIAN/control"
@@ -289,27 +295,43 @@ install \
     "$application_binary" \
     "$rpm_source_root/usr/bin/waxlight"
 
-install_optional_file \
+rpm_file_entries=("/usr/bin/waxlight")
+
+if install_optional_file \
     "$desktop_file" \
     "$rpm_source_root/usr/share/applications/waxlight.desktop" \
-    0644
+    0644; then
+    rpm_file_entries+=("/usr/share/applications/waxlight.desktop")
+fi
 
-install_optional_file \
+if install_optional_file \
     "$icon_file" \
     "$rpm_source_root/usr/share/icons/hicolor/256x256/apps/waxlight.png" \
-    0644
+    0644; then
+    rpm_file_entries+=("/usr/share/icons/hicolor/256x256/apps/waxlight.png")
+fi
 
-install_optional_file \
+rpm_license_entry=""
+
+if install_optional_file \
     "$license_file" \
     "$rpm_source_root/usr/share/licenses/$package_name/LICENSE" \
-    0644
+    0644; then
+    rpm_license_entry="%license /usr/share/licenses/$package_name/LICENSE"
+fi
 
 tar \
     -C "$rpm_root/SOURCES" \
     -czf "$rpm_root/SOURCES/waxlight-${rpm_version}.tar.gz" \
     "waxlight-${rpm_version}"
 
-cat >"$rpm_root/SPECS/waxlight.spec" <<EOF
+rpm_files_block=""
+
+for entry in "${rpm_file_entries[@]}"; do
+    rpm_files_block+="$entry"$'\n'
+done
+
+cat >"$rpm_root/SPECS/waxlight.spec" <<EOF_SPEC
 Name:           $package_name
 Version:        $rpm_version
 Release:        $rpm_release
@@ -333,18 +355,16 @@ launcher for Vintage Story.
 
 %install
 rm -rf %{buildroot}
+mkdir -p %{buildroot}
 cp -a usr %{buildroot}/
 
 %files
-%license /usr/share/licenses/$package_name/LICENSE
-/usr/bin/waxlight
-/usr/share/applications/waxlight.desktop
-/usr/share/icons/hicolor/256x256/apps/waxlight.png
-
+$rpm_license_entry
+$rpm_files_block
 %changelog
 * Tue Aug 04 2026 AmadoMuerte - $rpm_version-$rpm_release
 - Waxlight Launcher $release_version
-EOF
+EOF_SPEC
 
 rpmbuild \
     --define "_topdir $rpm_root" \
