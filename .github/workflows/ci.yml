@@ -202,6 +202,7 @@ jobs:
 
           wails build \
             -clean \
+            -skipbindings \
             -platform linux/amd64 \
             -trimpath \
             -ldflags="-s -w"
@@ -321,6 +322,7 @@ jobs:
 
           wails build `
             -clean `
+            -skipbindings `
             -platform windows/amd64 `
             -trimpath `
             -ldflags="-s -w"

@@ -250,6 +250,7 @@ try {
             -Description "Building Windows application and NSIS installer..." `
             -Command {
                 wails build `
+                    -skipbindings `
                     -platform windows/amd64 `
                     -nsis `
                     -trimpath `
