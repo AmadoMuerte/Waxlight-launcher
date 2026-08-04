@@ -1,54 +1,29 @@
+#Requires -Version 5.1
+
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
 
+    [Parameter(Mandatory = $false)]
     [string]$OutputDirectory = "release"
 )
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
-function Assert-Command {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name
-    )
-
-    $Command = Get-Command $Name -ErrorAction SilentlyContinue
-    if (-not $Command) {
-        throw "Required build command is unavailable: $Name"
-    }
-
-    return $Command
-}
-
-function Assert-FileExists {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Description
-    )
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "$Description was not found: $Path"
-    }
-
-    $Item = Get-Item -LiteralPath $Path
-    if ($Item.Length -le 0) {
-        throw "$Description is empty: $Path"
-    }
-}
+Set-StrictMode -Version Latest
 
 function Invoke-CheckedCommand {
     param(
         [Parameter(Mandatory = $true)]
-        [scriptblock]$Command,
+        [string]$Description,
 
         [Parameter(Mandatory = $true)]
-        [string]$Description
+        [scriptblock]$Command
     )
+
+    Write-Host ""
+    Write-Host $Description
+    Write-Host ("-" * $Description.Length)
 
     & $Command
 
@@ -57,164 +32,152 @@ function Invoke-CheckedCommand {
     }
 }
 
-$RequiredCommands = @(
-    "node",
-    "npm",
-    "go",
-    "wails",
-    "makensis",
-    "gcc",
-    "g++"
-)
+function Get-ReleaseVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
 
-foreach ($RequiredCommand in $RequiredCommands) {
-    Assert-Command -Name $RequiredCommand | Out-Null
+    $Normalized = $Value.Trim()
+
+    if ($Normalized.StartsWith("v")) {
+        $Normalized = $Normalized.Substring(1)
+    }
+
+    if ($Normalized -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') {
+        throw "Invalid semantic version: $Value"
+    }
+
+    return $Normalized
 }
 
-$ReleaseVersion = $Version.TrimStart("v")
+function Get-WindowsFileVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ReleaseVersion
+    )
 
-if ($ReleaseVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$') {
-    throw "Invalid release version: $Version"
+    $BaseVersion = ($ReleaseVersion -split "-", 2)[0]
+    $Parts = $BaseVersion -split "\."
+
+    if ($Parts.Count -ne 3) {
+        throw "Unable to convert '$ReleaseVersion' to a Windows file version"
+    }
+
+    return "$($Parts[0]).$($Parts[1]).$($Parts[2]).0"
 }
 
-if ($env:CGO_ENABLED -ne "1") {
-    throw "Windows release build requires CGO_ENABLED=1 because go-sqlite3 uses CGO"
+function Set-WailsProductVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProductVersion
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Wails configuration file not found: $Path"
+    }
+
+    $Config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+
+    if ($null -eq $Config.info) {
+        $Config | Add-Member `
+            -MemberType NoteProperty `
+            -Name "info" `
+            -Value ([PSCustomObject]@{})
+    }
+
+    if ($null -eq $Config.info.PSObject.Properties["productVersion"]) {
+        $Config.info | Add-Member `
+            -MemberType NoteProperty `
+            -Name "productVersion" `
+            -Value $ProductVersion
+    }
+    else {
+        $Config.info.productVersion = $ProductVersion
+    }
+
+    $Json = $Config | ConvertTo-Json -Depth 100
+
+    [System.IO.File]::WriteAllText(
+        $Path,
+        $Json + [Environment]::NewLine,
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 
-if ([string]::IsNullOrWhiteSpace($env:CC)) {
-    $env:CC = "gcc"
+function Copy-ReleaseAsset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Source,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
+
+    if (-not (Test-Path -LiteralPath $Source)) {
+        throw "Release asset not found: $Source"
+    }
+
+    Copy-Item `
+        -LiteralPath $Source `
+        -Destination $Destination `
+        -Force
+
+    if ((Get-Item -LiteralPath $Destination).Length -le 0) {
+        throw "Created release asset is empty: $Destination"
+    }
 }
 
-if ([string]::IsNullOrWhiteSpace($env:CXX)) {
-    $env:CXX = "g++"
+$ReleaseVersion = Get-ReleaseVersion -Value $Version
+$WindowsFileVersion = Get-WindowsFileVersion -ReleaseVersion $ReleaseVersion
+
+$RepositoryRoot = Split-Path -Parent $PSScriptRoot
+$WailsProjectDirectory = Join-Path $RepositoryRoot "cmd\waxlight"
+$BuildBinDirectory = Join-Path $RepositoryRoot "build\bin"
+
+if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
+    $ResolvedOutputDirectory = $OutputDirectory
+}
+else {
+    $ResolvedOutputDirectory = Join-Path $RepositoryRoot $OutputDirectory
 }
 
-$ProjectRoot = Split-Path -Parent $PSScriptRoot
-$FrontendDirectory = Join-Path $ProjectRoot "frontend"
-$FrontendIndex = Join-Path $FrontendDirectory "dist/index.html"
-$CommandDirectory = Join-Path $ProjectRoot "cmd/waxlight"
-$BuildDirectory = Join-Path $ProjectRoot "build/bin"
+$RootWailsConfig = Join-Path $RepositoryRoot "wails.json"
+$ProjectWailsConfig = Join-Path $WailsProjectDirectory "wails.json"
 
-$RootConfigPath = Join-Path $ProjectRoot "wails.json"
-$CommandConfigPath = Join-Path $CommandDirectory "wails.json"
+$ConfigBackups = @{}
 
-Assert-FileExists -Path $RootConfigPath -Description "Root Wails configuration"
-Assert-FileExists -Path $CommandConfigPath -Description "Command Wails configuration"
-
-$RootConfig = Get-Content -LiteralPath $RootConfigPath -Raw | ConvertFrom-Json
-$CommandConfig = Get-Content -LiteralPath $CommandConfigPath -Raw | ConvertFrom-Json
-
-if ($RootConfig.info.productVersion -ne $ReleaseVersion) {
-    throw "Version mismatch in $RootConfigPath. Expected $ReleaseVersion, got $($RootConfig.info.productVersion)"
-}
-
-if ($CommandConfig.info.productVersion -ne $ReleaseVersion) {
-    throw "Version mismatch in $CommandConfigPath. Expected $ReleaseVersion, got $($CommandConfig.info.productVersion)"
-}
-
-$ResolvedOutput = [System.IO.Path]::GetFullPath(
-    (Join-Path $ProjectRoot $OutputDirectory)
-)
+Write-Host "Waxlight release version: $ReleaseVersion"
+Write-Host "Windows file version:    $WindowsFileVersion"
+Write-Host "Output directory:        $ResolvedOutputDirectory"
 
 New-Item `
     -ItemType Directory `
-    -Force `
-    -Path $ResolvedOutput |
-    Out-Null
+    -Path $ResolvedOutputDirectory `
+    -Force | Out-Null
 
-Write-Host ""
-Write-Host "Waxlight Launcher Windows release build"
-Write-Host "Version:        $ReleaseVersion"
-Write-Host "Project root:   $ProjectRoot"
-Write-Host "Output:         $ResolvedOutput"
-Write-Host "CGO_ENABLED:    $env:CGO_ENABLED"
-Write-Host "CC:             $env:CC"
-Write-Host "CXX:            $env:CXX"
-Write-Host ""
-
-Invoke-CheckedCommand `
-    -Description "Go environment check" `
-    -Command {
-        go env GOOS GOARCH CGO_ENABLED CC CXX
+foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
+    if (Test-Path -LiteralPath $ConfigPath) {
+        $ConfigBackups[$ConfigPath] = Get-Content -LiteralPath $ConfigPath -Raw
+        Set-WailsProductVersion `
+            -Path $ConfigPath `
+            -ProductVersion $WindowsFileVersion
     }
-
-Invoke-CheckedCommand `
-    -Description "GCC version check" `
-    -Command {
-        gcc --version
-    }
-
-Invoke-CheckedCommand `
-    -Description "G++ version check" `
-    -Command {
-        g++ --version
-    }
-
-Invoke-CheckedCommand `
-    -Description "Wails version check" `
-    -Command {
-        wails version
-    }
-
-Invoke-CheckedCommand `
-    -Description "NSIS version check" `
-    -Command {
-        makensis /VERSION
-    }
-
-Write-Host ""
-Write-Host "Installing frontend dependencies..."
-
-Invoke-CheckedCommand `
-    -Description "Frontend dependency installation" `
-    -Command {
-        npm ci `
-            --include=dev `
-            --prefix $FrontendDirectory
-    }
-
-Write-Host ""
-Write-Host "Building frontend..."
-
-Invoke-CheckedCommand `
-    -Description "Frontend build" `
-    -Command {
-        npm `
-            --prefix $FrontendDirectory `
-            run build
-    }
-
-Assert-FileExists `
-    -Path $FrontendIndex `
-    -Description "Frontend production entrypoint"
-
-Write-Host ""
-Write-Host "Building Windows application..."
-
-$OriginalAppData = $env:APPDATA
-$BuildAppData = Join-Path `
-    ([System.IO.Path]::GetTempPath()) `
-    ("waxlight-build-config-" + [guid]::NewGuid())
-
-New-Item `
-    -ItemType Directory `
-    -Force `
-    -Path $BuildAppData |
-    Out-Null
+}
 
 try {
-    $env:APPDATA = $BuildAppData
-
-    Push-Location $CommandDirectory
+    Push-Location $WailsProjectDirectory
 
     try {
         Invoke-CheckedCommand `
-            -Description "Wails Windows release build" `
+            -Description "Building Windows application..." `
             -Command {
                 wails build `
                     -clean `
                     -platform windows/amd64 `
-                    -nsis `
                     -trimpath `
                     -ldflags="-s -w"
             }
@@ -222,140 +185,122 @@ try {
     finally {
         Pop-Location
     }
-}
-finally {
-    $env:APPDATA = $OriginalAppData
 
-    Remove-Item `
-        -LiteralPath $BuildAppData `
-        -Recurse `
-        -Force `
-        -ErrorAction SilentlyContinue
-}
+    $ApplicationExecutable = Join-Path $BuildBinDirectory "waxlight.exe"
 
-$PortableBinary = Join-Path $BuildDirectory "waxlight.exe"
-
-Assert-FileExists `
-    -Path $PortableBinary `
-    -Description "Wails Windows executable"
-
-$AssetPrefix = "Waxlight-Launcher-v$ReleaseVersion-windows-amd64"
-
-$PortableAsset = Join-Path `
-    $ResolvedOutput `
-    "$AssetPrefix.exe"
-
-Copy-Item `
-    -LiteralPath $PortableBinary `
-    -Destination $PortableAsset `
-    -Force
-
-Assert-FileExists `
-    -Path $PortableAsset `
-    -Description "Portable Windows executable"
-
-Write-Host ""
-Write-Host "Creating portable archive..."
-
-$Staging = Join-Path `
-    ([System.IO.Path]::GetTempPath()) `
-    ("waxlight-portable-" + [guid]::NewGuid())
-
-New-Item `
-    -ItemType Directory `
-    -Force `
-    -Path $Staging |
-    Out-Null
-
-try {
-    Copy-Item `
-        -LiteralPath $PortableBinary `
-        -Destination (Join-Path $Staging "waxlight.exe") `
-        -Force
-
-    $DocumentationFiles = @(
-        "README.md",
-        "LICENSE",
-        "NOTICE"
-    )
-
-    foreach ($DocumentationFile in $DocumentationFiles) {
-        $SourcePath = Join-Path $ProjectRoot $DocumentationFile
-
-        Assert-FileExists `
-            -Path $SourcePath `
-            -Description $DocumentationFile
-
-        Copy-Item `
-            -LiteralPath $SourcePath `
-            -Destination $Staging `
-            -Force
+    if (-not (Test-Path -LiteralPath $ApplicationExecutable)) {
+        $ApplicationExecutable = Get-ChildItem `
+            -Path $BuildBinDirectory `
+            -Filter "*.exe" `
+            -File `
+            -Recurse |
+            Where-Object {
+                $_.Name -notmatch "installer|setup|uninstall"
+            } |
+            Select-Object -First 1 |
+            ForEach-Object FullName
     }
 
-    $PortableArchive = Join-Path `
-        $ResolvedOutput `
-        "$AssetPrefix-portable.zip"
+    if (-not $ApplicationExecutable) {
+        throw "Wails application executable was not found in $BuildBinDirectory"
+    }
 
-    Compress-Archive `
-        -Path (Join-Path $Staging "*") `
-        -DestinationPath $PortableArchive `
-        -Force
+    $InstallerExecutable = Get-ChildItem `
+        -Path $BuildBinDirectory `
+        -Filter "*.exe" `
+        -File `
+        -Recurse |
+        Where-Object {
+            $_.Name -match "installer|setup"
+        } |
+        Select-Object -First 1 |
+        ForEach-Object FullName
 
-    Assert-FileExists `
-        -Path $PortableArchive `
-        -Description "Portable Windows archive"
+    if (-not $InstallerExecutable) {
+        throw "NSIS installer was not found in $BuildBinDirectory"
+    }
+
+    $StandaloneName =
+        "Waxlight-Launcher-v$ReleaseVersion-windows-amd64.exe"
+
+    $PortableName =
+        "Waxlight-Launcher-v$ReleaseVersion-windows-amd64-portable.zip"
+
+    $InstallerName =
+        "Waxlight-Launcher-v$ReleaseVersion-windows-amd64-installer.exe"
+
+    $StandalonePath = Join-Path $ResolvedOutputDirectory $StandaloneName
+    $PortablePath = Join-Path $ResolvedOutputDirectory $PortableName
+    $InstallerPath = Join-Path $ResolvedOutputDirectory $InstallerName
+
+    Copy-ReleaseAsset `
+        -Source $ApplicationExecutable `
+        -Destination $StandalonePath
+
+    Copy-ReleaseAsset `
+        -Source $InstallerExecutable `
+        -Destination $InstallerPath
+
+    $PortableStagingDirectory = Join-Path `
+        ([System.IO.Path]::GetTempPath()) `
+        ("waxlight-portable-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-Item `
+            -ItemType Directory `
+            -Path $PortableStagingDirectory `
+            -Force | Out-Null
+
+        Copy-Item `
+            -LiteralPath $ApplicationExecutable `
+            -Destination (Join-Path $PortableStagingDirectory "waxlight.exe") `
+            -Force
+
+        if (Test-Path -LiteralPath $PortablePath) {
+            Remove-Item -LiteralPath $PortablePath -Force
+        }
+
+        Compress-Archive `
+            -Path (Join-Path $PortableStagingDirectory "*") `
+            -DestinationPath $PortablePath `
+            -CompressionLevel Optimal
+    }
+    finally {
+        if (Test-Path -LiteralPath $PortableStagingDirectory) {
+            Remove-Item `
+                -LiteralPath $PortableStagingDirectory `
+                -Recurse `
+                -Force
+        }
+    }
+
+    $ExpectedAssets = @(
+        $StandalonePath,
+        $PortablePath,
+        $InstallerPath
+    )
+
+    foreach ($Asset in $ExpectedAssets) {
+        if (-not (Test-Path -LiteralPath $Asset)) {
+            throw "Missing Windows release asset: $Asset"
+        }
+
+        if ((Get-Item -LiteralPath $Asset).Length -le 0) {
+            throw "Empty Windows release asset: $Asset"
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Windows release assets:"
+    Get-Item -LiteralPath $ExpectedAssets |
+        Format-Table Name, Length
 }
 finally {
-    Remove-Item `
-        -LiteralPath $Staging `
-        -Recurse `
-        -Force `
-        -ErrorAction SilentlyContinue
+    foreach ($Entry in $ConfigBackups.GetEnumerator()) {
+        [System.IO.File]::WriteAllText(
+            $Entry.Key,
+            $Entry.Value,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+    }
 }
-
-Write-Host ""
-Write-Host "Locating NSIS installer..."
-
-$Installer = Get-ChildItem `
-    -LiteralPath $BuildDirectory `
-    -Filter "*.exe" `
-    -File |
-    Where-Object {
-        $_.Name -match "installer|setup"
-    } |
-    Sort-Object LastWriteTimeUtc -Descending |
-    Select-Object -First 1
-
-if (-not $Installer) {
-    Write-Host "Contents of build directory:"
-    Get-ChildItem -LiteralPath $BuildDirectory |
-        Format-Table Name, Length, LastWriteTime
-
-    throw "Wails did not produce an NSIS installer in $BuildDirectory"
-}
-
-$InstallerAsset = Join-Path `
-    $ResolvedOutput `
-    "$AssetPrefix-installer.exe"
-
-Copy-Item `
-    -LiteralPath $Installer.FullName `
-    -Destination $InstallerAsset `
-    -Force
-
-Assert-FileExists `
-    -Path $InstallerAsset `
-    -Description "Windows NSIS installer"
-
-Write-Host ""
-Write-Host "Windows packages written to $ResolvedOutput"
-Write-Host ""
-
-Get-ChildItem `
-    -LiteralPath $ResolvedOutput `
-    -File |
-    Where-Object {
-        $_.Name -like "$AssetPrefix*"
-    } |
-    Sort-Object Name |
-    Format-Table Name, Length, LastWriteTimeUtc
