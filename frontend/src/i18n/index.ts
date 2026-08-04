@@ -7,18 +7,24 @@ import {
   supportedLanguages,
   type LanguageCode,
 } from "./languages";
-import en from "./locales/en.json";
-import ru from "./locales/ru.json";
+
+const localeModules = import.meta.glob<Record<string, string>>("./locales/*.json", {
+  eager: true,
+  import: "default",
+});
+
+const resources = Object.fromEntries(
+  supportedLanguages.map(({ code }) => {
+    const translation = localeModules[`./locales/${code}.json`];
+    if (!translation) {
+      throw new Error(`Missing locale resource for language: ${code}`);
+    }
+    return [code, { translation }];
+  }),
+);
 
 void i18n.use(initReactI18next).init({
-  resources: {
-    en: {
-      translation: en,
-    },
-    ru: {
-      translation: ru,
-    },
-  },
+  resources,
 
   lng: defaultLanguage,
   fallbackLng: defaultLanguage,

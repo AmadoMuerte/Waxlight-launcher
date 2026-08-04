@@ -55,7 +55,7 @@ export function App() {
     type: ToastType;
   }>();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (includeSettings = false) => {
     try {
       const [
         instanceItems,
@@ -70,7 +70,7 @@ export function App() {
         accountsApi.list(),
         operationsApi.list(),
         statisticsApi.overview(),
-        settingsApi.get(),
+        includeSettings ? settingsApi.get() : Promise.resolve(undefined),
       ]);
 
       setInstances(instanceItems ?? []);
@@ -78,8 +78,10 @@ export function App() {
       setAccounts(accountItems ?? []);
       setOperations(operationItems ?? []);
       setStatistics(statisticsOverview);
-      await changeAppLanguage(applicationSettings.language);
-      setSettings(applicationSettings);
+      if (applicationSettings) {
+        await changeAppLanguage(applicationSettings.language);
+        setSettings(applicationSettings);
+      }
       setFatalError("");
     } catch (error) {
       setFatalError(errorMessage(error));
@@ -89,7 +91,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(true);
     const timer = window.setInterval(() => void refresh(), 8_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
@@ -110,6 +112,10 @@ export function App() {
     setToast({ message, type });
     window.setTimeout(() => setToast(undefined), 3_800);
   }
+
+  const handleSettingsSaved = useCallback((saved: Settings) => {
+    setSettings(saved);
+  }, []);
 
   if (loading) {
     return (
@@ -260,7 +266,9 @@ export function App() {
           />
           <Route
             path="/settings"
-            element={<SettingsPage settings={settings} notify={notify} onSaved={setSettings} />}
+            element={
+              <SettingsPage settings={settings} notify={notify} onSaved={handleSettingsSaved} />
+            }
           />
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>

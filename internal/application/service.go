@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 )
@@ -1276,22 +1277,8 @@ func (s *Service) ClearFinishedOperations(ctx context.Context) (int64, error) {
 	return s.store.ClearFinishedOperations(ctx)
 }
 
-const defaultLanguage = "en"
-
-var supportedLanguages = map[string]struct{}{
-	"en": {},
-	"ru": {},
-}
-
 func normalizeLanguage(language string) string {
-	language = strings.ToLower(strings.TrimSpace(language))
-	if separator := strings.IndexAny(language, "-_"); separator >= 0 {
-		language = language[:separator]
-	}
-	if _, supported := supportedLanguages[language]; supported {
-		return language
-	}
-	return defaultLanguage
+	return launcher.NormalizeLanguage(language)
 }
 
 func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {

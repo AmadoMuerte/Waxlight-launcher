@@ -999,7 +999,9 @@ func TestSettingsLanguageNormalization(t *testing.T) {
 	cases := map[string]string{
 		"en": "en", "EN": "en", "en-US": "en",
 		"ru": "ru", "RU": "ru", "ru_RU": "ru",
-		"  ru-RU  ": "ru", "": "en", "fr": "en",
+		"be": "be", "BE": "be", "be_BY": "be",
+		"by": "be", "BY": "be", "by-BY": "be",
+		"  ru-RU  ": "ru", "fr": "fr", "": "en", "it": "en",
 	}
 	for input, expected := range cases {
 		t.Run(input, func(t *testing.T) {
