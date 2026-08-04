@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
+import { ModCard } from "../features/mods/ModCard";
+import { ModsFilters } from "../features/mods/ModsFilters";
 import {
   modCatalogApi,
   type DownloadedMod,
@@ -14,9 +17,6 @@ import {
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { Button, Empty, PageHeader } from "../shared/ui";
-import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
-import { ModCard } from "../features/mods/ModCard";
-import { ModsFilters } from "../features/mods/ModsFilters";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -52,82 +52,99 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   const restoreScroll = useRef(true);
 
   const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
-  const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
   const instanceId = searchParams.get("instanceId") ?? "";
   const contextInstance = instances.find((item) => item.id === instanceId);
   const contextVersion = contextInstance
     ? versions.find((item) => item.id === contextInstance.gameVersionId)
     : undefined;
-  const query: ModSearchQuery = {
-    text: searchParams.get("q") ?? "",
-    gameVersion:
-      searchParams.get("gameVersion") ??
-      (contextVersion?.name || contextVersion?.id || ""),
-    side: (searchParams.get("side") ?? "") as ModSearchQuery["side"],
-    updatedAfter: searchParams.get("updatedAfter") ?? undefined,
-    tags: searchParams.getAll("tag"),
-    compatibleOnly: searchParams.get("compatible") === "1" || Boolean(contextInstance),
-    instanceId,
-    sort: (searchParams.get("sort") ?? "updated") as ModSearchQuery["sort"],
-    page,
-    pageSize: 24,
-  };
-  const requestKey = JSON.stringify(query);
+  const compatibleOnly = contextInstance !== undefined;
+  const query = useMemo<ModSearchQuery>(
+    () => ({
+      text: searchParams.get("q") ?? "",
+      gameVersion:
+        searchParams.get("gameVersion") ?? (contextVersion?.name || contextVersion?.id || ""),
+      side: modSide(searchParams.get("side")),
+      updatedAfter: searchParams.get("updatedAfter") ?? undefined,
+      tags: searchParams.getAll("tag"),
+      compatibleOnly: searchParams.get("compatible") === "1" || compatibleOnly,
+      instanceId,
+      sort: modSort(searchParams.get("sort")),
+      page: Math.max(1, Number(searchParams.get("page") ?? "1")),
+      pageSize: 24,
+    }),
+    [compatibleOnly, contextVersion?.id, contextVersion?.name, instanceId, searchParams],
+  );
+  const page = query.page;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const current = searchParams.get("q") ?? "";
       if (searchText === current) return;
-      updateParams({ q: searchText, page: "1" }, true);
+      const next = new URLSearchParams(searchParams);
+      if (searchText) next.set("q", searchText);
+      else next.delete("q");
+      next.set("page", "1");
+      setSearchParams(next, { replace: true });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [searchText]);
+  }, [searchParams, searchText, setSearchParams]);
 
   useEffect(() => {
     let active = true;
-    if (view === "downloaded") {
-      setLoading(true);
-      modCatalogApi
-        .downloaded()
-        .then((items) => {
+    async function loadMods() {
+      if (view === "downloaded") {
+        setLoading(true);
+        try {
+          const items = await modCatalogApi.downloaded();
           if (!active) return;
           setDownloaded(items ?? []);
           setError("");
           for (const item of items ?? []) {
-            void modCatalogApi
-              .checkUpdates(item.modId)
-              .then((updated) => active && setDownloaded(updated ?? []))
-              .catch(() => undefined);
+            void checkForUpdates(item);
           }
-        })
-        .catch((loadError) => active && setError(errorMessage(loadError)))
-        .finally(() => active && setLoading(false));
-      return () => {
-        active = false;
-      };
-    }
+        } catch (loadError) {
+          if (active) setError(errorMessage(loadError));
+        } finally {
+          if (active) setLoading(false);
+        }
+        return;
+      }
 
-    if (page === 1) setLoading(true);
-    else setLoadingMore(true);
-    modCatalogApi
-      .search(query)
-      .then((result) => {
+      if (page === 1) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const result = await modCatalogApi.search(query);
         if (!active) return;
-        setCatalog((items) => (page === 1 ? result.items ?? [] : mergeMods(items, result.items ?? [])));
+        setCatalog((items) =>
+          page === 1 ? (result.items ?? []) : mergeMods(items, result.items ?? []),
+        );
         setTotal(result.totalItems);
         setHasNext(result.hasNext);
         setError("");
-      })
-      .catch((loadError) => active && setError(errorMessage(loadError)))
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-        setLoadingMore(false);
-      });
+      } catch (loadError) {
+        if (active) setError(errorMessage(loadError));
+      } finally {
+        if (active) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    }
+
+    async function checkForUpdates(item: DownloadedMod) {
+      try {
+        const updated = await modCatalogApi.checkUpdates(item.modId);
+        if (active) setDownloaded(updated ?? []);
+      } catch {
+        // Update availability is optional.
+      }
+    }
+
+    void loadMods();
     return () => {
       active = false;
     };
-  }, [requestKey, view, reloadKey]);
+  }, [page, query, reloadKey, view]);
 
   useEffect(() => {
     if (!loading && restoreScroll.current) {
@@ -140,27 +157,27 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   const filteredDownloaded = useMemo(() => {
     let result = downloaded.filter((item) => {
       const text = query.text.toLowerCase();
-      if (
-        text &&
-        !`${item.name} ${item.authorName} ${item.modId}`.toLowerCase().includes(text)
-      ) {
+      if (text && !`${item.name} ${item.authorName} ${item.modId}`.toLowerCase().includes(text)) {
         return false;
       }
       if (query.side && item.side !== query.side) return false;
       if (
         query.gameVersion &&
-        !item.gameVersions.some((version) => version.startsWith(query.gameVersion.replace(/x$/, "")))
+        !item.gameVersions.some((version) =>
+          version.startsWith(query.gameVersion.replace(/x$/, "")),
+        )
       ) {
         return false;
       }
       return true;
     });
-    result = [...result].sort((left, right) => {
+    const sorted = [...result];
+    Array.prototype.sort.call(sorted, (left, right) => {
       if (query.sort === "name_asc") return left.name.localeCompare(right.name);
       if (query.sort === "name_desc") return right.name.localeCompare(left.name);
       return new Date(right.downloadedAt).getTime() - new Date(left.downloadedAt).getTime();
     });
-    return result;
+    return sorted;
   }, [downloaded, query.gameVersion, query.side, query.sort, query.text]);
 
   function updateParams(values: Record<string, string | undefined>, replace = false) {
@@ -195,9 +212,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       setInstalling({
         details,
         downloaded: local,
-        preferredVersionId: local?.updateAvailable
-          ? details.versions[0]?.id
-          : local?.versionId,
+        preferredVersionId: local?.updateAvailable ? details.versions[0]?.id : local?.versionId,
       });
     } catch (loadError) {
       notify(errorMessage(loadError), "error");
@@ -205,15 +220,20 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   }
 
   function openDetails(modId: string) {
-    writeStorage("sessionStorage", `waxlight.mods.scroll:${location.search}`, String(window.scrollY));
-    navigate(`/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`);
+    writeStorage(
+      "sessionStorage",
+      `waxlight.mods.scroll:${location.search}`,
+      String(window.scrollY),
+    );
+    void navigate(`/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`);
   }
 
   async function refreshDownloaded() {
     setDownloaded((await modCatalogApi.downloaded()) ?? []);
   }
 
-  const displayed = view === "all" ? catalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
+  const displayed =
+    view === "all" ? catalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
 
   return (
     <>
@@ -231,7 +251,9 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
               onChange={(event) => setSearchText(event.target.value)}
             />
             {searchText && (
-              <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>×</button>
+              <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>
+                ×
+              </button>
             )}
           </div>
         }
@@ -278,7 +300,9 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
 
       <div className="modsResultsHeader">
         <span>
-          {view === "downloaded" ? t("downloaded_count", { count: filteredDownloaded.length }) : t("mods_count", { count: total })}
+          {view === "downloaded"
+            ? t("downloaded_count", { count: filteredDownloaded.length })
+            : t("mods_count", { count: total })}
         </span>
         <div className="viewToggle" aria-label={t("results_layout")}>
           <button
@@ -306,7 +330,9 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
 
       {loading ? (
         <div className={`modGrid modGrid-${layout} modSkeletonGrid`} aria-label={t("loading_mods")}>
-          {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
+          {Array.from({ length: 8 }, (_, index) => (
+            <i key={index} />
+          ))}
         </div>
       ) : error ? (
         <Empty
@@ -316,9 +342,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           action={
             <Button
               onClick={() =>
-                view === "all"
-                  ? setReloadKey((value) => value + 1)
-                  : void refreshDownloaded()
+                view === "all" ? setReloadKey((value) => value + 1) : void refreshDownloaded()
               }
             >
               {t("retry")}
@@ -345,9 +369,10 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       ) : (
         <div className={`modGrid modGrid-${layout}`}>
           {displayed.map((mod) => {
-            const local = view === "downloaded"
-              ? filteredDownloaded.find((item) => item.modId === mod.id)
-              : undefined;
+            const local =
+              view === "downloaded"
+                ? filteredDownloaded.find((item) => item.modId === mod.id)
+                : undefined;
             return (
               <ModCard
                 key={`${mod.id}:${local?.versionId ?? "catalog"}`}
@@ -359,9 +384,12 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
                 onDelete={
                   local
                     ? async () => {
-                        const warning = local.installedInstances.length > 0
-                          ? t("delete_cached_installed_mod_confirmation", { count: local.installedInstances.length })
-                          : t("delete_cached_mod_confirmation");
+                        const warning =
+                          local.installedInstances.length > 0
+                            ? t("delete_cached_installed_mod_confirmation", {
+                                count: local.installedInstances.length,
+                              })
+                            : t("delete_cached_mod_confirmation");
                         if (!window.confirm(warning)) return;
                         try {
                           await modCatalogApi.removeDownloaded(local.modId, local.versionId);
@@ -436,10 +464,7 @@ function downloadedAsSummary(mod: DownloadedMod, t: TFunction): ModSummary {
   };
 }
 
-function readStorage(
-  storageName: "localStorage" | "sessionStorage",
-  key: string,
-): string | null {
+function readStorage(storageName: "localStorage" | "sessionStorage", key: string): string | null {
   try {
     return globalThis[storageName]?.getItem(key) ?? null;
   } catch {
@@ -447,14 +472,36 @@ function readStorage(
   }
 }
 
-function writeStorage(
-  storageName: "localStorage" | "sessionStorage",
-  key: string,
-  value: string,
-) {
+function writeStorage(storageName: "localStorage" | "sessionStorage", key: string, value: string) {
   try {
     globalThis[storageName]?.setItem(key, value);
   } catch {
     // Preference persistence is optional in restricted webviews.
+  }
+}
+
+function modSide(value: string | null): ModSearchQuery["side"] {
+  switch (value) {
+    case "client":
+    case "server":
+    case "both":
+    case "unknown":
+      return value;
+    default:
+      return "";
+  }
+}
+
+function modSort(value: string | null): ModSearchQuery["sort"] {
+  switch (value) {
+    case "relevance":
+    case "updated":
+    case "newest":
+    case "downloads":
+    case "name_asc":
+    case "name_desc":
+      return value;
+    default:
+      return "updated";
   }
 }

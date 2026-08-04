@@ -1,14 +1,14 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-import en from "./locales/en.json";
-import ru from "./locales/ru.json";
 import {
   defaultLanguage,
   normalizeLanguage,
   supportedLanguages,
   type LanguageCode,
 } from "./languages";
+import en from "./locales/en.json";
+import ru from "./locales/ru.json";
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -23,9 +23,7 @@ void i18n.use(initReactI18next).init({
   lng: defaultLanguage,
   fallbackLng: defaultLanguage,
 
-  supportedLngs: supportedLanguages.map(
-    (language) => language.code,
-  ),
+  supportedLngs: supportedLanguages.map((language) => language.code),
   load: "languageOnly",
   cleanCode: true,
   nonExplicitSupportedLngs: true,

@@ -1,9 +1,4 @@
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  FormEvent,
-  ReactNode,
-} from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, FormEvent, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -51,14 +46,13 @@ export function Modal({
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    const origin = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : undefined;
+    const origin =
+      document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     const dialog = dialogRef.current;
     const focusable = dialog?.querySelector<HTMLElement>(
       "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
     );
-      focusable?.focus();
+    focusable?.focus();
     function keydown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         // Radix Select renders its open menu in a portal and owns this Escape key.
@@ -70,9 +64,11 @@ export function Modal({
         return;
       }
       if (event.key !== "Tab" || !dialog) return;
-      const items = [...dialog.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-      )];
+      const items = [
+        ...dialog.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ),
+      ];
       if (items.length === 0) return;
       const first = items[0];
       const last = items[items.length - 1];
@@ -91,9 +87,11 @@ export function Modal({
     };
   }, []);
 
+  /* oxlint-disable jsx-a11y/prefer-tag-over-role -- Native dialogs require showModal() and alter existing backdrop/focus behavior. */
   return (
     <div
       className="modalBackdrop"
+      role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -109,12 +107,7 @@ export function Modal({
       >
         <div className="modalHeader">
           <h2>{title}</h2>
-          <button
-            type="button"
-            className="iconButton"
-            aria-label={t("close")}
-            onClick={onClose}
-          >
+          <button type="button" className="iconButton" aria-label={t("close")} onClick={onClose}>
             ×
           </button>
         </div>
@@ -122,6 +115,7 @@ export function Modal({
       </section>
     </div>
   );
+  /* oxlint-enable jsx-a11y/prefer-tag-over-role */
 }
 
 export function Checkbox({
@@ -228,16 +222,23 @@ export function SubmitForm({
 export function StatusPill({ status }: { status: string }) {
   const { t } = useTranslation();
   const labels: Record<string, string> = {
-    ready: "status_ready", running: "status_running", installed: "status_installed",
-    queued: "status_queued", completed: "status_completed", cancelled: "status_cancelled",
-    failed: "status_failed", stable: "stable", unstable: "preview", unknown: "status_unknown",
+    ready: "status_ready",
+    running: "status_running",
+    installed: "status_installed",
+    queued: "status_queued",
+    completed: "status_completed",
+    cancelled: "status_cancelled",
+    failed: "status_failed",
+    stable: "stable",
+    unstable: "preview",
+    unknown: "status_unknown",
     local_profile: "status_local_profile",
-    valid: "status_valid", expired: "status_expired", needs_reauth: "status_needs_reauth",
+    valid: "status_valid",
+    expired: "status_expired",
+    needs_reauth: "status_needs_reauth",
   };
 
   return (
-    <span className={`status status-${status}`}>
-      {labels[status] ? t(labels[status]) : status}
-    </span>
+    <span className={`status status-${status}`}>{labels[status] ? t(labels[status]) : status}</span>
   );
 }

@@ -22,12 +22,7 @@ export function ModArtwork({
   }
   return (
     <div className={`modArtwork ${className}`}>
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onError={() => setFailed(true)}
-      />
+      <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />
     </div>
   );
 }

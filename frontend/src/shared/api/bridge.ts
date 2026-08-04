@@ -6,11 +6,7 @@ export class BackendUnavailableError extends Error {
   }
 }
 
-export async function call<T>(
-  controller: string,
-  method: string,
-  ...args: unknown[]
-): Promise<T> {
+export async function call<T>(controller: string, method: string, ...args: unknown[]): Promise<T> {
   const namespaces = window.go;
   const callable = namespaces?.presentation?.[controller]?.[method];
 

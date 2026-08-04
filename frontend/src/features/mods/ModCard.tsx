@@ -15,25 +15,18 @@ interface ModCardProps {
   onDelete?: () => void;
 }
 
-export function ModCard({
-  mod,
-  downloaded,
-  layout,
-  onOpen,
-  onInstall,
-  onDelete,
-}: ModCardProps) {
+function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
+  event.stopPropagation();
+  callback();
+}
+
+export function ModCard({ mod, downloaded, layout, onOpen, onInstall, onDelete }: ModCardProps) {
   const { t } = useTranslation();
   function openFromKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onOpen();
     }
-  }
-
-  function action(event: MouseEvent, callback: () => void) {
-    event.stopPropagation();
-    callback();
   }
 
   const actionLabel = downloaded
@@ -49,14 +42,24 @@ export function ModCard({
         : t("download");
 
   return (
-    <article
-      className={`modCard modCard-${layout}`}
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={openFromKeyboard}
-      aria-label={t("open_mod", { name: mod.name })}
-    >
-      <ModArtwork src={downloaded?.imageUrl ?? mod.imageUrl} alt={t("cover_alt", { name: mod.name })} />
+    <article className={`modCard modCard-${layout}`} style={{ position: "relative" }}>
+      <button
+        type="button"
+        aria-label={t("open_mod", { name: mod.name })}
+        onClick={onOpen}
+        onKeyDown={openFromKeyboard}
+        style={{
+          position: "absolute",
+          zIndex: 1,
+          inset: 0,
+          border: 0,
+          background: "transparent",
+        }}
+      />
+      <ModArtwork
+        src={downloaded?.imageUrl ?? mod.imageUrl}
+        alt={t("cover_alt", { name: mod.name })}
+      />
       <div className="modCardBody">
         <div className="modCardTitle">
           <div>
@@ -68,7 +71,10 @@ export function ModCard({
 
         {downloaded ? (
           <p className="modSummary">
-            {t("version_with_size", { version: downloaded.downloadedVersion, size: formatBytes(downloaded.fileSize) })}
+            {t("version_with_size", {
+              version: downloaded.downloadedVersion,
+              size: formatBytes(downloaded.fileSize),
+            })}
           </p>
         ) : (
           <p className="modSummary">{mod.summary || t("no_description_provided")}</p>
@@ -100,11 +106,20 @@ export function ModCard({
           </div>
           <div className="row">
             {onDelete && (
-              <Button variant="ghost" onClick={(event) => action(event, onDelete)}>
+              <Button
+                variant="ghost"
+                style={{ position: "relative", zIndex: 2 }}
+                onClick={(event) => stopPropagationAndRun(event, onDelete)}
+              >
                 {t("delete")}
               </Button>
             )}
-            <Button onClick={(event) => action(event, onInstall)}>{actionLabel}</Button>
+            <Button
+              style={{ position: "relative", zIndex: 2 }}
+              onClick={(event) => stopPropagationAndRun(event, onInstall)}
+            >
+              {actionLabel}
+            </Button>
           </div>
         </div>
       </div>

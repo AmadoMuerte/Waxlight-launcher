@@ -6,11 +6,7 @@ import { InstallLocalVersionModal } from "../features/install-game-version/Insta
 import { versionsApi, type GameVersion } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatBytes, formatDate } from "../shared/lib";
-import {
-  Button,
-  PageHeader,
-  StatusPill,
-} from "../shared/ui";
+import { Button, PageHeader, StatusPill } from "../shared/ui";
 
 interface VersionsPageProps {
   versions: GameVersion[];
@@ -18,18 +14,12 @@ interface VersionsPageProps {
   notify: (message: string, type?: "ok" | "error") => void;
 }
 
-export function VersionsPage({
-  versions,
-  refresh,
-  notify,
-}: VersionsPageProps) {
+export function VersionsPage({ versions, refresh, notify }: VersionsPageProps) {
   const { t } = useTranslation();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
   async function removeVersion(version: GameVersion) {
-    const confirmed = window.confirm(
-      t("remove_version_confirmation", { name: version.name }),
-    );
+    const confirmed = window.confirm(t("remove_version_confirmation", { name: version.name }));
     if (!confirmed) {
       return;
     }
@@ -64,41 +54,36 @@ export function VersionsPage({
               <h2>{t("installed_versions")}</h2>
             </div>
           </div>
-        <div className="table versionTable">
-          <div className="tableHead">
-            <span>{t("version")}</span>
-            <span>{t("platform")}</span>
-            <span>{t("size")}</span>
-            <span>{t("installed")}</span>
-            <span />
-          </div>
-
-          {versions.map((version) => (
-            <div className="tableRow" key={version.id}>
-              <span className="versionIdentity">
-                <strong>{version.name}</strong>
-                <small>{version.id}</small>
-                <small title={version.executablePath}>
-                  {version.executablePath}
-                </small>
-              </span>
-              <span>
-                {version.platform} · {version.architecture}
-              </span>
-              <span>{formatBytes(version.sizeBytes)}</span>
-              <span>{formatDate(version.installedAt)}</span>
-              <span className="row tableActions">
-                <StatusPill status={version.status} />
-                <Button
-                  variant="ghost"
-                  onClick={() => void removeVersion(version)}
-                >
-                  {t("remove")}
-                </Button>
-              </span>
+          <div className="table versionTable">
+            <div className="tableHead">
+              <span>{t("version")}</span>
+              <span>{t("platform")}</span>
+              <span>{t("size")}</span>
+              <span>{t("installed")}</span>
+              <span />
             </div>
-          ))}
-        </div>
+
+            {versions.map((version) => (
+              <div className="tableRow" key={version.id}>
+                <span className="versionIdentity">
+                  <strong>{version.name}</strong>
+                  <small>{version.id}</small>
+                  <small title={version.executablePath}>{version.executablePath}</small>
+                </span>
+                <span>
+                  {version.platform} · {version.architecture}
+                </span>
+                <span>{formatBytes(version.sizeBytes)}</span>
+                <span>{formatDate(version.installedAt)}</span>
+                <span className="row tableActions">
+                  <StatusPill status={version.status} />
+                  <Button variant="ghost" onClick={() => void removeVersion(version)}>
+                    {t("remove")}
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

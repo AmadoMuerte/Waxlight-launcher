@@ -1,21 +1,14 @@
-import type {
-  GameVersion,
-  Instance,
-  ModSide,
-  ModVersion,
-} from "../../shared/api";
 import i18n from "../../i18n";
+import type { GameVersion, Instance, ModSide, ModVersion } from "../../shared/api";
 
-export type Compatibility =
-  | "compatible"
-  | "possibly_compatible"
-  | "incompatible"
-  | "unknown";
+export type Compatibility = "compatible" | "possibly_compatible" | "incompatible" | "unknown";
 
 export function sideLabel(side: ModSide): string {
   return {
-    client: i18n.t("client"), server: i18n.t("server"),
-    both: i18n.t("client_and_server"), unknown: i18n.t("unknown_side"),
+    client: i18n.t("client"),
+    server: i18n.t("server"),
+    both: i18n.t("client_and_server"),
+    unknown: i18n.t("unknown_side"),
   }[side];
 }
 
@@ -52,18 +45,18 @@ export function relativeDate(value?: string): string {
 export function plainText(html: string): string {
   if (typeof DOMParser !== "undefined") {
     const document = new DOMParser().parseFromString(html, "text/html");
-    document.querySelectorAll("script, iframe, style, object, embed").forEach((node) =>
-      node.remove(),
-    );
+    document
+      .querySelectorAll("script, iframe, style, object, embed")
+      .forEach((node) => node.remove());
     return document.body.textContent?.replace(/\n{3,}/g, "\n\n").trim() ?? "";
   }
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-export function instanceGameVersion(
-  instance: Instance,
-  versions: GameVersion[],
-): string {
+export function instanceGameVersion(instance: Instance, versions: GameVersion[]): string {
   const version = versions.find((item) => item.id === instance.gameVersionId);
   return version?.name || version?.id || instance.gameVersionId;
 }
@@ -86,15 +79,19 @@ export function compatibilityFor(
 
 export function compatibilityLabel(value: Compatibility): string {
   return {
-    compatible: i18n.t("compatible"), possibly_compatible: i18n.t("possibly_compatible"),
-    incompatible: i18n.t("incompatible"), unknown: i18n.t("unknown_compatibility"),
+    compatible: i18n.t("compatible"),
+    possibly_compatible: i18n.t("possibly_compatible"),
+    incompatible: i18n.t("incompatible"),
+    unknown: i18n.t("unknown_compatibility"),
   }[value];
 }
 
 export function releaseTypeLabel(value: ModVersion["releaseType"]): string {
   return {
-    stable: i18n.t("stable"), beta: i18n.t("beta"),
-    alpha: i18n.t("alpha"), unknown: i18n.t("status_unknown"),
+    stable: i18n.t("stable"),
+    beta: i18n.t("beta"),
+    alpha: i18n.t("alpha"),
+    unknown: i18n.t("status_unknown"),
   }[value];
 }
 
@@ -104,9 +101,7 @@ export function chooseRelease(
 ): ModVersion | undefined {
   if (gameVersion) {
     const exact = releases.find(
-      (release) =>
-        release.releaseType === "stable" &&
-        release.gameVersions.includes(gameVersion),
+      (release) => release.releaseType === "stable" && release.gameVersions.includes(gameVersion),
     );
     if (exact) return exact;
     const parts = gameVersion.split(".");
@@ -118,7 +113,5 @@ export function chooseRelease(
     );
     if (series) return series;
   }
-  return (
-    releases.find((release) => release.releaseType === "stable") ?? releases[0]
-  );
+  return releases.find((release) => release.releaseType === "stable") ?? releases[0];
 }

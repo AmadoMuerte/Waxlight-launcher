@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   instancesApi,
@@ -14,7 +22,6 @@ import {
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatDate, formatDuration } from "../shared/lib";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Button,
   Checkbox,
@@ -52,19 +59,13 @@ export function LibraryPage({
   const navigate = useNavigate();
 
   const visibleInstances = useMemo(
-    () =>
-      instances.filter((instance) =>
-        instance.name.toLowerCase().includes(query.toLowerCase()),
-      ),
+    () => instances.filter((instance) => instance.name.toLowerCase().includes(query.toLowerCase())),
     [instances, query],
   );
 
   async function launch(instance: Instance) {
     try {
-      const validation = await launcherApi.validate(
-        instance.id,
-        instance.defaultAccountId,
-      );
+      const validation = await launcherApi.validate(instance.id, instance.defaultAccountId);
       const issues = validation?.issues ?? [];
       const warnings = validation?.warnings ?? [];
 
@@ -93,9 +94,9 @@ export function LibraryPage({
         title={t("library")}
         description={t("library_description")}
         action={
-          versions.length === 0 ? undefined : <Button onClick={() => setCreateDialogOpen(true)}>
-            ＋ {t("new_instance")}
-          </Button>
+          versions.length === 0 ? undefined : (
+            <Button onClick={() => setCreateDialogOpen(true)}>＋ {t("new_instance")}</Button>
+          )
         }
       />
 
@@ -110,9 +111,7 @@ export function LibraryPage({
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <span className="muted">
-            {t("instances_count", { count: visibleInstances.length })}
-          </span>
+          <span className="muted">{t("instances_count", { count: visibleInstances.length })}</span>
         </div>
       )}
 
@@ -127,9 +126,7 @@ export function LibraryPage({
           icon="◌"
           title={query ? t("nothing_found") : t("light_your_first_world")}
           description={
-            query
-              ? t("try_another_instance_name")
-              : t("create_first_instance_description")
+            query ? t("try_another_instance_name") : t("create_first_instance_description")
           }
           action={
             !query && (
@@ -137,12 +134,10 @@ export function LibraryPage({
                 onClick={
                   versions.length > 0
                     ? () => setCreateDialogOpen(true)
-                    : () => navigate('/versions')
-                  }
+                    : () => navigate("/versions")
+                }
               >
-                {versions.length > 0
-                  ? t("create_instance")
-                  : t("install_game_version_first")}
+                {versions.length > 0 ? t("create_instance") : t("install_game_version_first")}
               </Button>
             )
           }
@@ -153,9 +148,7 @@ export function LibraryPage({
             <InstanceCard
               key={instance.id}
               instance={instance}
-              version={versions.find(
-                (version) => version.id === instance.gameVersionId,
-              )}
+              version={versions.find((version) => version.id === instance.gameVersionId)}
               onOpen={() => setSelectedInstance(instance)}
               onLaunch={() => void launch(instance)}
               onStop={async () => {
@@ -186,10 +179,7 @@ export function LibraryPage({
 
       {selectedInstance && (
         <InstanceModal
-          instance={
-            instances.find((item) => item.id === selectedInstance.id) ??
-            selectedInstance
-          }
+          instance={instances.find((item) => item.id === selectedInstance.id) ?? selectedInstance}
           versions={versions}
           accounts={accounts}
           onClose={() => setSelectedInstance(undefined)}
@@ -209,25 +199,16 @@ interface InstanceCardProps {
   onStop: () => Promise<void>;
 }
 
-function InstanceCard({
-  instance,
-  version,
-  onOpen,
-  onLaunch,
-  onStop,
-}: InstanceCardProps) {
+function InstanceCard({ instance, version, onOpen, onLaunch, onStop }: InstanceCardProps) {
   const { t } = useTranslation();
   return (
-    <article
-      className="instanceCard"
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          onOpen();
-        }
-      }}
-      tabIndex={0}
-    >
+    <article className="instanceCard" style={{ position: "relative" }}>
+      <button
+        type="button"
+        aria-label={t("open_instance_details")}
+        onClick={onOpen}
+        style={{ position: "absolute", zIndex: 1, inset: 0, border: 0, background: "transparent" }}
+      />
       <div className="cover">
         <span className="coverLetter">W</span>
         <div className="coverGlow" />
@@ -237,14 +218,18 @@ function InstanceCard({
       <div className="cardBody">
         <div className="cardTitle">
           <h3>{instance.name}</h3>
-          <button className="more" aria-label={t("open_instance_details")}>
+          <button
+            type="button"
+            className="more"
+            aria-label={t("open_instance_details")}
+            onClick={onOpen}
+            style={{ position: "relative", zIndex: 2 }}
+          >
             •••
           </button>
         </div>
 
-        <p>
-          {instance.description || t("instance_default_description")}
-        </p>
+        <p>{instance.description || t("instance_default_description")}</p>
 
         <div className="meta">
           <span>◈ {version?.name ?? instance.gameVersionId}</span>
@@ -257,6 +242,7 @@ function InstanceCard({
           {instance.status === "running" ? (
             <Button
               variant="danger"
+              style={{ position: "relative", zIndex: 2 }}
               onClick={(event) => {
                 event.stopPropagation();
                 void onStop();
@@ -266,6 +252,7 @@ function InstanceCard({
             </Button>
           ) : (
             <Button
+              style={{ position: "relative", zIndex: 2 }}
               onClick={(event) => {
                 event.stopPropagation();
                 onLaunch();
@@ -287,12 +274,7 @@ interface CreateInstanceModalProps {
   onDone: () => Promise<void>;
 }
 
-function CreateInstanceModal({
-  versions,
-  accounts,
-  onClose,
-  onDone,
-}: CreateInstanceModalProps) {
+function CreateInstanceModal({ versions, accounts, onClose, onDone }: CreateInstanceModalProps) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -327,7 +309,6 @@ function CreateInstanceModal({
         <div className="modalBody formFields">
           <Field label={t("name")}>
             <input
-              autoFocus
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -345,14 +326,15 @@ function CreateInstanceModal({
 
           <div className="formRow">
             <Field label={t("game_version")}>
-              <Select
-                value={versionID}
-                onValueChange={setVersionID}
-              >
-                <SelectTrigger><SelectValue placeholder={t("game_version")} /></SelectTrigger>
+              <Select value={versionID} onValueChange={setVersionID}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("game_version")} />
+                </SelectTrigger>
                 <SelectContent>
                   {versions.map((version) => (
-                    <SelectItem key={version.id} value={version.id}>{version.name}</SelectItem>
+                    <SelectItem key={version.id} value={version.id}>
+                      {version.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -361,20 +343,30 @@ function CreateInstanceModal({
             <Field label={t("launch_account")}>
               <Select
                 value={accountID ? `account:${accountID}` : "global"}
-                onValueChange={(value) => setAccountID(value === "global" ? "" : value.slice("account:".length))}
+                onValueChange={(value) =>
+                  setAccountID(value === "global" ? "" : value.slice("account:".length))
+                }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">{t("use_globally_selected_account")}</SelectItem>
                   {accounts.map((account) => (
-                    <SelectItem key={account.id} value={`account:${account.id}`}>{account.displayName}</SelectItem>
+                    <SelectItem key={account.id} value={`account:${account.id}`}>
+                      {account.displayName}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
-          {error && <div className="inlineError" role="alert">{error}</div>}
+          {error && (
+            <div className="inlineError" role="alert">
+              {error}
+            </div>
+          )}
         </div>
 
         <div className="dialogFooter">
@@ -417,22 +409,20 @@ function InstanceModal({
   const [description, setDescription] = useState(instance.description);
   const [versionID, setVersionID] = useState(instance.gameVersionId);
   const [accountID, setAccountID] = useState(instance.defaultAccountId ?? "");
-  const [argumentsText, setArgumentsText] = useState(
-    instance.launchArguments.join(" "),
-  );
+  const [argumentsText, setArgumentsText] = useState(instance.launchArguments.join(" "));
   const [busy, setBusy] = useState(false);
 
-  async function loadMods() {
+  const loadMods = useCallback(async () => {
     try {
       setMods((await modsApi.list(instance.id)) ?? []);
     } catch (error) {
       notify(errorMessage(error), "error");
     }
-  }
+  }, [instance.id, notify]);
 
   useEffect(() => {
     void loadMods();
-  }, [instance.id]);
+  }, [loadMods]);
 
   async function installMod() {
     try {
@@ -463,9 +453,7 @@ function InstanceModal({
         description,
         gameVersionId: versionID,
         defaultAccountId: accountID || undefined,
-        launchArguments: argumentsText.trim()
-          ? argumentsText.trim().split(/\s+/)
-          : [],
+        launchArguments: argumentsText.trim() ? argumentsText.trim().split(/\s+/) : [],
       });
       await refresh();
       notify(t("instance_settings_saved"));
@@ -477,9 +465,7 @@ function InstanceModal({
   }
 
   async function deleteInstance() {
-    const confirmed = window.confirm(
-      t("delete_instance_confirmation", { name: instance.name }),
-    );
+    const confirmed = window.confirm(t("delete_instance_confirmation", { name: instance.name }));
     if (!confirmed) {
       return;
     }
@@ -494,12 +480,8 @@ function InstanceModal({
     }
   }
 
-  const selectedVersion = versions.find(
-    (version) => version.id === instance.gameVersionId,
-  );
-  const selectedAccount = accounts.find(
-    (account) => account.id === instance.defaultAccountId,
-  );
+  const selectedVersion = versions.find((version) => version.id === instance.gameVersionId);
+  const selectedAccount = accounts.find((account) => account.id === instance.defaultAccountId);
   const settingsDirty =
     name !== instance.name ||
     description !== instance.description ||
@@ -550,7 +532,9 @@ function InstanceModal({
       {tab === "overview" && (
         <div className="instanceTabBody detailOverview" role="tabpanel">
           <section className="instanceHero">
-            <div className="heroMark" aria-hidden="true">W</div>
+            <div className="heroMark" aria-hidden="true">
+              W
+            </div>
             <div className="instanceHeroCopy">
               <div className="instanceHeroTitle">
                 <h2 title={instance.name}>{instance.name}</h2>
@@ -569,7 +553,9 @@ function InstanceModal({
             </article>
             <article>
               <span>{t("mods")}</span>
-              <strong>{t("installed_count", { count: mods.filter((mod) => mod.enabled).length })}</strong>
+              <strong>
+                {t("installed_count", { count: mods.filter((mod) => mod.enabled).length })}
+              </strong>
               <small>{t("total_count", { count: mods.length })}</small>
             </article>
             <article>
@@ -644,7 +630,9 @@ function InstanceModal({
             <div className="installedModList">
               {mods.map((mod) => (
                 <article className="installedModRow" key={mod.id}>
-                  <div className="modRowIcon" aria-hidden="true">◇</div>
+                  <div className="modRowIcon" aria-hidden="true">
+                    ◇
+                  </div>
                   <div className="modRowCopy">
                     <strong>{mod.name}</strong>
                     <small>{t("version_value", { version: mod.version })}</small>
@@ -668,7 +656,8 @@ function InstanceModal({
                       variant="ghost"
                       className="dangerGhost"
                       onClick={async () => {
-                        if (!window.confirm(t("remove_mod_confirmation", { name: mod.name }))) return;
+                        if (!window.confirm(t("remove_mod_confirmation", { name: mod.name })))
+                          return;
                         try {
                           await modsApi.remove(mod.id);
                           await loadMods();
@@ -702,16 +691,23 @@ function InstanceModal({
                 </Field>
 
                 <Field label={t("description")}>
-                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+                  <textarea
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                  />
                 </Field>
 
                 <div className="formRow">
                   <Field label={t("game_version")}>
                     <Select value={versionID} onValueChange={setVersionID}>
-                      <SelectTrigger><SelectValue placeholder={t("game_version")} /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("game_version")} />
+                      </SelectTrigger>
                       <SelectContent>
                         {versions.map((version) => (
-                          <SelectItem key={version.id} value={version.id}>{version.name}</SelectItem>
+                          <SelectItem key={version.id} value={version.id}>
+                            {version.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -720,13 +716,19 @@ function InstanceModal({
                   <Field label={t("launch_account")}>
                     <Select
                       value={accountID ? `account:${accountID}` : "global"}
-                      onValueChange={(value) => setAccountID(value === "global" ? "" : value.slice("account:".length))}
+                      onValueChange={(value) =>
+                        setAccountID(value === "global" ? "" : value.slice("account:".length))
+                      }
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="global">{t("use_globally_selected_account")}</SelectItem>
                         {accounts.map((account) => (
-                          <SelectItem key={account.id} value={`account:${account.id}`}>{account.displayName}</SelectItem>
+                          <SelectItem key={account.id} value={`account:${account.id}`}>
+                            {account.displayName}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -740,10 +742,7 @@ function InstanceModal({
                 <h3>{t("advanced")}</h3>
                 <p>{t("optional_vintage_story_launch_arguments")}</p>
               </header>
-              <Field
-                label={t("launch_arguments")}
-                hint={t("launch_arguments_hint")}
-              >
+              <Field label={t("launch_arguments")} hint={t("launch_arguments_hint")}>
                 <input
                   className="codeInput"
                   value={argumentsText}
@@ -775,7 +774,12 @@ function InstanceModal({
               {settingsDirty ? t("unsaved_changes") : t("all_changes_saved")}
             </span>
             <div className="row">
-              <Button type="button" variant="ghost" disabled={!settingsDirty || busy} onClick={resetSettings}>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!settingsDirty || busy}
+                onClick={resetSettings}
+              >
                 {t("reset")}
               </Button>
               <Button busy={busy} disabled={!settingsDirty}>

@@ -6,15 +6,11 @@ export const supportedLanguages = [
 export type LanguageCode = (typeof supportedLanguages)[number]["code"];
 export const defaultLanguage: LanguageCode = "en";
 
-export function isSupportedLanguage(
-  value: string | null | undefined,
-): value is LanguageCode {
+export function isSupportedLanguage(value: string | null | undefined): value is LanguageCode {
   return supportedLanguages.some(({ code }) => code === value);
 }
 
-export function normalizeLanguage(
-  value: string | null | undefined,
-): LanguageCode {
+export function normalizeLanguage(value: string | null | undefined): LanguageCode {
   if (!value) return defaultLanguage;
   const normalized = value.trim().toLowerCase().split(/[-_]/)[0];
   return isSupportedLanguage(normalized) ? normalized : defaultLanguage;

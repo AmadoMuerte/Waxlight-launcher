@@ -1,25 +1,18 @@
+import { useTranslation } from "react-i18next";
+
 import { Instance, Statistics } from "../shared/api";
 import { formatDate, formatDuration } from "../shared/lib";
 import { Empty, PageHeader } from "../shared/ui";
-import { useTranslation } from "react-i18next";
 
 interface StatisticsPageProps {
   statistics?: Statistics;
   instances: Instance[];
 }
 
-export function StatisticsPage({
-  statistics,
-  instances,
-}: StatisticsPageProps) {
+export function StatisticsPage({ statistics, instances }: StatisticsPageProps) {
   const { t } = useTranslation();
   if (!statistics) {
-    return (
-      <Empty
-        title={t("loading_statistics")}
-        description={t("collecting_playtime")}
-      />
-    );
+    return <Empty title={t("loading_statistics")} description={t("collecting_playtime")} />;
   }
 
   const sessions = statistics.recentSessions ?? [];
@@ -64,17 +57,11 @@ export function StatisticsPage({
         ) : (
           <div className="sessionList">
             {sessions.map((session) => {
-              const instance = instances.find(
-                (item) => item.id === session.instanceId,
-              );
+              const instance = instances.find((item) => item.id === session.instanceId);
 
               return (
                 <div key={session.id}>
-                  <span
-                    className={`sessionDot ${
-                      session.crashed ? "crashed" : ""
-                    }`}
-                  />
+                  <span className={`sessionDot ${session.crashed ? "crashed" : ""}`} />
                   <div>
                     <strong>{instance?.name ?? t("removed_instance")}</strong>
                     <small>{formatDate(session.startedAt)}</small>

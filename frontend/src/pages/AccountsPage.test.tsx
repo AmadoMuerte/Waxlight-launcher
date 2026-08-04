@@ -1,23 +1,12 @@
 // @vitest-environment jsdom
 
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Account, LoginResult } from "../shared/api";
-import {
-  AccountsPage,
-  authErrorMessages,
-  isValidEmail,
-} from "./AccountsPage";
+import { AccountsPage, authErrorMessages, isValidEmail } from "./AccountsPage";
 
 const api = vi.hoisted(() => ({
   login: vi.fn(),
@@ -157,7 +146,9 @@ describe("account authentication UI", () => {
     const password = within(dialog).getByLabelText("Password") as HTMLInputElement;
     await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
 
-    expect(await screen.findByText("The email, password, or verification code is incorrect.")).toBeTruthy();
+    expect(
+      await screen.findByText("The email, password, or verification code is incorrect."),
+    ).toBeTruthy();
     expect(password.value).toBe("");
   });
 
@@ -181,18 +172,16 @@ describe("account authentication UI", () => {
 
     await user.click(within(expiredCard).getByRole("button", { name: "Sign in again" }));
     const dialog = screen.getByRole("dialog");
-    expect((within(dialog).getByLabelText("Email") as HTMLInputElement).value).toBe(
-      "expired@example.com",
-    );
+    const emailInput = within(dialog).getByLabelText("Email");
+    if (!(emailInput instanceof HTMLInputElement)) throw new Error("email control is not an input");
+    expect(emailInput.value).toBe("expired@example.com");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     const validCard = screen.getByText("Waxlighter").closest("article");
     if (!validCard) throw new Error("valid account card not found");
     await user.click(within(validCard).getByRole("button", { name: "Validate" }));
     expect(api.validate).toHaveBeenCalledWith("first");
-    await user.click(
-      within(validCard).getByRole("button", { name: "Remove from launcher" }),
-    );
+    await user.click(within(validCard).getByRole("button", { name: "Remove from launcher" }));
     expect(api.remove).toHaveBeenCalledWith("first");
     expect(refresh).toHaveBeenCalled();
   });

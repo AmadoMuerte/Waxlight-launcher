@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
 import { Field, Modal } from "@/shared/ui";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
 it("closes an open select before closing its modal", async () => {
@@ -13,7 +14,9 @@ it("closes an open select before closing its modal", async () => {
     <Modal title="Example" onClose={onClose}>
       <Field label="Value">
         <Select value="one">
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="one">One</SelectItem>
             <SelectItem value="two">Two</SelectItem>

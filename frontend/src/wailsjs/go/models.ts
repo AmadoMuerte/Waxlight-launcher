@@ -1,826 +1,824 @@
 export namespace presentation {
-	
-	export class AccountDTO {
-	    id: string;
-	    username: string;
-	    displayName: string;
-	    email: string;
-	    status: string;
-	    isDefault: boolean;
-	    lastValidatedAt?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new AccountDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.username = source["username"];
-	        this.displayName = source["displayName"];
-	        this.email = source["email"];
-	        this.status = source["status"];
-	        this.isDefault = source["isDefault"];
-	        this.lastValidatedAt = source["lastValidatedAt"];
-	    }
-	}
-	export class AvailableGameVersionDTO {
-	    id: string;
-	    name: string;
-	    channel: string;
-	    platform: string;
-	    architecture: string;
-	    downloadSize: number;
-	    latest: boolean;
-	    installed: boolean;
-	    installStatus?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new AvailableGameVersionDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.channel = source["channel"];
-	        this.platform = source["platform"];
-	        this.architecture = source["architecture"];
-	        this.downloadSize = source["downloadSize"];
-	        this.latest = source["latest"];
-	        this.installed = source["installed"];
-	        this.installStatus = source["installStatus"];
-	    }
-	}
-	export class CreateInstanceRequest {
-	    name: string;
-	    description: string;
-	    gameVersionId: string;
-	    defaultAccountId?: string;
-	    directory: string;
-	    launchArguments: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new CreateInstanceRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.gameVersionId = source["gameVersionId"];
-	        this.defaultAccountId = source["defaultAccountId"];
-	        this.directory = source["directory"];
-	        this.launchArguments = source["launchArguments"];
-	    }
-	}
-	export class DownloadCatalogModRequest {
-	    modId: string;
-	    versionId: string;
-	    instanceIds: string[];
-	    downloadOnly: boolean;
-	    allowIncompatible: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new DownloadCatalogModRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.modId = source["modId"];
-	        this.versionId = source["versionId"];
-	        this.instanceIds = source["instanceIds"];
-	        this.downloadOnly = source["downloadOnly"];
-	        this.allowIncompatible = source["allowIncompatible"];
-	    }
-	}
-	export class InstalledModInstanceDTO {
-	    instanceId: string;
-	    instanceName: string;
-	    version: string;
-	    enabled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstalledModInstanceDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.instanceName = source["instanceName"];
-	        this.version = source["version"];
-	        this.enabled = source["enabled"];
-	    }
-	}
-	export class DownloadedModDTO {
-	    modId: string;
-	    slug?: string;
-	    name: string;
-	    authorName: string;
-	    imageUrl?: string;
-	    side: string;
-	    versionId: string;
-	    downloadedVersion: string;
-	    gameVersions: string[];
-	    fileName: string;
-	    fileSize: number;
-	    downloadedAt: string;
-	    installedInstances: InstalledModInstanceDTO[];
-	    latestVersion?: string;
-	    updateAvailable: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new DownloadedModDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.modId = source["modId"];
-	        this.slug = source["slug"];
-	        this.name = source["name"];
-	        this.authorName = source["authorName"];
-	        this.imageUrl = source["imageUrl"];
-	        this.side = source["side"];
-	        this.versionId = source["versionId"];
-	        this.downloadedVersion = source["downloadedVersion"];
-	        this.gameVersions = source["gameVersions"];
-	        this.fileName = source["fileName"];
-	        this.fileSize = source["fileSize"];
-	        this.downloadedAt = source["downloadedAt"];
-	        this.installedInstances = this.convertValues(source["installedInstances"], InstalledModInstanceDTO);
-	        this.latestVersion = source["latestVersion"];
-	        this.updateAvailable = source["updateAvailable"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class GameVersionDTO {
-	    id: string;
-	    name: string;
-	    channel: string;
-	    platform: string;
-	    architecture: string;
-	    installationDir: string;
-	    executablePath: string;
-	    status: string;
-	    sizeBytes: number;
-	    installedAt: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new GameVersionDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.channel = source["channel"];
-	        this.platform = source["platform"];
-	        this.architecture = source["architecture"];
-	        this.installationDir = source["installationDir"];
-	        this.executablePath = source["executablePath"];
-	        this.status = source["status"];
-	        this.sizeBytes = source["sizeBytes"];
-	        this.installedAt = source["installedAt"];
-	    }
-	}
-	export class InstallDownloadedModRequest {
-	    modId: string;
-	    versionId: string;
-	    instanceIds: string[];
-	    allowIncompatible: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstallDownloadedModRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.modId = source["modId"];
-	        this.versionId = source["versionId"];
-	        this.instanceIds = source["instanceIds"];
-	        this.allowIncompatible = source["allowIncompatible"];
-	    }
-	}
-	export class InstallModFileRequest {
-	    instanceId: string;
-	    sourcePath: string;
-	    name: string;
-	    version: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstallModFileRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.sourcePath = source["sourcePath"];
-	        this.name = source["name"];
-	        this.version = source["version"];
-	    }
-	}
-	export class InstallVersionRequest {
-	    id: string;
-	    name: string;
-	    sourcePath: string;
-	    executableRelativePath: string;
-	    expectedSha256: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstallVersionRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.sourcePath = source["sourcePath"];
-	        this.executableRelativePath = source["executableRelativePath"];
-	        this.expectedSha256 = source["expectedSha256"];
-	    }
-	}
-	export class InstalledModDTO {
-	    id: string;
-	    instanceId: string;
-	    name: string;
-	    version: string;
-	    fileName: string;
-	    filePath: string;
-	    enabled: boolean;
-	    managed: boolean;
-	    source: string;
-	    sizeBytes: number;
-	    installedAt: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstalledModDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.instanceId = source["instanceId"];
-	        this.name = source["name"];
-	        this.version = source["version"];
-	        this.fileName = source["fileName"];
-	        this.filePath = source["filePath"];
-	        this.enabled = source["enabled"];
-	        this.managed = source["managed"];
-	        this.source = source["source"];
-	        this.sizeBytes = source["sizeBytes"];
-	        this.installedAt = source["installedAt"];
-	    }
-	}
-	
-	export class InstanceDTO {
-	    id: string;
-	    name: string;
-	    description: string;
-	    gameVersionId: string;
-	    defaultAccountId?: string;
-	    directory: string;
-	    status: string;
-	    launchArguments: string[];
-	    lastPlayedAt?: string;
-	    createdAt: string;
-	    enabledModCount: number;
-	    totalModCount: number;
-	    playtimeSeconds: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstanceDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.gameVersionId = source["gameVersionId"];
-	        this.defaultAccountId = source["defaultAccountId"];
-	        this.directory = source["directory"];
-	        this.status = source["status"];
-	        this.launchArguments = source["launchArguments"];
-	        this.lastPlayedAt = source["lastPlayedAt"];
-	        this.createdAt = source["createdAt"];
-	        this.enabledModCount = source["enabledModCount"];
-	        this.totalModCount = source["totalModCount"];
-	        this.playtimeSeconds = source["playtimeSeconds"];
-	    }
-	}
-	export class LaunchRequest {
-	    instanceId: string;
-	    accountId?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new LaunchRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.accountId = source["accountId"];
-	    }
-	}
-	export class LaunchValidationDTO {
-	    valid: boolean;
-	    issues: string[];
-	    warnings: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new LaunchValidationDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.valid = source["valid"];
-	        this.issues = source["issues"];
-	        this.warnings = source["warnings"];
-	    }
-	}
-	export class LoginResultDTO {
-	    status: string;
-	    account?: AccountDTO;
-	    flowId?: string;
-	    message?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new LoginResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.status = source["status"];
-	        this.account = this.convertValues(source["account"], AccountDTO);
-	        this.flowId = source["flowId"];
-	        this.message = source["message"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class ModVersionDTO {
-	    id: string;
-	    version: string;
-	    gameVersions: string[];
-	    releaseType: string;
-	    fileName: string;
-	    fileSize: number;
-	    publishedAt?: string;
-	    changelog?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModVersionDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.version = source["version"];
-	        this.gameVersions = source["gameVersions"];
-	        this.releaseType = source["releaseType"];
-	        this.fileName = source["fileName"];
-	        this.fileSize = source["fileSize"];
-	        this.publishedAt = source["publishedAt"];
-	        this.changelog = source["changelog"];
-	    }
-	}
-	export class ModScreenshotDTO {
-	    url: string;
-	    caption?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModScreenshotDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.url = source["url"];
-	        this.caption = source["caption"];
-	    }
-	}
-	export class ModDetailsDTO {
-	    id: string;
-	    slug?: string;
-	    name: string;
-	    authorName: string;
-	    summary: string;
-	    imageUrl?: string;
-	    side: string;
-	    latestVersion?: string;
-	    gameVersions: string[];
-	    downloads: number;
-	    createdAt?: string;
-	    updatedAt?: string;
-	    tags: string[];
-	    isDownloaded: boolean;
-	    isInstalled: boolean;
-	    updateAvailable: boolean;
-	    description: string;
-	    screenshots: ModScreenshotDTO[];
-	    versions: ModVersionDTO[];
-	    websiteUrl?: string;
-	    sourceUrl?: string;
-	    license?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModDetailsDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.slug = source["slug"];
-	        this.name = source["name"];
-	        this.authorName = source["authorName"];
-	        this.summary = source["summary"];
-	        this.imageUrl = source["imageUrl"];
-	        this.side = source["side"];
-	        this.latestVersion = source["latestVersion"];
-	        this.gameVersions = source["gameVersions"];
-	        this.downloads = source["downloads"];
-	        this.createdAt = source["createdAt"];
-	        this.updatedAt = source["updatedAt"];
-	        this.tags = source["tags"];
-	        this.isDownloaded = source["isDownloaded"];
-	        this.isInstalled = source["isInstalled"];
-	        this.updateAvailable = source["updateAvailable"];
-	        this.description = source["description"];
-	        this.screenshots = this.convertValues(source["screenshots"], ModScreenshotDTO);
-	        this.versions = this.convertValues(source["versions"], ModVersionDTO);
-	        this.websiteUrl = source["websiteUrl"];
-	        this.sourceUrl = source["sourceUrl"];
-	        this.license = source["license"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class ModInstallationResultDTO {
-	    instanceId: string;
-	    instanceName: string;
-	    installed: boolean;
-	    message: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModInstallationResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.instanceName = source["instanceName"];
-	        this.installed = source["installed"];
-	        this.message = source["message"];
-	    }
-	}
-	export class ModInstallResultDTO {
-	    taskId: string;
-	    downloaded: DownloadedModDTO;
-	    installations: ModInstallationResultDTO[];
-	
-	    static createFrom(source: any = {}) {
-	        return new ModInstallResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.taskId = source["taskId"];
-	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
-	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	
-	
-	export class ModSearchRequest {
-	    text: string;
-	    gameVersion: string;
-	    side: string;
-	    updatedAfter?: string;
-	    tags: string[];
-	    compatibleOnly: boolean;
-	    instanceId: string;
-	    sort: string;
-	    page: number;
-	    pageSize: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModSearchRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.text = source["text"];
-	        this.gameVersion = source["gameVersion"];
-	        this.side = source["side"];
-	        this.updatedAfter = source["updatedAfter"];
-	        this.tags = source["tags"];
-	        this.compatibleOnly = source["compatibleOnly"];
-	        this.instanceId = source["instanceId"];
-	        this.sort = source["sort"];
-	        this.page = source["page"];
-	        this.pageSize = source["pageSize"];
-	    }
-	}
-	export class ModSummaryDTO {
-	    id: string;
-	    slug?: string;
-	    name: string;
-	    authorName: string;
-	    summary: string;
-	    imageUrl?: string;
-	    side: string;
-	    latestVersion?: string;
-	    gameVersions: string[];
-	    downloads: number;
-	    createdAt?: string;
-	    updatedAt?: string;
-	    tags: string[];
-	    isDownloaded: boolean;
-	    isInstalled: boolean;
-	    updateAvailable: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModSummaryDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.slug = source["slug"];
-	        this.name = source["name"];
-	        this.authorName = source["authorName"];
-	        this.summary = source["summary"];
-	        this.imageUrl = source["imageUrl"];
-	        this.side = source["side"];
-	        this.latestVersion = source["latestVersion"];
-	        this.gameVersions = source["gameVersions"];
-	        this.downloads = source["downloads"];
-	        this.createdAt = source["createdAt"];
-	        this.updatedAt = source["updatedAt"];
-	        this.tags = source["tags"];
-	        this.isDownloaded = source["isDownloaded"];
-	        this.isInstalled = source["isInstalled"];
-	        this.updateAvailable = source["updateAvailable"];
-	    }
-	}
-	export class ModSearchResultDTO {
-	    items: ModSummaryDTO[];
-	    page: number;
-	    pageSize: number;
-	    totalItems: number;
-	    totalPages: number;
-	    hasNext: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new ModSearchResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.items = this.convertValues(source["items"], ModSummaryDTO);
-	        this.page = source["page"];
-	        this.pageSize = source["pageSize"];
-	        this.totalItems = source["totalItems"];
-	        this.totalPages = source["totalPages"];
-	        this.hasNext = source["hasNext"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	
-	
-	export class OperationDTO {
-	    id: string;
-	    type: string;
-	    resourceId?: string;
-	    title: string;
-	    status: string;
-	    progress: number;
-	    currentBytes: number;
-	    totalBytes: number;
-	    bytesPerSecond: number;
-	    errorCode?: string;
-	    errorMessage?: string;
-	    createdAt: string;
-	    startedAt?: string;
-	    finishedAt?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new OperationDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.type = source["type"];
-	        this.resourceId = source["resourceId"];
-	        this.title = source["title"];
-	        this.status = source["status"];
-	        this.progress = source["progress"];
-	        this.currentBytes = source["currentBytes"];
-	        this.totalBytes = source["totalBytes"];
-	        this.bytesPerSecond = source["bytesPerSecond"];
-	        this.errorCode = source["errorCode"];
-	        this.errorMessage = source["errorMessage"];
-	        this.createdAt = source["createdAt"];
-	        this.startedAt = source["startedAt"];
-	        this.finishedAt = source["finishedAt"];
-	    }
-	}
-	export class PlaySessionDTO {
-	    id: string;
-	    instanceId: string;
-	    accountId?: string;
-	    versionId: string;
-	    startedAt: string;
-	    endedAt?: string;
-	    durationSeconds: number;
-	    exitCode?: number;
-	    crashed: boolean;
-	    recovered: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new PlaySessionDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.instanceId = source["instanceId"];
-	        this.accountId = source["accountId"];
-	        this.versionId = source["versionId"];
-	        this.startedAt = source["startedAt"];
-	        this.endedAt = source["endedAt"];
-	        this.durationSeconds = source["durationSeconds"];
-	        this.exitCode = source["exitCode"];
-	        this.crashed = source["crashed"];
-	        this.recovered = source["recovered"];
-	    }
-	}
-	export class SettingsDTO {
-	    theme: string;
-	    language: string;
-	    downloadsParallel: number;
-	    confirmDeletion: boolean;
-	    minSessionDurationSec: number;
-	    globalLaunchArguments: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new SettingsDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.theme = source["theme"];
-	        this.language = source["language"];
-	        this.downloadsParallel = source["downloadsParallel"];
-	        this.confirmDeletion = source["confirmDeletion"];
-	        this.minSessionDurationSec = source["minSessionDurationSec"];
-	        this.globalLaunchArguments = source["globalLaunchArguments"];
-	    }
-	}
-	export class StatisticsDTO {
-	    totalPlaytimeSeconds: number;
-	    launchCount: number;
-	    averageSessionSeconds: number;
-	    mostPlayedInstanceId?: string;
-	    recentSessions: PlaySessionDTO[];
-	
-	    static createFrom(source: any = {}) {
-	        return new StatisticsDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.totalPlaytimeSeconds = source["totalPlaytimeSeconds"];
-	        this.launchCount = source["launchCount"];
-	        this.averageSessionSeconds = source["averageSessionSeconds"];
-	        this.mostPlayedInstanceId = source["mostPlayedInstanceId"];
-	        this.recentSessions = this.convertValues(source["recentSessions"], PlaySessionDTO);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class UpdateInstanceRequest {
-	    id: string;
-	    name: string;
-	    description: string;
-	    gameVersionId: string;
-	    defaultAccountId?: string;
-	    launchArguments: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new UpdateInstanceRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.gameVersionId = source["gameVersionId"];
-	        this.defaultAccountId = source["defaultAccountId"];
-	        this.launchArguments = source["launchArguments"];
-	    }
-	}
+  export class AccountDTO {
+    id: string;
+    username: string;
+    displayName: string;
+    email: string;
+    status: string;
+    isDefault: boolean;
+    lastValidatedAt?: string;
 
+    static createFrom(source: any = {}) {
+      return new AccountDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.username = source["username"];
+      this.displayName = source["displayName"];
+      this.email = source["email"];
+      this.status = source["status"];
+      this.isDefault = source["isDefault"];
+      this.lastValidatedAt = source["lastValidatedAt"];
+    }
+  }
+  export class AvailableGameVersionDTO {
+    id: string;
+    name: string;
+    channel: string;
+    platform: string;
+    architecture: string;
+    downloadSize: number;
+    latest: boolean;
+    installed: boolean;
+    installStatus?: string;
+
+    static createFrom(source: any = {}) {
+      return new AvailableGameVersionDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.name = source["name"];
+      this.channel = source["channel"];
+      this.platform = source["platform"];
+      this.architecture = source["architecture"];
+      this.downloadSize = source["downloadSize"];
+      this.latest = source["latest"];
+      this.installed = source["installed"];
+      this.installStatus = source["installStatus"];
+    }
+  }
+  export class CreateInstanceRequest {
+    name: string;
+    description: string;
+    gameVersionId: string;
+    defaultAccountId?: string;
+    directory: string;
+    launchArguments: string[];
+
+    static createFrom(source: any = {}) {
+      return new CreateInstanceRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.name = source["name"];
+      this.description = source["description"];
+      this.gameVersionId = source["gameVersionId"];
+      this.defaultAccountId = source["defaultAccountId"];
+      this.directory = source["directory"];
+      this.launchArguments = source["launchArguments"];
+    }
+  }
+  export class DownloadCatalogModRequest {
+    modId: string;
+    versionId: string;
+    instanceIds: string[];
+    downloadOnly: boolean;
+    allowIncompatible: boolean;
+
+    static createFrom(source: any = {}) {
+      return new DownloadCatalogModRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.modId = source["modId"];
+      this.versionId = source["versionId"];
+      this.instanceIds = source["instanceIds"];
+      this.downloadOnly = source["downloadOnly"];
+      this.allowIncompatible = source["allowIncompatible"];
+    }
+  }
+  export class InstalledModInstanceDTO {
+    instanceId: string;
+    instanceName: string;
+    version: string;
+    enabled: boolean;
+
+    static createFrom(source: any = {}) {
+      return new InstalledModInstanceDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.instanceId = source["instanceId"];
+      this.instanceName = source["instanceName"];
+      this.version = source["version"];
+      this.enabled = source["enabled"];
+    }
+  }
+  export class DownloadedModDTO {
+    modId: string;
+    slug?: string;
+    name: string;
+    authorName: string;
+    imageUrl?: string;
+    side: string;
+    versionId: string;
+    downloadedVersion: string;
+    gameVersions: string[];
+    fileName: string;
+    fileSize: number;
+    downloadedAt: string;
+    installedInstances: InstalledModInstanceDTO[];
+    latestVersion?: string;
+    updateAvailable: boolean;
+
+    static createFrom(source: any = {}) {
+      return new DownloadedModDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.modId = source["modId"];
+      this.slug = source["slug"];
+      this.name = source["name"];
+      this.authorName = source["authorName"];
+      this.imageUrl = source["imageUrl"];
+      this.side = source["side"];
+      this.versionId = source["versionId"];
+      this.downloadedVersion = source["downloadedVersion"];
+      this.gameVersions = source["gameVersions"];
+      this.fileName = source["fileName"];
+      this.fileSize = source["fileSize"];
+      this.downloadedAt = source["downloadedAt"];
+      this.installedInstances = this.convertValues(
+        source["installedInstances"],
+        InstalledModInstanceDTO,
+      );
+      this.latestVersion = source["latestVersion"];
+      this.updateAvailable = source["updateAvailable"];
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+  export class GameVersionDTO {
+    id: string;
+    name: string;
+    channel: string;
+    platform: string;
+    architecture: string;
+    installationDir: string;
+    executablePath: string;
+    status: string;
+    sizeBytes: number;
+    installedAt: string;
+
+    static createFrom(source: any = {}) {
+      return new GameVersionDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.name = source["name"];
+      this.channel = source["channel"];
+      this.platform = source["platform"];
+      this.architecture = source["architecture"];
+      this.installationDir = source["installationDir"];
+      this.executablePath = source["executablePath"];
+      this.status = source["status"];
+      this.sizeBytes = source["sizeBytes"];
+      this.installedAt = source["installedAt"];
+    }
+  }
+  export class InstallDownloadedModRequest {
+    modId: string;
+    versionId: string;
+    instanceIds: string[];
+    allowIncompatible: boolean;
+
+    static createFrom(source: any = {}) {
+      return new InstallDownloadedModRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.modId = source["modId"];
+      this.versionId = source["versionId"];
+      this.instanceIds = source["instanceIds"];
+      this.allowIncompatible = source["allowIncompatible"];
+    }
+  }
+  export class InstallModFileRequest {
+    instanceId: string;
+    sourcePath: string;
+    name: string;
+    version: string;
+
+    static createFrom(source: any = {}) {
+      return new InstallModFileRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.instanceId = source["instanceId"];
+      this.sourcePath = source["sourcePath"];
+      this.name = source["name"];
+      this.version = source["version"];
+    }
+  }
+  export class InstallVersionRequest {
+    id: string;
+    name: string;
+    sourcePath: string;
+    executableRelativePath: string;
+    expectedSha256: string;
+
+    static createFrom(source: any = {}) {
+      return new InstallVersionRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.name = source["name"];
+      this.sourcePath = source["sourcePath"];
+      this.executableRelativePath = source["executableRelativePath"];
+      this.expectedSha256 = source["expectedSha256"];
+    }
+  }
+  export class InstalledModDTO {
+    id: string;
+    instanceId: string;
+    name: string;
+    version: string;
+    fileName: string;
+    filePath: string;
+    enabled: boolean;
+    managed: boolean;
+    source: string;
+    sizeBytes: number;
+    installedAt: string;
+
+    static createFrom(source: any = {}) {
+      return new InstalledModDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.instanceId = source["instanceId"];
+      this.name = source["name"];
+      this.version = source["version"];
+      this.fileName = source["fileName"];
+      this.filePath = source["filePath"];
+      this.enabled = source["enabled"];
+      this.managed = source["managed"];
+      this.source = source["source"];
+      this.sizeBytes = source["sizeBytes"];
+      this.installedAt = source["installedAt"];
+    }
+  }
+
+  export class InstanceDTO {
+    id: string;
+    name: string;
+    description: string;
+    gameVersionId: string;
+    defaultAccountId?: string;
+    directory: string;
+    status: string;
+    launchArguments: string[];
+    lastPlayedAt?: string;
+    createdAt: string;
+    enabledModCount: number;
+    totalModCount: number;
+    playtimeSeconds: number;
+
+    static createFrom(source: any = {}) {
+      return new InstanceDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.name = source["name"];
+      this.description = source["description"];
+      this.gameVersionId = source["gameVersionId"];
+      this.defaultAccountId = source["defaultAccountId"];
+      this.directory = source["directory"];
+      this.status = source["status"];
+      this.launchArguments = source["launchArguments"];
+      this.lastPlayedAt = source["lastPlayedAt"];
+      this.createdAt = source["createdAt"];
+      this.enabledModCount = source["enabledModCount"];
+      this.totalModCount = source["totalModCount"];
+      this.playtimeSeconds = source["playtimeSeconds"];
+    }
+  }
+  export class LaunchRequest {
+    instanceId: string;
+    accountId?: string;
+
+    static createFrom(source: any = {}) {
+      return new LaunchRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.instanceId = source["instanceId"];
+      this.accountId = source["accountId"];
+    }
+  }
+  export class LaunchValidationDTO {
+    valid: boolean;
+    issues: string[];
+    warnings: string[];
+
+    static createFrom(source: any = {}) {
+      return new LaunchValidationDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.valid = source["valid"];
+      this.issues = source["issues"];
+      this.warnings = source["warnings"];
+    }
+  }
+  export class LoginResultDTO {
+    status: string;
+    account?: AccountDTO;
+    flowId?: string;
+    message?: string;
+
+    static createFrom(source: any = {}) {
+      return new LoginResultDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.status = source["status"];
+      this.account = this.convertValues(source["account"], AccountDTO);
+      this.flowId = source["flowId"];
+      this.message = source["message"];
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+  export class ModVersionDTO {
+    id: string;
+    version: string;
+    gameVersions: string[];
+    releaseType: string;
+    fileName: string;
+    fileSize: number;
+    publishedAt?: string;
+    changelog?: string;
+
+    static createFrom(source: any = {}) {
+      return new ModVersionDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.version = source["version"];
+      this.gameVersions = source["gameVersions"];
+      this.releaseType = source["releaseType"];
+      this.fileName = source["fileName"];
+      this.fileSize = source["fileSize"];
+      this.publishedAt = source["publishedAt"];
+      this.changelog = source["changelog"];
+    }
+  }
+  export class ModScreenshotDTO {
+    url: string;
+    caption?: string;
+
+    static createFrom(source: any = {}) {
+      return new ModScreenshotDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.url = source["url"];
+      this.caption = source["caption"];
+    }
+  }
+  export class ModDetailsDTO {
+    id: string;
+    slug?: string;
+    name: string;
+    authorName: string;
+    summary: string;
+    imageUrl?: string;
+    side: string;
+    latestVersion?: string;
+    gameVersions: string[];
+    downloads: number;
+    createdAt?: string;
+    updatedAt?: string;
+    tags: string[];
+    isDownloaded: boolean;
+    isInstalled: boolean;
+    updateAvailable: boolean;
+    description: string;
+    screenshots: ModScreenshotDTO[];
+    versions: ModVersionDTO[];
+    websiteUrl?: string;
+    sourceUrl?: string;
+    license?: string;
+
+    static createFrom(source: any = {}) {
+      return new ModDetailsDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.slug = source["slug"];
+      this.name = source["name"];
+      this.authorName = source["authorName"];
+      this.summary = source["summary"];
+      this.imageUrl = source["imageUrl"];
+      this.side = source["side"];
+      this.latestVersion = source["latestVersion"];
+      this.gameVersions = source["gameVersions"];
+      this.downloads = source["downloads"];
+      this.createdAt = source["createdAt"];
+      this.updatedAt = source["updatedAt"];
+      this.tags = source["tags"];
+      this.isDownloaded = source["isDownloaded"];
+      this.isInstalled = source["isInstalled"];
+      this.updateAvailable = source["updateAvailable"];
+      this.description = source["description"];
+      this.screenshots = this.convertValues(source["screenshots"], ModScreenshotDTO);
+      this.versions = this.convertValues(source["versions"], ModVersionDTO);
+      this.websiteUrl = source["websiteUrl"];
+      this.sourceUrl = source["sourceUrl"];
+      this.license = source["license"];
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+  export class ModInstallationResultDTO {
+    instanceId: string;
+    instanceName: string;
+    installed: boolean;
+    message: string;
+
+    static createFrom(source: any = {}) {
+      return new ModInstallationResultDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.instanceId = source["instanceId"];
+      this.instanceName = source["instanceName"];
+      this.installed = source["installed"];
+      this.message = source["message"];
+    }
+  }
+  export class ModInstallResultDTO {
+    taskId: string;
+    downloaded: DownloadedModDTO;
+    installations: ModInstallationResultDTO[];
+
+    static createFrom(source: any = {}) {
+      return new ModInstallResultDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.taskId = source["taskId"];
+      this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
+      this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+
+  export class ModSearchRequest {
+    text: string;
+    gameVersion: string;
+    side: string;
+    updatedAfter?: string;
+    tags: string[];
+    compatibleOnly: boolean;
+    instanceId: string;
+    sort: string;
+    page: number;
+    pageSize: number;
+
+    static createFrom(source: any = {}) {
+      return new ModSearchRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.text = source["text"];
+      this.gameVersion = source["gameVersion"];
+      this.side = source["side"];
+      this.updatedAfter = source["updatedAfter"];
+      this.tags = source["tags"];
+      this.compatibleOnly = source["compatibleOnly"];
+      this.instanceId = source["instanceId"];
+      this.sort = source["sort"];
+      this.page = source["page"];
+      this.pageSize = source["pageSize"];
+    }
+  }
+  export class ModSummaryDTO {
+    id: string;
+    slug?: string;
+    name: string;
+    authorName: string;
+    summary: string;
+    imageUrl?: string;
+    side: string;
+    latestVersion?: string;
+    gameVersions: string[];
+    downloads: number;
+    createdAt?: string;
+    updatedAt?: string;
+    tags: string[];
+    isDownloaded: boolean;
+    isInstalled: boolean;
+    updateAvailable: boolean;
+
+    static createFrom(source: any = {}) {
+      return new ModSummaryDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.slug = source["slug"];
+      this.name = source["name"];
+      this.authorName = source["authorName"];
+      this.summary = source["summary"];
+      this.imageUrl = source["imageUrl"];
+      this.side = source["side"];
+      this.latestVersion = source["latestVersion"];
+      this.gameVersions = source["gameVersions"];
+      this.downloads = source["downloads"];
+      this.createdAt = source["createdAt"];
+      this.updatedAt = source["updatedAt"];
+      this.tags = source["tags"];
+      this.isDownloaded = source["isDownloaded"];
+      this.isInstalled = source["isInstalled"];
+      this.updateAvailable = source["updateAvailable"];
+    }
+  }
+  export class ModSearchResultDTO {
+    items: ModSummaryDTO[];
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNext: boolean;
+
+    static createFrom(source: any = {}) {
+      return new ModSearchResultDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.items = this.convertValues(source["items"], ModSummaryDTO);
+      this.page = source["page"];
+      this.pageSize = source["pageSize"];
+      this.totalItems = source["totalItems"];
+      this.totalPages = source["totalPages"];
+      this.hasNext = source["hasNext"];
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+
+  export class OperationDTO {
+    id: string;
+    type: string;
+    resourceId?: string;
+    title: string;
+    status: string;
+    progress: number;
+    currentBytes: number;
+    totalBytes: number;
+    bytesPerSecond: number;
+    errorCode?: string;
+    errorMessage?: string;
+    createdAt: string;
+    startedAt?: string;
+    finishedAt?: string;
+
+    static createFrom(source: any = {}) {
+      return new OperationDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.type = source["type"];
+      this.resourceId = source["resourceId"];
+      this.title = source["title"];
+      this.status = source["status"];
+      this.progress = source["progress"];
+      this.currentBytes = source["currentBytes"];
+      this.totalBytes = source["totalBytes"];
+      this.bytesPerSecond = source["bytesPerSecond"];
+      this.errorCode = source["errorCode"];
+      this.errorMessage = source["errorMessage"];
+      this.createdAt = source["createdAt"];
+      this.startedAt = source["startedAt"];
+      this.finishedAt = source["finishedAt"];
+    }
+  }
+  export class PlaySessionDTO {
+    id: string;
+    instanceId: string;
+    accountId?: string;
+    versionId: string;
+    startedAt: string;
+    endedAt?: string;
+    durationSeconds: number;
+    exitCode?: number;
+    crashed: boolean;
+    recovered: boolean;
+
+    static createFrom(source: any = {}) {
+      return new PlaySessionDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.instanceId = source["instanceId"];
+      this.accountId = source["accountId"];
+      this.versionId = source["versionId"];
+      this.startedAt = source["startedAt"];
+      this.endedAt = source["endedAt"];
+      this.durationSeconds = source["durationSeconds"];
+      this.exitCode = source["exitCode"];
+      this.crashed = source["crashed"];
+      this.recovered = source["recovered"];
+    }
+  }
+  export class SettingsDTO {
+    theme: string;
+    language: string;
+    downloadsParallel: number;
+    confirmDeletion: boolean;
+    minSessionDurationSec: number;
+    globalLaunchArguments: string[];
+
+    static createFrom(source: any = {}) {
+      return new SettingsDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.theme = source["theme"];
+      this.language = source["language"];
+      this.downloadsParallel = source["downloadsParallel"];
+      this.confirmDeletion = source["confirmDeletion"];
+      this.minSessionDurationSec = source["minSessionDurationSec"];
+      this.globalLaunchArguments = source["globalLaunchArguments"];
+    }
+  }
+  export class StatisticsDTO {
+    totalPlaytimeSeconds: number;
+    launchCount: number;
+    averageSessionSeconds: number;
+    mostPlayedInstanceId?: string;
+    recentSessions: PlaySessionDTO[];
+
+    static createFrom(source: any = {}) {
+      return new StatisticsDTO(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.totalPlaytimeSeconds = source["totalPlaytimeSeconds"];
+      this.launchCount = source["launchCount"];
+      this.averageSessionSeconds = source["averageSessionSeconds"];
+      this.mostPlayedInstanceId = source["mostPlayedInstanceId"];
+      this.recentSessions = this.convertValues(source["recentSessions"], PlaySessionDTO);
+    }
+
+    convertValues(a: any, classs: any, asMap: boolean = false): any {
+      if (!a) {
+        return a;
+      }
+      if (a.slice && a.map) {
+        return (a as any[]).map((elem) => this.convertValues(elem, classs));
+      } else if ("object" === typeof a) {
+        if (asMap) {
+          for (const key of Object.keys(a)) {
+            a[key] = new classs(a[key]);
+          }
+          return a;
+        }
+        return new classs(a);
+      }
+      return a;
+    }
+  }
+  export class UpdateInstanceRequest {
+    id: string;
+    name: string;
+    description: string;
+    gameVersionId: string;
+    defaultAccountId?: string;
+    launchArguments: string[];
+
+    static createFrom(source: any = {}) {
+      return new UpdateInstanceRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ("string" === typeof source) source = JSON.parse(source);
+      this.id = source["id"];
+      this.name = source["name"];
+      this.description = source["description"];
+      this.gameVersionId = source["gameVersionId"];
+      this.defaultAccountId = source["defaultAccountId"];
+      this.launchArguments = source["launchArguments"];
+    }
+  }
 }
-

@@ -1,24 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
-import {
-  accountsApi,
-  type Account,
-  type LoginResult,
-  type LoginStatus,
-} from "../shared/api";
+import { accountsApi, type Account, type LoginResult, type LoginStatus } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import {
-  Button,
-  Empty,
-  Field,
-  Modal,
-  PageHeader,
-  StatusPill,
-  SubmitForm,
-} from "../shared/ui";
+import { Button, Empty, Field, Modal, PageHeader, StatusPill, SubmitForm } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -28,10 +15,16 @@ interface AccountsPageProps {
   notify: Notify;
 }
 
-export const authErrorMessages: Record<Exclude<LoginStatus, "success" | "totp_required">, string> = {
-  invalid_credentials: "auth_invalid_credentials", ip_changed: "auth_ip_blocked",
-  temporarily_blocked: "auth_rate_limited", network_error: "auth_network_error",
-  server_error: "auth_service_unavailable", invalid_response: "auth_unexpected_response",
+export const authErrorMessages: Record<
+  Exclude<LoginStatus, "success" | "totp_required">,
+  string
+> = {
+  invalid_credentials: "auth_invalid_credentials",
+  ip_changed: "auth_ip_blocked",
+  temporarily_blocked: "auth_rate_limited",
+  network_error: "auth_network_error",
+  server_error: "auth_service_unavailable",
+  invalid_response: "auth_unexpected_response",
   unknown_error: "auth_unknown_error",
 };
 
@@ -46,11 +39,7 @@ function resultError(result: LoginResult, t: TFunction): string {
   return t(authErrorMessages[result.status]);
 }
 
-export function AccountsPage({
-  accounts,
-  refresh,
-  notify,
-}: AccountsPageProps) {
+export function AccountsPage({ accounts, refresh, notify }: AccountsPageProps) {
   const { t } = useTranslation();
   const [loginAccount, setLoginAccount] = useState<Account | null>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -73,11 +62,7 @@ export function AccountsPage({
   }
 
   async function removeAccount(account: Account) {
-    if (
-      !window.confirm(
-        t("remove_account_confirmation", { name: account.displayName }),
-      )
-    ) {
+    if (!window.confirm(t("remove_account_confirmation", { name: account.displayName }))) {
       return;
     }
 
@@ -126,9 +111,7 @@ export function AccountsPage({
         <div className="accountGrid">
           {accounts.map((account) => (
             <article className="accountCard" key={account.id}>
-              <div className="avatar">
-                {account.displayName.slice(0, 1).toUpperCase()}
-              </div>
+              <div className="avatar">{account.displayName.slice(0, 1).toUpperCase()}</div>
 
               <div className="accountIdentity">
                 <strong>{account.displayName}</strong>
@@ -140,35 +123,22 @@ export function AccountsPage({
                 {account.isDefault ? (
                   <span className="defaultMark">{t("selected_status")}</span>
                 ) : (
-                  <Button
-                    variant="secondary"
-                    onClick={() => void selectAccount(account.id)}
-                  >
+                  <Button variant="secondary" onClick={() => void selectAccount(account.id)}>
                     {t("select")}
                   </Button>
                 )}
 
-                {account.status === "expired" ||
-                account.status === "needs_reauth" ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setLoginAccount(account)}
-                  >
+                {account.status === "expired" || account.status === "needs_reauth" ? (
+                  <Button variant="secondary" onClick={() => setLoginAccount(account)}>
                     {t("sign_in_again")}
                   </Button>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    onClick={() => void validateAccount(account)}
-                  >
+                  <Button variant="ghost" onClick={() => void validateAccount(account)}>
                     {t("validate")}
                   </Button>
                 )}
 
-                <Button
-                  variant="ghost"
-                  onClick={() => void removeAccount(account)}
-                >
+                <Button variant="ghost" onClick={() => void removeAccount(account)}>
                   {t("remove_from_launcher")}
                 </Button>
               </div>
@@ -308,7 +278,6 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
           <div className="modalBody formFields">
             <Field label={t("email")}>
               <input
-                autoFocus
                 required
                 type="email"
                 autoComplete="username"
@@ -342,15 +311,15 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
               <span>{t("unofficial_integration_notice")}</span>
             </div>
 
-            {error && <div className="inlineError" role="alert">{error}</div>}
+            {error && (
+              <div className="inlineError" role="alert">
+                {error}
+              </div>
+            )}
           </div>
 
           <div className="dialogFooter">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void cancelFlow(true)}
-            >
+            <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
               {t("cancel")}
             </Button>
             <Button busy={busy}>{t("sign_in")}</Button>
@@ -366,34 +335,27 @@ function LoginModal({ account, onClose, onDone }: LoginModalProps) {
 
             <Field label={t("verification_code")}>
               <input
-                autoFocus
                 required
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={16}
                 value={totp}
-                onChange={(event) =>
-                  setTOTP(event.target.value.replace(/[^0-9]/g, ""))
-                }
+                onChange={(event) => setTOTP(event.target.value.replace(/[^0-9]/g, ""))}
               />
             </Field>
 
-            {error && <div className="inlineError" role="alert">{error}</div>}
+            {error && (
+              <div className="inlineError" role="alert">
+                {error}
+              </div>
+            )}
           </div>
 
           <div className="dialogFooter">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void cancelFlow(false)}
-            >
+            <Button type="button" variant="ghost" onClick={() => void cancelFlow(false)}>
               {t("back")}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void cancelFlow(true)}
-            >
+            <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
               {t("cancel")}
             </Button>
             <Button busy={busy}>{t("verify")}</Button>

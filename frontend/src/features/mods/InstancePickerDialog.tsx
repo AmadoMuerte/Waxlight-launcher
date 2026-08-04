@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { EventsOn } from "../../wailsjs/runtime/runtime";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   modCatalogApi,
@@ -12,8 +19,8 @@ import {
   type ModTaskProgress,
 } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, Empty, Field, Modal } from "../../shared/ui";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
   chooseRelease,
   compatibilityFor,
@@ -52,8 +59,8 @@ export function InstancePickerDialog({
   const initialRelease = preferredVersionId
     ? mod.versions.find((release) => release.id === preferredVersionId)
     : downloaded
-    ? mod.versions.find((release) => release.id === downloaded.versionId)
-    : chooseRelease(mod.versions, preferredVersion);
+      ? mod.versions.find((release) => release.id === downloaded.versionId)
+      : chooseRelease(mod.versions, preferredVersion);
   const [releaseId, setReleaseId] = useState(initialRelease?.id ?? "");
   const [selected, setSelected] = useState<string[]>(
     preferredInstanceId ? [preferredInstanceId] : [],
@@ -104,12 +111,7 @@ export function InstancePickerDialog({
       const instance = instances.find((item) => item.id === id);
       return instance && compatibilityFor(instance, gameVersions, release) === "incompatible";
     });
-    if (
-      hasIncompatible &&
-      !window.confirm(
-        t("unsupported_mod_warning"),
-      )
-    ) {
+    if (hasIncompatible && !window.confirm(t("unsupported_mod_warning"))) {
       return;
     }
     setBusy(true);
@@ -154,14 +156,19 @@ export function InstancePickerDialog({
   }
 
   return (
-    <Modal title={t(downloaded ? "install_named_mod" : "download_named_mod", { name: mod.name })} onClose={() => void cancel()}>
+    <Modal
+      title={t(downloaded ? "install_named_mod" : "download_named_mod", { name: mod.name })}
+      onClose={() => void cancel()}
+    >
       {phase === "select" && (
         <div className="instancePicker">
           <p className="muted">{t("select_one_or_more_instances")}</p>
           <div className="formRow">
             <Field label={t("mod_version")}>
               <Select value={releaseId} onValueChange={setReleaseId}>
-                <SelectTrigger><SelectValue placeholder={t("mod_version")} /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("mod_version")} />
+                </SelectTrigger>
                 <SelectContent>
                   {mod.versions.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
@@ -232,9 +239,15 @@ export function InstancePickerDialog({
               </label>
             </>
           )}
-          {error && <div className="inlineError" role="alert">{error}</div>}
+          {error && (
+            <div className="inlineError" role="alert">
+              {error}
+            </div>
+          )}
           <div className="modalActions">
-            <Button variant="ghost" onClick={onClose}>{t("cancel")}</Button>
+            <Button variant="ghost" onClick={onClose}>
+              {t("cancel")}
+            </Button>
             {!downloaded && (
               <Button variant="secondary" busy={busy} onClick={() => void start(true)}>
                 {t("download_only")}
@@ -251,13 +264,20 @@ export function InstancePickerDialog({
         <div className="taskProgress" aria-live="polite">
           <div className="progressOrb">⇣</div>
           <h3>{progress?.message || t("preparing_mod", { name: mod.name })}</h3>
-          <div className="progressTrack"><i style={{ width: `${Math.round((progress?.progress ?? 0.05) * 100)}%` }} /></div>
+          <div className="progressTrack">
+            <i style={{ width: `${Math.round((progress?.progress ?? 0.05) * 100)}%` }} />
+          </div>
           <p>
             {progress?.totalBytes
-              ? t("download_progress", { downloaded: formatBytes(progress.downloadedBytes), total: formatBytes(progress.totalBytes) })
+              ? t("download_progress", {
+                  downloaded: formatBytes(progress.downloadedBytes),
+                  total: formatBytes(progress.totalBytes),
+                })
               : t("contacting_mod_database")}
           </p>
-          <Button variant="ghost" onClick={() => void cancel()}>{t("cancel")}</Button>
+          <Button variant="ghost" onClick={() => void cancel()}>
+            {t("cancel")}
+          </Button>
         </div>
       )}
 
@@ -267,7 +287,10 @@ export function InstancePickerDialog({
           <h3>
             {result.installations.length === 0
               ? t("mod_downloaded_successfully")
-              : t("installed_to_instances", { installed: result.installations.filter((item) => item.installed).length, total: result.installations.length })}
+              : t("installed_to_instances", {
+                  installed: result.installations.filter((item) => item.installed).length,
+                  total: result.installations.length,
+                })}
           </h3>
           {result.installations.length > 0 && (
             <div className="resultList">
@@ -281,7 +304,9 @@ export function InstancePickerDialog({
               ))}
             </div>
           )}
-          <div className="modalActions"><Button onClick={onClose}>{t("done")}</Button></div>
+          <div className="modalActions">
+            <Button onClick={onClose}>{t("done")}</Button>
+          </div>
         </div>
       )}
     </Modal>

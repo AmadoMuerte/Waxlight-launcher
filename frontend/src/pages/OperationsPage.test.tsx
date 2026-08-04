@@ -17,11 +17,7 @@ vi.mock("../shared/api", () => ({ operationsApi: api }));
 
 const createdAt = "2026-08-03T09:00:00Z";
 
-function operation(
-  id: string,
-  title: string,
-  status: Operation["status"],
-): Operation {
+function operation(id: string, title: string, status: Operation["status"]): Operation {
   return {
     id,
     type: "game_version_download",
@@ -38,13 +34,7 @@ function operation(
 function renderPage(operations: Operation[]) {
   const refresh = vi.fn().mockResolvedValue(undefined);
   const notify = vi.fn();
-  render(
-    <OperationsPage
-      operations={operations}
-      refresh={refresh}
-      notify={notify}
-    />,
-  );
+  render(<OperationsPage operations={operations} refresh={refresh} notify={notify} />);
   return { refresh, notify };
 }
 
@@ -83,9 +73,7 @@ describe("operations history controls", () => {
       operation("completed", "Completed download", "completed"),
     ]);
 
-    await user.click(
-      screen.getByRole("button", { name: "Delete Completed download" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Delete Completed download" }));
 
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith("completed"));
     expect(refresh).toHaveBeenCalledTimes(1);

@@ -12,16 +12,10 @@ interface OperationsPageProps {
   notify: (message: string, type?: "ok" | "error") => void;
 }
 
-export function OperationsPage({
-  operations,
-  refresh,
-  notify,
-}: OperationsPageProps) {
+export function OperationsPage({ operations, refresh, notify }: OperationsPageProps) {
   const { t } = useTranslation();
   const [pendingAction, setPendingAction] = useState<string>();
-  const finishedOperations = operations.filter((operation) =>
-    isFinishedOperation(operation),
-  );
+  const finishedOperations = operations.filter((operation) => isFinishedOperation(operation));
 
   async function cancel(operation: Operation) {
     setPendingAction(operation.id);
@@ -53,11 +47,7 @@ export function OperationsPage({
   }
 
   async function clearHistory() {
-    if (
-      !window.confirm(
-        t("clear_history_confirmation"),
-      )
-    ) {
+    if (!window.confirm(t("clear_history_confirmation"))) {
       return;
     }
     setPendingAction("clear-history");
@@ -101,17 +91,14 @@ export function OperationsPage({
         <div className="operationsList">
           {operations.map((operation) => (
             <article className="operation" key={operation.id}>
-              <div className="operationIcon">
-                {operation.type.startsWith("mod") ? "◇" : "⬡"}
-              </div>
+              <div className="operationIcon">{operation.type.startsWith("mod") ? "◇" : "⬡"}</div>
 
               <div className="operationDetails">
                 <div className="row between">
                   <strong>{operation.title}</strong>
                   <div className="row">
                     <StatusPill status={operation.status} />
-                    {(operation.status === "queued" ||
-                      operation.status === "running") && (
+                    {(operation.status === "queued" || operation.status === "running") && (
                       <Button
                         variant="ghost"
                         disabled={pendingAction !== undefined}
@@ -136,7 +123,10 @@ export function OperationsPage({
                 <small>
                   {formatDate(operation.createdAt)} ·{" "}
                   {operation.totalBytes > 0
-                    ? t("bytes_of_total", { current: formatBytes(operation.currentBytes), total: formatBytes(operation.totalBytes) })
+                    ? t("bytes_of_total", {
+                        current: formatBytes(operation.currentBytes),
+                        total: formatBytes(operation.totalBytes),
+                      })
                     : formatBytes(operation.currentBytes)}
                   {operation.bytesPerSecond > 0
                     ? ` · ${formatBytes(operation.bytesPerSecond)}/s`
@@ -151,9 +141,7 @@ export function OperationsPage({
                   />
                 </div>
 
-                {operation.errorMessage && (
-                  <p className="errorText">{operation.errorMessage}</p>
-                )}
+                {operation.errorMessage && <p className="errorText">{operation.errorMessage}</p>}
               </div>
             </article>
           ))}

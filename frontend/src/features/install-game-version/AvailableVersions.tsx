@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  versionsApi,
-  type AvailableGameVersion,
-} from "../../shared/api";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { versionsApi, type AvailableGameVersion } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { formatBytes } from "../../shared/lib";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, Empty, StatusPill } from "../../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
@@ -37,41 +41,37 @@ export function AvailableVersions({
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    versionsApi
-      .available()
-      .then((items) => {
+    async function loadVersions() {
+      setLoading(true);
+      try {
+        const items = await versionsApi.available();
         if (active) {
           setVersions(items ?? []);
           setError("");
         }
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError) {
         if (active) {
           setError(errorMessage(loadError));
         }
-      })
-      .finally(() => {
+      } finally {
         if (active) {
           setLoading(false);
         }
-      });
+      }
+    }
+
+    void loadVersions();
     return () => {
       active = false;
     };
   }, [installedKey]);
 
-  const installed = useMemo(
-    () => new Set(installedVersionIDs),
-    [installedKey],
-  );
+  const installed = useMemo(() => new Set(installedVersionIDs), [installedVersionIDs]);
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return versions.filter((version) => {
-      const matchesChannel =
-        channel === "all" || version.channel === channel;
-      const matchesSearch =
-        query === "" || version.name.toLowerCase().includes(query);
+      const matchesChannel = channel === "all" || version.channel === channel;
+      const matchesSearch = query === "" || version.name.toLowerCase().includes(query);
       return matchesChannel && matchesSearch;
     });
   }, [channel, search, versions]);
@@ -123,11 +123,13 @@ export function AvailableVersions({
           <Select
             value={channel}
             onValueChange={(value) => {
-              setChannel(value as ChannelFilter);
+              setChannel(channelFilter(value));
               setVisibleCount(20);
             }}
           >
-            <SelectTrigger aria-label={t("release_channel")}><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("release_channel")}>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="stable">{t("stable")}</SelectItem>
               <SelectItem value="unstable">{t("preview_and_release_candidates")}</SelectItem>
@@ -175,10 +177,7 @@ export function AvailableVersions({
           </div>
           {visibleCount < filtered.length && (
             <div className="loadMore">
-              <Button
-                variant="ghost"
-                onClick={() => setVisibleCount((count) => count + 20)}
-              >
+              <Button variant="ghost" onClick={() => setVisibleCount((count) => count + 20)}>
                 {t("show_more_versions")}
               </Button>
             </div>
@@ -187,4 +186,15 @@ export function AvailableVersions({
       )}
     </section>
   );
+}
+
+function channelFilter(value: string): ChannelFilter {
+  switch (value) {
+    case "all":
+    case "stable":
+    case "unstable":
+      return value;
+    default:
+      return "stable";
+  }
 }

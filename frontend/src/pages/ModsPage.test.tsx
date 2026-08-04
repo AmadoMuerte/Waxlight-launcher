@@ -119,9 +119,7 @@ describe("mods browser", () => {
     renderPage();
 
     expect(await screen.findByText("Player Corpse")).toBeTruthy();
-    expect(api.search).toHaveBeenCalledWith(
-      expect.objectContaining({ text: "corpse", page: 1 }),
-    );
+    expect(api.search).toHaveBeenCalledWith(expect.objectContaining({ text: "corpse", page: 1 }));
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
     expect(await screen.findByRole("dialog", { name: "Download “Player Corpse”" })).toBeTruthy();

@@ -1,12 +1,16 @@
 {
   "name": "waxlight-frontend",
-  "private": true,
   "version": "0.1.2",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run check:i18n && tsc && vite build",
+    "build": "npm run check:i18n && npm run lint && npm run format:check && tsc && vite build",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "dev": "vite",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "test": "node scripts/test.mjs"
   },
   "dependencies": {
@@ -29,6 +33,9 @@
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
     "jsdom": "^30.0.1",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "tailwindcss": "^4.3.3",
     "tw-animate-css": "^1.4.0",
     "typescript": "7.0.2",
