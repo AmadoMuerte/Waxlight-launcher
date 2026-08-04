@@ -376,6 +376,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          prerelease_args=()
+
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            echo "Detected pre-release version: $RELEASE_TAG"
+            prerelease_args+=(--prerelease)
+          else
+            echo "Detected stable version: $RELEASE_TAG"
+          fi
+
           if gh release view "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
 
@@ -387,6 +396,12 @@ jobs:
               release/* \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
+
+            gh release edit \
+              "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Waxlight Launcher ${RELEASE_TAG#v}" \
+              "${prerelease_args[@]}"
           else
             gh release create \
               "$RELEASE_TAG" \
@@ -394,5 +409,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --title "Waxlight Launcher ${RELEASE_TAG#v}" \
               --generate-notes \
-              --verify-tag
+              --verify-tag \
+              "${prerelease_args[@]}"
           fi
