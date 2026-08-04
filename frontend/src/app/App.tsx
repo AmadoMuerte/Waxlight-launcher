@@ -17,15 +17,20 @@ import {
   operationsApi,
   settingsApi,
   statisticsApi,
+  updatesApi,
   versionsApi,
   type Account,
   type GameVersion,
   type Instance,
+  type LauncherUpdate,
+  type LauncherUpdateProgress,
   type Operation,
   type Settings,
   type Statistics,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
+import { Button } from "../shared/ui";
+import { EventsOn } from "../wailsjs/runtime/runtime";
 
 const navigation = [
   { to: "/library", icon: "▦", labelKey: "library" },
@@ -48,6 +53,10 @@ export function App() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [statistics, setStatistics] = useState<Statistics>();
   const [settings, setSettings] = useState<Settings>();
+  const [launcherVersion, setLauncherVersion] = useState("");
+  const [launcherUpdate, setLauncherUpdate] = useState<LauncherUpdate>();
+  const [updateProgress, setUpdateProgress] = useState<LauncherUpdateProgress>();
+  const [installingUpdate, setInstallingUpdate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState("");
   const [toast, setToast] = useState<{
@@ -81,6 +90,18 @@ export function App() {
       if (applicationSettings) {
         await changeAppLanguage(applicationSettings.language);
         setSettings(applicationSettings);
+        if (applicationSettings.checkForUpdates) {
+          void updatesApi
+            .check(applicationSettings.updateChannel)
+            .then((update) => {
+              setLauncherVersion(update.installedVersion);
+              if (update.available && update.version !== applicationSettings.skippedUpdateVersion) {
+                setLauncherUpdate(update);
+              }
+              return undefined;
+            })
+            .catch(() => undefined);
+        }
       }
       setFatalError("");
     } catch (error) {
@@ -92,9 +113,23 @@ export function App() {
 
   useEffect(() => {
     void refresh(true);
+    void updatesApi
+      .currentVersion()
+      .then(setLauncherVersion)
+      .catch(() => undefined);
     const timer = window.setInterval(() => void refresh(), 8_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  useEffect(() => {
+    try {
+      return EventsOn("updates:progress", (progress: LauncherUpdateProgress) => {
+        setUpdateProgress(progress);
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
 
   useEffect(() => {
     function closeAccountSwitcher(event: PointerEvent) {
@@ -116,6 +151,68 @@ export function App() {
   const handleSettingsSaved = useCallback((saved: Settings) => {
     setSettings(saved);
   }, []);
+
+  async function checkForUpdates() {
+    if (!settings) {
+      return;
+    }
+    try {
+      const update = await updatesApi.check(settings.updateChannel);
+      setLauncherVersion(update.installedVersion || launcherVersion);
+      if (update.available) {
+        setLauncherUpdate(update);
+        notify(t("update_available"));
+      } else {
+        notify(t("launcher_is_up_to_date"));
+      }
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
+
+  async function installLauncherUpdate() {
+    if (!settings) {
+      return;
+    }
+    setInstallingUpdate(true);
+    setUpdateProgress({
+      phase: "downloading",
+      downloadedBytes: 0,
+      totalBytes: launcherUpdate?.assetSize ?? 0,
+      progress: 0,
+    });
+    try {
+      await updatesApi.install(settings.updateChannel);
+    } catch (error) {
+      setInstallingUpdate(false);
+      setUpdateProgress(undefined);
+      notify(errorMessage(error), "error");
+    }
+  }
+
+  async function skipLauncherUpdate() {
+    if (!settings || !launcherUpdate) {
+      return;
+    }
+    try {
+      const saved = await settingsApi.update({
+        ...settings,
+        skippedUpdateVersion: launcherUpdate.version,
+      });
+      setSettings(saved);
+      setLauncherUpdate(undefined);
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
+
+  async function openLauncherRelease() {
+    try {
+      await updatesApi.openReleasePage(settings?.updateChannel ?? "stable");
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
 
   if (loading) {
     return (
@@ -226,6 +323,56 @@ export function App() {
           </div>
         )}
 
+        {launcherUpdate && (
+          <section className="launcherUpdateNotice" aria-label={t("update_available")}>
+            <div>
+              <span className="eyebrow">{t("update_available")}</span>
+              <strong>
+                {t("launcher_update_versions", {
+                  installed: launcherUpdate.installedVersion,
+                  latest: launcherUpdate.version,
+                })}
+              </strong>
+              <p>{launcherUpdate.releaseNotes || t("release_notes_unavailable")}</p>
+              {installingUpdate && updateProgress && (
+                <div className="launcherUpdateProgress">
+                  <progress max={1} value={updateProgress.progress} />
+                  <small>{t(`update_phase_${updateProgress.phase}`)}</small>
+                </div>
+              )}
+            </div>
+            <div className="launcherUpdateActions">
+              <Button busy={installingUpdate} onClick={() => void installLauncherUpdate()}>
+                {t("download_and_install_update")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={installingUpdate}
+                onClick={() => void openLauncherRelease()}
+              >
+                {t("view_full_release")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={installingUpdate}
+                onClick={() => setLauncherUpdate(undefined)}
+              >
+                {t("later")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={installingUpdate}
+                onClick={() => void skipLauncherUpdate()}
+              >
+                {t("skip_this_version")}
+              </Button>
+            </div>
+          </section>
+        )}
+
         <Routes>
           <Route
             path="/library"
@@ -267,7 +414,13 @@ export function App() {
           <Route
             path="/settings"
             element={
-              <SettingsPage settings={settings} notify={notify} onSaved={handleSettingsSaved} />
+              <SettingsPage
+                settings={settings}
+                notify={notify}
+                onSaved={handleSettingsSaved}
+                currentVersion={launcherVersion}
+                onCheckUpdates={checkForUpdates}
+              />
             }
           />
           <Route path="*" element={<Navigate to="/library" replace />} />

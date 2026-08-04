@@ -290,6 +290,9 @@ type SettingsDTO struct {
 	ConfirmDeletion       bool     `json:"confirmDeletion"`
 	MinSessionDurationSec int64    `json:"minSessionDurationSec"`
 	GlobalLaunchArguments []string `json:"globalLaunchArguments"`
+	CheckForUpdates       bool     `json:"checkForUpdates"`
+	UpdateChannel         string   `json:"updateChannel"`
+	SkippedUpdateVersion  string   `json:"skippedUpdateVersion"`
 }
 
 func settingsDTO(settings domain.Settings) SettingsDTO {
@@ -305,5 +308,8 @@ func settingsDTO(settings domain.Settings) SettingsDTO {
 		ConfirmDeletion:       settings.ConfirmDeletion,
 		MinSessionDurationSec: settings.MinSessionDurationSec,
 		GlobalLaunchArguments: launchArguments,
+		CheckForUpdates:       settings.CheckForUpdates,
+		UpdateChannel:         settings.UpdateChannel,
+		SkippedUpdateVersion:  settings.SkippedUpdateVersion,
 	}
 }

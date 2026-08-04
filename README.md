@@ -38,6 +38,8 @@ Story account and the right to download the game are required.
 * Tracks individual play sessions and total or per-setup playtime.
 * Shows current and completed downloads and other long-running operations.
 * Supports multiple interface languages with a persistent language preference.
+* Checks official GitHub Releases for verified launcher updates with explicit
+  user consent before download or installation.
 
 ## Download
 
@@ -57,6 +59,24 @@ Every release also contains `SHA256SUMS`. Verify a download on Linux with:
 ```bash
 sha256sum --check SHA256SUMS --ignore-missing
 ```
+
+## Launcher updates
+
+Waxlight checks for launcher updates on startup by default. This can be disabled
+in **Settings**, where the Stable or Prerelease channel can be selected and a
+manual check can be started. Available updates show installed and latest
+versions, release notes, and a link to the full GitHub Release. An update can be
+installed, postponed, or skipped. Nothing is downloaded or installed without an
+explicit click.
+
+Update metadata and packages are accepted only from this repository's official
+HTTPS GitHub Releases URLs. Waxlight selects the package for the current OS and
+architecture, downloads `SHA256SUMS`, and verifies the package before starting
+installation. Linux portable builds are backed up as `waxlight.previous`,
+replaced atomically, and restarted. Packaged Linux installations open a verified
+`.deb` or `.rpm` in the system package installer. On Windows, the verified NSIS
+installer is launched. Application data under the Waxlight configuration
+directory is never replaced.
 
 ### Windows installation
 

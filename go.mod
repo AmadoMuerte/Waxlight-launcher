@@ -7,6 +7,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/wailsapp/wails/v2 v2.11.0
 	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/mod v0.23.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/text v0.22.0
 )

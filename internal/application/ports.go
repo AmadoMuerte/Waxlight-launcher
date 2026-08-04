@@ -155,6 +155,14 @@ type Downloader interface {
 	Download(context.Context, DownloadRequest, chan<- DownloadProgress) error
 }
 
+type LauncherUpdateSource interface {
+	Check(context.Context, string, string) (domain.LauncherUpdate, error)
+}
+
+type LauncherUpdateInstaller interface {
+	Apply(context.Context, string) error
+}
+
 type GameVersionCatalog interface {
 	List(context.Context) ([]domain.AvailableGameVersion, error)
 }

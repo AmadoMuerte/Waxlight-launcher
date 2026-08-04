@@ -13,7 +13,7 @@ import { changeAppLanguage } from "../i18n";
 import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Checkbox, Field, PageHeader } from "../shared/ui";
+import { Button, Checkbox, Field, PageHeader } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -21,6 +21,8 @@ interface SettingsPageProps {
   settings?: Settings;
   notify: Notify;
   onSaved: (settings: Settings) => void;
+  currentVersion?: string;
+  onCheckUpdates?: () => Promise<void>;
 }
 
 const autosaveDelayMs = 400;
@@ -32,6 +34,9 @@ function settingsEqual(left: Settings, right: Settings) {
     left.downloadsParallel === right.downloadsParallel &&
     left.confirmDeletion === right.confirmDeletion &&
     left.minSessionDurationSec === right.minSessionDurationSec &&
+    left.checkForUpdates === right.checkForUpdates &&
+    left.updateChannel === right.updateChannel &&
+    left.skippedUpdateVersion === right.skippedUpdateVersion &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -39,10 +44,17 @@ function settingsEqual(left: Settings, right: Settings) {
   );
 }
 
-export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
+export function SettingsPage({
+  settings,
+  notify,
+  onSaved,
+  currentVersion,
+  onCheckUpdates,
+}: SettingsPageProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -59,7 +71,9 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
       return;
     }
     persistedRef.current = settings;
-    setValue((current) => current ?? settings);
+    setValue((current) =>
+      current ? { ...current, skippedUpdateVersion: settings.skippedUpdateVersion } : settings,
+    );
     setLaunchArgumentsText((current) => current || settings.globalLaunchArguments.join(" "));
   }, [settings]);
 
@@ -120,6 +134,18 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
 
   if (!value) {
     return null;
+  }
+
+  async function checkUpdates() {
+    if (!onCheckUpdates) {
+      return;
+    }
+    setCheckingUpdates(true);
+    try {
+      await onCheckUpdates();
+    } finally {
+      setCheckingUpdates(false);
+    }
   }
 
   return (
@@ -240,6 +266,67 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
                   }
                 />
                 <small>{t("confirm_before_removing_items")}</small>
+              </div>
+            </div>
+          </section>
+
+          <section className="settingsPageSection">
+            <header>
+              <h2>{t("launcher_updates")}</h2>
+              <p>{t("launcher_updates_description")}</p>
+            </header>
+            <div className="formFields">
+              <div className="checkboxSetting">
+                <Checkbox
+                  label={t("automatically_check_for_updates")}
+                  checked={value.checkForUpdates}
+                  onChange={(event) =>
+                    setValue({ ...value, checkForUpdates: event.target.checked })
+                  }
+                />
+                <small>{t("automatic_updates_consent_notice")}</small>
+              </div>
+
+              <div className="formRow">
+                <Field label={t("update_channel")}>
+                  <Select
+                    value={value.updateChannel}
+                    onValueChange={(updateChannel) => {
+                      if (updateChannel !== "stable" && updateChannel !== "prerelease") {
+                        return;
+                      }
+                      setValue({
+                        ...value,
+                        updateChannel,
+                        skippedUpdateVersion: "",
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stable">{t("stable")}</SelectItem>
+                      <SelectItem value="prerelease">{t("prerelease")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field label={t("current_launcher_version")}>
+                  <input value={currentVersion || "—"} readOnly />
+                </Field>
+              </div>
+
+              <div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={checkingUpdates}
+                  disabled={!onCheckUpdates}
+                  onClick={() => void checkUpdates()}
+                >
+                  {t("check_for_updates_now")}
+                </Button>
               </div>
             </div>
           </section>

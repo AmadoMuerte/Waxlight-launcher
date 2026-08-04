@@ -1054,3 +1054,19 @@ func TestGetSettingsRepairsAndPersistsInvalidLanguage(t *testing.T) {
 		t.Fatalf("repair was not persisted: %q", persisted.Language)
 	}
 }
+
+func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	settings, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.CheckForUpdates || settings.UpdateChannel != "stable" {
+		t.Fatalf("unexpected update defaults: %+v", settings)
+	}
+	settings.UpdateChannel = "nightly"
+	if _, err := fixture.service.SaveSettings(ctx, settings); err == nil {
+		t.Fatal("expected invalid update channel to be rejected")
+	}
+}

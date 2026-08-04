@@ -137,4 +137,7 @@ type Settings struct {
 	ConfirmDeletion       bool
 	MinSessionDurationSec int64
 	GlobalLaunchArguments []string
+	CheckForUpdates       bool
+	UpdateChannel         string
+	SkippedUpdateVersion  string
 }

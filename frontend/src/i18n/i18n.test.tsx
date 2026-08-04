@@ -19,6 +19,9 @@ const settings: Settings = {
   confirmDeletion: true,
   minSessionDurationSec: 10,
   globalLaunchArguments: [],
+  checkForUpdates: true,
+  updateChannel: "stable",
+  skippedUpdateVersion: "",
 };
 
 afterEach(() => {
@@ -87,7 +90,7 @@ describe("i18n", () => {
     fireEvent.change(screen.getByPlaceholderText("--debug"), {
       target: { value: "--debug --safe" },
     });
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update).toHaveBeenLastCalledWith(
