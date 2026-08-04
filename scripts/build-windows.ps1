@@ -292,7 +292,7 @@ try {
         ForEach-Object FullName
 
     if (-not $InstallerExecutable) {
-        Write-Host "Files found in $BuildBinDirectory:"
+        Write-Host "Files found in ${BuildBinDirectory}:"
         Get-ChildItem -Path $BuildBinDirectory -File -Recurse |
             Format-Table FullName, Length
 
