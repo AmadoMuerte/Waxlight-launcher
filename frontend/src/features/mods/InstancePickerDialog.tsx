@@ -30,6 +30,18 @@ import {
   releaseTypeLabel,
 } from "./lib";
 
+interface DownloadedDependency {
+  modId: string;
+  name: string;
+  version: string;
+}
+
+interface ModDownloadsChangedEvent {
+  taskId: string;
+  modId: string;
+  downloadedDependencies?: DownloadedDependency[];
+}
+
 interface InstancePickerDialogProps {
   mod: ModDetails;
   downloaded?: DownloadedMod;
@@ -70,9 +82,11 @@ export function InstancePickerDialog({
   const [phase, setPhase] = useState<"select" | "progress" | "result">("select");
   const [progress, setProgress] = useState<ModTaskProgress>();
   const [result, setResult] = useState<ModInstallResult>();
+  const [downloadedDependencies, setDownloadedDependencies] = useState<DownloadedDependency[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const taskId = useRef("");
+  const taskStarted = useRef(false);
 
   const release = mod.versions.find((item) => item.id === releaseId);
   const visibleInstances = useMemo(() => {
@@ -85,17 +99,31 @@ export function InstancePickerDialog({
   }, [gameVersions, instanceQuery, instances, release, showIncompatible]);
 
   useEffect(() => {
-    let unsubscribe = () => {};
+    let unsubscribeProgress = () => {};
+    let unsubscribeDownloadsChanged = () => {};
     try {
-      unsubscribe = EventsOn("mods:task-progress", (event: ModTaskProgress) => {
-        if (event.modId !== mod.id) return;
+      unsubscribeProgress = EventsOn("mods:task-progress", (event: ModTaskProgress) => {
+        if (!taskStarted.current || event.modId !== mod.id) return;
+        if (taskId.current && event.taskId !== taskId.current) return;
         taskId.current = event.taskId;
         setProgress(event);
       });
+      unsubscribeDownloadsChanged = EventsOn(
+        "mods:downloads-changed",
+        (event: ModDownloadsChangedEvent) => {
+          if (!taskStarted.current || event.modId !== mod.id) return;
+          if (taskId.current && event.taskId !== taskId.current) return;
+          taskId.current = event.taskId;
+          setDownloadedDependencies(event.downloadedDependencies ?? []);
+        },
+      );
     } catch {
       // The runtime is not present in browser-only tests.
     }
-    return unsubscribe;
+    return () => {
+      unsubscribeProgress();
+      unsubscribeDownloadsChanged();
+    };
   }, [mod.id]);
 
   async function start(downloadOnly: boolean) {
@@ -114,6 +142,10 @@ export function InstancePickerDialog({
     if (hasIncompatible && !window.confirm(t("unsupported_mod_warning"))) {
       return;
     }
+    taskStarted.current = true;
+    taskId.current = "";
+    setDownloadedDependencies([]);
+    setProgress(undefined);
     setBusy(true);
     setError("");
     setPhase("progress");
@@ -137,6 +169,7 @@ export function InstancePickerDialog({
       setPhase("result");
       await onDone();
     } catch (startError) {
+      taskStarted.current = false;
       setError(errorMessage(startError));
       setPhase("select");
     } finally {
@@ -300,6 +333,24 @@ export function InstancePickerDialog({
                   <span className={item.installed ? "resultOk" : "resultError"}>
                     {item.message}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {downloadedDependencies.length > 0 && (
+            <div className="resultList">
+              <div>
+                <strong>
+                  {t("required_dependencies_downloaded", {
+                    count: downloadedDependencies.length,
+                  })}
+                </strong>
+                <span className="resultOk">✓</span>
+              </div>
+              {downloadedDependencies.map((dependency) => (
+                <div key={`${dependency.modId}:${dependency.version}`}>
+                  <strong>{dependency.name}</strong>
+                  <span>{dependency.version}</span>
                 </div>
               ))}
             </div>

@@ -168,6 +168,7 @@
   "mod_installed": "Мод установлен",
   "mod_task_completed": "Операция с модом завершена",
   "mod_downloaded_successfully": "Мод успешно скачан",
+  "required_dependencies_downloaded": "Также скачано обязательных зависимостей: {{count}}",
   "downloaded_mod_removed": "Скачанный мод удалён",
   "full_description": "Полное описание",
   "author": "Автор",

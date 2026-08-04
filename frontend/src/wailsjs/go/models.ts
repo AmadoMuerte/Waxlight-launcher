@@ -355,6 +355,32 @@ export namespace presentation {
 	        this.warnings = source["warnings"];
 	    }
 	}
+	export class LauncherUpdateDTO {
+	    installedVersion: string;
+	    version: string;
+	    available: boolean;
+	    prerelease: boolean;
+	    releaseNotes: string;
+	    releasePageUrl: string;
+	    assetName: string;
+	    assetSize: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LauncherUpdateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installedVersion = source["installedVersion"];
+	        this.version = source["version"];
+	        this.available = source["available"];
+	        this.prerelease = source["prerelease"];
+	        this.releaseNotes = source["releaseNotes"];
+	        this.releasePageUrl = source["releasePageUrl"];
+	        this.assetName = source["assetName"];
+	        this.assetSize = source["assetSize"];
+	    }
+	}
 	export class LoginResultDTO {
 	    status: string;
 	    account?: AccountDTO;
@@ -746,6 +772,9 @@ export namespace presentation {
 	    confirmDeletion: boolean;
 	    minSessionDurationSec: number;
 	    globalLaunchArguments: string[];
+	    checkForUpdates: boolean;
+	    updateChannel: string;
+	    skippedUpdateVersion: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -759,6 +788,9 @@ export namespace presentation {
 	        this.confirmDeletion = source["confirmDeletion"];
 	        this.minSessionDurationSec = source["minSessionDurationSec"];
 	        this.globalLaunchArguments = source["globalLaunchArguments"];
+	        this.checkForUpdates = source["checkForUpdates"];
+	        this.updateChannel = source["updateChannel"];
+	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	    }
 	}
 	export class StatisticsDTO {

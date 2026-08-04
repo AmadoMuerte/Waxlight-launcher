@@ -168,6 +168,7 @@
   "mod_installed": "Zainstalowano mod",
   "mod_task_completed": "Zakończono operację na modzie",
   "mod_downloaded_successfully": "Pomyślnie pobrano mod",
+  "required_dependencies_downloaded": "Pobrano również wymagane zależności: {{count}}",
   "downloaded_mod_removed": "Usunięto pobrany mod",
   "full_description": "Pełny opis",
   "author": "Autor",

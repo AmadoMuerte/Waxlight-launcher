@@ -1,9 +1,12 @@
 package application
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,9 +14,31 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"golang.org/x/mod/semver"
 )
 
-const maxModDownloadBytes int64 = 512 << 20
+const (
+	maxModDownloadBytes int64 = 512 << 20
+	maxModInfoBytes     int64 = 1 << 20
+)
+
+type modArchiveInfo struct {
+	ModID        string            `json:"modid"`
+	Version      string            `json:"version"`
+	Dependencies map[string]string `json:"dependencies"`
+}
+
+type modInstallPlanItem struct {
+	Downloaded    domain.DownloadedMod
+	Root          bool
+	DownloadedNow bool
+}
+
+type modDownloadedDependencyEvent struct {
+	ModID   string `json:"modId"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
 
 func (s *Service) SearchMods(
 	ctx context.Context,
@@ -143,6 +168,7 @@ func (s *Service) DownloadCatalogMod(
 	if s.modCatalog == nil || s.modDownloads == nil || s.downloader == nil {
 		return domain.ModInstallResult{}, domain.NewError(domain.ErrModCatalog, "Mod downloads are not configured")
 	}
+
 	details, err := s.modCatalog.Get(ctx, request.ModID)
 	if err != nil {
 		return domain.ModInstallResult{}, err
@@ -156,12 +182,15 @@ func (s *Service) DownloadCatalogMod(
 	}
 
 	instances := make([]domain.Instance, 0, len(request.InstanceIDs))
+	gameVersions := make([]string, 0, len(request.InstanceIDs))
 	seenInstances := make(map[string]struct{}, len(request.InstanceIDs))
+	seenGameVersions := make(map[string]struct{}, len(request.InstanceIDs))
 	for _, instanceID := range request.InstanceIDs {
 		if _, duplicate := seenInstances[instanceID]; duplicate {
 			continue
 		}
 		seenInstances[instanceID] = struct{}{}
+
 		instance, getErr := s.store.GetInstance(ctx, instanceID)
 		if getErr != nil {
 			return domain.ModInstallResult{}, getErr
@@ -180,12 +209,18 @@ func (s *Service) DownloadCatalogMod(
 				fmt.Sprintf("%s does not list support for Vintage Story %s", details.Name, gameVersion),
 			)
 		}
+		if _, seen := seenGameVersions[gameVersion]; !seen {
+			seenGameVersions[gameVersion] = struct{}{}
+			gameVersions = append(gameVersions, gameVersion)
+		}
 		instances = append(instances, instance)
 	}
 
 	key := modDownloadKey(details.ID, selected.ID)
 	taskID := newID()
 	downloadCtx, cancel := context.WithCancel(ctx)
+	reservedKeys := map[string]struct{}{key: {}}
+
 	s.operationsMu.Lock()
 	if existingTask, active := s.activeModDownloads[key]; active {
 		s.operationsMu.Unlock()
@@ -195,98 +230,570 @@ func (s *Service) DownloadCatalogMod(
 	s.activeModDownloads[key] = taskID
 	s.operationCancels[taskID] = cancel
 	s.operationsMu.Unlock()
+
 	defer func() {
 		cancel()
 		s.operationsMu.Lock()
-		delete(s.activeModDownloads, key)
+		for reservedKey := range reservedKeys {
+			if s.activeModDownloads[reservedKey] == taskID {
+				delete(s.activeModDownloads, reservedKey)
+			}
+		}
 		delete(s.operationCancels, taskID)
 		s.operationsMu.Unlock()
 	}()
 
-	destination, err := s.modDownloads.FilePath(details.ID, selected.ID, selected.FileName)
+	plan := make([]modInstallPlanItem, 0, 4)
+	resolved := make(map[string]domain.ModVersion)
+	visiting := make(map[string]struct{})
+	downloaded, err := s.resolveAndDownloadCatalogMod(
+		downloadCtx,
+		taskID,
+		details,
+		selected,
+		gameVersions,
+		request.AllowIncompatible,
+		true,
+		reservedKeys,
+		resolved,
+		visiting,
+		&plan,
+	)
 	if err != nil {
+		s.emitModProgress(taskID, details.ID, "failed", 0, 0, 0, dependencyFailureMessage(err))
 		return domain.ModInstallResult{TaskID: taskID}, err
-	}
-	downloaded, getErr := s.modDownloads.Get(downloadCtx, details.ID, selected.ID)
-	needsDownload := getErr != nil
-	if !needsDownload {
-		if info, statErr := os.Stat(downloaded.FilePath); statErr != nil || info.IsDir() {
-			needsDownload = true
-		}
-	}
-	if needsDownload {
-		s.emitModProgress(taskID, details.ID, "preparing", 0, 0, 0, "Preparing download")
-		progress := make(chan DownloadProgress, 16)
-		progressDone := make(chan struct{})
-		go func() {
-			defer close(progressDone)
-			for update := range progress {
-				percent := float64(0)
-				if update.TotalBytes > 0 {
-					percent = float64(update.DownloadedBytes) / float64(update.TotalBytes)
-				}
-				s.emitModProgress(taskID, details.ID, "downloading", update.DownloadedBytes, update.TotalBytes, percent, "Downloading "+details.Name)
-			}
-		}()
-		err = s.downloader.Download(downloadCtx, DownloadRequest{
-			URL:               selected.DownloadURL,
-			DestinationPath:   destination,
-			ExpectedChecksum:  selected.Checksum,
-			ChecksumAlgorithm: "sha256",
-			Resume:            true,
-			MaxBytes:          maxModDownloadBytes,
-		}, progress)
-		close(progress)
-		<-progressDone
-		if err != nil {
-			_ = os.Remove(destination + ".partial")
-			phase := "failed"
-			message := "Could not download the mod"
-			if errors.Is(err, context.Canceled) {
-				message = "Download cancelled"
-			}
-			s.emitModProgress(taskID, details.ID, phase, 0, 0, 0, message)
-			return domain.ModInstallResult{TaskID: taskID}, &domain.AppError{Code: domain.ErrDownloadFailed, Message: message, Retryable: true, Cause: err}
-		}
-		info, statErr := os.Stat(destination)
-		if statErr != nil {
-			return domain.ModInstallResult{TaskID: taskID}, statErr
-		}
-		downloaded = domain.DownloadedMod{
-			SchemaVersion:     1,
-			ModID:             details.ID,
-			Slug:              details.Slug,
-			Name:              details.Name,
-			AuthorName:        details.AuthorName,
-			ImageURL:          details.ImageURL,
-			Side:              details.Side,
-			VersionID:         selected.ID,
-			DownloadedVersion: selected.Version,
-			GameVersions:      append([]string(nil), selected.GameVersions...),
-			FileName:          filepath.Base(destination),
-			FilePath:          destination,
-			FileSize:          info.Size(),
-			Checksum:          selected.Checksum,
-			DownloadURL:       selected.DownloadURL,
-			DownloadedAt:      time.Now().UTC(),
-			LatestVersion:     details.LatestVersion,
-		}
-		if err := s.modDownloads.Save(downloadCtx, downloaded); err != nil {
-			return domain.ModInstallResult{TaskID: taskID}, err
-		}
 	}
 
 	result := domain.ModInstallResult{TaskID: taskID, Downloaded: downloaded}
+	defer s.emitModDownloadsChanged(taskID, details.ID, newlyDownloadedDependencies(plan))
 	if request.DownloadOnly || len(instances) == 0 {
 		s.emitModProgress(taskID, details.ID, "complete", downloaded.FileSize, downloaded.FileSize, 1, "Download complete")
 		return result, nil
 	}
+
+	allInstalled := true
 	for _, instance := range instances {
-		installation := s.installDownloadedMod(downloadCtx, downloaded, instance)
+		installation := s.installModPlan(downloadCtx, plan, instance)
 		result.Installations = append(result.Installations, installation)
+		allInstalled = allInstalled && installation.Installed
+	}
+	if !allInstalled {
+		s.emitModProgress(taskID, details.ID, "failed", downloaded.FileSize, downloaded.FileSize, 1, "Installation failed")
+		return result, nil
 	}
 	s.emitModProgress(taskID, details.ID, "complete", downloaded.FileSize, downloaded.FileSize, 1, "Installation complete")
 	return result, nil
+}
+
+func (s *Service) resolveAndDownloadCatalogMod(
+	ctx context.Context,
+	taskID string,
+	details domain.ModDetails,
+	selected domain.ModVersion,
+	gameVersions []string,
+	allowIncompatible bool,
+	root bool,
+	reservedKeys map[string]struct{},
+	resolved map[string]domain.ModVersion,
+	visiting map[string]struct{},
+	plan *[]modInstallPlanItem,
+) (domain.DownloadedMod, error) {
+	canonicalID := canonicalCatalogModID(details)
+	if canonicalID == "" {
+		return domain.DownloadedMod{}, domain.NewError(domain.ErrModCatalog, "The catalog returned a mod without an ID")
+	}
+	if resolvedVersion, ok := resolved[canonicalID]; ok {
+		return s.modDownloads.Get(ctx, details.ID, resolvedVersion.ID)
+	}
+	if _, cycle := visiting[canonicalID]; cycle {
+		return domain.DownloadedMod{}, domain.NewError(
+			domain.ErrModCatalog,
+			fmt.Sprintf("Circular dependency detected while resolving %s", details.Name),
+		)
+	}
+	visiting[canonicalID] = struct{}{}
+	defer delete(visiting, canonicalID)
+
+	downloaded, downloadedNow, err := s.downloadCatalogVersion(ctx, taskID, details, selected, reservedKeys)
+	if err != nil {
+		return domain.DownloadedMod{}, err
+	}
+
+	archiveInfo, err := readModArchiveInfo(downloaded.FilePath)
+	if err != nil {
+		return domain.DownloadedMod{}, err
+	}
+	dependencyIDs := make([]string, 0, len(archiveInfo.Dependencies))
+	for dependencyID := range archiveInfo.Dependencies {
+		if !isBuiltInModDependency(dependencyID) {
+			dependencyIDs = append(dependencyIDs, dependencyID)
+		}
+	}
+	sort.Strings(dependencyIDs)
+
+	for _, dependencyID := range dependencyIDs {
+		requirement := strings.TrimSpace(archiveInfo.Dependencies[dependencyID])
+		s.emitModProgress(
+			taskID,
+			details.ID,
+			"resolving",
+			0,
+			0,
+			0,
+			fmt.Sprintf("Resolving dependency %s for %s", dependencyID, details.Name),
+		)
+
+		dependencyDetails, getErr := s.modCatalog.Get(ctx, dependencyID)
+		if getErr != nil {
+			return domain.DownloadedMod{}, &domain.AppError{
+				Code:    domain.ErrModCatalog,
+				Message: fmt.Sprintf("Could not resolve required dependency %s for %s", dependencyID, details.Name),
+				Cause:   getErr,
+			}
+		}
+		dependencyVersion, found := findDependencyVersion(
+			dependencyDetails.Versions,
+			requirement,
+			gameVersions,
+			allowIncompatible,
+		)
+		if !found {
+			versionText := requirement
+			if versionText == "" || versionText == "*" {
+				versionText = "any version"
+			}
+			return domain.DownloadedMod{}, domain.NewError(
+				domain.ErrModVersionNotFound,
+				fmt.Sprintf(
+					"No compatible release of dependency %s (%s) was found for %s",
+					dependencyDetails.Name,
+					versionText,
+					details.Name,
+				),
+			)
+		}
+
+		dependencyCanonicalID := canonicalCatalogModID(dependencyDetails)
+		if alreadyResolved, ok := resolved[dependencyCanonicalID]; ok {
+			if !modVersionSatisfies(alreadyResolved.Version, requirement) {
+				return domain.DownloadedMod{}, domain.NewError(
+					domain.ErrModVersionNotFound,
+					fmt.Sprintf(
+						"Dependency %s requires %s, but the resolved version is %s",
+						dependencyDetails.Name,
+						requirement,
+						alreadyResolved.Version,
+					),
+				)
+			}
+			continue
+		}
+
+		if _, resolveErr := s.resolveAndDownloadCatalogMod(
+			ctx,
+			taskID,
+			dependencyDetails,
+			dependencyVersion,
+			gameVersions,
+			allowIncompatible,
+			false,
+			reservedKeys,
+			resolved,
+			visiting,
+			plan,
+		); resolveErr != nil {
+			return domain.DownloadedMod{}, resolveErr
+		}
+	}
+
+	resolved[canonicalID] = selected
+	*plan = append(*plan, modInstallPlanItem{
+		Downloaded:    downloaded,
+		Root:          root,
+		DownloadedNow: downloadedNow,
+	})
+	return downloaded, nil
+}
+
+func (s *Service) downloadCatalogVersion(
+	ctx context.Context,
+	taskID string,
+	details domain.ModDetails,
+	selected domain.ModVersion,
+	reservedKeys map[string]struct{},
+) (domain.DownloadedMod, bool, error) {
+	if !strings.HasPrefix(selected.DownloadURL, "https://") {
+		return domain.DownloadedMod{}, false, domain.NewError(
+			domain.ErrInvalidModFile,
+			fmt.Sprintf("The catalog returned an unsafe download URL for %s", details.Name),
+		)
+	}
+
+	destination, err := s.modDownloads.FilePath(details.ID, selected.ID, selected.FileName)
+	if err != nil {
+		return domain.DownloadedMod{}, false, err
+	}
+	downloaded, getErr := s.modDownloads.Get(ctx, details.ID, selected.ID)
+	if getErr == nil {
+		if info, statErr := os.Stat(downloaded.FilePath); statErr == nil && !info.IsDir() {
+			return downloaded, false, nil
+		}
+	}
+
+	key := modDownloadKey(details.ID, selected.ID)
+	if _, owned := reservedKeys[key]; !owned {
+		s.operationsMu.Lock()
+		if existingTask, active := s.activeModDownloads[key]; active {
+			s.operationsMu.Unlock()
+			return domain.DownloadedMod{}, false, &domain.AppError{
+				Code:    domain.ErrModAlreadyActive,
+				Message: fmt.Sprintf("%s is already downloading", details.Name),
+				Cause:   fmt.Errorf("task %s is downloading %s", existingTask, key),
+			}
+		}
+		s.activeModDownloads[key] = taskID
+		reservedKeys[key] = struct{}{}
+		s.operationsMu.Unlock()
+
+		// Another task may have completed the same dependency before this task
+		// acquired the reservation.
+		if cached, cacheErr := s.modDownloads.Get(ctx, details.ID, selected.ID); cacheErr == nil {
+			if info, statErr := os.Stat(cached.FilePath); statErr == nil && !info.IsDir() {
+				return cached, false, nil
+			}
+		}
+	}
+
+	s.emitModProgress(taskID, details.ID, "preparing", 0, 0, 0, "Preparing download")
+	progress := make(chan DownloadProgress, 16)
+	progressDone := make(chan struct{})
+	go func() {
+		defer close(progressDone)
+		for update := range progress {
+			percent := float64(0)
+			if update.TotalBytes > 0 {
+				percent = float64(update.DownloadedBytes) / float64(update.TotalBytes)
+			}
+			s.emitModProgress(
+				taskID,
+				details.ID,
+				"downloading",
+				update.DownloadedBytes,
+				update.TotalBytes,
+				percent,
+				"Downloading "+details.Name,
+			)
+		}
+	}()
+
+	err = s.downloader.Download(ctx, DownloadRequest{
+		URL:               selected.DownloadURL,
+		DestinationPath:   destination,
+		ExpectedChecksum:  selected.Checksum,
+		ChecksumAlgorithm: "sha256",
+		Resume:            true,
+		MaxBytes:          maxModDownloadBytes,
+	}, progress)
+	close(progress)
+	<-progressDone
+	if err != nil {
+		_ = os.Remove(destination + ".partial")
+		message := "Could not download the mod"
+		if errors.Is(err, context.Canceled) {
+			message = "Download cancelled"
+		}
+		return domain.DownloadedMod{}, false, &domain.AppError{
+			Code:      domain.ErrDownloadFailed,
+			Message:   message,
+			Retryable: true,
+			Cause:     err,
+		}
+	}
+
+	info, statErr := os.Stat(destination)
+	if statErr != nil {
+		return domain.DownloadedMod{}, false, statErr
+	}
+	downloaded = domain.DownloadedMod{
+		SchemaVersion:     1,
+		ModID:             details.ID,
+		Slug:              details.Slug,
+		Name:              details.Name,
+		AuthorName:        details.AuthorName,
+		ImageURL:          details.ImageURL,
+		Side:              details.Side,
+		VersionID:         selected.ID,
+		DownloadedVersion: selected.Version,
+		GameVersions:      append([]string(nil), selected.GameVersions...),
+		FileName:          filepath.Base(destination),
+		FilePath:          destination,
+		FileSize:          info.Size(),
+		Checksum:          selected.Checksum,
+		DownloadURL:       selected.DownloadURL,
+		DownloadedAt:      time.Now().UTC(),
+		LatestVersion:     details.LatestVersion,
+	}
+	if err := s.modDownloads.Save(ctx, downloaded); err != nil {
+		return domain.DownloadedMod{}, false, err
+	}
+	return downloaded, true, nil
+}
+
+func (s *Service) installModPlan(
+	ctx context.Context,
+	plan []modInstallPlanItem,
+	instance domain.Instance,
+) domain.ModInstallationResult {
+	result := domain.ModInstallationResult{
+		InstanceID:   instance.ID,
+		InstanceName: instance.Name,
+	}
+	for _, item := range plan {
+		installation := s.installDownloadedMod(ctx, item.Downloaded, instance)
+		if !installation.Installed {
+			if item.Root {
+				return installation
+			}
+			result.Message = fmt.Sprintf(
+				"Could not install dependency %s: %s",
+				item.Downloaded.Name,
+				installation.Message,
+			)
+			return result
+		}
+		if item.Root {
+			return installation
+		}
+	}
+	result.Message = "The installation plan did not contain the requested mod"
+	return result
+}
+
+func readModArchiveInfo(filePath string) (modArchiveInfo, error) {
+	reader, err := zip.OpenReader(filePath)
+	if errors.Is(err, zip.ErrFormat) {
+		// Keep supporting catalog entries that are not ZIP-based mods. Such
+		// packages simply cannot advertise dependencies through modinfo.json.
+		return modArchiveInfo{}, nil
+	}
+	if err != nil {
+		return modArchiveInfo{}, &domain.AppError{
+			Code:    domain.ErrInvalidModFile,
+			Message: "Could not inspect the downloaded mod archive",
+			Cause:   err,
+		}
+	}
+	defer reader.Close()
+
+	var modInfoFile *zip.File
+	for _, file := range reader.File {
+		name := strings.TrimPrefix(filepath.ToSlash(file.Name), "./")
+		if strings.EqualFold(name, "modinfo.json") {
+			modInfoFile = file
+			break
+		}
+	}
+	if modInfoFile == nil {
+		return modArchiveInfo{}, nil
+	}
+	if modInfoFile.UncompressedSize64 > uint64(maxModInfoBytes) {
+		return modArchiveInfo{}, domain.NewError(domain.ErrInvalidModFile, "modinfo.json is unexpectedly large")
+	}
+
+	file, err := modInfoFile.Open()
+	if err != nil {
+		return modArchiveInfo{}, &domain.AppError{
+			Code:    domain.ErrInvalidModFile,
+			Message: "Could not open modinfo.json",
+			Cause:   err,
+		}
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, maxModInfoBytes+1))
+	if err != nil {
+		return modArchiveInfo{}, &domain.AppError{
+			Code:    domain.ErrInvalidModFile,
+			Message: "Could not read modinfo.json",
+			Cause:   err,
+		}
+	}
+	if int64(len(data)) > maxModInfoBytes {
+		return modArchiveInfo{}, domain.NewError(domain.ErrInvalidModFile, "modinfo.json is unexpectedly large")
+	}
+
+	var info modArchiveInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return modArchiveInfo{}, &domain.AppError{
+			Code:    domain.ErrInvalidModFile,
+			Message: "The downloaded mod contains an invalid modinfo.json",
+			Cause:   err,
+		}
+	}
+	if info.Dependencies == nil {
+		info.Dependencies = map[string]string{}
+	}
+	return info, nil
+}
+
+func findDependencyVersion(
+	versions []domain.ModVersion,
+	requirement string,
+	gameVersions []string,
+	allowIncompatible bool,
+) (domain.ModVersion, bool) {
+	candidates := make([]domain.ModVersion, 0, len(versions))
+	for _, version := range versions {
+		if !strings.HasPrefix(version.DownloadURL, "https://") {
+			continue
+		}
+		if !modVersionSatisfies(version.Version, requirement) {
+			continue
+		}
+		if !allowIncompatible {
+			compatible := true
+			for _, gameVersion := range gameVersions {
+				if !modSupportsVersion(version.GameVersions, gameVersion) {
+					compatible = false
+					break
+				}
+			}
+			if !compatible {
+				continue
+			}
+		}
+		candidates = append(candidates, version)
+	}
+	if len(candidates) == 0 {
+		return domain.ModVersion{}, false
+	}
+
+	sort.SliceStable(candidates, func(left, right int) bool {
+		leftExact := modVersionExactlyMatches(candidates[left].Version, requirement)
+		rightExact := modVersionExactlyMatches(candidates[right].Version, requirement)
+		if leftExact != rightExact {
+			return leftExact
+		}
+
+		leftStable := strings.EqualFold(candidates[left].ReleaseType, "stable")
+		rightStable := strings.EqualFold(candidates[right].ReleaseType, "stable")
+		if leftStable != rightStable {
+			return leftStable
+		}
+
+		leftVersion := normalizeModSemver(candidates[left].Version)
+		rightVersion := normalizeModSemver(candidates[right].Version)
+		if leftVersion != "" && rightVersion != "" && leftVersion != rightVersion {
+			return semver.Compare(leftVersion, rightVersion) > 0
+		}
+		if candidates[left].PublishedAt != nil && candidates[right].PublishedAt != nil &&
+			!candidates[left].PublishedAt.Equal(*candidates[right].PublishedAt) {
+			return candidates[left].PublishedAt.After(*candidates[right].PublishedAt)
+		}
+		return candidates[left].ID > candidates[right].ID
+	})
+	return candidates[0], true
+}
+
+func modVersionExactlyMatches(version, requirement string) bool {
+	requirement = strings.TrimSpace(requirement)
+	if requirement == "" || requirement == "*" {
+		return false
+	}
+	for _, operator := range []string{">=", "<=", "==", ">", "<", "="} {
+		if strings.HasPrefix(requirement, operator) {
+			return false
+		}
+	}
+	actual := normalizeModSemver(version)
+	required := normalizeModSemver(requirement)
+	if actual != "" && required != "" {
+		return semver.Compare(actual, required) == 0
+	}
+	return strings.EqualFold(strings.TrimSpace(version), requirement)
+}
+
+func modVersionSatisfies(version, requirement string) bool {
+	requirement = strings.TrimSpace(requirement)
+	if requirement == "" || requirement == "*" {
+		return true
+	}
+
+	operator := ">="
+	for _, candidate := range []string{">=", "<=", "==", ">", "<", "="} {
+		if strings.HasPrefix(requirement, candidate) {
+			operator = candidate
+			requirement = strings.TrimSpace(strings.TrimPrefix(requirement, candidate))
+			break
+		}
+	}
+
+	actual := normalizeModSemver(version)
+	required := normalizeModSemver(requirement)
+	if actual == "" || required == "" {
+		if operator == "=" || operator == "==" {
+			return strings.EqualFold(strings.TrimSpace(version), requirement)
+		}
+		return false
+	}
+
+	comparison := semver.Compare(actual, required)
+	switch operator {
+	case ">":
+		return comparison > 0
+	case "<":
+		return comparison < 0
+	case "<=":
+		return comparison <= 0
+	case "=", "==":
+		return comparison == 0
+	default:
+		// Vintage Story treats a plain dependency version as the minimum
+		// acceptable version.
+		return comparison >= 0
+	}
+}
+
+func normalizeModSemver(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return ""
+	}
+	if !strings.HasPrefix(strings.ToLower(version), "v") {
+		version = "v" + version
+	}
+	if !semver.IsValid(version) {
+		return ""
+	}
+	return version
+}
+
+func canonicalCatalogModID(details domain.ModDetails) string {
+	id := strings.TrimSpace(details.ID)
+	if id == "" {
+		id = strings.TrimSpace(details.Slug)
+	}
+	return strings.ToLower(id)
+}
+
+func isBuiltInModDependency(modID string) bool {
+	switch strings.ToLower(strings.TrimSpace(modID)) {
+	case "game", "survival", "creative":
+		return true
+	default:
+		return false
+	}
+}
+
+func dependencyFailureMessage(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "Download cancelled"
+	}
+	var appErr *domain.AppError
+	if errors.As(err, &appErr) && appErr.Message != "" {
+		return appErr.Message
+	}
+	return "Could not resolve or install mod dependencies"
 }
 
 func (s *Service) InstallDownloadedMod(
@@ -385,6 +892,33 @@ func (s *Service) installDownloadedMod(
 	result.Message = "Installed"
 	s.emit("mod:installed", installed)
 	return result
+}
+
+func newlyDownloadedDependencies(plan []modInstallPlanItem) []modDownloadedDependencyEvent {
+	dependencies := make([]modDownloadedDependencyEvent, 0)
+	for _, item := range plan {
+		if item.Root || !item.DownloadedNow {
+			continue
+		}
+		dependencies = append(dependencies, modDownloadedDependencyEvent{
+			ModID:   item.Downloaded.ModID,
+			Name:    item.Downloaded.Name,
+			Version: item.Downloaded.DownloadedVersion,
+		})
+	}
+	return dependencies
+}
+
+func (s *Service) emitModDownloadsChanged(
+	taskID string,
+	modID string,
+	dependencies []modDownloadedDependencyEvent,
+) {
+	s.emit("mods:downloads-changed", map[string]any{
+		"taskId":                 taskID,
+		"modId":                  modID,
+		"downloadedDependencies": dependencies,
+	})
 }
 
 func (s *Service) emitModProgress(

@@ -172,6 +172,7 @@
   "mod_installed": "Mod installed",
   "mod_task_completed": "Mod task completed",
   "mod_downloaded_successfully": "Mod downloaded successfully",
+  "required_dependencies_downloaded": "Required dependencies were also downloaded: {{count}}",
   "downloaded_mod_removed": "Downloaded mod removed",
   "full_description": "Full description",
   "author": "Author",
