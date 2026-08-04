@@ -1,5 +1,3 @@
-#Requires -Version 5.1
-
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -244,7 +242,7 @@ try {
         ForEach-Object FullName
 
     if (-not $InstallerExecutable) {
-        Write-Host "Files found in $BuildBinDirectory:"
+        Write-Host ("Files found in {0}:" -f $BuildBinDirectory)
         Get-ChildItem -Path $BuildBinDirectory -File -Recurse |
             Format-Table FullName, Length
 
