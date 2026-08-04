@@ -168,6 +168,7 @@
   "mod_installed": "Мод усталяваны",
   "mod_task_completed": "Аперацыя з модам завершана",
   "mod_downloaded_successfully": "Мод паспяхова спампаваны",
+  "required_dependencies_downloaded": "Таксама спампавана абавязковых залежнасцей: {{count}}",
   "downloaded_mod_removed": "Спампаваны мод выдалены",
   "full_description": "Поўнае апісанне",
   "author": "Аўтар",

@@ -147,6 +147,30 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   }, [page, query, reloadKey, view]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadDownloadedState() {
+      if (view !== "all") return;
+
+      try {
+        const items = (await modCatalogApi.downloaded()) ?? [];
+        if (!active) return;
+
+        setDownloaded(items);
+        setCatalog((current) => synchronizeDownloadedState(current, items));
+      } catch {
+        // Catalog browsing remains available if the local download index cannot be read.
+      }
+    }
+
+    void loadDownloadedState();
+
+    return () => {
+      active = false;
+    };
+  }, [reloadKey, view]);
+
+  useEffect(() => {
     if (!loading && restoreScroll.current) {
       restoreScroll.current = false;
       const stored = readStorage("sessionStorage", `waxlight.mods.scroll:${location.search}`);
@@ -229,7 +253,9 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   }
 
   async function refreshDownloaded() {
-    setDownloaded((await modCatalogApi.downloaded()) ?? []);
+    const items = (await modCatalogApi.downloaded()) ?? [];
+    setDownloaded(items);
+    setCatalog((current) => synchronizeDownloadedState(current, items));
   }
 
   const displayed =
@@ -436,6 +462,32 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       )}
     </>
   );
+}
+
+function synchronizeDownloadedState(
+  catalog: ModSummary[],
+  downloaded: DownloadedMod[],
+): ModSummary[] {
+  const newestByModID = new Map<string, DownloadedMod>();
+  for (const item of downloaded) {
+    const current = newestByModID.get(item.modId);
+    if (
+      !current ||
+      new Date(item.downloadedAt).getTime() > new Date(current.downloadedAt).getTime()
+    ) {
+      newestByModID.set(item.modId, item);
+    }
+  }
+
+  return catalog.map((item) => {
+    const local = newestByModID.get(item.id);
+    return {
+      ...item,
+      isDownloaded: local !== undefined,
+      isInstalled: (local?.installedInstances.length ?? 0) > 0,
+      updateAvailable: local?.updateAvailable ?? false,
+    };
+  });
 }
 
 function mergeMods(current: ModSummary[], next: ModSummary[]): ModSummary[] {

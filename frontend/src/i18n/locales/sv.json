@@ -168,6 +168,7 @@
   "mod_installed": "Modden har installerats",
   "mod_task_completed": "Moddåtgärden har slutförts",
   "mod_downloaded_successfully": "Modden har laddats ner",
+  "required_dependencies_downloaded": "Nödvändiga beroenden laddades också ned: {{count}}",
   "downloaded_mod_removed": "Den nedladdade modden har tagits bort",
   "full_description": "Fullständig beskrivning",
   "author": "Författare",

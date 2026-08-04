@@ -168,6 +168,7 @@
   "mod_installed": "Мод орнатылды",
   "mod_task_completed": "Модқа қатысты әрекет аяқталды",
   "mod_downloaded_successfully": "Мод сәтті жүктеп алынды",
+  "required_dependencies_downloaded": "Міндетті тәуелділіктер де жүктеп алынды: {{count}}",
   "downloaded_mod_removed": "Жүктеп алынған мод жойылды",
   "full_description": "Толық сипаттама",
   "author": "Автор",
