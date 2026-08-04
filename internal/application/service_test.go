@@ -1,6 +1,7 @@
 package application_test
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -361,6 +362,9 @@ func TestLocalModLifecycle(t *testing.T) {
 	if len(mods) != 1 {
 		t.Fatalf("expected one installed mod, got %d", len(mods))
 	}
+	if mods[0].Name != "Sample" || mods[0].Version != "1.0" {
+		t.Fatalf("stored mod metadata was replaced during scan: %#v", mods[0])
+	}
 
 	disabledMod, err := fixture.service.SetModEnabled(ctx, mods[0].ID, false)
 	if err != nil {
@@ -378,6 +382,77 @@ func TestLocalModLifecycle(t *testing.T) {
 	}
 	if _, err := os.Stat(disabledMod.FilePath); !os.IsNotExist(err) {
 		t.Fatal("the deleted mod file still exists")
+	}
+}
+
+func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Imported", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	archivePath := filepath.Join(instance.Directory, "Mods", "smithingplus.zip")
+	writeVintageStoryMod(t, archivePath, `{"modid":"smithingplus","name":"Smithing Plus","version":"2.4.1"}`)
+	disabledPath := filepath.Join(instance.Directory, "ModsDisabled", "utility.dll")
+	if err := os.WriteFile(disabledPath, []byte("mod"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mods, err := fixture.service.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mods) != 2 {
+		t.Fatalf("expected two imported mods, got %#v", mods)
+	}
+	if mods[0].Name != "Smithing Plus" || mods[0].Version != "2.4.1" || !mods[0].Enabled || mods[0].Managed {
+		t.Fatalf("unexpected imported archive: %#v", mods[0])
+	}
+	importedID := mods[0].ID
+
+	movedPath := filepath.Join(instance.Directory, "ModsDisabled", filepath.Base(archivePath))
+	if err := os.Rename(archivePath, movedPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(disabledPath); err != nil {
+		t.Fatal(err)
+	}
+	mods, err = fixture.service.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mods) != 1 || mods[0].ID != importedID || mods[0].Enabled || mods[0].FilePath != movedPath {
+		t.Fatalf("filesystem changes were not reconciled: %#v", mods)
+	}
+	persisted, err := fixture.store.ListMods(ctx, instance.ID)
+	if err != nil || len(persisted) != 1 {
+		t.Fatalf("unexpected persisted mods: %#v, %v", persisted, err)
+	}
+}
+
+func writeVintageStoryMod(t *testing.T, path, metadata string) {
+	t.Helper()
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := zip.NewWriter(file)
+	entry, err := archive.Create("modinfo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(metadata)); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
 

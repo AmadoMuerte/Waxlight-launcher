@@ -1,20 +1,126 @@
 package filesystem
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 const (
 	modsDirectory         = "Mods"
 	disabledModsDirectory = "ModsDisabled"
+	maxModInfoBytes       = 1 << 20
 )
 
 type ModFileManager struct{}
+
+func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, error) {
+	var mods []domain.DiscoveredMod
+	for _, directory := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: modsDirectory, enabled: true},
+		{name: disabledModsDirectory, enabled: false},
+	} {
+		root := filepath.Join(instanceDirectory, directory.name)
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			info, err := entry.Info()
+			if err != nil {
+				return nil, err
+			}
+			if info.IsDir() || !isModFile(entry.Name()) {
+				continue
+			}
+
+			path := filepath.Join(root, entry.Name())
+			name := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+			version := "unknown"
+			if strings.EqualFold(filepath.Ext(entry.Name()), ".zip") {
+				if metadata, ok := readModInfo(path); ok {
+					if strings.TrimSpace(metadata.Name) != "" {
+						name = strings.TrimSpace(metadata.Name)
+					} else if strings.TrimSpace(metadata.ModID) != "" {
+						name = strings.TrimSpace(metadata.ModID)
+					}
+					if strings.TrimSpace(metadata.Version) != "" {
+						version = strings.TrimSpace(metadata.Version)
+					}
+				}
+			}
+			mods = append(mods, domain.DiscoveredMod{
+				Name:       name,
+				Version:    version,
+				FileName:   entry.Name(),
+				FilePath:   path,
+				Enabled:    directory.enabled,
+				SizeBytes:  info.Size(),
+				ModifiedAt: info.ModTime(),
+			})
+		}
+	}
+	return mods, nil
+}
+
+type modInfo struct {
+	ModID   string `json:"modid"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+func readModInfo(path string) (modInfo, bool) {
+	archive, err := zip.OpenReader(path)
+	if err != nil {
+		return modInfo{}, false
+	}
+	defer archive.Close()
+
+	var candidate *zip.File
+	for _, file := range archive.File {
+		cleanName := strings.TrimPrefix(strings.ReplaceAll(file.Name, "\\", "/"), "./")
+		if strings.EqualFold(cleanName, "modinfo.json") {
+			candidate = file
+			break
+		}
+		if candidate == nil && strings.EqualFold(filepath.Base(cleanName), "modinfo.json") {
+			candidate = file
+		}
+	}
+	if candidate == nil || candidate.UncompressedSize64 > maxModInfoBytes {
+		return modInfo{}, false
+	}
+
+	file, err := candidate.Open()
+	if err != nil {
+		return modInfo{}, false
+	}
+	defer file.Close()
+	var metadata modInfo
+	if err := json.NewDecoder(io.LimitReader(file, maxModInfoBytes+1)).Decode(&metadata); err != nil {
+		return modInfo{}, false
+	}
+	return metadata, true
+}
+
+func isModFile(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".zip", ".cs", ".dll":
+		return true
+	default:
+		return false
+	}
+}
 
 func (ModFileManager) EnsureLayout(instanceDirectory string) error {
 	if err := migrateDirectory(

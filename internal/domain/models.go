@@ -89,6 +89,16 @@ type InstalledMod struct {
 	UpdatedAt   time.Time
 }
 
+type DiscoveredMod struct {
+	Name       string
+	Version    string
+	FileName   string
+	FilePath   string
+	Enabled    bool
+	SizeBytes  int64
+	ModifiedAt time.Time
+}
+
 type PlaySession struct {
 	ID          string
 	InstanceID  string

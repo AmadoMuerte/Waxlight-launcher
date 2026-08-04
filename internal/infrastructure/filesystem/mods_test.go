@@ -1,10 +1,63 @@
 package filesystem
 
 import (
+	"archive/zip"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestScanDiscoversModsAndReadsArchiveMetadata(t *testing.T) {
+	root := t.TempDir()
+	manager := ModFileManager{}
+	if err := manager.EnsureLayout(root); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(root, modsDirectory, "smithingplus_2.4.1.zip")
+	writeModArchive(t, archivePath, `{"modid":"smithingplus","name":"Smithing Plus","version":"2.4.1"}`)
+	if err := os.WriteFile(filepath.Join(root, disabledModsDirectory, "utility.cs"), []byte("code"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, modsDirectory, "readme.txt"), []byte("ignore"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mods, err := manager.Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mods) != 2 {
+		t.Fatalf("expected two discovered mods, got %#v", mods)
+	}
+	if mods[0].Name != "Smithing Plus" || mods[0].Version != "2.4.1" || !mods[0].Enabled {
+		t.Fatalf("unexpected archive metadata: %#v", mods[0])
+	}
+	if mods[1].Name != "utility" || mods[1].Version != "unknown" || mods[1].Enabled {
+		t.Fatalf("unexpected disabled mod: %#v", mods[1])
+	}
+}
+
+func writeModArchive(t *testing.T, path, metadata string) {
+	t.Helper()
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := zip.NewWriter(file)
+	entry, err := archive.Create("modinfo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(metadata)); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestMigrateDirectoryDoesNotRemoveSameDirectory(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "Mods")
