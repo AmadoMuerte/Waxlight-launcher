@@ -55,12 +55,18 @@ fi
 
 architecture="amd64"
 package_name="waxlight"
+application_id="com.waxlight.launcher"
 
 build_directory="$repository_root/build"
 build_bin_directory="$build_directory/bin"
 application_binary="$build_bin_directory/waxlight"
 frontend_directory="$repository_root/frontend"
 frontend_entry="$frontend_directory/dist/index.html"
+application_icon="$repository_root/cmd/waxlight/appicon.png"
+wails_app_icon="$build_directory/appicon.png"
+desktop_file="$repository_root/packaging/linux/${application_id}.desktop"
+desktop_filename="${application_id}.desktop"
+icon_filename="${application_id}.png"
 
 staging_root="$build_directory/package-linux"
 portable_root="$staging_root/portable"
@@ -78,33 +84,6 @@ echo "RPM version:              $rpm_version"
 echo "RPM release:              $rpm_release"
 echo "Output directory:         $output_directory"
 
-find_first_file() {
-    local pattern="$1"
-    shift
-
-    local directory
-    local result
-
-    for directory in "$@"; do
-        [[ -d "$directory" ]] || continue
-
-        result="$(
-            find "$directory" \
-                -type f \
-                -name "$pattern" \
-                -print \
-                -quit
-        )"
-
-        if [[ -n "$result" ]]; then
-            printf '%s\n' "$result"
-            return 0
-        fi
-    done
-
-    return 1
-}
-
 install_optional_file() {
     local source="$1"
     local destination="$2"
@@ -118,9 +97,23 @@ install_optional_file() {
     return 1
 }
 
-rm -rf "$staging_root"
+# Clean generated binaries and packaging staging without deleting build/appicon.png.
+# The Wails -clean flag would remove the custom icon staged below.
+rm -rf "$staging_root" "$build_bin_directory"
 mkdir -p "$output_directory"
 mkdir -p "$build_bin_directory"
+
+for required_asset in "$application_icon" "$desktop_file"; do
+    if [[ ! -s "$required_asset" ]]; then
+        echo "error: required application asset is missing or empty: $required_asset" >&2
+        exit 1
+    fi
+done
+
+# Wails reads build/appicon.png while producing platform assets. Keep the
+# canonical source beside main.go so it can also be embedded into the Linux
+# executable and copied into every Linux package.
+install -Dm644 "$application_icon" "$wails_app_icon"
 
 echo
 echo "Installing frontend dependencies..."
@@ -152,7 +145,6 @@ echo "-----------------------------"
 
     CGO_ENABLED=1 \
     wails build \
-        -clean \
         -platform linux/amd64 \
         -trimpath \
         -ldflags="-s -w"
@@ -164,23 +156,6 @@ if [[ ! -s "$application_binary" ]]; then
 fi
 
 chmod 0755 "$application_binary"
-
-desktop_file="$(
-    find_first_file \
-        "*.desktop" \
-        "$repository_root/packaging/linux" \
-        "$repository_root/build/linux" \
-        2>/dev/null || true
-)"
-
-icon_file="$(
-    find_first_file \
-        "*.png" \
-        "$repository_root/packaging/linux" \
-        "$repository_root/cmd/waxlight/build" \
-        "$repository_root/build" \
-        2>/dev/null || true
-)"
 
 license_file=""
 
@@ -199,15 +174,15 @@ install \
     "$application_binary" \
     "$portable_root/$portable_name/waxlight"
 
-install_optional_file \
+install \
+    -Dm644 \
     "$desktop_file" \
-    "$portable_root/$portable_name/waxlight.desktop" \
-    0644 || true
+    "$portable_root/$portable_name/$desktop_filename"
 
-install_optional_file \
-    "$icon_file" \
-    "$portable_root/$portable_name/waxlight.png" \
-    0644 || true
+install \
+    -Dm644 \
+    "$application_icon" \
+    "$portable_root/$portable_name/$icon_filename"
 
 install_optional_file \
     "$license_file" \
@@ -234,15 +209,15 @@ install \
     "$application_binary" \
     "$deb_root/usr/bin/waxlight"
 
-install_optional_file \
+install \
+    -Dm644 \
     "$desktop_file" \
-    "$deb_root/usr/share/applications/waxlight.desktop" \
-    0644 || true
+    "$deb_root/usr/share/applications/$desktop_filename"
 
-install_optional_file \
-    "$icon_file" \
-    "$deb_root/usr/share/icons/hicolor/256x256/apps/waxlight.png" \
-    0644 || true
+install \
+    -Dm644 \
+    "$application_icon" \
+    "$deb_root/usr/share/icons/hicolor/256x256/apps/$icon_filename"
 
 install_optional_file \
     "$license_file" \
@@ -297,19 +272,17 @@ install \
 
 rpm_file_entries=("/usr/bin/waxlight")
 
-if install_optional_file \
+install \
+    -Dm644 \
     "$desktop_file" \
-    "$rpm_source_root/usr/share/applications/waxlight.desktop" \
-    0644; then
-    rpm_file_entries+=("/usr/share/applications/waxlight.desktop")
-fi
+    "$rpm_source_root/usr/share/applications/$desktop_filename"
+rpm_file_entries+=("/usr/share/applications/$desktop_filename")
 
-if install_optional_file \
-    "$icon_file" \
-    "$rpm_source_root/usr/share/icons/hicolor/256x256/apps/waxlight.png" \
-    0644; then
-    rpm_file_entries+=("/usr/share/icons/hicolor/256x256/apps/waxlight.png")
-fi
+install \
+    -Dm644 \
+    "$application_icon" \
+    "$rpm_source_root/usr/share/icons/hicolor/256x256/apps/$icon_filename"
+rpm_file_entries+=("/usr/share/icons/hicolor/256x256/apps/$icon_filename")
 
 rpm_license_entry=""
 
