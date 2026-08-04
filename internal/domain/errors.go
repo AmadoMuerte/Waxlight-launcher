@@ -50,4 +50,7 @@ const (
 	ErrAuthFlowExpired     = "AUTH_FLOW_EXPIRED"
 	ErrSecretStorage       = "SECRET_STORAGE_ERROR"
 	ErrClientSettings      = "CLIENT_SETTINGS_ERROR"
+	ErrUpdateUnavailable   = "UPDATE_UNAVAILABLE"
+	ErrUpdateInProgress    = "UPDATE_ALREADY_IN_PROGRESS"
+	ErrUpdateFailed        = "UPDATE_FAILED"
 )

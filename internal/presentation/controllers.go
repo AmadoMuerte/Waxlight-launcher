@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
@@ -44,7 +45,7 @@ func (controller *AppController) AppInfo() map[string]any {
 	return map[string]any{
 		"name":       "Waxlight Launcher",
 		"shortName":  "Waxlight",
-		"version":    "0.1.0",
+		"version":    launcher.Version(),
 		"unofficial": true,
 	}
 }
@@ -460,6 +461,9 @@ func (controller *SettingsController) UpdateSettings(
 			ConfirmDeletion:       request.ConfirmDeletion,
 			MinSessionDurationSec: request.MinSessionDurationSec,
 			GlobalLaunchArguments: request.GlobalLaunchArguments,
+			CheckForUpdates:       request.CheckForUpdates,
+			UpdateChannel:         request.UpdateChannel,
+			SkippedUpdateVersion:  request.SkippedUpdateVersion,
 		},
 	)
 	return settingsDTO(settings), err

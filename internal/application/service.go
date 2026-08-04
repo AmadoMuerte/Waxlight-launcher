@@ -1288,8 +1288,13 @@ func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
 	}
 
 	normalizedLanguage := normalizeLanguage(settings.Language)
-	if settings.Language != normalizedLanguage {
+	normalizedChannel, channelErr := normalizeUpdateChannel(settings.UpdateChannel)
+	if channelErr != nil {
+		normalizedChannel = "stable"
+	}
+	if settings.Language != normalizedLanguage || settings.UpdateChannel != normalizedChannel {
 		settings.Language = normalizedLanguage
+		settings.UpdateChannel = normalizedChannel
 		if err := s.store.SaveSettings(ctx, settings); err != nil {
 			return settings, err
 		}
@@ -1305,5 +1310,14 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 		return v, domain.NewError(domain.ErrValidation, "Session duration threshold cannot be negative")
 	}
 	v.Language = normalizeLanguage(v.Language)
+	channel, err := normalizeUpdateChannel(v.UpdateChannel)
+	if err != nil {
+		return v, err
+	}
+	v.UpdateChannel = channel
+	v.SkippedUpdateVersion = strings.TrimSpace(v.SkippedUpdateVersion)
+	if len(v.SkippedUpdateVersion) > 64 {
+		return v, domain.NewError(domain.ErrValidation, "Skipped update version is too long")
+	}
 	return v, s.store.SaveSettings(ctx, v)
 }

@@ -245,6 +245,27 @@ export interface Settings {
   confirmDeletion: boolean;
   minSessionDurationSec: number;
   globalLaunchArguments: string[];
+  checkForUpdates: boolean;
+  updateChannel: "stable" | "prerelease";
+  skippedUpdateVersion: string;
+}
+
+export interface LauncherUpdate {
+  installedVersion: string;
+  version: string;
+  available: boolean;
+  prerelease: boolean;
+  releaseNotes: string;
+  releasePageUrl: string;
+  assetName: string;
+  assetSize: number;
+}
+
+export interface LauncherUpdateProgress {
+  phase: "downloading" | "installing" | "restarting";
+  downloadedBytes: number;
+  totalBytes: number;
+  progress: number;
 }
 
 export interface LaunchValidation {

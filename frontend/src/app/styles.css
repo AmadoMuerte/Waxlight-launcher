@@ -1986,6 +1986,68 @@ main {
   cursor: pointer;
 }
 
+.launcherUpdateNotice {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #665033;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2b241a, #1a1818);
+  box-shadow: 0 14px 36px #0005;
+}
+
+.launcherUpdateNotice > div:first-child {
+  min-width: 0;
+}
+
+.launcherUpdateNotice strong {
+  display: block;
+  margin: 4px 0 6px;
+  color: #f6d6a3;
+  font-family: Newsreader, Georgia, serif;
+  font-size: 20px;
+}
+
+.launcherUpdateNotice p {
+  display: -webkit-box;
+  max-width: 720px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.launcherUpdateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.launcherUpdateProgress {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.launcherUpdateProgress progress {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.launcherUpdateProgress small {
+  color: var(--text-muted);
+}
+
 .toast {
   position: fixed;
   z-index: 40;
@@ -2032,6 +2094,15 @@ main {
 }
 
 @media (max-width: 1100px) {
+  .launcherUpdateNotice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .launcherUpdateActions {
+    justify-content: flex-start;
+  }
+
   main {
     padding-inline: 28px;
   }

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -8,9 +12,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 )
 
 func main() {
+	updater.WaitForParent(updateParentPID(os.Args), 15*time.Second)
 	container, err := bootstrap.New()
 	if err != nil {
 		showFatalError(err.Error())
@@ -34,4 +40,18 @@ func main() {
 	if err != nil {
 		showFatalError(err.Error())
 	}
+}
+
+func updateParentPID(arguments []string) int {
+	for index := 1; index+1 < len(arguments); index++ {
+		if arguments[index] != "--update-wait-pid" {
+			continue
+		}
+		pid, err := strconv.Atoi(arguments[index+1])
+		if err == nil && pid > 0 {
+			return pid
+		}
+		return 0
+	}
+	return 0
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
@@ -18,6 +19,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 )
@@ -99,6 +101,18 @@ func New() (*Container, error) {
 	)
 	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
 	service.ConfigureDiskSpaceChecker(filesystem.DiskSpace{})
+	updateHTTPClient := updater.NewHTTPClient()
+	updateDownloader := downloader.NewManager(
+		&downloader.HTTPDownloader{Client: updateHTTPClient},
+		1,
+	)
+	updateService := application.NewLauncherUpdateService(
+		updater.NewSource(updateHTTPClient),
+		updateDownloader,
+		updater.NewInstaller(),
+		dataRoot,
+		launcher.Version(),
+	)
 	base := presentation.NewBase(service)
 	controllers := []any{
 		presentation.NewAppController(base),
@@ -111,6 +125,7 @@ func New() (*Container, error) {
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),
 		presentation.NewSettingsController(service, base),
+		presentation.NewLauncherUpdateController(updateService, base),
 	}
 
 	return &Container{

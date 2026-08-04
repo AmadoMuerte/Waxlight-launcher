@@ -22,8 +22,21 @@ const api = vi.hoisted(() => ({
     confirmDeletion: true,
     minSessionDurationSec: 10,
     globalLaunchArguments: [],
+    checkForUpdates: true,
+    updateChannel: "stable",
+    skippedUpdateVersion: "",
   }),
   update: vi.fn().mockImplementation(async (settings) => settings),
+  checkUpdate: vi.fn().mockResolvedValue({
+    installedVersion: "0.1.4",
+    version: "0.1.4",
+    available: false,
+    prerelease: false,
+    releaseNotes: "",
+    releasePageUrl: "",
+    assetName: "",
+    assetSize: 0,
+  }),
 }));
 
 vi.mock("../shared/api", () => ({
@@ -33,6 +46,12 @@ vi.mock("../shared/api", () => ({
   operationsApi: { list: api.list },
   statisticsApi: { overview: api.overview },
   settingsApi: { get: api.get, update: api.update },
+  updatesApi: {
+    currentVersion: vi.fn().mockResolvedValue("0.1.4"),
+    check: api.checkUpdate,
+    install: vi.fn(),
+    openReleasePage: vi.fn(),
+  },
   launcherApi: {},
   modsApi: {},
   modCatalogApi: {},
@@ -41,6 +60,16 @@ vi.mock("../shared/api", () => ({
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  api.checkUpdate.mockResolvedValue({
+    installedVersion: "0.1.4",
+    version: "0.1.4",
+    available: false,
+    prerelease: false,
+    releaseNotes: "",
+    releasePageUrl: "",
+    assetName: "",
+    assetSize: 0,
+  });
 });
 
 it("applies persisted language before rendering and navigation reacts to changes", async () => {
@@ -82,4 +111,27 @@ it("does not replace autosaved settings during background refresh", async () => 
   expect(parallelDownloads.value).toBe("7");
   expect(api.get).toHaveBeenCalledTimes(1);
   expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
+});
+
+it("shows a non-intrusive startup update notice that can be postponed", async () => {
+  api.checkUpdate.mockResolvedValueOnce({
+    installedVersion: "0.1.4",
+    version: "0.1.5",
+    available: true,
+    prerelease: false,
+    releaseNotes: "Security and compatibility fixes",
+    releasePageUrl: "https://github.com/AmadoMuerte/Waxlight-launcher/releases/tag/v0.1.5",
+    assetName: "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+    assetSize: 1024,
+  });
+  render(
+    <MemoryRouter>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText(/0\.1\.4.*0\.1\.5/)).toBeTruthy();
+  expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Позже" }));
+  await waitFor(() => expect(screen.queryByText(/0\.1\.4.*0\.1\.5/)).toBeNull());
 });

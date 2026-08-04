@@ -18,6 +18,7 @@ import type {
   Instance,
   LaunchValidation,
   LoginResult,
+  LauncherUpdate,
   Operation,
   DownloadedMod,
   ModDetails,
@@ -144,6 +145,16 @@ export const settingsApi = {
   selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
   selectModFile: () => call<string>("SettingsController", "SelectModFile"),
   openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),
+};
+
+export const updatesApi = {
+  currentVersion: () => call<string>("LauncherUpdateController", "CurrentVersion"),
+  check: (channel: Settings["updateChannel"]) =>
+    call<LauncherUpdate>("LauncherUpdateController", "CheckUpdates", channel),
+  install: (channel: Settings["updateChannel"]) =>
+    call<void>("LauncherUpdateController", "InstallUpdate", channel),
+  openReleasePage: (channel: Settings["updateChannel"]) =>
+    call<void>("LauncherUpdateController", "OpenReleasePage", channel),
 };
 
 export * from "./types";
