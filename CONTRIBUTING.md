@@ -52,14 +52,42 @@ public documentation when user-visible behavior changes.
 
 ## Localization
 
-English is the source and fallback language. To add a language, copy
-`frontend/src/i18n/locales/en.json` to `<language-code>.json` and translate only
-the values. Keep every key unchanged, including plural suffixes, and preserve
-interpolation expressions such as `{{name}}`.
+English is the source and fallback language. All translation keys must remain synchronized with the English locale.
 
-Then add the language to `frontend/src/i18n/languages.ts`, register its resource
-in `frontend/src/i18n/index.ts`, and allow it in the backend language validation.
-Run the translation check and both test suites before opening a pull request:
+To add a new language:
+
+1. Add the language code and its display name to the root [`languages.json`](./languages.json) file.
+
+2. Copy the English locale:
+
+   ```bash
+   cp frontend/src/i18n/locales/en.json frontend/src/i18n/locales/<language-code>.json
+   ```
+
+3. Translate the values in the new locale file.
+
+   Locale files are stored in:
+
+   ```text
+   frontend/src/i18n/locales/
+   ```
+
+When editing a locale:
+
+* translate values only;
+* do not rename, remove, or add translation keys independently;
+* preserve interpolation expressions such as `{{name}}`;
+* preserve plural suffixes such as `_one`, `_few`, `_many`, and `_other`;
+* keep paths, URLs, technical names, and version identifiers unchanged;
+* use the same JSON structure as `en.json`.
+
+After adding or updating a locale, build the frontend:
+
+```bash
+npm --prefix frontend run build
+```
+
+Then run the localization validation and tests:
 
 ```bash
 npm run check:i18n --prefix frontend
@@ -67,8 +95,10 @@ npm test --prefix frontend
 go test ./...
 ```
 
-Mention added or changed languages in the pull request description so reviewers
-can verify terminology and plural forms.
+Do not register locales manually in TypeScript or Go code. The supported languages are generated from `languages.json` during the build process.
+
+Mention all added or changed languages in the pull request description so reviewers can verify terminology, formatting, interpolation expressions, and plural forms.
+
 
 ## Architecture expectations
 
