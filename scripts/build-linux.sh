@@ -145,6 +145,7 @@ echo "-----------------------------"
 
     CGO_ENABLED=1 \
     wails build \
+        -skipbindings \
         -platform linux/amd64 \
         -trimpath \
         -ldflags="-s -w"
