@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -29,7 +29,10 @@ afterEach(() => {
 describe("i18n", () => {
   it("normalizes languages and renders English, Russian, interpolation, and plurals", async () => {
     expect(normalizeLanguage(" RU-ru ")).toBe("ru");
-    expect(normalizeLanguage("fr")).toBe("en");
+    expect(normalizeLanguage("BE_by")).toBe("be");
+    expect(normalizeLanguage("BY_by")).toBe("be");
+    expect(normalizeLanguage("fr")).toBe("fr");
+    expect(normalizeLanguage("it")).toBe("en");
     expect(i18n.t("library")).toBe("Library");
     await changeAppLanguage("ru");
     expect(document.documentElement.lang).toBe("ru");
@@ -47,25 +50,56 @@ describe("i18n", () => {
     i18n.addResource("ru", "translation", "settings", russian);
   });
 
-  it("offers both languages and persists successful switches", async () => {
-    api.update.mockImplementation(async (value: Settings) => value);
+  it("offers all languages and persists successful switches", async () => {
+    await changeAppLanguage("en");
+    let languageWhileSaving = "";
+    api.update.mockImplementation(async (value: Settings) => {
+      languageWhileSaving = i18n.resolvedLanguage ?? "";
+      return value;
+    });
     render(<SettingsPage settings={settings} notify={vi.fn()} onSaved={vi.fn()} />);
     const user = userEvent.setup();
     const language = screen.getAllByRole("combobox")[0];
     await user.click(language);
     expect(screen.getByRole("option", { name: "English" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Русский" })).toBeTruthy();
-    await user.click(screen.getByRole("option", { name: "Русский" }));
-    await user.click(screen.getByRole("button", { name: "Save settings" }));
-    expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "ru" }));
-    await waitFor(() => expect(i18n.resolvedLanguage).toBe("ru"));
+    expect(screen.getByRole("option", { name: "Беларускі" })).toBeTruthy();
+    await user.click(screen.getByRole("option", { name: "Беларускі" }));
+    await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
+    expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "be" }));
+    expect(languageWhileSaving).toBe("be");
+    await waitFor(() => expect(i18n.resolvedLanguage).toBe("be"));
   });
 
-  it("saves English", async () => {
+  it("autosaves every setting without a save button", async () => {
+    await changeAppLanguage("en");
     api.update.mockImplementation(async (value: Settings) => value);
     render(<SettingsPage settings={settings} notify={vi.fn()} onSaved={vi.fn()} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Save settings" }));
-    expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "en" }));
+    const user = userEvent.setup();
+
+    expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(screen.getByRole("option", { name: "System" }));
+
+    const numberInputs = screen.getAllByRole("spinbutton");
+    fireEvent.change(numberInputs[0], { target: { value: "7" } });
+    fireEvent.change(numberInputs[1], { target: { value: "45" } });
+    fireEvent.change(screen.getByPlaceholderText("--debug"), {
+      target: { value: "--debug --safe" },
+    });
+    await user.click(screen.getByRole("checkbox"));
+
+    await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
+    expect(api.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        theme: "system",
+        language: "en",
+        downloadsParallel: 7,
+        minSessionDurationSec: 45,
+        globalLaunchArguments: ["--debug", "--safe"],
+        confirmDeletion: false,
+      }),
+    );
   });
 
   it("keeps the active language after a failed save", async () => {
@@ -75,8 +109,9 @@ describe("i18n", () => {
     const user = userEvent.setup();
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(screen.getByRole("option", { name: "Русский" }));
-    await user.click(screen.getByRole("button", { name: "Save settings" }));
-    expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "ru" }));
-    expect(i18n.resolvedLanguage).toBe("en");
+    await waitFor(() =>
+      expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ language: "ru" })),
+    );
+    await waitFor(() => expect(i18n.resolvedLanguage).toBe("en"));
   });
 });

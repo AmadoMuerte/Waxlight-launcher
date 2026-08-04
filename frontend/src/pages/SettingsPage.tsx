@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -13,7 +13,7 @@ import { changeAppLanguage } from "../i18n";
 import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Button, Checkbox, Field, PageHeader, SubmitForm } from "../shared/ui";
+import { Checkbox, Field, PageHeader } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -23,39 +23,103 @@ interface SettingsPageProps {
   onSaved: (settings: Settings) => void;
 }
 
+const autosaveDelayMs = 400;
+
+function settingsEqual(left: Settings, right: Settings) {
+  return (
+    left.theme === right.theme &&
+    left.language === right.language &&
+    left.downloadsParallel === right.downloadsParallel &&
+    left.confirmDeletion === right.confirmDeletion &&
+    left.minSessionDurationSec === right.minSessionDurationSec &&
+    left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
+    left.globalLaunchArguments.every(
+      (argument, index) => argument === right.globalLaunchArguments[index],
+    )
+  );
+}
+
 export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
-  const [busy, setBusy] = useState(false);
+  const [launchArgumentsText, setLaunchArgumentsText] = useState("");
+  const persistedRef = useRef<Settings | undefined>(undefined);
+  const revisionRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const notifyRef = useRef(notify);
+  const onSavedRef = useRef(onSaved);
+  const translateRef = useRef(t);
+
+  notifyRef.current = notify;
+  onSavedRef.current = onSaved;
+  translateRef.current = t;
 
   useEffect(() => {
-    setValue(settings);
+    if (!settings) {
+      return;
+    }
+    persistedRef.current = settings;
+    setValue((current) => current ?? settings);
+    setLaunchArgumentsText((current) => current || settings.globalLaunchArguments.join(" "));
   }, [settings]);
+
+  useEffect(() => {
+    const persisted = persistedRef.current;
+    if (!value || !persisted || settingsEqual(value, persisted)) {
+      return undefined;
+    }
+
+    const next = {
+      ...value,
+      language: normalizeLanguage(value.language),
+      globalLaunchArguments: [...value.globalLaunchArguments],
+    };
+    const revision = ++revisionRef.current;
+    const timer = window.setTimeout(() => {
+      async function persist() {
+        if (revision !== revisionRef.current) {
+          return;
+        }
+
+        try {
+          const saved = await settingsApi.update(next);
+          if (revision !== revisionRef.current) {
+            return;
+          }
+          persistedRef.current = saved;
+          setValue(saved);
+          onSavedRef.current(saved);
+          await changeAppLanguage(saved.language);
+          notifyRef.current(translateRef.current("settings_saved"));
+        } catch (error) {
+          if (revision !== revisionRef.current) {
+            return;
+          }
+          const previous = persistedRef.current;
+          if (previous) {
+            setValue(previous);
+            setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
+            await changeAppLanguage(previous.language);
+          }
+          notifyRef.current(errorMessage(error), "error");
+        }
+      }
+
+      saveQueueRef.current = saveQueueRef.current.then(persist, persist);
+    }, autosaveDelayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      revisionRef.current += 1;
+    },
+    [],
+  );
 
   if (!value) {
     return null;
-  }
-
-  async function save() {
-    if (!value) {
-      return;
-    }
-
-    setBusy(true);
-
-    try {
-      const saved = await settingsApi.update({
-        ...value,
-        language: normalizeLanguage(value.language),
-      });
-      await changeAppLanguage(saved.language);
-      onSaved(saved);
-      notify(t("settings_saved"));
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    } finally {
-      setBusy(false);
-    }
   }
 
   return (
@@ -67,7 +131,7 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
       />
 
       <section className="settingsPanel">
-        <SubmitForm className="settingsPageForm" onSubmit={save}>
+        <div className="settingsPageForm">
           <section className="settingsPageSection">
             <header>
               <h2>{t("interface")}</h2>
@@ -77,9 +141,11 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
               <Field label={t("language")}>
                 <Select
                   value={normalizeLanguage(value.language)}
-                  onValueChange={(language) =>
-                    setValue({ ...value, language: normalizeLanguage(language) })
-                  }
+                  onValueChange={(language) => {
+                    const normalized = normalizeLanguage(language);
+                    setValue({ ...value, language: normalized });
+                    void changeAppLanguage(normalized);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -151,12 +217,14 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
               <Field label={t("global_launch_arguments")} hint={t("global_launch_arguments_hint")}>
                 <input
                   className="codeInput"
-                  value={value.globalLaunchArguments.join(" ")}
+                  value={launchArgumentsText}
                   onChange={(event) => {
-                    const argumentsValue = event.target.value.trim();
+                    const argumentsValue = event.target.value;
+                    setLaunchArgumentsText(argumentsValue);
+                    const trimmedArguments = argumentsValue.trim();
                     setValue({
                       ...value,
-                      globalLaunchArguments: argumentsValue ? argumentsValue.split(/\s+/) : [],
+                      globalLaunchArguments: trimmedArguments ? trimmedArguments.split(/\s+/) : [],
                     });
                   }}
                   placeholder="--debug"
@@ -175,11 +243,7 @@ export function SettingsPage({ settings, notify, onSaved }: SettingsPageProps) {
               </div>
             </div>
           </section>
-
-          <div className="settingsPageFooter">
-            <Button busy={busy}>{t("save_settings")}</Button>
-          </div>
-        </SubmitForm>
+        </div>
       </section>
 
       <footer className="legal">{t("not_affiliated_notice")}</footer>

@@ -1,0 +1,15 @@
+{
+  "defaultLanguage": "en",
+  "languages": [
+    { "code": "en", "nativeName": "English" },
+    { "code": "ru", "nativeName": "Русский" },
+    { "code": "be", "nativeName": "Беларускі", "aliases": ["by"] },
+    { "code": "es", "nativeName": "Español" },
+    { "code": "fr", "nativeName": "Français" },
+    { "code": "de", "nativeName": "Deutsch" },
+    { "code": "kk", "nativeName": "Қазақша" },
+    { "code": "pl", "nativeName": "Polski" },
+    { "code": "sv", "nativeName": "Svenska" },
+    { "code": "pt", "nativeName": "Português" }
+  ]
+}

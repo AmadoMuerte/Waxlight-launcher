@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
     minSessionDurationSec: 10,
     globalLaunchArguments: [],
   }),
+  update: vi.fn().mockImplementation(async (settings) => settings),
 }));
 
 vi.mock("../shared/api", () => ({
@@ -31,15 +32,21 @@ vi.mock("../shared/api", () => ({
   accountsApi: { list: api.list },
   operationsApi: { list: api.list },
   statisticsApi: { overview: api.overview },
-  settingsApi: { get: api.get },
+  settingsApi: { get: api.get, update: api.update },
   launcherApi: {},
   modsApi: {},
   modCatalogApi: {},
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 it("applies persisted language before rendering and navigation reacts to changes", async () => {
+  api.get.mockClear();
+  api.update.mockClear();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   render(
     <MemoryRouter>
       <App />
@@ -47,7 +54,32 @@ it("applies persisted language before rendering and navigation reacts to changes
   );
   expect(await screen.findByRole("link", { name: /Библиотека/ })).toBeTruthy();
   expect(document.documentElement.lang).toBe("ru");
+  expect(api.get).toHaveBeenCalledTimes(1);
+
+  await vi.advanceTimersByTimeAsync(16_000);
+  expect(api.get).toHaveBeenCalledTimes(1);
+
   await changeAppLanguage("en");
   await waitFor(() => expect(screen.getByRole("link", { name: /Library/ })).toBeTruthy());
   expect(i18n.resolvedLanguage).toBe("en");
+});
+
+it("does not replace autosaved settings during background refresh", async () => {
+  api.get.mockClear();
+  api.update.mockClear();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  render(
+    <MemoryRouter initialEntries={["/settings"]}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  const parallelDownloads = (await screen.findAllByRole("spinbutton"))[0] as HTMLInputElement;
+  fireEvent.change(parallelDownloads, { target: { value: "7" } });
+  expect(parallelDownloads.value).toBe("7");
+
+  await vi.advanceTimersByTimeAsync(16_000);
+  expect(parallelDownloads.value).toBe("7");
+  expect(api.get).toHaveBeenCalledTimes(1);
+  expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
 });

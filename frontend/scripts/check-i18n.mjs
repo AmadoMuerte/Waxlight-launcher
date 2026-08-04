@@ -3,19 +3,31 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const directory = fileURLToPath(new URL("../src/i18n/locales/", import.meta.url));
+const config = JSON.parse(await readFile(new URL("../../languages.json", import.meta.url), "utf8"));
 const files = (await readdir(directory)).filter((file) => file.endsWith(".json")).sort();
 const load = async (file) => JSON.parse(await readFile(path.join(directory, file), "utf8"));
-const source = await load("en.json");
+const codes = config.languages.map((language) => language.code);
+const expectedFiles = new Set(codes.map((code) => `${code}.json`));
+const resources = new Map(await Promise.all(files.map(async (file) => [file, await load(file)])));
+const source = resources.get(`${config.defaultLanguage}.json`);
 const sourceKeys = Object.keys(source)
   .filter((key) => key !== "_glossary")
   .sort();
 let failed = false;
 
-const resources = await Promise.all(
-  files.map(async (file) => ({ file, resource: await load(file) })),
-);
-
-for (const { file, resource } of resources) {
+for (const file of expectedFiles) {
+  if (!files.includes(file)) {
+    console.error(`missing locale file "${file}"`);
+    failed = true;
+  }
+}
+for (const file of files) {
+  if (!expectedFiles.has(file)) {
+    console.error(`locale file "${file}" has no language code in languages.json`);
+    failed = true;
+    continue;
+  }
+  const resource = resources.get(file);
   const keys = Object.keys(resource)
     .filter((key) => key !== "_glossary")
     .sort();
@@ -34,4 +46,4 @@ for (const { file, resource } of resources) {
 }
 
 if (failed) process.exitCode = 1;
-else console.log(`i18n: ${files.length} languages, ${sourceKeys.length} matching application keys`);
+else console.log(`i18n: ${codes.length} languages, ${sourceKeys.length} matching application keys`);

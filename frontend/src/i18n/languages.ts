@@ -1,17 +1,27 @@
-export const supportedLanguages = [
-  { code: "en", nativeName: "English" },
-  { code: "ru", nativeName: "Русский" },
-] as const;
+import config from "../../../languages.json";
 
-export type LanguageCode = (typeof supportedLanguages)[number]["code"];
-export const defaultLanguage: LanguageCode = "en";
+export type LanguageCode = string;
+
+export const supportedLanguages = config.languages;
+export const defaultLanguage = config.defaultLanguage;
+
+const languageAliases = new Map(
+  supportedLanguages.flatMap(({ code, aliases = [] }) =>
+    aliases.map((alias) => [alias, code] as const),
+  ),
+);
+const languageCodes = new Set(supportedLanguages.map(({ code }) => code));
 
 export function isSupportedLanguage(value: string | null | undefined): value is LanguageCode {
-  return supportedLanguages.some(({ code }) => code === value);
+  return value !== undefined && value !== null && languageCodes.has(value);
 }
 
 export function normalizeLanguage(value: string | null | undefined): LanguageCode {
   if (!value) return defaultLanguage;
-  const normalized = value.trim().toLowerCase().split(/[-_]/)[0];
-  return isSupportedLanguage(normalized) ? normalized : defaultLanguage;
+  try {
+    const code = new Intl.Locale(value.trim().replaceAll("_", "-")).language;
+    return languageCodes.has(code) ? code : (languageAliases.get(code) ?? defaultLanguage);
+  } catch {
+    return defaultLanguage;
+  }
 }
