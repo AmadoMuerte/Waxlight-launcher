@@ -22,14 +22,6 @@ type keyringBackend interface {
 	Delete(service, user string) error
 }
 
-type systemBackend struct{}
-
-func (systemBackend) Get(service, user string) (string, error) { return keyring.Get(service, user) }
-func (systemBackend) Set(service, user, password string) error {
-	return keyring.Set(service, user, password)
-}
-func (systemBackend) Delete(service, user string) error { return keyring.Delete(service, user) }
-
 // Store persists versioned session material in the operating system's native
 // credential service. It intentionally has no file or in-memory fallback.
 type Store struct {
