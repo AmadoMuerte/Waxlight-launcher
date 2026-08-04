@@ -120,6 +120,29 @@ mkdir -p "$output_directory"
 mkdir -p "$build_bin_directory"
 
 echo
+echo "Installing frontend dependencies..."
+echo "-----------------------------------"
+
+npm ci \
+    --include=dev \
+    --prefix "$repository_root/frontend"
+
+echo
+echo "Building frontend assets..."
+echo "---------------------------"
+
+npm \
+    --prefix "$repository_root/frontend" \
+    run build
+
+frontend_entry="$repository_root/frontend/dist/index.html"
+
+if [[ ! -s "$frontend_entry" ]]; then
+    echo "error: frontend build did not create: $frontend_entry" >&2
+    exit 1
+fi
+
+echo
 echo "Building Linux application..."
 echo "-----------------------------"
 
@@ -133,11 +156,6 @@ echo "-----------------------------"
         -trimpath \
         -ldflags="-s -w"
 )
-
-if [[ ! -s "$application_binary" ]]; then
-    echo "error: Wails binary was not created: $application_binary" >&2
-    exit 1
-fi
 
 chmod 0755 "$application_binary"
 

@@ -137,6 +137,8 @@ $WindowsFileVersion = Get-WindowsFileVersion -ReleaseVersion $ReleaseVersion
 $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 $WailsProjectDirectory = Join-Path $RepositoryRoot "cmd\waxlight"
 $BuildBinDirectory = Join-Path $RepositoryRoot "build\bin"
+$FrontendDirectory = Join-Path $RepositoryRoot "frontend"
+$FrontendEntry = Join-Path $FrontendDirectory "dist\index.html"
 
 if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
     $ResolvedOutputDirectory = $OutputDirectory
@@ -166,6 +168,30 @@ foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
             -Path $ConfigPath `
             -ProductVersion $WindowsFileVersion
     }
+}
+
+Invoke-CheckedCommand `
+    -Description "Installing frontend dependencies..." `
+    -Command {
+        npm ci `
+            --include=dev `
+            --prefix $FrontendDirectory
+    }
+
+Invoke-CheckedCommand `
+    -Description "Building frontend assets..." `
+    -Command {
+        npm `
+            --prefix $FrontendDirectory `
+            run build
+    }
+
+if (-not (Test-Path -LiteralPath $FrontendEntry)) {
+    throw "Frontend build did not create: $FrontendEntry"
+}
+
+if ((Get-Item -LiteralPath $FrontendEntry).Length -le 0) {
+    throw "Frontend entry file is empty: $FrontendEntry"
 }
 
 try {
