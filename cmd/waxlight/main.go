@@ -1,9 +1,8 @@
 package main
 
 import (
-	"os"
-	"strconv"
-	"time"
+	_ "embed"
+	"log"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -12,15 +11,18 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 )
 
+// appIcon is embedded into the executable so Linux window managers can use
+// the same icon as the packaged desktop entry.
+//
+//go:embed appicon.png
+var appIcon []byte
+
 func main() {
-	updater.WaitForParent(updateParentPID(os.Args), 15*time.Second)
 	container, err := bootstrap.New()
 	if err != nil {
-		showFatalError(err.Error())
-		return
+		log.Fatal(err)
 	}
 
 	err = wails.Run(&options.App{
@@ -34,24 +36,16 @@ func main() {
 		OnStartup:        container.Startup,
 		OnShutdown:       container.Shutdown,
 		Bind:             container.Controllers,
-		Linux:            &linux.Options{ProgramName: "waxlight"},
-		Windows:          &windows.Options{WebviewIsTransparent: false, WindowIsTranslucent: false},
+		Linux: &linux.Options{
+			Icon:        appIcon,
+			ProgramName: "waxlight",
+		},
+		Windows: &windows.Options{
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
+		},
 	})
 	if err != nil {
-		showFatalError(err.Error())
+		log.Fatal(err)
 	}
-}
-
-func updateParentPID(arguments []string) int {
-	for index := 1; index+1 < len(arguments); index++ {
-		if arguments[index] != "--update-wait-pid" {
-			continue
-		}
-		pid, err := strconv.Atoi(arguments[index+1])
-		if err == nil && pid > 0 {
-			return pid
-		}
-		return 0
-	}
-	return 0
 }

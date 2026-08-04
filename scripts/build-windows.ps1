@@ -1,3 +1,5 @@
+#Requires -Version 5.1
+
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -134,9 +136,15 @@ $WindowsFileVersion = Get-WindowsFileVersion -ReleaseVersion $ReleaseVersion
 
 $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 $WailsProjectDirectory = Join-Path $RepositoryRoot "cmd\waxlight"
-$BuildBinDirectory = Join-Path $RepositoryRoot "build\bin"
+$BuildDirectory = Join-Path $RepositoryRoot "build"
+$BuildBinDirectory = Join-Path $BuildDirectory "bin"
 $FrontendDirectory = Join-Path $RepositoryRoot "frontend"
 $FrontendEntry = Join-Path $FrontendDirectory "dist\index.html"
+$ApplicationIconPng = Join-Path $WailsProjectDirectory "appicon.png"
+$ApplicationIconIco = Join-Path $WailsProjectDirectory "appicon.ico"
+$WailsAppIcon = Join-Path $BuildDirectory "appicon.png"
+$WailsWindowsDirectory = Join-Path $BuildDirectory "windows"
+$WailsWindowsIcon = Join-Path $WailsWindowsDirectory "icon.ico"
 
 if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
     $ResolvedOutputDirectory = $OutputDirectory
@@ -158,6 +166,48 @@ New-Item `
     -ItemType Directory `
     -Path $ResolvedOutputDirectory `
     -Force | Out-Null
+
+foreach ($RequiredAsset in @($ApplicationIconPng, $ApplicationIconIco)) {
+    if (-not (Test-Path -LiteralPath $RequiredAsset -PathType Leaf)) {
+        throw "Required application icon is missing: $RequiredAsset"
+    }
+
+    if ((Get-Item -LiteralPath $RequiredAsset).Length -le 0) {
+        throw "Required application icon is empty: $RequiredAsset"
+    }
+}
+
+# Clean only generated binaries. Wails -clean would delete the custom icon
+# files staged under build/ before they are bundled into the executable.
+if (Test-Path -LiteralPath $BuildBinDirectory) {
+    Remove-Item `
+        -LiteralPath $BuildBinDirectory `
+        -Recurse `
+        -Force
+}
+
+New-Item `
+    -ItemType Directory `
+    -Path $BuildBinDirectory `
+    -Force | Out-Null
+
+New-Item `
+    -ItemType Directory `
+    -Path $WailsWindowsDirectory `
+    -Force | Out-Null
+
+# Wails reads build/appicon.png and build/windows/icon.ico when producing the
+# executable and NSIS installer. The tracked source files live beside main.go;
+# build/ remains generated output.
+Copy-Item `
+    -LiteralPath $ApplicationIconPng `
+    -Destination $WailsAppIcon `
+    -Force
+
+Copy-Item `
+    -LiteralPath $ApplicationIconIco `
+    -Destination $WailsWindowsIcon `
+    -Force
 
 foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
     if (Test-Path -LiteralPath $ConfigPath) {
@@ -200,7 +250,6 @@ try {
             -Description "Building Windows application and NSIS installer..." `
             -Command {
                 wails build `
-                    -clean `
                     -platform windows/amd64 `
                     -nsis `
                     -trimpath `
@@ -242,7 +291,7 @@ try {
         ForEach-Object FullName
 
     if (-not $InstallerExecutable) {
-        Write-Host ("Files found in {0}:" -f $BuildBinDirectory)
+        Write-Host "Files found in $BuildBinDirectory:"
         Get-ChildItem -Path $BuildBinDirectory -File -Recurse |
             Format-Table FullName, Length
 
