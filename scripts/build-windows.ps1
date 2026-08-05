@@ -64,7 +64,21 @@ function Get-WindowsFileVersion {
         throw "Unable to convert '$ReleaseVersion' to a Windows file version"
     }
 
-    return "$($Parts[0]).$($Parts[1]).$($Parts[2]).0"
+    $BuildNumber = 0
+
+    if ($ReleaseVersion -match "-") {
+        $Prerelease = ($ReleaseVersion -split "-", 2)[1]
+        $PrereleaseParts = $Prerelease -split "\."
+
+        for ($i = $PrereleaseParts.Count - 1; $i -ge 0; $i--) {
+            if ($PrereleaseParts[$i] -match '^\d+$') {
+                $BuildNumber = [int]$PrereleaseParts[$i]
+                break
+            }
+        }
+    }
+
+    return "$($Parts[0]).$($Parts[1]).$($Parts[2]).$BuildNumber"
 }
 
 function Set-WailsProductVersion {
