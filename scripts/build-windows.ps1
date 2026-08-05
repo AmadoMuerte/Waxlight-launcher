@@ -90,48 +90,48 @@ function Set-WailsProductVersion {
                 companyName = "AmadoMuerte"
                 productName = "Waxlight Launcher"
                 productVersion = $ProductVersion
-                copyright = "Copyright © 2026 AmadoMuerte"
+                copyright = "Copyright [copyright] 2026 AmadoMuerte"
                 comments = "Free software licensed under the GNU General Public License v3.0."
             })
-        return
-    }
-
-    if ($null -eq $Config.info.PSObject.Properties["productVersion"]) {
-        $Config.info | Add-Member `
-            -MemberType NoteProperty `
-            -Name "productVersion" `
-            -Value $ProductVersion
     }
     else {
-        $Config.info.productVersion = $ProductVersion
-    }
+        if ($null -eq $Config.info.PSObject.Properties["productVersion"]) {
+            $Config.info | Add-Member `
+                -MemberType NoteProperty `
+                -Name "productVersion" `
+                -Value $ProductVersion
+        }
+        else {
+            $Config.info.productVersion = $ProductVersion
+        }
 
-    if ($null -eq $Config.info.PSObject.Properties["companyName"]) {
-        $Config.info | Add-Member `
-            -MemberType NoteProperty `
-            -Name "companyName" `
-            -Value "AmadoMuerte"
-    }
+        if ($null -eq $Config.info.PSObject.Properties["companyName"]) {
+            $Config.info | Add-Member `
+                -MemberType NoteProperty `
+                -Name "companyName" `
+                -Value "AmadoMuerte"
+        }
 
-    if ($null -eq $Config.info.PSObject.Properties["productName"]) {
-        $Config.info | Add-Member `
-            -MemberType NoteProperty `
-            -Name "productName" `
-            -Value "Waxlight Launcher"
-    }
+        if ($null -eq $Config.info.PSObject.Properties["productName"]) {
+            $Config.info | Add-Member `
+                -MemberType NoteProperty `
+                -Name "productName" `
+                -Value "Waxlight Launcher"
+        }
 
-    if ($null -eq $Config.info.PSObject.Properties["copyright"]) {
-        $Config.info | Add-Member `
-            -MemberType NoteProperty `
-            -Name "copyright" `
-            -Value "Copyright © 2026 AmadoMuerte"
-    }
+        if ($null -eq $Config.info.PSObject.Properties["copyright"]) {
+            $Config.info | Add-Member `
+                -MemberType NoteProperty `
+                -Name "copyright" `
+                -Value "Copyright [copyright] 2026 AmadoMuerte"
+        }
 
-    if ($null -eq $Config.info.PSObject.Properties["comments"]) {
-        $Config.info | Add-Member `
-            -MemberType NoteProperty `
-            -Name "comments" `
-            -Value "Free software licensed under the GNU General Public License v3.0."
+        if ($null -eq $Config.info.PSObject.Properties["comments"]) {
+            $Config.info | Add-Member `
+                -MemberType NoteProperty `
+                -Name "comments" `
+                -Value "Free software licensed under the GNU General Public License v3.0."
+        }
     }
 
     $Json = $Config | ConvertTo-Json -Depth 100
@@ -143,10 +143,62 @@ function Set-WailsProductVersion {
     )
 }
 
+function New-WindowsInfoJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FileVersion,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProductVersion
+    )
+
+    $Directory = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $Directory)) {
+        New-Item -ItemType Directory -Path $Directory -Force | Out-Null
+    }
+
+    $CopyrightSymbol = [char]0x00A9
+    $LegalCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
+
+    $Info = [PSCustomObject]@{
+       CompanyName     = "AmadoMuerte"
+        FileDescription = "Waxlight Launcher"
+        FileVersion     = $FileVersion
+        InternalName    = "waxlight"
+        LegalCopyright  = $LegalCopyright
+        OriginalFilename = "waxlight.exe"
+        ProductName     = "Waxlight Launcher"
+        ProductVersion  = $ProductVersion
+        Comments        = "Free software licensed under the GNU General Public License v3.0."
+    }
+
+    $Json = $Info | ConvertTo-Json -Depth 100
+
+    [System.IO.File]::WriteAllText(
+        $Path,
+        $Json + [Environment]::NewLine,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+
+    Write-Host "Generated Windows info.json:"
+    Write-Host "  CompanyName:     $($Info.CompanyName)"
+    Write-Host "  FileDescription: $($Info.FileDescription)"
+    Write-Host "  FileVersion:     $($Info.FileVersion)"
+    Write-Host "  LegalCopyright:  $($Info.LegalCopyright)"
+    Write-Host "  ProductName:     $($Info.ProductName)"
+    Write-Host "  ProductVersion:  $($Info.ProductVersion)"
+}
+
 function Test-WindowsMetadata {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ExecutablePath
+        [string]$ExecutablePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedFileVersion
     )
 
     if (-not (Test-Path -LiteralPath $ExecutablePath)) {
@@ -166,6 +218,9 @@ function Test-WindowsMetadata {
     Write-Host "  Comments:        $($VersionInfo.Comments)"
     Write-Host ""
 
+    $CopyrightSymbol = [char]0x00A9
+    $ExpectedCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
+
     $Errors = @()
 
     if ($VersionInfo.FileDescription -ne "Waxlight Launcher") {
@@ -180,20 +235,24 @@ function Test-WindowsMetadata {
         $Errors += "CompanyName must be 'AmadoMuerte', got '$($VersionInfo.CompanyName)'"
     }
 
-    if ($VersionInfo.LegalCopyright -ne "Copyright © 2026 AmadoMuerte") {
-        $Errors += "LegalCopyright must be 'Copyright © 2026 AmadoMuerte', got '$($VersionInfo.LegalCopyright)'"
+    if ($VersionInfo.LegalCopyright -ne $ExpectedCopyright) {
+        $Errors += "LegalCopyright must be '$ExpectedCopyright', got '$($VersionInfo.LegalCopyright)'"
     }
 
-    if ($VersionInfo.CompanyName -eq "" -or $VersionInfo.CompanyName -eq $null) {
+    if ([string]::IsNullOrEmpty($VersionInfo.CompanyName)) {
         $Errors += "CompanyName must not be empty"
     }
 
-    if ($VersionInfo.ProductName -eq "" -or $VersionInfo.ProductName -eq $null) {
+    if ([string]::IsNullOrEmpty($VersionInfo.ProductName)) {
         $Errors += "ProductName must not be empty"
     }
 
-    if ($VersionInfo.ProductVersion -ne $WindowsFileVersion) {
-        $Errors += "ProductVersion must be '$WindowsFileVersion', got '$($VersionInfo.ProductVersion)'"
+    if ($VersionInfo.FileVersion -ne $ExpectedFileVersion) {
+        $Errors += "FileVersion must be '$ExpectedFileVersion', got '$($VersionInfo.FileVersion)'"
+    }
+
+    if ($VersionInfo.ProductVersion -ne $ExpectedFileVersion) {
+        $Errors += "ProductVersion must be '$ExpectedFileVersion', got '$($VersionInfo.ProductVersion)'"
     }
 
     if ($Errors.Count -gt 0) {
@@ -244,6 +303,7 @@ $ApplicationIconIco = Join-Path $WailsProjectDirectory "appicon.ico"
 $WailsAppIcon = Join-Path $BuildDirectory "appicon.png"
 $WailsWindowsDirectory = Join-Path $BuildDirectory "windows"
 $WailsWindowsIcon = Join-Path $WailsWindowsDirectory "icon.ico"
+$WailsWindowsInfo = Join-Path $WailsWindowsDirectory "info.json"
 $LicenseFile = Join-Path $RepositoryRoot "LICENSE"
 $NoticeFile = Join-Path $RepositoryRoot "NOTICE"
 
@@ -309,6 +369,12 @@ Copy-Item `
     -LiteralPath $ApplicationIconIco `
     -Destination $WailsWindowsIcon `
     -Force
+
+# Generate Windows info.json for VersionInfo metadata
+New-WindowsInfoJson `
+    -Path $WailsWindowsInfo `
+    -FileVersion $WindowsFileVersion `
+    -ProductVersion $WindowsFileVersion
 
 foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
     if (Test-Path -LiteralPath $ConfigPath) {
@@ -400,7 +466,9 @@ try {
         throw "NSIS installer was not found in $BuildBinDirectory"
     }
 
-    Test-WindowsMetadata -ExecutablePath $ApplicationExecutable
+    Test-WindowsMetadata `
+        -ExecutablePath $ApplicationExecutable `
+        -ExpectedFileVersion $WindowsFileVersion
 
     $StandaloneName =
         "Waxlight-Launcher-v$ReleaseVersion-windows-amd64.exe"
