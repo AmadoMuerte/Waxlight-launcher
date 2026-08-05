@@ -132,26 +132,7 @@ export function App() {
     [checkLauncherUpdate],
   );
 
-  useEffect(() => {
-    void refresh(true);
-
-    void updatesApi
-      .currentVersion()
-      .then(setLauncherVersion)
-      .catch(() => undefined);
-
-    void Environment()
-      .then((environment) => setPlatform(environment.platform))
-      .catch(() => undefined);
-
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, 8_000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [refresh]);
+  useEffect(() => { void refresh(true); void updatesApi .currentVersion() .then(setLauncherVersion) .catch(() => undefined); void (async () => { try { const environment = await Environment(); setPlatform(environment.platform); } catch { setPlatform(""); } })(); const timer = window.setInterval(() => { void refresh(); }, 8_000); return () => { window.clearInterval(timer); }; }, [refresh]);
 
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
 
