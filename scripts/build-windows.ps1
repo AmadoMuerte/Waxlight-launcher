@@ -111,6 +111,32 @@ function Set-WailsProductVersion {
         }
     }
 
+    # Wails normally links VersionInfo through a generated .syso file. The
+    # project needs CGO for go-sqlite3, so the final executable is linked by
+    # MinGW. Patch the already-built executable in a Wails post-build hook,
+    # before Wails creates the NSIS installer. This makes the standalone EXE
+    # and the EXE inside the installer use the exact same verified metadata.
+    $WindowsPostBuildHook =
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -File ../../scripts/set-windows-executable-metadata.ps1 -ExecutablePath ${bin}'
+
+    if ($null -eq $Config.PSObject.Properties["postBuildHooks"]) {
+        $Config | Add-Member `
+            -MemberType NoteProperty `
+            -Name "postBuildHooks" `
+            -Value ([PSCustomObject]@{})
+    }
+
+    if ($null -eq $Config.postBuildHooks.PSObject.Properties["windows/*"]) {
+        $Config.postBuildHooks | Add-Member `
+            -MemberType NoteProperty `
+            -Name "windows/*" `
+            -Value $WindowsPostBuildHook
+    }
+    else {
+        $Config.postBuildHooks.PSObject.Properties["windows/*"].Value =
+            $WindowsPostBuildHook
+    }
+
     $Json = $Config | ConvertTo-Json -Depth 100
 
     [System.IO.File]::WriteAllText(

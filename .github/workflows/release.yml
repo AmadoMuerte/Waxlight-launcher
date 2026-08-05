@@ -191,10 +191,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install MinGW and NSIS
+      - name: Install Windows build tools
         shell: powershell
         run: |
           choco install mingw nsis --no-progress -y
+          npm install --global resedit-cli@3.1.0
 
           $CandidateDirectories = @(
             "C:\ProgramData\mingw64\mingw64\bin",
@@ -226,12 +227,13 @@ jobs:
           }
 
           $NsisDirectory = "${env:ProgramFiles(x86)}\NSIS"
+          $NpmGlobalPrefix = (npm prefix --global).Trim()
 
           if (-not (Test-Path (Join-Path $NsisDirectory "makensis.exe"))) {
             throw "Chocolatey did not install makensis.exe in $NsisDirectory"
           }
 
-          $env:Path = "$MingwBin;$NsisDirectory;$env:Path"
+          $env:Path = "$MingwBin;$NsisDirectory;$NpmGlobalPrefix;$env:Path"
 
           $MingwBin |
             Out-File `
@@ -245,12 +247,20 @@ jobs:
               -Encoding utf8 `
               -Append
 
+          $NpmGlobalPrefix |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
           Write-Host "MinGW path: $MingwBin"
           Write-Host "NSIS path: $NsisDirectory"
+          Write-Host "npm global path: $NpmGlobalPrefix"
 
           gcc --version
           g++ --version
           makensis /VERSION
+          resedit --version
 
       - name: Install Wails CLI
         shell: powershell
@@ -269,6 +279,7 @@ jobs:
           gcc --version
           g++ --version
           makensis /VERSION
+          resedit --version
           wails version
 
       - name: Build Windows packages
@@ -308,6 +319,8 @@ jobs:
           Write-Host "  Comments:        $($VersionInfo.Comments)"
 
           $Errors = @()
+          $CopyrightSymbol = [char]0x00A9
+          $ExpectedCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
 
           if ($VersionInfo.FileDescription -ne "Waxlight Launcher") {
             $Errors += "FileDescription must be 'Waxlight Launcher', got '$($VersionInfo.FileDescription)'"
@@ -321,8 +334,8 @@ jobs:
             $Errors += "CompanyName must be 'AmadoMuerte', got '$($VersionInfo.CompanyName)'"
           }
 
-          if ($VersionInfo.LegalCopyright -ne "Copyright © 2026 AmadoMuerte") {
-            $Errors += "LegalCopyright must be 'Copyright © 2026 AmadoMuerte', got '$($VersionInfo.LegalCopyright)'"
+          if ($VersionInfo.LegalCopyright -ne $ExpectedCopyright) {
+            $Errors += "LegalCopyright must be '$ExpectedCopyright', got '$($VersionInfo.LegalCopyright)'"
           }
 
           if ([string]::IsNullOrEmpty($VersionInfo.CompanyName)) {
