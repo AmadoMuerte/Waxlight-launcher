@@ -32,12 +32,13 @@ import {
   type Statistics,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { EventsOn } from "../wailsjs/runtime/runtime";
+import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 
 type ToastType = "ok" | "error";
 
 export function App() {
   const updateCheckSequenceRef = useRef(0);
+
   const [instances, setInstances] = useState<Instance[]>([]);
   const [versions, setVersions] = useState<GameVersion[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -50,22 +51,34 @@ export function App() {
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState("");
-  const [toast, setToast] = useState<{ message: string; type: ToastType }>();
+  const [toast, setToast] = useState<{
+    message: string;
+    type: ToastType;
+  }>();
+  const [platform, setPlatform] = useState("");
 
   const checkLauncherUpdate = useCallback(
     async (channel: Settings["updateChannel"], skippedVersion: string) => {
       const sequence = ++updateCheckSequenceRef.current;
+
       try {
         const update = await updatesApi.check(channel);
-        if (sequence !== updateCheckSequenceRef.current) return;
+
+        if (sequence !== updateCheckSequenceRef.current) {
+          return;
+        }
+
         setLauncherVersion(update.installedVersion);
+
         if (update.available && update.version !== skippedVersion) {
           setLauncherUpdate(update);
         } else {
           setLauncherUpdate(undefined);
         }
       } catch {
-        if (sequence === updateCheckSequenceRef.current) setLauncherUpdate(undefined);
+        if (sequence === updateCheckSequenceRef.current) {
+          setLauncherUpdate(undefined);
+        }
       }
     },
     [],
@@ -89,14 +102,18 @@ export function App() {
           statisticsApi.overview(),
           includeSettings ? settingsApi.get() : Promise.resolve(undefined),
         ]);
+
         setInstances(instanceItems ?? []);
         setVersions(versionItems ?? []);
         setAccounts(accountItems ?? []);
         setOperations(operationItems ?? []);
         setStatistics(statisticsOverview);
+
         if (applicationSettings) {
           await changeAppLanguage(applicationSettings.language);
+
           setSettings(applicationSettings);
+
           if (applicationSettings.checkForUpdates) {
             void checkLauncherUpdate(
               applicationSettings.updateChannel,
@@ -104,6 +121,7 @@ export function App() {
             );
           }
         }
+
         setFatalError("");
       } catch (error) {
         setFatalError(errorMessage(error));
@@ -116,22 +134,43 @@ export function App() {
 
   useEffect(() => {
     void refresh(true);
+
     void updatesApi
       .currentVersion()
       .then(setLauncherVersion)
       .catch(() => undefined);
-    const timer = window.setInterval(() => void refresh(), 8_000);
-    return () => window.clearInterval(timer);
+
+    void Environment()
+      .then((environment) => setPlatform(environment.platform))
+      .catch(() => undefined);
+
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 8_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [refresh]);
 
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
+
   useEffect(() => {
-    if (!settings) return;
+    if (!settings) {
+      return;
+    }
+
     const previous = previousChannelRef.current;
     const current = settings.updateChannel;
+
     previousChannelRef.current = current;
-    if (previous === undefined || previous === current) return;
+
+    if (previous === undefined || previous === current) {
+      return;
+    }
+
     setLauncherUpdate(undefined);
+
     void checkLauncherUpdate(current, settings.skippedUpdateVersion);
   }, [checkLauncherUpdate, settings]);
 
@@ -147,7 +186,10 @@ export function App() {
 
   function notify(message: string, type: ToastType = "ok") {
     setToast({ message, type });
-    window.setTimeout(() => setToast(undefined), 3_800);
+
+    window.setTimeout(() => {
+      setToast(undefined);
+    }, 3_800);
   }
 
   const handleSettingsSaved = useCallback((saved: Settings) => {
@@ -155,14 +197,19 @@ export function App() {
   }, []);
 
   async function installLauncherUpdate() {
-    if (!settings) return;
+    if (!settings) {
+      return;
+    }
+
     setInstallingUpdate(true);
+
     setUpdateProgress({
       phase: "downloading",
       downloadedBytes: 0,
       totalBytes: launcherUpdate?.assetSize ?? 0,
       progress: 0,
     });
+
     try {
       await updatesApi.install(settings.updateChannel);
     } catch (error) {
@@ -173,12 +220,16 @@ export function App() {
   }
 
   async function skipLauncherUpdate() {
-    if (!settings || !launcherUpdate) return;
+    if (!settings || !launcherUpdate) {
+      return;
+    }
+
     try {
       const saved = await settingsApi.update({
         ...settings,
         skippedUpdateVersion: launcherUpdate.version,
       });
+
       setSettings(saved);
       setLauncherUpdate(undefined);
     } catch (error) {
@@ -205,19 +256,31 @@ export function App() {
   return (
     <div className="shell">
       <Sidebar accounts={accounts} operations={operations} refresh={refresh} notify={notify} />
+
       <main>
         {fatalError && <ErrorBanner message={fatalError} onRetry={refresh} />}
+
         {launcherUpdate && (
           <UpdateNotice
+            platform={platform}
             update={launcherUpdate}
             installingUpdate={installingUpdate}
             updateProgress={updateProgress}
-            onInstall={() => void installLauncherUpdate()}
-            onOpenRelease={() => void openLauncherRelease()}
-            onSkip={() => void skipLauncherUpdate()}
-            onDismiss={() => setLauncherUpdate(undefined)}
+            onInstall={() => {
+              void installLauncherUpdate();
+            }}
+            onOpenRelease={() => {
+              void openLauncherRelease();
+            }}
+            onSkip={() => {
+              void skipLauncherUpdate();
+            }}
+            onDismiss={() => {
+              setLauncherUpdate(undefined);
+            }}
           />
         )}
+
         <Routes>
           <Route
             path="/library"
@@ -232,30 +295,37 @@ export function App() {
               />
             }
           />
+
           <Route
             path="/mods/:modId"
             element={<ModDetailsPage instances={instances} versions={versions} notify={notify} />}
           />
+
           <Route
             path="/mods"
             element={<ModsPage instances={instances} versions={versions} notify={notify} />}
           />
+
           <Route
             path="/versions"
             element={<VersionsPage versions={versions} refresh={refresh} notify={notify} />}
           />
+
           <Route
             path="/operations"
             element={<OperationsPage operations={operations} refresh={refresh} notify={notify} />}
           />
+
           <Route
             path="/accounts"
             element={<AccountsPage accounts={accounts} refresh={refresh} notify={notify} />}
           />
+
           <Route
             path="/statistics"
             element={<StatisticsPage statistics={statistics} instances={instances} />}
           />
+
           <Route
             path="/settings"
             element={
@@ -267,10 +337,17 @@ export function App() {
               />
             }
           />
+
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </main>
-      <AppToast toast={toast} onDismiss={() => setToast(undefined)} />
+
+      <AppToast
+        toast={toast}
+        onDismiss={() => {
+          setToast(undefined);
+        }}
+      />
     </div>
   );
 }

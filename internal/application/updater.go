@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -123,7 +124,7 @@ func (service *LauncherUpdateService) Install(
 		return domain.NewError(domain.ErrUpdateFailed, "The release checksum is invalid")
 	}
 
-	if update.InstallationMode == "portable" {
+	if update.InstallationMode == "portable" && runtime.GOOS == "windows" {
 		service.cleanupSession(updateRoot)
 		return &domain.AppError{
 			Code:    domain.ErrUpdateUnsupported,
