@@ -9,26 +9,6 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-function Test-MetadataValue {
-    param(
-        [Parameter(Mandatory = $true)]
-        [System.Collections.Generic.List[string]]$Errors,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-
-        [AllowNull()]
-        [string]$Actual,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Expected
-    )
-
-    if ($Actual -ne $Expected) {
-        $Errors.Add("$Name must be '$Expected', got '$Actual'")
-    }
-}
-
 $ResolvedExecutable = (Resolve-Path -LiteralPath $ExecutablePath).Path
 if (-not (Test-Path -LiteralPath $ResolvedExecutable -PathType Leaf)) {
     throw "Windows executable not found: $ExecutablePath"
@@ -118,22 +98,45 @@ try {
     }
 
     $VersionInfo = (Get-Item -LiteralPath $TemporaryExecutable).VersionInfo
-    $ValidationErrors = [System.Collections.Generic.List[string]]::new()
 
-    Test-MetadataValue $ValidationErrors "FileDescription" `
-        $VersionInfo.FileDescription "Waxlight Launcher"
-    Test-MetadataValue $ValidationErrors "ProductName" `
-        $VersionInfo.ProductName "Waxlight Launcher"
-    Test-MetadataValue $ValidationErrors "CompanyName" `
-        $VersionInfo.CompanyName "AmadoMuerte"
-    Test-MetadataValue $ValidationErrors "LegalCopyright" `
-        $VersionInfo.LegalCopyright $ExpectedCopyright
-    Test-MetadataValue $ValidationErrors "FileVersion" `
-        $VersionInfo.FileVersion $WindowsVersion
-    Test-MetadataValue $ValidationErrors "ProductVersion" `
-        $VersionInfo.ProductVersion $WindowsVersion
-    Test-MetadataValue $ValidationErrors "Comments" `
-        $VersionInfo.Comments $ExpectedComments
+    Write-Host "Patched Windows executable metadata:"
+    Write-Host "  FileDescription: $($VersionInfo.FileDescription)"
+    Write-Host "  ProductName:     $($VersionInfo.ProductName)"
+    Write-Host "  CompanyName:     $($VersionInfo.CompanyName)"
+    Write-Host "  LegalCopyright:  $($VersionInfo.LegalCopyright)"
+    Write-Host "  FileVersion:     $($VersionInfo.FileVersion)"
+    Write-Host "  ProductVersion:  $($VersionInfo.ProductVersion)"
+    Write-Host "  Comments:        $($VersionInfo.Comments)"
+
+    # Do not pass an empty collection into a mandatory PowerShell parameter.
+    # Windows PowerShell 5.1 rejects that before the validation function runs.
+    # Validate the VersionInfo properties directly instead.
+    $ExpectedMetadata = [ordered]@{
+        FileDescription = "Waxlight Launcher"
+        ProductName = "Waxlight Launcher"
+        CompanyName = "AmadoMuerte"
+        LegalCopyright = $ExpectedCopyright
+        FileVersion = $WindowsVersion
+        ProductVersion = $WindowsVersion
+        Comments = $ExpectedComments
+    }
+    $ValidationErrors = @()
+
+    foreach ($Entry in $ExpectedMetadata.GetEnumerator()) {
+        $Property = $VersionInfo.PSObject.Properties[$Entry.Key]
+        $ActualValue = if ($null -eq $Property) {
+            $null
+        }
+        else {
+            [string]$Property.Value
+        }
+        $ExpectedValue = [string]$Entry.Value
+
+        if ($ActualValue -ne $ExpectedValue) {
+            $ValidationErrors +=
+                "$($Entry.Key) must be '$ExpectedValue', got '$ActualValue'"
+        }
+    }
 
     if ($ValidationErrors.Count -gt 0) {
         foreach ($ValidationError in $ValidationErrors) {
