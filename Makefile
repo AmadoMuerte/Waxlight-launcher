@@ -259,7 +259,7 @@ release-check: check-version-argument frontend-install
 	$(MAKE) security
 
 set-version: check-version-argument
-	@VERSION="$(VERSION)" node -e 'const fs = require("fs"); const version = process.env.VERSION; const files = ["wails.json", "cmd/waxlight/wails.json"]; for (const file of files) { const value = JSON.parse(fs.readFileSync(file, "utf8")); value.info = value.info || {}; value.info.productVersion = version; fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); console.log("Updated " + file + " to " + version); }'
+	@VERSION="$(VERSION)" node -e 'const fs = require("fs"); const version = process.env.VERSION; const files = ["wails.json", "cmd/waxlight/wails.json", "internal/version/wails.json"]; for (const file of files) { const value = JSON.parse(fs.readFileSync(file, "utf8")); value.info = value.info || {}; value.info.productVersion = version; fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); console.log("Updated " + file + " to " + version); }'
 	@./scripts/check-version.sh "$(VERSION)"
 
 release: \
@@ -278,7 +278,7 @@ release: \
 
 	@echo
 	@echo "Creating release commit..."
-	$(GIT) add wails.json cmd/waxlight/wails.json
+	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json
 	$(GIT) commit -m "chore(release): $(RELEASE_TAG)"
 
 	@echo

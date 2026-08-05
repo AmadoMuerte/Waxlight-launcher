@@ -140,6 +140,8 @@ echo
 echo "Building Linux application..."
 echo "-----------------------------"
 
+version_package="github.com/waxlight/waxlight-launcher/internal/version"
+
 (
     cd "$repository_root/cmd/waxlight"
 
@@ -148,7 +150,7 @@ echo "-----------------------------"
         -skipbindings \
         -platform linux/amd64 \
         -trimpath \
-        -ldflags="-s -w"
+        -ldflags="-s -w -X ${version_package}.buildVersion=${release_version}"
 )
 
 if [[ ! -s "$application_binary" ]]; then
