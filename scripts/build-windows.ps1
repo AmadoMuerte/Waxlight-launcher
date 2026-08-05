@@ -322,6 +322,9 @@ $WailsAppIcon = Join-Path $BuildDirectory "appicon.png"
 $WailsWindowsDirectory = Join-Path $BuildDirectory "windows"
 $WailsWindowsIcon = Join-Path $WailsWindowsDirectory "icon.ico"
 $WailsWindowsInfo = Join-Path $WailsWindowsDirectory "info.json"
+$InstallerTemplateSource = Join-Path $RepositoryRoot "packaging\windows\project.nsi"
+$InstallerTemplateDirectory = Join-Path $WailsWindowsDirectory "installer"
+$InstallerTemplateDestination = Join-Path $InstallerTemplateDirectory "project.nsi"
 $LicenseFile = Join-Path $RepositoryRoot "LICENSE"
 $NoticeFile = Join-Path $RepositoryRoot "NOTICE"
 
@@ -346,7 +349,7 @@ New-Item `
     -Path $ResolvedOutputDirectory `
     -Force | Out-Null
 
-foreach ($RequiredAsset in @($ApplicationIconPng, $ApplicationIconIco, $LicenseFile, $NoticeFile)) {
+foreach ($RequiredAsset in @($ApplicationIconPng, $ApplicationIconIco, $LicenseFile, $NoticeFile, $InstallerTemplateSource)) {
     if (-not (Test-Path -LiteralPath $RequiredAsset -PathType Leaf)) {
         throw "Required asset is missing: $RequiredAsset"
     }
@@ -391,6 +394,16 @@ Copy-Item `
 # Generate Windows info.json for VersionInfo metadata
 New-WindowsInfoJson `
     -Path $WailsWindowsInfo
+
+New-Item `
+    -ItemType Directory `
+    -Path $InstallerTemplateDirectory `
+    -Force | Out-Null
+
+Copy-Item `
+    -LiteralPath $InstallerTemplateSource `
+    -Destination $InstallerTemplateDestination `
+    -Force
 
 foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
     if (Test-Path -LiteralPath $ConfigPath) {
@@ -437,7 +450,7 @@ try {
                     -platform windows/amd64 `
                     -nsis `
                     -trimpath `
-                    -ldflags="-s -w"
+                    -ldflags="-s -w -X github.com/waxlight/waxlight-launcher.buildVersion=$ReleaseVersion"
             }
     }
     finally {
