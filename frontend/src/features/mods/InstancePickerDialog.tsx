@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import {
   modCatalogApi,
   type DownloadedMod,
@@ -87,6 +88,13 @@ export function InstancePickerDialog({
   const [busy, setBusy] = useState(false);
   const taskId = useRef("");
   const taskStarted = useRef(false);
+  const [incompatConfirm, setIncompatConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    warningMessage?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
 
   const release = mod.versions.find((item) => item.id === releaseId);
   const visibleInstances = useMemo(() => {
@@ -139,7 +147,47 @@ export function InstancePickerDialog({
       const instance = instances.find((item) => item.id === id);
       return instance && compatibilityFor(instance, gameVersions, release) === "incompatible";
     });
-    if (hasIncompatible && !window.confirm(t("unsupported_mod_warning"))) {
+    if (hasIncompatible) {
+      setIncompatConfirm({
+        open: true,
+        title: t("unsupported_mod_warning"),
+        warningMessage: t("unsupported_mod_warning_detail"),
+        onConfirm: async () => {
+          taskStarted.current = true;
+          taskId.current = "";
+          setDownloadedDependencies([]);
+          setProgress(undefined);
+          setBusy(true);
+          setError("");
+          setPhase("progress");
+          try {
+            const response = downloaded
+              ? await modCatalogApi.installDownloaded({
+                  modId: downloaded.modId,
+                  versionId: release.id,
+                  instanceIds: selected,
+                  allowIncompatible: true,
+                })
+              : await modCatalogApi.download({
+                  modId: mod.id,
+                  versionId: release.id,
+                  instanceIds: selected,
+                  downloadOnly: false,
+                  allowIncompatible: true,
+                });
+            taskId.current = response.taskId;
+            setResult(response);
+            setPhase("result");
+            await onDone();
+          } catch (startError) {
+            taskStarted.current = false;
+            setError(errorMessage(startError));
+            setPhase("select");
+          } finally {
+            setBusy(false);
+          }
+        },
+      });
       return;
     }
     taskStarted.current = true;
@@ -360,6 +408,18 @@ export function InstancePickerDialog({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={incompatConfirm.open}
+        title={incompatConfirm.title}
+        message={incompatConfirm.message}
+        warningMessage={incompatConfirm.warningMessage}
+        onConfirm={() => {
+          setIncompatConfirm((s) => ({ ...s, open: false }));
+          incompatConfirm.onConfirm();
+        }}
+        onCancel={() => setIncompatConfirm((s) => ({ ...s, open: false }))}
+      />
     </Modal>
   );
 }

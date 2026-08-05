@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
 import { ModCard } from "../features/mods/ModCard";
 import { ModsFilters } from "../features/mods/ModsFilters";
@@ -50,6 +51,12 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
     readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
   );
   const restoreScroll = useRef(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
 
   const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
   const instanceId = searchParams.get("instanceId") ?? "";
@@ -409,21 +416,26 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
                 onInstall={() => void openInstaller(mod.id, local)}
                 onDelete={
                   local
-                    ? async () => {
+                    ? () => {
                         const warning =
                           local.installedInstances.length > 0
                             ? t("delete_cached_installed_mod_confirmation", {
                                 count: local.installedInstances.length,
                               })
                             : t("delete_cached_mod_confirmation");
-                        if (!window.confirm(warning)) return;
-                        try {
-                          await modCatalogApi.removeDownloaded(local.modId, local.versionId);
-                          await refreshDownloaded();
-                          notify(t("downloaded_mod_removed"));
-                        } catch (removeError) {
-                          notify(errorMessage(removeError), "error");
-                        }
+                        setDeleteConfirm({
+                          open: true,
+                          title: warning,
+                          onConfirm: async () => {
+                            try {
+                              await modCatalogApi.removeDownloaded(local.modId, local.versionId);
+                              await refreshDownloaded();
+                              notify(t("downloaded_mod_removed"));
+                            } catch (removeError) {
+                              notify(errorMessage(removeError), "error");
+                            }
+                          },
+                        });
                       }
                     : undefined
                 }
@@ -460,6 +472,18 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        destructive
+        onConfirm={() => {
+          setDeleteConfirm((s) => ({ ...s, open: false }));
+          deleteConfirm.onConfirm();
+        }}
+        onCancel={() => setDeleteConfirm((s) => ({ ...s, open: false }))}
+      />
     </>
   );
 }

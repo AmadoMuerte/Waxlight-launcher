@@ -49,7 +49,6 @@ describe("operations history controls", () => {
     api.cancel.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
     api.clearHistory.mockResolvedValue(3);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   it("offers cancel only for active operations and delete only for finished ones", () => {
@@ -75,6 +74,8 @@ describe("operations history controls", () => {
 
     await user.click(screen.getByRole("button", { name: "Delete Completed download" }));
 
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith("completed"));
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith("Operation removed from history");
@@ -88,6 +89,8 @@ describe("operations history controls", () => {
     ]);
 
     await user.click(screen.getByRole("button", { name: "Clear history" }));
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(api.clearHistory).toHaveBeenCalledTimes(1));
     expect(refresh).toHaveBeenCalledTimes(1);

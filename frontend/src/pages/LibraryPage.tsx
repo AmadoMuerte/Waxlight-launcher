@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import {
   instancesApi,
   launcherApi,
@@ -63,6 +64,13 @@ export function LibraryPage({
     [instances, query],
   );
 
+  const [launchWarnConfirm, setLaunchWarnConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
+
   async function launch(instance: Instance) {
     try {
       const validation = await launcherApi.validate(instance.id, instance.defaultAccountId);
@@ -72,10 +80,17 @@ export function LibraryPage({
       if (!validation?.valid) {
         throw new Error(issues.join(". ") || t("instance_cannot_launch"));
       }
-      if (
-        warnings.length > 0 &&
-        !window.confirm(`${warnings.join("\n")}\n\n${t("launch_anyway")}`)
-      ) {
+      if (warnings.length > 0) {
+        setLaunchWarnConfirm({
+          open: true,
+          title: t("launch_anyway"),
+          message: warnings.join("\n"),
+          onConfirm: async () => {
+            await launcherApi.launch(instance.id, instance.defaultAccountId);
+            notify(t("started_instance", { name: instance.name }));
+            await refresh();
+          },
+        });
         return;
       }
 
@@ -187,6 +202,17 @@ export function LibraryPage({
           notify={notify}
         />
       )}
+
+      <ConfirmDialog
+        open={launchWarnConfirm.open}
+        title={launchWarnConfirm.title}
+        message={launchWarnConfirm.message}
+        onConfirm={() => {
+          setLaunchWarnConfirm((s) => ({ ...s, open: false }));
+          launchWarnConfirm.onConfirm();
+        }}
+        onCancel={() => setLaunchWarnConfirm((s) => ({ ...s, open: false }))}
+      />
     </>
   );
 }
@@ -411,6 +437,18 @@ function InstanceModal({
   const [accountID, setAccountID] = useState(instance.defaultAccountId ?? "");
   const [argumentsText, setArgumentsText] = useState(instance.launchArguments.join(" "));
   const [busy, setBusy] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
+  const [removeModConfirm, setRemoveModConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
 
   const loadMods = useCallback(async () => {
     try {
@@ -465,19 +503,20 @@ function InstanceModal({
   }
 
   async function deleteInstance() {
-    const confirmed = window.confirm(t("delete_instance_confirmation", { name: instance.name }));
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await instancesApi.remove(instance.id, true);
-      onClose();
-      await refresh();
-      notify(t("instance_deleted"));
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
+    setDeleteConfirm({
+      open: true,
+      title: t("delete_instance_confirmation", { name: instance.name }),
+      onConfirm: async () => {
+        try {
+          await instancesApi.remove(instance.id, true);
+          onClose();
+          await refresh();
+          notify(t("instance_deleted"));
+        } catch (error) {
+          notify(errorMessage(error), "error");
+        }
+      },
+    });
   }
 
   const selectedVersion = versions.find((version) => version.id === instance.gameVersionId);
@@ -655,16 +694,20 @@ function InstanceModal({
                     <Button
                       variant="ghost"
                       className="dangerGhost"
-                      onClick={async () => {
-                        if (!window.confirm(t("remove_mod_confirmation", { name: mod.name })))
-                          return;
-                        try {
-                          await modsApi.remove(mod.id);
-                          await loadMods();
-                          await refresh();
-                        } catch (error) {
-                          notify(errorMessage(error), "error");
-                        }
+                      onClick={() => {
+                        setRemoveModConfirm({
+                          open: true,
+                          title: t("remove_mod_confirmation", { name: mod.name }),
+                          onConfirm: async () => {
+                            try {
+                              await modsApi.remove(mod.id);
+                              await loadMods();
+                              await refresh();
+                            } catch (error) {
+                              notify(errorMessage(error), "error");
+                            }
+                          },
+                        });
                       }}
                     >
                       {t("remove")}
@@ -789,6 +832,30 @@ function InstanceModal({
           </div>
         </SubmitForm>
       )}
+
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        destructive
+        onConfirm={() => {
+          setDeleteConfirm((s) => ({ ...s, open: false }));
+          deleteConfirm.onConfirm();
+        }}
+        onCancel={() => setDeleteConfirm((s) => ({ ...s, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={removeModConfirm.open}
+        title={removeModConfirm.title}
+        message={removeModConfirm.message}
+        destructive
+        onConfirm={() => {
+          setRemoveModConfirm((s) => ({ ...s, open: false }));
+          removeModConfirm.onConfirm();
+        }}
+        onCancel={() => setRemoveModConfirm((s) => ({ ...s, open: false }))}
+      />
     </Modal>
   );
 }

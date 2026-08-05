@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, FormEvent, ReactNode } from "react";
-import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+
+import { Checkbox as RadixCheckbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -40,95 +42,43 @@ export function Modal({
   children: ReactNode;
   className?: string;
 }) {
-  const { t } = useTranslation();
-  const dialogRef = useRef<HTMLElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    const origin =
-      document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    const dialog = dialogRef.current;
-    const focusable = dialog?.querySelector<HTMLElement>(
-      "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-    );
-    focusable?.focus();
-    function keydown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        // Radix Select renders its open menu in a portal and owns this Escape key.
-        if (document.querySelector('[data-slot="select-content"][data-state="open"]')) {
-          return;
-        }
-        event.preventDefault();
-        onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab" || !dialog) return;
-      const items = [
-        ...dialog.querySelectorAll<HTMLElement>(
-          "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-        ),
-      ];
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", keydown);
-    return () => {
-      document.removeEventListener("keydown", keydown);
-      origin?.focus();
-    };
-  }, []);
-
-  /* oxlint-disable jsx-a11y/prefer-tag-over-role -- Native dialogs require showModal() and alter existing backdrop/focus behavior. */
   return (
-    <div
-      className="modalBackdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
     >
-      <section
-        ref={dialogRef}
-        className={`modal ${className}`.trim()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <div className="modalHeader">
-          <h2>{title}</h2>
-          <button type="button" className="iconButton" aria-label={t("close")} onClick={onClose}>
-            ×
-          </button>
-        </div>
+      <DialogContent className={className} aria-label={title}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
         {children}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-  /* oxlint-enable jsx-a11y/prefer-tag-over-role */
 }
 
 export function Checkbox({
   label,
   className = "",
-  ...props
+  onChange,
+  checked,
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: string;
 }) {
   return (
     <label className={`checkboxControl ${className}`.trim()}>
-      <input type="checkbox" {...props} />
-      <span className="checkboxBox" aria-hidden="true" />
+      <RadixCheckbox
+        checked={checked}
+        onCheckedChange={(radixChecked) => {
+          // Adapt Radix boolean callback to the native checkbox onChange API expected by consumers.
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- intentional adapter between Radix and native checkbox APIs
+          onChange?.({
+            target: { checked: radixChecked === true },
+          } as React.ChangeEvent<HTMLInputElement>);
+        }}
+      />
       <span>{label}</span>
     </label>
   );

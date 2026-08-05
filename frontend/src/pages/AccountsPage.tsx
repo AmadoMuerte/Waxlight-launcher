@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { accountsApi, type Account, type LoginResult, type LoginStatus } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { Button, Empty, Field, Modal, PageHeader, StatusPill, SubmitForm } from "../shared/ui";
@@ -43,6 +44,12 @@ export function AccountsPage({ accounts, refresh, notify }: AccountsPageProps) {
   const { t } = useTranslation();
   const [loginAccount, setLoginAccount] = useState<Account | null>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [removeConfirm, setRemoveConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
 
   useEffect(() => {
     if (searchParams.get("add") === "1") {
@@ -62,17 +69,20 @@ export function AccountsPage({ accounts, refresh, notify }: AccountsPageProps) {
   }
 
   async function removeAccount(account: Account) {
-    if (!window.confirm(t("remove_account_confirmation", { name: account.displayName }))) {
-      return;
-    }
-
-    try {
-      await accountsApi.remove(account.id);
-      await refresh();
-      notify(t("account_removed"));
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
+    setRemoveConfirm({
+      open: true,
+      title: t("remove_account_confirmation", { name: account.displayName }),
+      message: t("remove_account_confirmation_message"),
+      onConfirm: async () => {
+        try {
+          await accountsApi.remove(account.id);
+          await refresh();
+          notify(t("account_removed"));
+        } catch (error) {
+          notify(errorMessage(error), "error");
+        }
+      },
+    });
   }
 
   async function validateAccount(account: Account) {
@@ -158,6 +168,18 @@ export function AccountsPage({ accounts, refresh, notify }: AccountsPageProps) {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={removeConfirm.open}
+        title={removeConfirm.title}
+        message={removeConfirm.message}
+        destructive
+        onConfirm={() => {
+          setRemoveConfirm((s) => ({ ...s, open: false }));
+          removeConfirm.onConfirm();
+        }}
+        onCancel={() => setRemoveConfirm((s) => ({ ...s, open: false }))}
+      />
     </>
   );
 }

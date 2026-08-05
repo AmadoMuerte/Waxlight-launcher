@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
 import {
   formatBytes,
@@ -44,6 +45,7 @@ export function ModDetailsPage({
   const [error, setError] = useState("");
   const [installVersion, setInstallVersion] = useState<string>();
   const [lightbox, setLightbox] = useState<number>();
+  const [pendingExternalUrl, setPendingExternalUrl] = useState<string>();
   const from = searchParams.get("from") ?? "";
   const instanceId = new URLSearchParams(from).get("instanceId") ?? undefined;
 
@@ -120,13 +122,18 @@ export function ModDetailsPage({
 
   function openExternal(url: string) {
     if (!url.startsWith("https://")) return;
-    if (window.confirm(t("open_external_link_confirmation", { url }))) {
+    setPendingExternalUrl(url);
+  }
+
+  function confirmExternalUrl() {
+    if (pendingExternalUrl) {
       try {
-        BrowserOpenURL(url);
+        BrowserOpenURL(pendingExternalUrl);
       } catch {
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(pendingExternalUrl, "_blank", "noopener,noreferrer");
       }
     }
+    setPendingExternalUrl(undefined);
   }
 
   return (
@@ -328,6 +335,15 @@ export function ModDetailsPage({
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={pendingExternalUrl !== undefined}
+        title={t("open_external_link_confirmation")}
+        message={pendingExternalUrl ?? ""}
+        confirmLabel={t("open")}
+        onConfirm={confirmExternalUrl}
+        onCancel={() => setPendingExternalUrl(undefined)}
+      />
 
       {lightbox !== undefined && mod.screenshots[lightbox] && (
         <dialog className="lightbox" open aria-modal="true" aria-label={t("screenshot_viewer")}>

@@ -161,7 +161,6 @@ describe("account authentication UI", () => {
       status: "expired",
       isDefault: false,
     };
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { refresh } = renderPage([validAccount, expired]);
     const user = userEvent.setup();
 
@@ -182,7 +181,8 @@ describe("account authentication UI", () => {
     await user.click(within(validCard).getByRole("button", { name: "Validate" }));
     expect(api.validate).toHaveBeenCalledWith("first");
     await user.click(within(validCard).getByRole("button", { name: "Remove from launcher" }));
-    expect(api.remove).toHaveBeenCalledWith("first");
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("first"));
     expect(refresh).toHaveBeenCalled();
   });
 });
