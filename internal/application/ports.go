@@ -160,7 +160,11 @@ type LauncherUpdateSource interface {
 }
 
 type LauncherUpdateInstaller interface {
-	Apply(context.Context, string) error
+	Apply(ctx context.Context, installerPath string, currentPID int) error
+}
+
+type SignatureVerifier interface {
+	Verify(ctx context.Context, executablePath string) error
 }
 
 type GameVersionCatalog interface {

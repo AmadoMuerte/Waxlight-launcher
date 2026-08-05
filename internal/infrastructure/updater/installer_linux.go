@@ -20,7 +20,7 @@ import (
 
 const maximumExecutableBytes = 256 * 1024 * 1024
 
-func (*Installer) Apply(ctx context.Context, archivePath string) error {
+func (*Installer) Apply(ctx context.Context, archivePath string, _ int) error {
 	if strings.HasSuffix(archivePath, ".deb") || strings.HasSuffix(archivePath, ".rpm") {
 		return launchSystemPackageInstaller(archivePath)
 	}

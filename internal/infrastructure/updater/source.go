@@ -100,10 +100,13 @@ func (source *Source) Check(
 	}
 
 	version := canonicalVersion(selected.TagName)
+	newer := semver.Compare(version, current) > 0
+	isDowngrade := channel == "stable" && semver.Prerelease(current) != "" && semver.Compare(version, current) < 0
 	result := domain.LauncherUpdate{
 		InstalledVersion: strings.TrimPrefix(current, "v"),
 		Version:          strings.TrimPrefix(version, "v"),
-		Available:        semver.Compare(version, current) > 0,
+		Available:        newer || isDowngrade,
+		Downgrade:        isDowngrade && !newer,
 		Prerelease:       selected.Prerelease,
 		ReleaseNotes:     strings.TrimSpace(selected.Body),
 		ReleasePageURL:   selected.HTMLURL,
@@ -141,6 +144,7 @@ func (source *Source) Check(
 	result.AssetSize = asset.Size
 	result.DownloadURL = asset.BrowserDownloadURL
 	result.SHA256 = checksum
+	result.InstallationMode = string(DetectInstallationMode())
 	return result, nil
 }
 

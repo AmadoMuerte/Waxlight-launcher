@@ -53,4 +53,15 @@ const (
 	ErrUpdateUnavailable   = "UPDATE_UNAVAILABLE"
 	ErrUpdateInProgress    = "UPDATE_ALREADY_IN_PROGRESS"
 	ErrUpdateFailed        = "UPDATE_FAILED"
+
+	ErrUpdateDownloadFailed     = "UPDATE_DOWNLOAD_FAILED"
+	ErrUpdateChecksumMismatch   = "UPDATE_CHECKSUM_MISMATCH"
+	ErrUpdateSignatureMissing   = "UPDATE_SIGNATURE_MISSING"
+	ErrUpdateSignatureInvalid   = "UPDATE_SIGNATURE_INVALID"
+	ErrUpdatePublisherMismatch  = "UPDATE_PUBLISHER_MISMATCH"
+	ErrUpdateInstallerBlocked   = "UPDATE_INSTALLER_BLOCKED"
+	ErrUpdateInstallerStartFail = "UPDATE_INSTALLER_START_FAILED"
+	ErrUpdateInstallerExited    = "UPDATE_INSTALLER_EXITED_EARLY"
+	ErrUpdateUnsupported        = "UPDATE_UNSUPPORTED_INSTALLATION"
+	ErrUpdateRestartFailed      = "UPDATE_RESTART_FAILED"
 )

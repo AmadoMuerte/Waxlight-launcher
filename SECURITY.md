@@ -61,6 +61,52 @@ references. Vintage Story has no relied-upon revocation endpoint in this
 implementation, so local deletion must not be interpreted as remote session
 revocation.
 
+## Windows release signing policy
+
+All Windows release artifacts (standalone executable and NSIS installer) are
+signed with Authenticode digital signatures. The signing certificate is stored
+as a GitHub Actions secret (`CODESIGN_CERTIFICATE_BASE64`) and imported into
+the CI runner's certificate store for each release build.
+
+### What SHA-256 verifies vs what Authenticode verifies
+
+SHA-256 checksums in `SHA256SUMS` confirm that the downloaded file is
+byte-identical to the file the release publisher had when the checksum was
+generated. This protects against corrupted downloads, CDN tampering, and
+network bit-flip errors. SHA-256 does **not** verify who created the file. If
+the GitHub account is compromised, the attacker can publish valid SHA-256 hashes
+for malicious binaries.
+
+Authenticode verifies that the file was signed by a trusted publisher whose
+certificate chains to a trusted Certificate Authority. It confirms publisher
+identity and that the file has not been modified since signing. Together,
+SHA-256 + Authenticode provide integrity + authenticity. Neither alone is
+sufficient.
+
+### Trusted publisher configuration
+
+The launcher updater maintains a configured list of trusted publishers —
+certificate subjects or thumbprints that are accepted during signature
+verification. Only files signed by one of these publishers are installed. The
+updater rejects unsigned files, files signed by unknown publishers, and files
+whose signature is invalid or untrusted by Windows.
+
+Trusted publishers are updated before new signing certificates are introduced,
+so older launcher versions can verify releases signed with the new certificate.
+
+### Why Unblock-File is not used
+
+`Unblock-File` (PowerShell) removes the Mark of the Web (MOTW) alternate data
+stream from downloaded files. MOTW is set by browsers and Windows for files
+downloaded from the internet, and SmartScreen uses it to decide whether to warn
+the user before running the file.
+
+Removing MOTW bypasses SmartScreen protection. The updater does **not** use
+`Unblock-File`. Instead, it relies on Authenticode signatures: SmartScreen
+recognizes signed executables from trusted publishers and does not display
+unnecessary warnings. This approach maintains the operating system's security
+boundaries rather than working around them.
+
 ## Supported versions
 
 Waxlight is currently an early preview. Security fixes are provided for the most

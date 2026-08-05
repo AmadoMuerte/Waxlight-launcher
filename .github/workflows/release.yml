@@ -21,6 +21,7 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+  WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
 
 jobs:
   verify:
@@ -285,6 +286,76 @@ jobs:
             -Version $env:RELEASE_TAG `
             -OutputDirectory release
 
+      - name: Decode signing certificate
+        if: ${{ env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
+        shell: powershell
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+        run: |
+          $CertBytes = [System.Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64)
+          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
+          [System.IO.File]::WriteAllBytes($CertPath, $CertBytes)
+          Write-Host "Certificate decoded to $CertPath"
+
+      - name: Sign Windows executables
+        if: ${{ env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
+        shell: powershell
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGNING_TIMESTAMP_URL }}
+        run: |
+          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
+          $TimestampUrl = if ($env:WINDOWS_SIGNING_TIMESTAMP_URL) { $env:WINDOWS_SIGNING_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+
+          $Version = $env:RELEASE_TAG.TrimStart("v")
+          $FilesToSign = @(
+            "release\Waxlight-Launcher-v$Version-windows-amd64.exe",
+            "release\Waxlight-Launcher-v$Version-windows-amd64-installer.exe"
+          )
+
+          foreach ($File in $FilesToSign) {
+            if (-not (Test-Path $File)) {
+              Write-Warning "File not found for signing: $File"
+              continue
+            }
+
+            Write-Host "Signing $File..."
+            & signtool sign `
+              /fd SHA256 `
+              /f $CertPath `
+              /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD `
+              /tr $TimestampUrl `
+              /td SHA256 `
+              $File
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool sign failed for $File with exit code $LASTEXITCODE"
+            }
+
+            Write-Host "Verifying signature of $File..."
+            & signtool verify /pa /all /v $File
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool verify failed for $File with exit code $LASTEXITCODE"
+            }
+
+            $Signature = Get-AuthenticodeSignature -LiteralPath $File
+            Write-Host "Signature status: $($Signature.Status)"
+            Write-Host "Signer: $($Signature.SignerCertificate.Subject)"
+            Write-Host "Thumbprint: $($Signature.SignerCertificate.Thumbprint)"
+            Write-Host ""
+          }
+
+      - name: Clean up signing certificate
+        if: ${{ always() && env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
+        shell: powershell
+        run: |
+          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
+          if (Test-Path $CertPath) {
+            Remove-Item -Path $CertPath -Force
+            Write-Host "Signing certificate removed"
+          }
+
       - name: Verify Windows packages
         shell: powershell
         run: |
@@ -370,6 +441,61 @@ jobs:
           echo
           echo "Checksums:"
           cat release/SHA256SUMS
+
+      - name: Generate update manifest
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          channel="stable"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            channel="prerelease"
+          fi
+
+          publish_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > release/update-manifest.json << EOF
+          {
+            "schemaVersion": 1,
+            "version": "$version",
+            "channel": "$channel",
+            "publishedAt": "$publish_time",
+            "assets": {
+              "windows-amd64-installer": {
+                "name": "Waxlight-Launcher-v${version}-windows-amd64-installer.exe",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-windows-amd64-installer.exe" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-windows-amd64-installer.exe" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-windows-amd64-installer.exe" release/SHA256SUMS | cut -d' ' -f1)"
+              },
+              "windows-amd64-portable": {
+                "name": "Waxlight-Launcher-v${version}-windows-amd64-portable.zip",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-windows-amd64-portable.zip" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-windows-amd64-portable.zip" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-windows-amd64-portable.zip" release/SHA256SUMS | cut -d' ' -f1)"
+              },
+              "windows-amd64-standalone": {
+                "name": "Waxlight-Launcher-v${version}-windows-amd64.exe",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-windows-amd64.exe" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-windows-amd64.exe" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-windows-amd64.exe" release/SHA256SUMS | cut -d' ' -f1)"
+              },
+              "linux-amd64-tar": {
+                "name": "Waxlight-Launcher-v${version}-linux-amd64.tar.gz",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-linux-amd64.tar.gz" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-linux-amd64.tar.gz" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-linux-amd64.tar.gz" release/SHA256SUMS | cut -d' ' -f1)"
+              },
+              "linux-amd64-deb": {
+                "name": "Waxlight-Launcher-v${version}-linux-amd64.deb",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-linux-amd64.deb" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-linux-amd64.deb" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-linux-amd64.deb" release/SHA256SUMS | cut -d' ' -f1)"
+              },
+              "linux-amd64-rpm": {
+                "name": "Waxlight-Launcher-v${version}-linux-amd64.rpm",
+                "size": $(stat -c%s "release/Waxlight-Launcher-v${version}-linux-amd64.rpm" 2>/dev/null || stat -f%z "release/Waxlight-Launcher-v${version}-linux-amd64.rpm" 2>/dev/null || echo 0),
+                "sha256": "$(grep "Waxlight-Launcher-v${version}-linux-amd64.rpm" release/SHA256SUMS | cut -d' ' -f1)"
+              }
+            }
+          }
+          EOF
+
+          echo "Generated update manifest:"
+          cat release/update-manifest.json
 
       - name: Create or update GitHub release
         env:

@@ -359,11 +359,13 @@ export namespace presentation {
 	    installedVersion: string;
 	    version: string;
 	    available: boolean;
+	    downgrade: boolean;
 	    prerelease: boolean;
 	    releaseNotes: string;
 	    releasePageUrl: string;
 	    assetName: string;
 	    assetSize: number;
+	    installationMode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LauncherUpdateDTO(source);
@@ -374,11 +376,13 @@ export namespace presentation {
 	        this.installedVersion = source["installedVersion"];
 	        this.version = source["version"];
 	        this.available = source["available"];
+	        this.downgrade = source["downgrade"];
 	        this.prerelease = source["prerelease"];
 	        this.releaseNotes = source["releaseNotes"];
 	        this.releasePageUrl = source["releasePageUrl"];
 	        this.assetName = source["assetName"];
 	        this.assetSize = source["assetSize"];
+	        this.installationMode = source["installationMode"];
 	    }
 	}
 	export class LoginResultDTO {

@@ -40,14 +40,23 @@ type updateInstallerStub struct {
 	err  error
 }
 
-func (stub *updateInstallerStub) Apply(_ context.Context, path string) error {
+func (stub *updateInstallerStub) Apply(_ context.Context, path string, _ int) error {
 	stub.path = path
+	return stub.err
+}
+
+type signatureVerifierStub struct {
+	err error
+}
+
+func (stub *signatureVerifierStub) Verify(_ context.Context, _ string) error {
 	return stub.err
 }
 
 func TestLauncherUpdateDownloadsVerifiedOfficialAsset(t *testing.T) {
 	downloader := &updateDownloaderStub{}
 	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
 	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
 		InstalledVersion: "0.1.4",
 		Version:          "0.1.5",
@@ -55,7 +64,7 @@ func TestLauncherUpdateDownloadsVerifiedOfficialAsset(t *testing.T) {
 		AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL:      "https://github.com/AmadoMuerte/Waxlight-launcher/releases/download/v0.1.5/Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
 
 	var phases []string
 	err := service.Install(context.Background(), "stable", func(progress domain.LauncherUpdateProgress) {
@@ -81,17 +90,193 @@ func TestLauncherUpdateDownloadsVerifiedOfficialAsset(t *testing.T) {
 func TestLauncherUpdatePreservesInstallationOnVerificationFailure(t *testing.T) {
 	downloader := &updateDownloaderStub{err: errors.New("checksum mismatch")}
 	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
 	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
 		Available:   true,
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
 
 	if err := service.Install(context.Background(), "stable", nil); err == nil {
 		t.Fatal("expected verification failure")
 	}
 	if installer.path != "" {
 		t.Fatal("installer ran after failed verification")
+	}
+}
+
+func TestLauncherUpdateRejectsUnsafeFilename(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "../../etc/passwd",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected unsafe filename error")
+	}
+	if installer.path != "" {
+		t.Fatal("installer ran after filename validation failure")
+	}
+}
+
+func TestLauncherUpdateRejectsInvalidChecksumLength(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "tooshort",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected checksum validation error")
+	}
+	if installer.path != "" {
+		t.Fatal("installer ran after checksum validation failure")
+	}
+}
+
+func TestLauncherUpdateRejectsSignatureFailure(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{err: errors.New("signature invalid")}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected signature verification failure")
+	}
+	if installer.path != "" {
+		t.Fatal("installer ran after signature verification failure")
+	}
+}
+
+func TestLauncherUpdateRejectsInstallerFailure(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{err: errors.New("installer failed")}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected installer failure")
+	}
+}
+
+func TestLauncherUpdateRejectsConcurrentInstall(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	service.mu.Lock()
+	service.installing = true
+	service.mu.Unlock()
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected concurrent install error")
+	}
+}
+
+func TestLauncherUpdateRejectsInvalidChannel(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "invalid", nil)
+	if err == nil {
+		t.Fatal("expected invalid channel error")
+	}
+}
+
+func TestLauncherUpdateRejectsNoUpdateAvailable(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available: false,
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected no update available error")
+	}
+}
+
+func TestLauncherUpdateRejectsPortableViewableMode(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:        true,
+		AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL:      "https://github.com/example",
+		SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		InstallationMode: "portable",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err == nil {
+		t.Fatal("expected portable mode error")
+	}
+	if installer.path != "" {
+		t.Fatal("installer ran for portable mode")
+	}
+}
+
+func TestLauncherUpdatePublishesProgressPhases(t *testing.T) {
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
+		Available:   true,
+		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+		DownloadURL: "https://github.com/example",
+		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	var phases []string
+	err := service.Install(context.Background(), "stable", func(progress domain.LauncherUpdateProgress) {
+		phases = append(phases, progress.Phase)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedPhases := []string{"checking", "downloading", "downloading", "signature", "installing", "restarting"}
+	if len(phases) != len(expectedPhases) {
+		t.Fatalf("expected %d phases, got %d: %v", len(expectedPhases), len(phases), phases)
+	}
+	for i, expected := range expectedPhases {
+		if phases[i] != expected {
+			t.Fatalf("phase %d: expected %q, got %q", i, expected, phases[i])
+		}
 	}
 }
