@@ -286,6 +286,63 @@ jobs:
             -Version $env:RELEASE_TAG `
             -OutputDirectory release
 
+      - name: Validate Windows executable metadata
+        shell: powershell
+        run: |
+          $Version = $env:RELEASE_TAG.TrimStart("v")
+          $Executable = "release\Waxlight-Launcher-v$Version-windows-amd64.exe"
+
+          if (-not (Test-Path $Executable)) {
+            throw "Windows executable not found: $Executable"
+          }
+
+          $VersionInfo = (Get-Item $Executable).VersionInfo
+
+          Write-Host "Windows executable metadata:"
+          Write-Host "  FileDescription: $($VersionInfo.FileDescription)"
+          Write-Host "  ProductName:     $($VersionInfo.ProductName)"
+          Write-Host "  CompanyName:     $($VersionInfo.CompanyName)"
+          Write-Host "  LegalCopyright:  $($VersionInfo.LegalCopyright)"
+          Write-Host "  FileVersion:     $($VersionInfo.FileVersion)"
+          Write-Host "  ProductVersion:  $($VersionInfo.ProductVersion)"
+          Write-Host "  Comments:        $($VersionInfo.Comments)"
+
+          $Errors = @()
+
+          if ($VersionInfo.FileDescription -ne "Waxlight Launcher") {
+            $Errors += "FileDescription must be 'Waxlight Launcher', got '$($VersionInfo.FileDescription)'"
+          }
+
+          if ($VersionInfo.ProductName -ne "Waxlight Launcher") {
+            $Errors += "ProductName must be 'Waxlight Launcher', got '$($VersionInfo.ProductName)'"
+          }
+
+          if ($VersionInfo.CompanyName -ne "AmadoMuerte") {
+            $Errors += "CompanyName must be 'AmadoMuerte', got '$($VersionInfo.CompanyName)'"
+          }
+
+          if ($VersionInfo.LegalCopyright -ne "Copyright © 2026 AmadoMuerte") {
+            $Errors += "LegalCopyright must be 'Copyright © 2026 AmadoMuerte', got '$($VersionInfo.LegalCopyright)'"
+          }
+
+          if ([string]::IsNullOrEmpty($VersionInfo.CompanyName)) {
+            $Errors += "CompanyName must not be empty"
+          }
+
+          if ([string]::IsNullOrEmpty($VersionInfo.ProductName)) {
+            $Errors += "ProductName must not be empty"
+          }
+
+          if ($Errors.Count -gt 0) {
+            Write-Host "Windows metadata validation failed:" -ForegroundColor Red
+            foreach ($Error in $Errors) {
+              Write-Host "  - $Error" -ForegroundColor Red
+            }
+            throw "Windows metadata validation failed with $($Errors.Count) error(s)"
+          }
+
+          Write-Host "Windows metadata validation passed" -ForegroundColor Green
+
       - name: Decode signing certificate
         if: ${{ env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
         shell: powershell
