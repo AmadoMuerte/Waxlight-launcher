@@ -2,10 +2,13 @@ package updater
 
 import "context"
 
-// SignatureVerifier verifies Authenticode digital signatures on Windows executables.
+// SignatureVerifier performs the platform-specific signature policy after the
+// downloaded package has already passed the mandatory SHA-256 verification.
+//
+// Windows builds enforce Authenticode only when at least one trusted publisher
+// subject or certificate thumbprint is configured. Unsigned development builds
+// therefore remain updateable in checksum-only mode, while signed production
+// builds fail closed on an invalid or unexpected publisher.
 type SignatureVerifier interface {
-	// Verify checks that the file at executablePath has a valid Authenticode signature
-	// from a trusted publisher. Returns nil if the signature is valid, or an error
-	// describing why the verification failed.
 	Verify(ctx context.Context, executablePath string) error
 }

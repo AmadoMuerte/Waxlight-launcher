@@ -2,17 +2,17 @@
 
 package updater
 
-import (
-	"context"
-	"fmt"
-)
+import "context"
 
-type NopSignatureVerifier struct{}
+// ChecksumOnlySignatureVerifier is used on platforms where Authenticode does
+// not apply. LauncherUpdateService has already required and verified SHA-256
+// before this verifier is called.
+type ChecksumOnlySignatureVerifier struct{}
 
-func NewSignatureVerifier(_ []string) *NopSignatureVerifier {
-	return &NopSignatureVerifier{}
+func NewSignatureVerifier(_ []string) *ChecksumOnlySignatureVerifier {
+	return &ChecksumOnlySignatureVerifier{}
 }
 
-func (*NopSignatureVerifier) Verify(_ context.Context, _ string) error {
-	return fmt.Errorf("signature verification is only supported on Windows")
+func (*ChecksumOnlySignatureVerifier) Verify(_ context.Context, _ string) error {
+	return nil
 }

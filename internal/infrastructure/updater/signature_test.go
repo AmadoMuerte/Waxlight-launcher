@@ -5,18 +5,16 @@ import (
 	"testing"
 )
 
-func TestNopSignatureVerifierReturnsErrorOnAllPlatforms(t *testing.T) {
+func TestSignatureVerifierAllowsChecksumOnlyModeWithoutPublishers(t *testing.T) {
 	verifier := NewSignatureVerifier(nil)
-	err := verifier.Verify(context.Background(), "/nonexistent/file.exe")
-	if err == nil {
-		t.Fatal("expected error from NopSignatureVerifier")
+	if err := verifier.Verify(context.Background(), "/nonexistent/file.exe"); err != nil {
+		t.Fatalf("checksum-only mode must not require Authenticode: %v", err)
 	}
 }
 
-func TestNopSignatureVerifierWithPublishers(t *testing.T) {
-	verifier := NewSignatureVerifier([]string{"CN=Test Publisher"})
-	err := verifier.Verify(context.Background(), "/nonexistent/file.exe")
-	if err == nil {
-		t.Fatal("expected error from NopSignatureVerifier")
+func TestSignatureVerifierIgnoresBlankPublisherConfiguration(t *testing.T) {
+	verifier := NewSignatureVerifier([]string{"", "   ", "\t"})
+	if err := verifier.Verify(context.Background(), "/nonexistent/file.exe"); err != nil {
+		t.Fatalf("blank publisher entries must keep checksum-only mode enabled: %v", err)
 	}
 }
