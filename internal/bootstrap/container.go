@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
@@ -22,6 +21,8 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
+	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
 type Container struct {
@@ -110,9 +111,9 @@ func New() (*Container, error) {
 		updater.NewSource(updateHTTPClient),
 		updateDownloader,
 		updater.NewInstaller(),
-		updater.NewSignatureVerifier(launcher.GetTrustedWindowsPublishers()),
+		updater.NewSignatureVerifier(publishers.GetTrustedWindowsPublishers()),
 		dataRoot,
-		launcher.Version(),
+		version.Version(),
 	)
 	base := presentation.NewBase(service)
 	controllers := []any{

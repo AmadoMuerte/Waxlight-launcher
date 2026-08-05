@@ -56,7 +56,7 @@ English is the source and fallback language. All translation keys must remain sy
 
 To add a new language:
 
-1. Add the language code and its display name to the root [`languages.json`](./languages.json) file.
+1. Add the language code and its display name to the [`languages.json`](../internal/language/languages.json) file.
 
 2. Copy the English locale:
 

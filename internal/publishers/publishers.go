@@ -1,4 +1,4 @@
-package waxlight
+package publishers
 
 import "fmt"
 

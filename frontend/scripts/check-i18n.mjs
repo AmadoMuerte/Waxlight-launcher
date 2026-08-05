@@ -3,7 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const directory = fileURLToPath(new URL("../src/i18n/locales/", import.meta.url));
-const config = JSON.parse(await readFile(new URL("../../languages.json", import.meta.url), "utf8"));
+const config = JSON.parse(
+  await readFile(new URL("../../internal/language/languages.json", import.meta.url), "utf8"),
+);
 const files = (await readdir(directory)).filter((file) => file.endsWith(".json")).sort();
 const load = async (file) => JSON.parse(await readFile(path.join(directory, file), "utf8"));
 const codes = config.languages.map((language) => language.code);

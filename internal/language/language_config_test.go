@@ -1,4 +1,4 @@
-package waxlight
+package language
 
 import "testing"
 

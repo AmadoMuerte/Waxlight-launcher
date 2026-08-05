@@ -450,7 +450,7 @@ try {
                     -platform windows/amd64 `
                     -nsis `
                     -trimpath `
-                    -ldflags="-s -w -X github.com/waxlight/waxlight-launcher.buildVersion=$ReleaseVersion"
+                    -ldflags="-s -w -X github.com/waxlight/waxlight-launcher/internal/version.buildVersion=$ReleaseVersion"
             }
     }
     finally {

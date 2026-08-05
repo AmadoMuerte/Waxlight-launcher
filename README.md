@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="./waxlight.png" alt="Waxlight Launcher icon" width="300" height="300">
+  <img src="./docs/waxlight.png" alt="Waxlight Launcher icon" width="300" height="300">
 
 # Waxlight Launcher
 
 **A warm, focused launcher for Vintage Story.**
 
-**English** | [Русский](README.ru.md)
+**English** | [Русский](docs/README.ru.md)
 
 [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
@@ -174,7 +174,7 @@ Validate translation files with:
 npm run check:i18n --prefix frontend
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contribution process.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for the complete contribution process.
 
 ## Project status
 
@@ -194,7 +194,7 @@ them after normal exit and launch failure, and reconciles stale fields at the
 next startup after a crash. Removing an account clears affected instance
 settings, but local deletion cannot be claimed to revoke an already issued
 server session. See [the authentication notes](docs/authentication.md) and
-[security policy](SECURITY.md) for the precise model and limitations.
+[security policy](docs/SECURITY.md) for the precise model and limitations.
 
 Game downloads support progress, cancellation, resume where possible, and
 checksum validation. See [the game-version notes](docs/game-versions.md) for
@@ -287,7 +287,7 @@ all sizes are welcome.
 
 Before opening a pull request:
 
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
+1. Read [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 2. Create a focused branch from `main`.
 3. Keep business logic outside React components and Wails controllers.
 4. Add or update tests for behavior changes.
@@ -296,7 +296,7 @@ Before opening a pull request:
 
 Use the issue templates for reproducible bugs and focused feature proposals.
 For vulnerabilities or accidental credential exposure, follow
-[SECURITY.md](SECURITY.md) instead of opening a public issue.
+[SECURITY.md](docs/SECURITY.md) instead of opening a public issue.
 
 Translation contributions are also welcome. Keep translation keys synchronized
 with `frontend/src/i18n/locales/en.json` and run the i18n validation command

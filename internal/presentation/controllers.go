@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
 type Base struct {
@@ -45,7 +45,7 @@ func (controller *AppController) AppInfo() map[string]any {
 	return map[string]any{
 		"name":       "Waxlight Launcher",
 		"shortName":  "Waxlight",
-		"version":    launcher.Version(),
+		"version":    version.Version(),
 		"unofficial": true,
 	}
 }

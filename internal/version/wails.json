@@ -1,0 +1,24 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "waxlight",
+  "projectdir": "cmd/waxlight",
+  "frontend:dir": "../../frontend",
+  "build:dir": "../../build",
+  "build:tags": "webkit2_41",
+  "wailsjsdir": "../../frontend/src",
+  "outputfilename": "waxlight",
+  "frontend:install": "npm ci --include=dev",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "AmadoMuerte"
+  },
+  "info": {
+    "companyName": "AmadoMuerte",
+    "productName": "Waxlight Launcher",
+    "productVersion": "0.2.1-beta.3",
+    "copyright": "Copyright © 2026 AmadoMuerte",
+    "comments": "Free software licensed under the GNU General Public License v3.0."
+  }
+}

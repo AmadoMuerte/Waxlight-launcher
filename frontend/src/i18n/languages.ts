@@ -1,4 +1,4 @@
-import config from "../../../languages.json";
+import config from "../../../internal/language/languages.json";
 
 export type LanguageCode = string;
 

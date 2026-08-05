@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	launcher "github.com/waxlight/waxlight-launcher"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/language"
 )
 
 type Service struct {
@@ -1277,8 +1277,8 @@ func (s *Service) ClearFinishedOperations(ctx context.Context) (int64, error) {
 	return s.store.ClearFinishedOperations(ctx)
 }
 
-func normalizeLanguage(language string) string {
-	return launcher.NormalizeLanguage(language)
+func normalizeLanguage(lang string) string {
+	return language.NormalizeLanguage(lang)
 }
 
 func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
