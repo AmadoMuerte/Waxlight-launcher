@@ -24,33 +24,163 @@ func TestSourceSelectsLatestChannelAssetAndChecksum(t *testing.T) {
 		releaseFixture("v0.2.0-beta.1", true, assetName),
 		releaseFixture("v0.1.5", false, assetName),
 	}
-	payload, err := json.Marshal(releases)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checksum := strings.Repeat("a", 64)
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		body := payload
-		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
-			body = []byte(checksum + "  " + assetName + "\n")
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(string(body))),
-			Header:     make(http.Header),
-			Request:    request,
-		}, nil
-	})}
-
-	update, err := NewSource(client).Check(context.Background(), "0.1.4", "stable")
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.1.4",
+		"stable",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !update.Available || update.Version != "0.1.5" || update.Prerelease {
 		t.Fatalf("unexpected stable update: %+v", update)
 	}
-	if update.AssetName != assetName || update.SHA256 != checksum {
+	if update.AssetName != assetName || update.SHA256 != strings.Repeat("a", 64) {
 		t.Fatalf("unexpected verified asset: %+v", update)
+	}
+}
+
+func TestSourceSelectsPrereleaseAheadOfStable(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.1-beta.3")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.0", false, assetName),
+		releaseFixture("v0.2.1-beta.3", true, assetName),
+	}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.2.0",
+		"prerelease",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || update.Downgrade || !update.Prerelease || update.Version != "0.2.1-beta.3" {
+		t.Fatalf("unexpected prerelease channel result: %+v", update)
+	}
+}
+
+func TestSourceSelectsNewerStableOnPrereleaseChannel(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.1")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.1-beta.3", true, assetName),
+		releaseFixture("v0.2.1", false, assetName),
+	}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.2.1-beta.3",
+		"prerelease",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || update.Downgrade || update.Prerelease || update.Version != "0.2.1" {
+		t.Fatalf("unexpected stable update on prerelease channel: %+v", update)
+	}
+}
+
+func TestSourceOffersDowngradeWhenSwitchingToStable(t *testing.T) {
+	stableAsset, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.1-beta.3", true, stableAsset),
+		releaseFixture("v0.2.0", false, stableAsset),
+	}
+	update, err := sourceForReleases(t, releases, stableAsset).Check(
+		context.Background(),
+		"0.2.1-beta.3",
+		"stable",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || !update.Downgrade || update.Prerelease || update.Version != "0.2.0" {
+		t.Fatalf("expected stable channel downgrade, got: %+v", update)
+	}
+}
+
+func TestSourceReconcilesToSelectedChannelEvenWithoutPrereleaseMarker(t *testing.T) {
+	stableAsset, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.0", false, stableAsset),
+	}
+	update, err := sourceForReleases(t, releases, stableAsset).Check(
+		context.Background(),
+		"0.2.1",
+		"stable",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || !update.Downgrade || update.Version != "0.2.0" {
+		t.Fatalf("expected channel reconciliation downgrade, got: %+v", update)
+	}
+}
+
+func TestSourceDoesNotOfferUpdateWhenAlreadyOnChannelHead(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{releaseFixture("v0.2.0", false, assetName)}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.2.0",
+		"stable",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if update.Available || update.Downgrade {
+		t.Fatalf("expected no update available, got: %+v", update)
+	}
+}
+
+func TestStableChannelRejectsSemverPrereleaseEvenWhenGitHubFlagIsWrong(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.1-beta.3", false, assetName),
+		releaseFixture("v0.2.0", false, assetName),
+	}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.1.9",
+		"stable",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if update.Version != "0.2.0" || update.Prerelease {
+		t.Fatalf("stable channel accepted a prerelease tag: %+v", update)
+	}
+}
+
+func TestSourceRejectsInvalidChannel(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{releaseFixture("v0.2.0", false, assetName)}
+	_, err = sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.1.9",
+		"nightly",
+	)
+	if err == nil || !strings.Contains(err.Error(), "invalid launcher update channel") {
+		t.Fatalf("expected invalid channel error, got %v", err)
 	}
 }
 
@@ -73,7 +203,6 @@ func TestSourceRejectsUntrustedAssetURL(t *testing.T) {
 			Request:    request,
 		}, nil
 	})}
-
 	if _, err := NewSource(client).Check(context.Background(), "0.1.4", "stable"); err == nil ||
 		!strings.Contains(err.Error(), "untrusted") {
 		t.Fatalf("expected untrusted URL error, got %v", err)
@@ -114,52 +243,8 @@ func TestUpdateHTTPClientRejectsUntrustedRedirect(t *testing.T) {
 	}
 }
 
-func TestSourceOffersDowngradeWhenSwitchingToStable(t *testing.T) {
-	stableAsset, err := expectedAssetName("0.1.5")
-	if err != nil {
-		t.Skip(err)
-	}
-	releases := []githubRelease{
-		releaseFixture("v0.1.5", false, stableAsset),
-	}
-	payload, err := json.Marshal(releases)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checksum := strings.Repeat("a", 64)
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		body := payload
-		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
-			body = []byte(checksum + "  " + stableAsset + "\n")
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(string(body))),
-			Header:     make(http.Header),
-			Request:    request,
-		}, nil
-	})}
-
-	update, err := NewSource(client).Check(context.Background(), "0.2.0-beta.1", "stable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !update.Available || !update.Downgrade {
-		t.Fatalf("expected downgrade to be available, got: %+v", update)
-	}
-	if update.Version != "0.1.5" {
-		t.Fatalf("expected version 0.1.5, got %q", update.Version)
-	}
-}
-
-func TestSourceNoDowngradeWhenCurrentIsStable(t *testing.T) {
-	assetName, err := expectedAssetName("0.1.5")
-	if err != nil {
-		t.Skip(err)
-	}
-	releases := []githubRelease{
-		releaseFixture("v0.1.5", false, assetName),
-	}
+func sourceForReleases(t *testing.T, releases []githubRelease, assetName string) *Source {
+	t.Helper()
 	payload, err := json.Marshal(releases)
 	if err != nil {
 		t.Fatal(err)
@@ -177,52 +262,7 @@ func TestSourceNoDowngradeWhenCurrentIsStable(t *testing.T) {
 			Request:    request,
 		}, nil
 	})}
-
-	update, err := NewSource(client).Check(context.Background(), "0.1.5", "stable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if update.Available || update.Downgrade {
-		t.Fatalf("expected no update available, got: %+v", update)
-	}
-}
-
-func TestSourceNoDowngradeWhenVersionIsNewer(t *testing.T) {
-	assetName, err := expectedAssetName("0.3.0")
-	if err != nil {
-		t.Skip(err)
-	}
-	releases := []githubRelease{
-		releaseFixture("v0.3.0", false, assetName),
-	}
-	payload, err := json.Marshal(releases)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checksum := strings.Repeat("a", 64)
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		body := payload
-		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
-			body = []byte(checksum + "  " + assetName + "\n")
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(string(body))),
-			Header:     make(http.Header),
-			Request:    request,
-		}, nil
-	})}
-
-	update, err := NewSource(client).Check(context.Background(), "0.2.0-beta.9", "stable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !update.Available || update.Downgrade {
-		t.Fatalf("expected normal update (not downgrade), got: %+v", update)
-	}
-	if update.Version != "0.3.0" {
-		t.Fatalf("expected version 0.3.0, got %q", update.Version)
-	}
+	return NewSource(client)
 }
 
 func releaseFixture(tag string, prerelease bool, assetName string) githubRelease {

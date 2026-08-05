@@ -47,6 +47,7 @@ type ToastType = "ok" | "error";
 export function App() {
   const { t } = useTranslation();
   const accountSwitcherRef = useRef<HTMLDetailsElement>(null);
+  const updateCheckSequenceRef = useRef(0);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [versions, setVersions] = useState<GameVersion[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -64,54 +65,71 @@ export function App() {
     type: ToastType;
   }>();
 
-  const refresh = useCallback(async (includeSettings = false) => {
-    try {
-      const [
-        instanceItems,
-        versionItems,
-        accountItems,
-        operationItems,
-        statisticsOverview,
-        applicationSettings,
-      ] = await Promise.all([
-        instancesApi.list(),
-        versionsApi.list(),
-        accountsApi.list(),
-        operationsApi.list(),
-        statisticsApi.overview(),
-        includeSettings ? settingsApi.get() : Promise.resolve(undefined),
-      ]);
-
-      setInstances(instanceItems ?? []);
-      setVersions(versionItems ?? []);
-      setAccounts(accountItems ?? []);
-      setOperations(operationItems ?? []);
-      setStatistics(statisticsOverview);
-      if (applicationSettings) {
-        await changeAppLanguage(applicationSettings.language);
-        setSettings(applicationSettings);
-        if (applicationSettings.checkForUpdates) {
-          void updatesApi
-            .check(applicationSettings.updateChannel)
-            .then((update) => {
-              setLauncherVersion(update.installedVersion);
-              if (update.available && update.version !== applicationSettings.skippedUpdateVersion) {
-                setLauncherUpdate(update);
-              } else {
-                setLauncherUpdate(undefined);
-              }
-              return undefined;
-            })
-            .catch(() => undefined);
+  const checkLauncherUpdate = useCallback(
+    async (channel: Settings["updateChannel"], skippedVersion: string) => {
+      const sequence = ++updateCheckSequenceRef.current;
+      try {
+        const update = await updatesApi.check(channel);
+        if (sequence !== updateCheckSequenceRef.current) {
+          return;
+        }
+        setLauncherVersion(update.installedVersion);
+        if (update.available && update.version !== skippedVersion) {
+          setLauncherUpdate(update);
+        } else {
+          setLauncherUpdate(undefined);
+        }
+      } catch {
+        if (sequence === updateCheckSequenceRef.current) {
+          setLauncherUpdate(undefined);
         }
       }
-      setFatalError("");
-    } catch (error) {
-      setFatalError(errorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
+
+  const refresh = useCallback(
+    async (includeSettings = false) => {
+      try {
+        const [
+          instanceItems,
+          versionItems,
+          accountItems,
+          operationItems,
+          statisticsOverview,
+          applicationSettings,
+        ] = await Promise.all([
+          instancesApi.list(),
+          versionsApi.list(),
+          accountsApi.list(),
+          operationsApi.list(),
+          statisticsApi.overview(),
+          includeSettings ? settingsApi.get() : Promise.resolve(undefined),
+        ]);
+        setInstances(instanceItems ?? []);
+        setVersions(versionItems ?? []);
+        setAccounts(accountItems ?? []);
+        setOperations(operationItems ?? []);
+        setStatistics(statisticsOverview);
+        if (applicationSettings) {
+          await changeAppLanguage(applicationSettings.language);
+          setSettings(applicationSettings);
+          if (applicationSettings.checkForUpdates) {
+            void checkLauncherUpdate(
+              applicationSettings.updateChannel,
+              applicationSettings.skippedUpdateVersion,
+            );
+          }
+        }
+        setFatalError("");
+      } catch (error) {
+        setFatalError(errorMessage(error));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [checkLauncherUpdate],
+  );
 
   useEffect(() => {
     void refresh(true);
@@ -123,9 +141,9 @@ export function App() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  const previousChannelRef = useRef(settings?.updateChannel);
+  const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
   useEffect(() => {
-    if (!settings?.checkForUpdates) {
+    if (!settings) {
       return;
     }
     const previous = previousChannelRef.current;
@@ -134,19 +152,13 @@ export function App() {
     if (previous === undefined || previous === current) {
       return;
     }
-    void updatesApi
-      .check(current)
-      .then((update) => {
-        setLauncherVersion(update.installedVersion);
-        if (update.available && update.version !== settings.skippedUpdateVersion) {
-          setLauncherUpdate(update);
-        } else {
-          setLauncherUpdate(undefined);
-        }
-        return undefined;
-      })
-      .catch(() => undefined);
-  }, [settings?.updateChannel, settings?.checkForUpdates, settings?.skippedUpdateVersion]);
+
+    // Changing the channel is an explicit request, so check it even when
+    // automatic startup checks are disabled. Clear the old channel notice
+    // immediately and ignore any older request that finishes later.
+    setLauncherUpdate(undefined);
+    void checkLauncherUpdate(current, settings.skippedUpdateVersion);
+  }, [checkLauncherUpdate, settings]);
 
   useEffect(() => {
     try {
@@ -165,7 +177,6 @@ export function App() {
         switcher.open = false;
       }
     }
-
     window.addEventListener("pointerdown", closeAccountSwitcher);
     return () => window.removeEventListener("pointerdown", closeAccountSwitcher);
   }, []);
@@ -243,7 +254,6 @@ export function App() {
             <span>{t("launcher_uppercase")}</span>
           </div>
         </div>
-
         <nav>
           {navigation.map((item) => (
             <NavLink
@@ -260,7 +270,6 @@ export function App() {
             </NavLink>
           ))}
         </nav>
-
         <details ref={accountSwitcherRef} className="accountSwitcher">
           <summary>
             <span className="miniAvatar">
@@ -312,14 +321,12 @@ export function App() {
             </NavLink>
           </div>
         </details>
-
         <div className="sidebarFoot">
           <div className="warmLine" />
           <span>{t("unofficial_launcher")}</span>
           <small>{t("for_vintage_story")}</small>
         </div>
       </aside>
-
       <main>
         {fatalError && (
           <div className="backendError">
@@ -331,7 +338,6 @@ export function App() {
             <button onClick={() => void refresh()}>{t("retry")}</button>
           </div>
         )}
-
         {launcherUpdate && (
           <section className="launcherUpdateNotice" aria-label={t("update_available")}>
             <div>
@@ -392,7 +398,6 @@ export function App() {
             </div>
           </section>
         )}
-
         <Routes>
           <Route
             path="/library"
@@ -445,7 +450,6 @@ export function App() {
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </main>
-
       {toast && (
         <div className={`toast ${toast.type}`}>
           <span>{toast.type === "ok" ? "✓" : "!"}</span>

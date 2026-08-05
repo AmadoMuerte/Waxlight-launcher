@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	officialAPIURL       = "https://api.github.com/repos/AmadoMuerte/Waxlight-launcher/releases?per_page=20"
+	officialAPIURL       = "https://api.github.com/repos/AmadoMuerte/Waxlight-launcher/releases?per_page=100"
 	officialRepository   = "AmadoMuerte/Waxlight-launcher"
 	maximumAPIBytes      = 2 * 1024 * 1024
 	maximumChecksumBytes = 1024 * 1024
@@ -84,30 +84,18 @@ func (source *Source) Check(
 		return domain.LauncherUpdate{}, fmt.Errorf("invalid installed version %q", currentVersion)
 	}
 
-	var selected *githubRelease
-	for index := range releases {
-		release := &releases[index]
-		version := canonicalVersion(release.TagName)
-		if release.Draft || version == "" || (channel == "stable" && release.Prerelease) {
-			continue
-		}
-		if selected == nil || semver.Compare(version, canonicalVersion(selected.TagName)) > 0 {
-			selected = release
-		}
-	}
-	if selected == nil {
-		return domain.LauncherUpdate{}, errors.New("no trusted launcher release is available")
+	selected, version, err := selectReleaseForChannel(releases, channel)
+	if err != nil {
+		return domain.LauncherUpdate{}, err
 	}
 
-	version := canonicalVersion(selected.TagName)
-	newer := semver.Compare(version, current) > 0
-	isDowngrade := channel == "stable" && semver.Prerelease(current) != "" && semver.Compare(version, current) < 0
+	comparison := semver.Compare(version, current)
 	result := domain.LauncherUpdate{
 		InstalledVersion: strings.TrimPrefix(current, "v"),
 		Version:          strings.TrimPrefix(version, "v"),
-		Available:        newer || isDowngrade,
-		Downgrade:        isDowngrade && !newer,
-		Prerelease:       selected.Prerelease,
+		Available:        comparison != 0,
+		Downgrade:        comparison < 0,
+		Prerelease:       releaseIsPrerelease(*selected, version),
 		ReleaseNotes:     strings.TrimSpace(selected.Body),
 		ReleasePageURL:   selected.HTMLURL,
 	}
@@ -146,6 +134,41 @@ func (source *Source) Check(
 	result.SHA256 = checksum
 	result.InstallationMode = string(DetectInstallationMode())
 	return result, nil
+}
+
+func selectReleaseForChannel(
+	releases []githubRelease,
+	channel string,
+) (*githubRelease, string, error) {
+	channel = strings.ToLower(strings.TrimSpace(channel))
+	if channel != "stable" && channel != "prerelease" {
+		return nil, "", fmt.Errorf("invalid launcher update channel %q", channel)
+	}
+
+	var selected *githubRelease
+	selectedVersion := ""
+	for index := range releases {
+		release := &releases[index]
+		version := canonicalVersion(release.TagName)
+		if release.Draft || version == "" {
+			continue
+		}
+		if channel == "stable" && releaseIsPrerelease(*release, version) {
+			continue
+		}
+		if selected == nil || semver.Compare(version, selectedVersion) > 0 {
+			selected = release
+			selectedVersion = version
+		}
+	}
+	if selected == nil {
+		return nil, "", errors.New("no trusted launcher release is available")
+	}
+	return selected, selectedVersion, nil
+}
+
+func releaseIsPrerelease(release githubRelease, version string) bool {
+	return release.Prerelease || semver.Prerelease(version) != ""
 }
 
 func (source *Source) releases(ctx context.Context) ([]githubRelease, error) {
