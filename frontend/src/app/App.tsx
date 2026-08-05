@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
+import appIcon from "../assets/appicon.png";
 import { changeAppLanguage } from "../i18n";
 import { AccountsPage } from "../pages/AccountsPage";
 import { LibraryPage } from "../pages/LibraryPage";
@@ -246,9 +247,7 @@ export function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="flame">
-            <i />
-          </div>
+          <img src={appIcon} alt="waxlight" className="brand-icon" />
           <div>
             <strong>Waxlight</strong>
             <span>{t("launcher_uppercase")}</span>

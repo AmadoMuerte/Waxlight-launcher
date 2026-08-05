@@ -116,23 +116,10 @@ button {
   letter-spacing: 3.4px;
 }
 
-.flame {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 38px;
-  border-radius: 18px 18px 15px 15px;
-  background: linear-gradient(145deg, #f6c26d, #b56c27);
-  box-shadow: 0 0 28px #df923a45;
-}
-
-.flame i {
-  width: 10px;
-  height: 17px;
-  border-radius: 70% 30% 60% 40%;
-  background: #fff1bd;
-  box-shadow: 0 0 10px #fff;
-  transform: rotate(8deg);
+.brand-icon {
+  width: 55px;
+  height: 55px;
+  border-radius: 10px;
 }
 
 .sidebar nav {
