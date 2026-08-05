@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -230,24 +231,104 @@ func TestLauncherUpdateRejectsNoUpdateAvailable(t *testing.T) {
 	}
 }
 
-func TestLauncherUpdateRejectsPortableViewableMode(t *testing.T) {
+func TestLauncherUpdateAllowsPortableModeOnLinux(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-specific portable update test")
+	}
+
 	downloader := &updateDownloaderStub{}
 	installer := &updateInstallerStub{}
 	signatureVerifier := &signatureVerifierStub{}
-	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
-		Available:        true,
-		AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
-		DownloadURL:      "https://github.com/example",
-		SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		InstallationMode: "portable",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+
+	service := NewLauncherUpdateService(
+		updateSourceStub{
+			update: domain.LauncherUpdate{
+				Available:        true,
+				AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+				DownloadURL:      "https://github.com/example",
+				SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				InstallationMode: "portable",
+			},
+		},
+		downloader,
+		installer,
+		signatureVerifier,
+		t.TempDir(),
+		"0.1.4",
+	)
+
+	err := service.Install(context.Background(), "stable", nil)
+	if err != nil {
+		t.Fatalf("portable Linux update failed: %v", err)
+	}
+
+	if downloader.request.DestinationPath == "" {
+		t.Fatal("update was not downloaded")
+	}
+
+	if installer.path == "" {
+		t.Fatal("installer was not called")
+	}
+
+	if installer.path != downloader.request.DestinationPath {
+		t.Fatalf(
+			"installer path = %q, want %q",
+			installer.path,
+			downloader.request.DestinationPath,
+		)
+	}
+}
+
+func TestLauncherUpdateRejectsPortableModeOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific portable update test")
+	}
+
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+
+	service := NewLauncherUpdateService(
+		updateSourceStub{
+			update: domain.LauncherUpdate{
+				Available:        true,
+				AssetName:        "Waxlight-Launcher-v0.1.5-windows-amd64.zip",
+				DownloadURL:      "https://github.com/example",
+				SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				InstallationMode: "portable",
+			},
+		},
+		downloader,
+		installer,
+		signatureVerifier,
+		t.TempDir(),
+		"0.1.4",
+	)
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
-		t.Fatal("expected portable mode error")
+		t.Fatal("expected portable Windows update error")
 	}
+
+	var appErr *domain.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+
+	if appErr.Code != domain.ErrUpdateUnsupported {
+		t.Fatalf(
+			"error code = %q, want %q",
+			appErr.Code,
+			domain.ErrUpdateUnsupported,
+		)
+	}
+
+	if downloader.request.DestinationPath != "" {
+		t.Fatal("downloader ran for portable Windows mode")
+	}
+
 	if installer.path != "" {
-		t.Fatal("installer ran for portable mode")
+		t.Fatal("installer ran for portable Windows mode")
 	}
 }
 
