@@ -2,41 +2,56 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 const maximumLauncherUpdateSize = 512 * 1024 * 1024
 
+type UpdateStage string
+
+const (
+	UpdateStageChecking           UpdateStage = "checking"
+	UpdateStageDownloading        UpdateStage = "downloading"
+	UpdateStageHashVerification   UpdateStage = "hash_verification"
+	UpdateStageSignatureCheck     UpdateStage = "signature_verification"
+	UpdateStageStartingInstaller  UpdateStage = "starting_installer"
+	UpdateStageClosingApplication UpdateStage = "closing_application"
+	UpdateStageRestarting         UpdateStage = "restarting"
+)
+
 type LauncherUpdateService struct {
-	source         LauncherUpdateSource
-	downloader     Downloader
-	installer      LauncherUpdateInstaller
-	dataRoot       string
-	currentVersion string
-	mu             sync.Mutex
-	installing     bool
+	source            LauncherUpdateSource
+	downloader        Downloader
+	installer         LauncherUpdateInstaller
+	signatureVerifier SignatureVerifier
+	dataRoot          string
+	currentVersion    string
+	mu                sync.Mutex
+	installing        bool
 }
 
 func NewLauncherUpdateService(
 	source LauncherUpdateSource,
 	downloader Downloader,
 	installer LauncherUpdateInstaller,
+	signatureVerifier SignatureVerifier,
 	dataRoot string,
 	currentVersion string,
 ) *LauncherUpdateService {
 	return &LauncherUpdateService{
-		source:         source,
-		downloader:     downloader,
-		installer:      installer,
-		dataRoot:       dataRoot,
-		currentVersion: currentVersion,
+		source:            source,
+		downloader:        downloader,
+		installer:         installer,
+		signatureVerifier: signatureVerifier,
+		dataRoot:          dataRoot,
+		currentVersion:    currentVersion,
 	}
 }
 
@@ -82,28 +97,43 @@ func (service *LauncherUpdateService) Install(
 		service.mu.Unlock()
 	}()
 
+	sessionID := fmt.Sprintf("%d", time.Now().UnixNano())
+	updateRoot := filepath.Join(service.dataRoot, "updates", sessionID)
+	if err := os.MkdirAll(updateRoot, 0o700); err != nil {
+		return fmt.Errorf("create update session directory: %w", err)
+	}
+
+	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "checking"})
+
 	update, err := service.Check(ctx, channel)
 	if err != nil {
+		service.cleanupSession(updateRoot)
 		return err
 	}
 	if !update.Available {
+		service.cleanupSession(updateRoot)
 		return domain.NewError(domain.ErrUpdateUnavailable, "No launcher update is available")
 	}
 	if update.AssetName == "" || filepath.Base(update.AssetName) != update.AssetName {
+		service.cleanupSession(updateRoot)
 		return domain.NewError(domain.ErrUpdateFailed, "The release contains an unsafe update filename")
 	}
 	if len(update.SHA256) != 64 {
+		service.cleanupSession(updateRoot)
 		return domain.NewError(domain.ErrUpdateFailed, "The release checksum is invalid")
 	}
 
-	updateRoot := filepath.Join(service.dataRoot, "updates")
-	if err := os.MkdirAll(updateRoot, 0o700); err != nil {
-		return fmt.Errorf("create update directory: %w", err)
+	if update.InstallationMode == "portable" {
+		service.cleanupSession(updateRoot)
+		return &domain.AppError{
+			Code:    domain.ErrUpdateUnsupported,
+			Message: "Automatic replacement is unavailable for portable installations. Download the new portable package and replace the current version manually.",
+			Cause:   nil,
+		}
 	}
+
 	destination := filepath.Join(updateRoot, update.AssetName)
-	if err := os.Remove(destination); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove previous staged update: %w", err)
-	}
+
 	progress := make(chan DownloadProgress, 1)
 	done := make(chan struct{})
 	go func() {
@@ -133,24 +163,48 @@ func (service *LauncherUpdateService) Install(
 	close(progress)
 	<-done
 	if err != nil {
+		service.cleanupSession(updateRoot)
 		return &domain.AppError{
-			Code:      domain.ErrUpdateFailed,
-			Message:   "Could not download or verify the launcher update",
+			Code:      domain.ErrUpdateDownloadFailed,
+			Message:   "Could not download the launcher update",
 			Retryable: true,
 			Cause:     err,
 		}
 	}
 
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "installing", Progress: 1})
-	if err := service.installer.Apply(ctx, destination); err != nil {
+	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "signature", Progress: 1})
+	if err := service.signatureVerifier.Verify(ctx, destination); err != nil {
+		os.Remove(destination)
+		service.cleanupSession(updateRoot)
 		return &domain.AppError{
-			Code:    domain.ErrUpdateFailed,
-			Message: "Could not install the launcher update; the current installation was preserved",
+			Code:    domain.ErrUpdateSignatureInvalid,
+			Message: fmt.Sprintf("Could not verify update signature: %v", err),
+			Cause:   err,
+		}
+	}
+
+	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "installing", Progress: 1})
+	if err := service.installer.Apply(ctx, destination, os.Getpid()); err != nil {
+		service.cleanupSession(updateRoot)
+		return &domain.AppError{
+			Code:    domain.ErrUpdateInstallerStartFail,
+			Message: fmt.Sprintf("Could not start the installer: %v", err),
 			Cause:   err,
 		}
 	}
 	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "restarting", Progress: 1})
 	return nil
+}
+
+func (service *LauncherUpdateService) cleanupSession(sessionDir string) {
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		os.Remove(filepath.Join(sessionDir, entry.Name()))
+	}
+	os.Remove(sessionDir)
 }
 
 func normalizeUpdateChannel(channel string) (string, error) {

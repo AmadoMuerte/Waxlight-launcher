@@ -13,7 +13,7 @@ import { changeAppLanguage } from "../i18n";
 import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
 import { Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Button, Checkbox, Field, PageHeader } from "../shared/ui";
+import { Checkbox, Field, PageHeader } from "../shared/ui";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -22,7 +22,6 @@ interface SettingsPageProps {
   notify: Notify;
   onSaved: (settings: Settings) => void;
   currentVersion?: string;
-  onCheckUpdates?: () => Promise<void>;
 }
 
 const autosaveDelayMs = 400;
@@ -44,17 +43,10 @@ function settingsEqual(left: Settings, right: Settings) {
   );
 }
 
-export function SettingsPage({
-  settings,
-  notify,
-  onSaved,
-  currentVersion,
-  onCheckUpdates,
-}: SettingsPageProps) {
+export function SettingsPage({ settings, notify, onSaved, currentVersion }: SettingsPageProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
-  const [checkingUpdates, setCheckingUpdates] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -134,18 +126,6 @@ export function SettingsPage({
 
   if (!value) {
     return null;
-  }
-
-  async function checkUpdates() {
-    if (!onCheckUpdates) {
-      return;
-    }
-    setCheckingUpdates(true);
-    try {
-      await onCheckUpdates();
-    } finally {
-      setCheckingUpdates(false);
-    }
   }
 
   return (
@@ -315,18 +295,6 @@ export function SettingsPage({
                 <Field label={t("current_launcher_version")}>
                   <input value={currentVersion || "—"} readOnly />
                 </Field>
-              </div>
-
-              <div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  busy={checkingUpdates}
-                  disabled={!onCheckUpdates}
-                  onClick={() => void checkUpdates()}
-                >
-                  {t("check_for_updates_now")}
-                </Button>
               </div>
             </div>
           </section>

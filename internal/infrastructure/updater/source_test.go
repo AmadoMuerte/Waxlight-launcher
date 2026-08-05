@@ -114,6 +114,117 @@ func TestUpdateHTTPClientRejectsUntrustedRedirect(t *testing.T) {
 	}
 }
 
+func TestSourceOffersDowngradeWhenSwitchingToStable(t *testing.T) {
+	stableAsset, err := expectedAssetName("0.1.5")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.1.5", false, stableAsset),
+	}
+	payload, err := json.Marshal(releases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum := strings.Repeat("a", 64)
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body := payload
+		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
+			body = []byte(checksum + "  " + stableAsset + "\n")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(string(body))),
+			Header:     make(http.Header),
+			Request:    request,
+		}, nil
+	})}
+
+	update, err := NewSource(client).Check(context.Background(), "0.2.0-beta.1", "stable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || !update.Downgrade {
+		t.Fatalf("expected downgrade to be available, got: %+v", update)
+	}
+	if update.Version != "0.1.5" {
+		t.Fatalf("expected version 0.1.5, got %q", update.Version)
+	}
+}
+
+func TestSourceNoDowngradeWhenCurrentIsStable(t *testing.T) {
+	assetName, err := expectedAssetName("0.1.5")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.1.5", false, assetName),
+	}
+	payload, err := json.Marshal(releases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum := strings.Repeat("a", 64)
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body := payload
+		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
+			body = []byte(checksum + "  " + assetName + "\n")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(string(body))),
+			Header:     make(http.Header),
+			Request:    request,
+		}, nil
+	})}
+
+	update, err := NewSource(client).Check(context.Background(), "0.1.5", "stable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if update.Available || update.Downgrade {
+		t.Fatalf("expected no update available, got: %+v", update)
+	}
+}
+
+func TestSourceNoDowngradeWhenVersionIsNewer(t *testing.T) {
+	assetName, err := expectedAssetName("0.3.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.3.0", false, assetName),
+	}
+	payload, err := json.Marshal(releases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum := strings.Repeat("a", 64)
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body := payload
+		if strings.HasSuffix(request.URL.Path, "/SHA256SUMS") {
+			body = []byte(checksum + "  " + assetName + "\n")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(string(body))),
+			Header:     make(http.Header),
+			Request:    request,
+		}, nil
+	})}
+
+	update, err := NewSource(client).Check(context.Background(), "0.2.0-beta.9", "stable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || update.Downgrade {
+		t.Fatalf("expected normal update (not downgrade), got: %+v", update)
+	}
+	if update.Version != "0.3.0" {
+		t.Fatalf("expected version 0.3.0, got %q", update.Version)
+	}
+}
+
 func releaseFixture(tag string, prerelease bool, assetName string) githubRelease {
 	base := "https://github.com/AmadoMuerte/Waxlight-launcher/releases"
 	return githubRelease{

@@ -4,6 +4,7 @@ type LauncherUpdate struct {
 	InstalledVersion string
 	Version          string
 	Available        bool
+	Downgrade        bool
 	Prerelease       bool
 	ReleaseNotes     string
 	ReleasePageURL   string
@@ -11,6 +12,7 @@ type LauncherUpdate struct {
 	AssetSize        int64
 	DownloadURL      string
 	SHA256           string
+	InstallationMode string
 }
 
 type LauncherUpdateProgress struct {

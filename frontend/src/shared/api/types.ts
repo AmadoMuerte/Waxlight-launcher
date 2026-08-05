@@ -254,15 +254,17 @@ export interface LauncherUpdate {
   installedVersion: string;
   version: string;
   available: boolean;
+  downgrade: boolean;
   prerelease: boolean;
   releaseNotes: string;
   releasePageUrl: string;
   assetName: string;
   assetSize: number;
+  installationMode: "installed" | "portable";
 }
 
 export interface LauncherUpdateProgress {
-  phase: "downloading" | "installing" | "restarting";
+  phase: "checking" | "downloading" | "signature" | "installing" | "restarting";
   downloadedBytes: number;
   totalBytes: number;
   progress: number;

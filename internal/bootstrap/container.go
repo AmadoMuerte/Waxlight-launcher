@@ -110,6 +110,7 @@ func New() (*Container, error) {
 		updater.NewSource(updateHTTPClient),
 		updateDownloader,
 		updater.NewInstaller(),
+		updater.NewSignatureVerifier(launcher.GetTrustedWindowsPublishers()),
 		dataRoot,
 		launcher.Version(),
 	)

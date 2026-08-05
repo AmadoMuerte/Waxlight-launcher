@@ -14,11 +14,13 @@ type LauncherUpdateDTO struct {
 	InstalledVersion string `json:"installedVersion"`
 	Version          string `json:"version"`
 	Available        bool   `json:"available"`
+	Downgrade        bool   `json:"downgrade"`
 	Prerelease       bool   `json:"prerelease"`
 	ReleaseNotes     string `json:"releaseNotes"`
 	ReleasePageURL   string `json:"releasePageUrl"`
 	AssetName        string `json:"assetName"`
 	AssetSize        int64  `json:"assetSize"`
+	InstallationMode string `json:"installationMode"`
 }
 
 type LauncherUpdateController struct {
@@ -80,10 +82,12 @@ func launcherUpdateDTO(update domain.LauncherUpdate) LauncherUpdateDTO {
 		InstalledVersion: update.InstalledVersion,
 		Version:          update.Version,
 		Available:        update.Available,
+		Downgrade:        update.Downgrade,
 		Prerelease:       update.Prerelease,
 		ReleaseNotes:     update.ReleaseNotes,
 		ReleasePageURL:   update.ReleasePageURL,
 		AssetName:        update.AssetName,
 		AssetSize:        update.AssetSize,
+		InstallationMode: update.InstallationMode,
 	}
 }

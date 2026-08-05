@@ -97,6 +97,8 @@ export function App() {
               setLauncherVersion(update.installedVersion);
               if (update.available && update.version !== applicationSettings.skippedUpdateVersion) {
                 setLauncherUpdate(update);
+              } else {
+                setLauncherUpdate(undefined);
               }
               return undefined;
             })
@@ -120,6 +122,31 @@ export function App() {
     const timer = window.setInterval(() => void refresh(), 8_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  const previousChannelRef = useRef(settings?.updateChannel);
+  useEffect(() => {
+    if (!settings?.checkForUpdates) {
+      return;
+    }
+    const previous = previousChannelRef.current;
+    const current = settings.updateChannel;
+    previousChannelRef.current = current;
+    if (previous === undefined || previous === current) {
+      return;
+    }
+    void updatesApi
+      .check(current)
+      .then((update) => {
+        setLauncherVersion(update.installedVersion);
+        if (update.available && update.version !== settings.skippedUpdateVersion) {
+          setLauncherUpdate(update);
+        } else {
+          setLauncherUpdate(undefined);
+        }
+        return undefined;
+      })
+      .catch(() => undefined);
+  }, [settings?.updateChannel, settings?.checkForUpdates, settings?.skippedUpdateVersion]);
 
   useEffect(() => {
     try {
@@ -151,24 +178,6 @@ export function App() {
   const handleSettingsSaved = useCallback((saved: Settings) => {
     setSettings(saved);
   }, []);
-
-  async function checkForUpdates() {
-    if (!settings) {
-      return;
-    }
-    try {
-      const update = await updatesApi.check(settings.updateChannel);
-      setLauncherVersion(update.installedVersion || launcherVersion);
-      if (update.available) {
-        setLauncherUpdate(update);
-        notify(t("update_available"));
-      } else {
-        notify(t("launcher_is_up_to_date"));
-      }
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
-  }
 
   async function installLauncherUpdate() {
     if (!settings) {
@@ -326,7 +335,9 @@ export function App() {
         {launcherUpdate && (
           <section className="launcherUpdateNotice" aria-label={t("update_available")}>
             <div>
-              <span className="eyebrow">{t("update_available")}</span>
+              <span className="eyebrow">
+                {launcherUpdate.downgrade ? t("downgrade_available") : t("update_available")}
+              </span>
               <strong>
                 {t("launcher_update_versions", {
                   installed: launcherUpdate.installedVersion,
@@ -334,6 +345,9 @@ export function App() {
                 })}
               </strong>
               <p>{launcherUpdate.releaseNotes || t("release_notes_unavailable")}</p>
+              {launcherUpdate.installationMode === "portable" && (
+                <p className="updateHint">{t("portable_update_hint")}</p>
+              )}
               {installingUpdate && updateProgress && (
                 <div className="launcherUpdateProgress">
                   <progress max={1} value={updateProgress.progress} />
@@ -342,9 +356,15 @@ export function App() {
               )}
             </div>
             <div className="launcherUpdateActions">
-              <Button busy={installingUpdate} onClick={() => void installLauncherUpdate()}>
-                {t("download_and_install_update")}
-              </Button>
+              {launcherUpdate.installationMode === "portable" ? (
+                <>
+                  <Button onClick={() => void openLauncherRelease()}>{t("download_update")}</Button>
+                </>
+              ) : (
+                <Button busy={installingUpdate} onClick={() => void installLauncherUpdate()}>
+                  {t("download_and_install_update")}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="secondary"
@@ -419,7 +439,6 @@ export function App() {
                 notify={notify}
                 onSaved={handleSettingsSaved}
                 currentVersion={launcherVersion}
-                onCheckUpdates={checkForUpdates}
               />
             }
           />
