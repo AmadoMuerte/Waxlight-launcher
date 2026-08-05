@@ -46,6 +46,9 @@ $ExecutableName = Split-Path -Leaf $ResolvedExecutable
 $TemporaryExecutable = Join-Path `
     $ExecutableDirectory `
     ("." + $ExecutableName + ".metadata-" + [Guid]::NewGuid().ToString("N") + ".tmp.exe")
+$BackupExecutable = Join-Path `
+    $ExecutableDirectory `
+    ("." + $ExecutableName + ".metadata-backup-" + [Guid]::NewGuid().ToString("N") + ".exe")
 $TemporaryDirectory = Join-Path `
     ([System.IO.Path]::GetTempPath()) `
     ("waxlight-metadata-" + [Guid]::NewGuid().ToString("N"))
@@ -145,19 +148,62 @@ try {
         throw "Patched Windows metadata validation failed"
     }
 
-    # The temporary file is created next to the executable so File.Replace is
-    # atomic and preserves the destination file's ACL on the same volume.
-    [System.IO.File]::Replace(
-        $TemporaryExecutable,
-        $ResolvedExecutable,
-        $null
-    )
+    # Windows PowerShell 5.1 can bind $null as an empty backup path when calling
+    # File.Replace, which causes "The path is not of a legal form." Use a real
+    # backup path, then remove it after the final executable has been verified.
+    try {
+        [System.IO.File]::Replace(
+            $TemporaryExecutable,
+            $ResolvedExecutable,
+            $BackupExecutable,
+            $true
+        )
+
+        $FinalVersionInfo = (Get-Item -LiteralPath $ResolvedExecutable).VersionInfo
+        $FinalValidationErrors = @()
+
+        foreach ($Entry in $ExpectedMetadata.GetEnumerator()) {
+            $Property = $FinalVersionInfo.PSObject.Properties[$Entry.Key]
+            $ActualValue = if ($null -eq $Property) {
+                $null
+            }
+            else {
+                [string]$Property.Value
+            }
+            $ExpectedValue = [string]$Entry.Value
+
+            if ($ActualValue -ne $ExpectedValue) {
+                $FinalValidationErrors +=
+                    "$($Entry.Key) must be '$ExpectedValue', got '$ActualValue'"
+            }
+        }
+
+        if ($FinalValidationErrors.Count -gt 0) {
+            foreach ($ValidationError in $FinalValidationErrors) {
+                Write-Host "  - $ValidationError" -ForegroundColor Red
+            }
+            throw "Final Windows metadata validation failed after replacing the executable"
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $BackupExecutable -PathType Leaf) {
+            [System.IO.File]::Copy(
+                $BackupExecutable,
+                $ResolvedExecutable,
+                $true
+            )
+        }
+        throw
+    }
 
     Write-Host "Windows VersionInfo patched and verified" -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $TemporaryExecutable) {
         Remove-Item -LiteralPath $TemporaryExecutable -Force
+    }
+    if (Test-Path -LiteralPath $BackupExecutable) {
+        Remove-Item -LiteralPath $BackupExecutable -Force
     }
     if (Test-Path -LiteralPath $TemporaryDirectory) {
         Remove-Item -LiteralPath $TemporaryDirectory -Recurse -Force
