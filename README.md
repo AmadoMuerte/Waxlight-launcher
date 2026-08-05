@@ -13,10 +13,10 @@
 
 </div>
 
-Waxlight Launcher was created and is developed solely by
-[AmadoMuerte](https://github.com/AmadoMuerte). It is his personal independent
-project. Its development has involved no contact, collaboration, approval, or
-other relationship with the developers of Vintage Story.
+Waxlight Launcher is an independent, community-driven project maintained by
+[AmadoMuerte](https://github.com/AmadoMuerte) and improved with the help of its
+contributors. The project is not affiliated with, endorsed by, or developed in
+collaboration with the developers of Vintage Story.
 
 Waxlight puts accounts, game versions, isolated game setups, mods, launches,
 and playtime in one desktop application. It is built with Go, Wails, React,
@@ -281,7 +281,11 @@ scripts/                  Reproducible release scripts
 
 ## Contributing
 
-Contributions are welcome. Before opening a pull request:
+Waxlight is shaped by everyone who contributes code, translations, testing,
+documentation, bug reports, and thoughtful feature proposals. Contributions of
+all sizes are welcome.
+
+Before opening a pull request:
 
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
 2. Create a focused branch from `main`.
@@ -321,10 +325,24 @@ not replace an authenticated signing chain.
 Before tagging, update the version in both Wails configuration files. Existing
 release tags must never be moved.
 
-## Author
+## Maintainer
 
-Waxlight Launcher is designed and developed by
-[AmadoMuerte](https://github.com/AmadoMuerte).
+Waxlight Launcher is currently maintained by
+[AmadoMuerte](https://github.com/AmadoMuerte), who coordinates the project,
+reviews contributions, and prepares releases.
+
+## Contributors
+
+Thank you to everyone who has helped improve Waxlight through code,
+translations, testing, documentation, bug reports, and ideas.
+
+<a href="https://github.com/AmadoMuerte/Waxlight-launcher/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=AmadoMuerte/Waxlight-launcher" alt="Waxlight Launcher contributors">
+</a>
+
+Contributors are listed automatically from the repository's GitHub contribution
+history. See the [contributors page](https://github.com/AmadoMuerte/Waxlight-launcher/graphs/contributors)
+for the complete list.
 
 ## License
 
