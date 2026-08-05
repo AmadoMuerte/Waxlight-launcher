@@ -81,56 +81,33 @@ function Set-WailsProductVersion {
     }
 
     $Config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    $CopyrightSymbol = [char]0x00A9
+    $LegalCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
 
     if ($null -eq $Config.info) {
         $Config | Add-Member `
             -MemberType NoteProperty `
             -Name "info" `
-            -Value ([PSCustomObject]@{
-                companyName = "AmadoMuerte"
-                productName = "Waxlight Launcher"
-                productVersion = $ProductVersion
-                copyright = "Copyright [copyright] 2026 AmadoMuerte"
-                comments = "Free software licensed under the GNU General Public License v3.0."
-            })
+            -Value ([PSCustomObject]@{})
     }
-    else {
-        if ($null -eq $Config.info.PSObject.Properties["productVersion"]) {
+
+    $Metadata = [ordered]@{
+        companyName = "AmadoMuerte"
+        productName = "Waxlight Launcher"
+        productVersion = $ProductVersion
+        copyright = $LegalCopyright
+        comments = "Free software licensed under the GNU General Public License v3.0."
+    }
+
+    foreach ($Entry in $Metadata.GetEnumerator()) {
+        if ($null -eq $Config.info.PSObject.Properties[$Entry.Key]) {
             $Config.info | Add-Member `
                 -MemberType NoteProperty `
-                -Name "productVersion" `
-                -Value $ProductVersion
+                -Name $Entry.Key `
+                -Value $Entry.Value
         }
         else {
-            $Config.info.productVersion = $ProductVersion
-        }
-
-        if ($null -eq $Config.info.PSObject.Properties["companyName"]) {
-            $Config.info | Add-Member `
-                -MemberType NoteProperty `
-                -Name "companyName" `
-                -Value "AmadoMuerte"
-        }
-
-        if ($null -eq $Config.info.PSObject.Properties["productName"]) {
-            $Config.info | Add-Member `
-                -MemberType NoteProperty `
-                -Name "productName" `
-                -Value "Waxlight Launcher"
-        }
-
-        if ($null -eq $Config.info.PSObject.Properties["copyright"]) {
-            $Config.info | Add-Member `
-                -MemberType NoteProperty `
-                -Name "copyright" `
-                -Value "Copyright [copyright] 2026 AmadoMuerte"
-        }
-
-        if ($null -eq $Config.info.PSObject.Properties["comments"]) {
-            $Config.info | Add-Member `
-                -MemberType NoteProperty `
-                -Name "comments" `
-                -Value "Free software licensed under the GNU General Public License v3.0."
+            $Config.info.PSObject.Properties[$Entry.Key].Value = $Entry.Value
         }
     }
 
@@ -146,13 +123,7 @@ function Set-WailsProductVersion {
 function New-WindowsInfoJson {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [string]$FileVersion,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ProductVersion
+        [string]$Path
     )
 
     $Directory = Split-Path -Parent $Path
@@ -160,36 +131,43 @@ function New-WindowsInfoJson {
         New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     }
 
-    $CopyrightSymbol = [char]0x00A9
-    $LegalCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
-
-    $Info = [PSCustomObject]@{
-       CompanyName     = "AmadoMuerte"
-        FileDescription = "Waxlight Launcher"
-        FileVersion     = $FileVersion
-        InternalName    = "waxlight"
-        LegalCopyright  = $LegalCopyright
-        OriginalFilename = "waxlight.exe"
-        ProductName     = "Waxlight Launcher"
-        ProductVersion  = $ProductVersion
-        Comments        = "Free software licensed under the GNU General Public License v3.0."
+    # Wails v2 does not read a flat object here. It expects its own template
+    # schema with `fixed` and `info` sections, then substitutes values from the
+    # active wails.json `info` block before generating the Windows .syso file.
+    $Info = [ordered]@{
+        fixed = [ordered]@{
+            file_version = "{{.Info.ProductVersion}}"
+        }
+        info = [ordered]@{
+            "0000" = [ordered]@{
+                ProductVersion = "{{.Info.ProductVersion}}"
+                CompanyName = "{{.Info.CompanyName}}"
+                FileDescription = "{{.Info.ProductName}}"
+                LegalCopyright = "{{.Info.Copyright}}"
+                ProductName = "{{.Info.ProductName}}"
+                Comments = "{{.Info.Comments}}"
+            }
+        }
     }
 
     $Json = $Info | ConvertTo-Json -Depth 100
-
     [System.IO.File]::WriteAllText(
         $Path,
         $Json + [Environment]::NewLine,
         [System.Text.UTF8Encoding]::new($false)
     )
 
-    Write-Host "Generated Windows info.json:"
-    Write-Host "  CompanyName:     $($Info.CompanyName)"
-    Write-Host "  FileDescription: $($Info.FileDescription)"
-    Write-Host "  FileVersion:     $($Info.FileVersion)"
-    Write-Host "  LegalCopyright:  $($Info.LegalCopyright)"
-    Write-Host "  ProductName:     $($Info.ProductName)"
-    Write-Host "  ProductVersion:  $($Info.ProductVersion)"
+    $GeneratedInfo = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    if (
+        $null -eq $GeneratedInfo.fixed -or
+        $null -eq $GeneratedInfo.fixed.file_version -or
+        $null -eq $GeneratedInfo.info -or
+        $null -eq $GeneratedInfo.info.PSObject.Properties["0000"]
+    ) {
+        throw "Generated Windows info.json does not match the Wails v2 schema"
+    }
+
+    Write-Host "Generated Wails v2 Windows info.json template: $Path"
 }
 
 function Test-WindowsMetadata {
@@ -372,9 +350,7 @@ Copy-Item `
 
 # Generate Windows info.json for VersionInfo metadata
 New-WindowsInfoJson `
-    -Path $WailsWindowsInfo `
-    -FileVersion $WindowsFileVersion `
-    -ProductVersion $WindowsFileVersion
+    -Path $WailsWindowsInfo
 
 foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
     if (Test-Path -LiteralPath $ConfigPath) {
