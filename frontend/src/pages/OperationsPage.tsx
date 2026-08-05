@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { Operation, operationsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatBytes, formatDate } from "../shared/lib";
@@ -15,7 +16,18 @@ interface OperationsPageProps {
 export function OperationsPage({ operations, refresh, notify }: OperationsPageProps) {
   const { t } = useTranslation();
   const [pendingAction, setPendingAction] = useState<string>();
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
   const finishedOperations = operations.filter((operation) => isFinishedOperation(operation));
+
+  function askConfirm(title: string, onConfirm: () => void, destructive = false, message?: string) {
+    setConfirmState({ open: true, title, message, destructive, onConfirm });
+  }
 
   async function cancel(operation: Operation) {
     setPendingAction(operation.id);
@@ -30,36 +42,42 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
     }
   }
 
-  async function remove(operation: Operation) {
-    if (!window.confirm(t("delete_operation_confirmation", { title: operation.title }))) {
-      return;
-    }
-    setPendingAction(operation.id);
-    try {
-      await operationsApi.remove(operation.id);
-      await refresh();
-      notify(t("operation_removed"));
-    } catch (removeError) {
-      notify(errorMessage(removeError), "error");
-    } finally {
-      setPendingAction(undefined);
-    }
+  function remove(operation: Operation) {
+    askConfirm(
+      t("delete_operation_confirmation", { title: operation.title }),
+      async () => {
+        setPendingAction(operation.id);
+        try {
+          await operationsApi.remove(operation.id);
+          await refresh();
+          notify(t("operation_removed"));
+        } catch (removeError) {
+          notify(errorMessage(removeError), "error");
+        } finally {
+          setPendingAction(undefined);
+        }
+      },
+      true,
+    );
   }
 
-  async function clearHistory() {
-    if (!window.confirm(t("clear_history_confirmation"))) {
-      return;
-    }
-    setPendingAction("clear-history");
-    try {
-      const removed = await operationsApi.clearHistory();
-      await refresh();
-      notify(t("operations_removed", { count: removed }));
-    } catch (clearError) {
-      notify(errorMessage(clearError), "error");
-    } finally {
-      setPendingAction(undefined);
-    }
+  function clearHistory() {
+    askConfirm(
+      t("clear_history"),
+      async () => {
+        setPendingAction("clear-history");
+        try {
+          const removed = await operationsApi.clearHistory();
+          await refresh();
+          notify(t("operations_removed", { count: removed }));
+        } catch (clearError) {
+          notify(errorMessage(clearError), "error");
+        } finally {
+          setPendingAction(undefined);
+        }
+      },
+      true,
+    );
   }
 
   return (
@@ -73,7 +91,7 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
             <Button
               variant="secondary"
               disabled={pendingAction !== undefined}
-              onClick={() => void clearHistory()}
+              onClick={() => clearHistory()}
             >
               {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
             </Button>
@@ -112,7 +130,7 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
                         variant="ghost"
                         aria-label={t("delete_operation", { title: operation.title })}
                         disabled={pendingAction !== undefined}
-                        onClick={() => void remove(operation)}
+                        onClick={() => remove(operation)}
                       >
                         {pendingAction === operation.id ? t("deleting") : t("delete")}
                       </Button>
@@ -147,6 +165,18 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        destructive={confirmState.destructive}
+        onConfirm={() => {
+          setConfirmState((s) => ({ ...s, open: false }));
+          confirmState.onConfirm();
+        }}
+        onCancel={() => setConfirmState((s) => ({ ...s, open: false }))}
+      />
     </>
   );
 }

@@ -70,6 +70,7 @@ textarea {
 
 button {
   color: inherit;
+  user-select: none;
 }
 
 .shell {
@@ -116,23 +117,10 @@ button {
   letter-spacing: 3.4px;
 }
 
-.flame {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 38px;
-  border-radius: 18px 18px 15px 15px;
-  background: linear-gradient(145deg, #f6c26d, #b56c27);
-  box-shadow: 0 0 28px #df923a45;
-}
-
-.flame i {
-  width: 10px;
-  height: 17px;
-  border-radius: 70% 30% 60% 40%;
-  background: #fff1bd;
-  box-shadow: 0 0 10px #fff;
-  transform: rotate(8deg);
+.brand-icon {
+  width: 55px;
+  height: 55px;
+  border-radius: 10px;
 }
 
 .sidebar nav {
@@ -156,6 +144,7 @@ button {
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: none;
   transition: 0.18s;
 }
 
@@ -178,52 +167,6 @@ button {
   text-align: center;
 }
 
-.accountSwitcher {
-  position: relative;
-  margin-top: 18px;
-}
-
-.accountSwitcher summary {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid #2e2a2d;
-  border-radius: 10px;
-  cursor: pointer;
-  list-style: none;
-  background: #171619;
-}
-
-.accountSwitcher summary::-webkit-details-marker {
-  display: none;
-}
-
-.accountSwitcher summary > span:last-child {
-  min-width: 0;
-}
-
-.accountSwitcher summary small,
-.accountSwitcher summary strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.accountSwitcher summary small {
-  color: #77716d;
-  font-size: 10px;
-  text-transform: uppercase;
-}
-
-.accountSwitcher summary strong {
-  margin-top: 2px;
-  color: #d9d2ca;
-  font-size: 12px;
-}
-
 .miniAvatar {
   display: grid;
   flex: 0 0 28px;
@@ -234,67 +177,6 @@ button {
   color: #f6d69d;
   background: #4a3222;
   font-family: Newsreader, Georgia, serif;
-}
-
-.accountSwitcherMenu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 7px);
-  left: 0;
-  width: 240px;
-  padding: 6px;
-  border: 1px solid #393338;
-  border-radius: 10px;
-  background: #1b191d;
-  box-shadow: 0 16px 38px #0008;
-}
-
-.accountSwitcherMenu button,
-.accountSwitcherMenu > a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  padding: 8px;
-  border: 0;
-  border-radius: 7px;
-  color: #b8b1aa;
-  background: transparent;
-  font-size: 12px;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.accountSwitcherMenu button:hover,
-.accountSwitcherMenu button.selected,
-.accountSwitcherMenu > a:hover {
-  color: #f0d5aa;
-  background: #ffffff0b;
-}
-
-.accountSwitcherMenu button > span:first-child {
-  flex: 0 0 12px;
-  color: var(--amber);
-}
-
-.accountSwitcherMenu button > span:last-child {
-  min-width: 0;
-}
-
-.accountSwitcherMenu button strong,
-.accountSwitcherMenu button small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.accountSwitcherMenu button small {
-  margin-top: 2px;
-  color: #716b68;
-  font-size: 11px;
 }
 
 .navPulse {
@@ -741,55 +623,6 @@ main {
   to {
     background-position: -200% 0;
   }
-}
-
-.modalBackdrop {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: #070709c9;
-  backdrop-filter: blur(7px);
-}
-
-.modal {
-  display: flex;
-  width: min(680px, calc(100vw - 48px));
-  max-height: 85vh;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #353136;
-  border-radius: 16px;
-  background: #171619;
-  box-shadow: 0 30px 100px #000b;
-}
-
-.modalHeader {
-  position: relative;
-  z-index: 2;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 24px;
-  border-bottom: 1px solid #29272a;
-  background: #171619ef;
-  backdrop-filter: blur(10px);
-}
-
-.modalHeader h2 {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  font-family: Newsreader, Georgia, serif;
-  font-size: 28px;
-  font-weight: 650;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .iconButton {
@@ -1624,43 +1457,6 @@ main {
   user-select: none;
 }
 
-.checkboxControl input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.checkboxBox {
-  position: relative;
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  border: 1px solid #575157;
-  border-radius: 5px;
-  background: var(--surface-input);
-  transition: 0.16s;
-}
-
-.checkboxControl input:checked + .checkboxBox {
-  border-color: var(--amber);
-  background: var(--amber);
-}
-
-.checkboxControl input:checked + .checkboxBox::after {
-  content: "";
-  width: 8px;
-  height: 4px;
-  border-bottom: 2px solid #20150b;
-  border-left: 2px solid #20150b;
-  transform: translateY(-1px) rotate(-45deg);
-}
-
-.checkboxControl input:focus-visible + .checkboxBox {
-  box-shadow: 0 0 0 3px #e5a84b2b;
-}
-
 .dangerGhost:hover {
   color: #ff9c94 !important;
   background: #6b2d2d33 !important;
@@ -2046,51 +1842,6 @@ main {
 
 .launcherUpdateProgress small {
   color: var(--text-muted);
-}
-
-.toast {
-  position: fixed;
-  z-index: 40;
-  right: 25px;
-  bottom: 25px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(420px, calc(100vw - 50px));
-  padding: 12px 16px;
-  border: 1px solid #385239;
-  border-radius: 9px;
-  background: #20251f;
-  box-shadow: 0 15px 50px #0009;
-  font-size: 13px;
-  line-height: 1.45;
-  animation: toastIn 0.25s;
-}
-
-.toast > span:last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.toast > span:first-child {
-  color: #8ed19a;
-}
-
-.toast.error {
-  border-color: #633735;
-  background: #332020;
-}
-
-.toast.error > span:first-child {
-  color: #ff988e;
-}
-
-@keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
 }
 
 @media (max-width: 1100px) {
@@ -3041,7 +2792,6 @@ main {
   .sidebar nav a i {
     display: none;
   }
-  .accountSwitcher,
   .sidebarFoot {
     display: none;
   }
@@ -3153,21 +2903,10 @@ main {
     grid-column: 2;
     grid-row: 1 / span 2;
   }
-  .modalBackdrop {
-    align-items: end;
-    padding: 0;
-  }
-  .modal,
   .instanceDialog {
     width: 100%;
     max-height: 92vh;
     border-radius: 18px 18px 0 0;
-  }
-  .modalHeader {
-    padding: 20px;
-  }
-  .modalHeader h2 {
-    font-size: 26px;
   }
   .tabs {
     padding: 0 12px;

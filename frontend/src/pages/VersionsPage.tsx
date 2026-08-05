@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { AvailableVersions } from "../features/install-game-version/AvailableVersions";
 import { InstallLocalVersionModal } from "../features/install-game-version/InstallLocalVersionModal";
 import { versionsApi, type GameVersion } from "../shared/api";
@@ -17,20 +18,27 @@ interface VersionsPageProps {
 export function VersionsPage({ versions, refresh, notify }: VersionsPageProps) {
   const { t } = useTranslation();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", onConfirm: () => {} });
 
-  async function removeVersion(version: GameVersion) {
-    const confirmed = window.confirm(t("remove_version_confirmation", { name: version.name }));
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await versionsApi.remove(version.id, true);
-      await refresh();
-      notify(t("game_version_removed"));
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
+  function removeVersion(version: GameVersion) {
+    setConfirmState({
+      open: true,
+      title: t("remove_version_confirmation", { name: version.name }),
+      onConfirm: async () => {
+        try {
+          await versionsApi.remove(version.id, true);
+          await refresh();
+          notify(t("game_version_removed"));
+        } catch (error) {
+          notify(errorMessage(error), "error");
+        }
+      },
+    });
   }
 
   return (
@@ -77,7 +85,7 @@ export function VersionsPage({ versions, refresh, notify }: VersionsPageProps) {
                 <span>{formatDate(version.installedAt)}</span>
                 <span className="row tableActions">
                   <StatusPill status={version.status} />
-                  <Button variant="ghost" onClick={() => void removeVersion(version)}>
+                  <Button variant="ghost" onClick={() => removeVersion(version)}>
                     {t("remove")}
                   </Button>
                 </span>
@@ -104,6 +112,18 @@ export function VersionsPage({ versions, refresh, notify }: VersionsPageProps) {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        destructive
+        onConfirm={() => {
+          setConfirmState((s) => ({ ...s, open: false }));
+          confirmState.onConfirm();
+        }}
+        onCancel={() => setConfirmState((s) => ({ ...s, open: false }))}
+      />
     </>
   );
 }
