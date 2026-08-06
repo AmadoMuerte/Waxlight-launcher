@@ -81,6 +81,46 @@ export interface InstalledMod {
   installedAt: string;
 }
 
+export type ModUpdateStatus = "up_to_date" | "update_available" | "not_updatable" | "unknown";
+export type ModNotUpdatableReason = "local_mod" | "not_in_catalog" | "catalog_error" | "";
+
+export interface ModDependency {
+  modId: string;
+  name: string;
+  requirement: string;
+}
+
+export interface ModUpdate {
+  modId: string;
+  name: string;
+  installedVersion: string;
+  targetVersionId: string;
+  targetVersion: string;
+  status: ModUpdateStatus;
+  reason: ModNotUpdatableReason;
+  changelog: string;
+  compatible: boolean;
+  prerelease: boolean;
+  addedDeps: ModDependency[];
+  removedDeps: ModDependency[];
+}
+
+export interface ModUpdateSummary {
+  totalMods: number;
+  upToDate: number;
+  updatesAvailable: number;
+  notUpdatableLocal: number;
+  notUpdatableAbsent: number;
+  notUpdatableCatalogError: number;
+  incompatible: number;
+}
+
+export interface InstanceModUpdateReport {
+  gameVersion: string;
+  mods: ModUpdate[];
+  summary: ModUpdateSummary;
+}
+
 export type ModSide = "client" | "server" | "both" | "unknown";
 export type ModSort = "relevance" | "updated" | "newest" | "downloads" | "name_asc" | "name_desc";
 

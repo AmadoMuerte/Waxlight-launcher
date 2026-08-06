@@ -15,6 +15,7 @@ import type {
   AvailableGameVersion,
   DataFolder,
   GameVersion,
+  InstanceModUpdateReport,
   InstalledMod,
   Instance,
   LaunchValidation,
@@ -85,6 +86,8 @@ export const instancesApi = {
 export const modsApi = {
   list: (instanceId: string) =>
     call<InstalledMod[]>("ModManagerController", "ListInstalledMods", instanceId),
+  checkInstanceUpdates: (instanceId: string) =>
+    call<InstanceModUpdateReport>("ModManagerController", "CheckInstanceModUpdates", instanceId),
   install: (request: { instanceId: string; sourcePath: string; name: string; version: string }) =>
     call<Operation>("ModManagerController", "InstallModFile", request),
   toggle: (id: string, enabled: boolean) =>
