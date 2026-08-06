@@ -11,17 +11,23 @@ import {
 } from "@/components/ui/select";
 
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
+import { ExportInstanceModal } from "../features/instance-package/ExportInstanceModal";
+import { ImportPackageModal } from "../features/instance-package/ImportPackageModal";
+import { ImportResultModal } from "../features/instance-package/ImportResultModal";
 import { ModUpdatesModal } from "../features/mods/ModUpdatesModal";
 import {
+  instancePackageApi,
   instancesApi,
   launcherApi,
   modsApi,
   settingsApi,
   type Account,
   type GameVersion,
+  type ImportReport,
   type InstanceModUpdateReport,
   type InstalledMod,
   type Instance,
+  type PackageInspection,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatDate, formatDuration } from "../shared/lib";
@@ -36,7 +42,7 @@ import {
   SubmitForm,
 } from "../shared/ui";
 
-type Notify = (message: string, type?: "ok" | "error") => void;
+type Notify = (message: string, type?: "ok" | "error", duration?: number) => void;
 
 interface LibraryPageProps {
   instances: Instance[];
@@ -58,6 +64,9 @@ export function LibraryPage({
   const { t } = useTranslation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
+  const [exportingInstance, setExportingInstance] = useState<Instance>();
+  const [importInspection, setImportInspection] = useState<PackageInspection>();
+  const [importResult, setImportResult] = useState<ImportReport>();
   const [query, setQuery] = useState("");
   const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
   const instancesRef = useRef(instances);
@@ -99,6 +108,19 @@ export function LibraryPage({
     checkedOnceRef.current = true;
     void checkAllUpdates();
   }, [checkAllUpdates]);
+
+  async function startImport() {
+    try {
+      const path = await instancePackageApi.selectPackageFile();
+      if (!path) {
+        return;
+      }
+      const inspection = await instancePackageApi.inspect(path);
+      setImportInspection(inspection);
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
 
   const visibleInstances = useMemo(
     () => instances.filter((instance) => instance.name.toLowerCase().includes(query.toLowerCase())),
@@ -150,9 +172,14 @@ export function LibraryPage({
         title={t("library")}
         description={t("library_description")}
         action={
-          versions.length === 0 ? undefined : (
-            <Button onClick={() => setCreateDialogOpen(true)}>＋ {t("new_instance")}</Button>
-          )
+          <div className="row">
+            <Button variant="secondary" onClick={() => void startImport()}>
+              ⤓ {t("import_instance")}
+            </Button>
+            {versions.length > 0 && (
+              <Button onClick={() => setCreateDialogOpen(true)}>＋ {t("new_instance")}</Button>
+            )}
+          </div>
         }
       />
 
@@ -240,9 +267,44 @@ export function LibraryPage({
           versions={versions}
           accounts={accounts}
           onClose={() => setSelectedInstance(undefined)}
+          onExport={() => setExportingInstance(selectedInstance)}
           refresh={refresh}
           notify={notify}
         />
+      )}
+
+      {exportingInstance && (
+        <ExportInstanceModal
+          instance={exportingInstance}
+          onClose={() => setExportingInstance(undefined)}
+          onDone={async () => {
+            setExportingInstance(undefined);
+            await refresh();
+          }}
+          notify={notify}
+        />
+      )}
+
+      {importInspection && (
+        <ImportPackageModal
+          inspection={importInspection}
+          versions={versions}
+          onClose={() => setImportInspection(undefined)}
+          onDone={async (report) => {
+            setImportInspection(undefined);
+            setImportResult(report);
+            await refresh();
+          }}
+          onBackgroundDone={async () => {
+            setImportInspection(undefined);
+            await refresh();
+          }}
+          notify={notify}
+        />
+      )}
+
+      {importResult && (
+        <ImportResultModal report={importResult} onClose={() => setImportResult(undefined)} />
       )}
 
       <ConfirmDialog
@@ -372,7 +434,7 @@ function CreateInstanceModal({ versions, accounts, onClose, onDone }: CreateInst
     setError("");
     try {
       await instancesApi.create({
-        name,
+        name: name.trim(),
         description,
         gameVersionId: versionID,
         defaultAccountId: accountID || undefined,
@@ -393,10 +455,9 @@ function CreateInstanceModal({ versions, accounts, onClose, onDone }: CreateInst
         <div className="modalBody formFields">
           <Field label={t("name")}>
             <input
-              required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder={t("instance_name_example")}
+              placeholder={t("default_instance_name")}
             />
           </Field>
 
@@ -473,6 +534,7 @@ interface InstanceModalProps {
   versions: GameVersion[];
   accounts: Account[];
   onClose: () => void;
+  onExport: () => void;
   refresh: () => Promise<void>;
   notify: Notify;
 }
@@ -482,6 +544,7 @@ function InstanceModal({
   versions,
   accounts,
   onClose,
+  onExport,
   refresh,
   notify,
 }: InstanceModalProps) {
@@ -677,22 +740,25 @@ function InstanceModal({
           </section>
 
           <section className="storageSection">
+            <div className="storageToolbar">
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    await settingsApi.openDirectory(instance.directory);
+                  } catch (error) {
+                    notify(errorMessage(error), "error");
+                  }
+                }}
+              >
+                {t("open_directory")}
+              </Button>
+              <Button onClick={onExport}>⤓ {t("export_instance")}</Button>
+            </div>
             <div className="storageCopy">
               <span>{t("data_directory")}</span>
               <code title={instance.directory}>{instance.directory}</code>
             </div>
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  await settingsApi.openDirectory(instance.directory);
-                } catch (error) {
-                  notify(errorMessage(error), "error");
-                }
-              }}
-            >
-              {t("open_directory")}
-            </Button>
           </section>
         </div>
       )}

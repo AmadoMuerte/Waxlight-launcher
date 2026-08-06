@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
+	"os/exec"
+	"runtime"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -628,11 +629,33 @@ func (controller *SettingsController) OpenDirectory(path string) error {
 		return domain.NewError(domain.ErrValidation, "Directory not found")
 	}
 
-	wruntime.BrowserOpenURL(
-		controller.base.ctx,
-		"file://"+filepath.ToSlash(path),
-	)
+	// Wails rejects file:// URLs on Linux ("scheme not allowed"), so open the
+	// directory through the platform file manager directly.
+	if err := openDirectoryNative(path); err != nil {
+		return &domain.AppError{
+			Code:    domain.ErrFilePermission,
+			Message: "Could not open the directory",
+			Cause:   err,
+		}
+	}
 	return nil
+}
+
+func openDirectoryNative(path string) error {
+	var command string
+	var args []string
+	switch runtime.GOOS {
+	case "windows":
+		command = "explorer.exe"
+		args = []string{path}
+	case "darwin":
+		command = "open"
+		args = []string{path}
+	default:
+		command = "xdg-open"
+		args = []string{path}
+	}
+	return exec.Command(command, args...).Start()
 }
 
 func nonNilStrings(values []string) []string {

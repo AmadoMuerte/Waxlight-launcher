@@ -192,3 +192,42 @@ func stringContainsAuth(contents []byte) bool {
 	}
 	return false
 }
+
+func TestSanitizeClientSettingsRemovesAuthAndModPaths(t *testing.T) {
+	original := `{"stringsettings":{"sessionkey":"s","playername":"Ada","language":"en"},"stringListSettings":{"multiplayerservers":[],"disabledMods":["m1"],"modPaths":["Mods","/home/user/.config/waxlight/instances/original/Mods"]},"intsettings":{"viewDistance":256}}`
+	sanitized, err := SanitizeClientSettings([]byte(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lower := strings.ToLower(string(sanitized))
+	for _, forbidden := range []string{"sessionkey", "playername", "modpaths", "instances/original", "session-key"} {
+		if strings.Contains(lower, strings.ToLower(forbidden)) {
+			t.Fatalf("sanitized settings still contain %q: %s", forbidden, sanitized)
+		}
+	}
+	var result struct {
+		StringSettings     map[string]string `json:"stringsettings"`
+		StringListSettings json.RawMessage   `json:"stringListSettings"`
+		IntSettings        map[string]int    `json:"intsettings"`
+	}
+	if err := json.Unmarshal(sanitized, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.StringSettings["language"] != "en" {
+		t.Fatalf("language was not preserved: %s", sanitized)
+	}
+	if result.IntSettings["viewDistance"] != 256 {
+		t.Fatalf("int settings were not preserved: %s", sanitized)
+	}
+	var lists map[string]json.RawMessage
+	if err := json.Unmarshal(result.StringListSettings, &lists); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := lists["modPaths"]; ok {
+		t.Fatalf("modPaths was not removed: %s", sanitized)
+	}
+	var disabledMods []string
+	if err := json.Unmarshal(lists["disabledMods"], &disabledMods); err != nil || len(disabledMods) != 1 {
+		t.Fatalf("disabledMods were not preserved: %s", sanitized)
+	}
+}

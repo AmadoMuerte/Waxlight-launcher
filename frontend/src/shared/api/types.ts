@@ -333,3 +333,87 @@ export interface LaunchValidation {
   issues: string[] | null;
   warnings: string[] | null;
 }
+
+export interface PackageAuthor {
+  name?: string;
+  homepage?: string;
+  source?: string;
+}
+
+export interface PackageGameVersion {
+  id: string;
+  name: string;
+}
+
+export type PackageModSource = "moddb" | "embedded";
+
+export interface PackageManifest {
+  schemaVersion: number;
+  name: string;
+  description?: string;
+  author?: PackageAuthor;
+  gameVersion: PackageGameVersion;
+  launchArguments: string[];
+  mods: PackageMod[];
+  configFiles: string[];
+  hasIcon: boolean;
+}
+
+export interface PackageMod {
+  modId?: string;
+  versionId?: string;
+  name: string;
+  version?: string;
+  fileName: string;
+  source: PackageModSource;
+  checksum?: string;
+  downloadUrl?: string;
+  enabled: boolean;
+}
+
+export type PackageVersionStatus = "installed" | "available" | "missing";
+export type PackageModStatus = "available" | "incompatible" | "missing" | "embedded";
+
+export interface PackageModCheck {
+  modId?: string;
+  versionId?: string;
+  name: string;
+  version: string;
+  source: PackageModSource;
+  enabled: boolean;
+  status: PackageModStatus;
+  message?: string;
+  hasEmbedded?: boolean;
+}
+
+export interface PackageInspection {
+  path: string;
+  schemaVersion: number;
+  name: string;
+  description?: string;
+  author?: PackageAuthor;
+  gameVersion: PackageGameVersion;
+  versionStatus: PackageVersionStatus;
+  launchArguments: string[];
+  mods: PackageModCheck[];
+  configFiles: string[];
+  hasIcon: boolean;
+  totalSize: number;
+  unverifiedFiles: number;
+  warnings: string[];
+}
+
+export interface ImportedModResult {
+  name: string;
+  version: string;
+  status: "installed" | "skipped" | "failed";
+  message?: string;
+}
+
+export interface ImportReport {
+  instanceId: string;
+  instanceName: string;
+  gameVersionId: string;
+  mods: ImportedModResult[];
+  warnings: string[];
+}

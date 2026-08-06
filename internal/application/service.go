@@ -531,8 +531,13 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 	if err := s.rejectIfRelocating(); err != nil {
 		return domain.Instance{}, err
 	}
-	name, e := cleanName(in.Name)
-	if e != nil {
+	var e error
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		if name, e = s.defaultInstanceName(ctx); e != nil {
+			return domain.Instance{}, e
+		}
+	} else if name, e = cleanName(name); e != nil {
 		return domain.Instance{}, e
 	}
 	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
@@ -588,6 +593,58 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 		s.emit("instance:created", instance)
 	}
 	return instance, e
+}
+
+// defaultInstanceName produces a localized name for an unnamed instance and
+// appends an incrementing suffix until it collides with nothing.
+func (s *Service) defaultInstanceName(ctx context.Context) (string, error) {
+	settings, err := s.store.GetSettings(ctx)
+	if err != nil {
+		return "", err
+	}
+	base := localizedInstanceName(settings.Language)
+
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return "", err
+	}
+	taken := make(map[string]bool, len(instances))
+	for _, instance := range instances {
+		taken[strings.ToLower(strings.TrimSpace(instance.Name))] = true
+	}
+
+	candidate := base
+	for index := 2; ; index++ {
+		if !taken[strings.ToLower(candidate)] {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s-%d", base, index)
+	}
+}
+
+func localizedInstanceName(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "ru":
+		return "Сборка"
+	case "be":
+		return "Зборка"
+	case "de":
+		return "Instanz"
+	case "es":
+		return "Instancia"
+	case "fr":
+		return "Instance"
+	case "kk":
+		return "Жинақ"
+	case "pl":
+		return "Instancja"
+	case "pt":
+		return "Instância"
+	case "sv":
+		return "Instans"
+	default:
+		return "Instance"
+	}
 }
 
 func (s *Service) ListInstances(ctx context.Context) ([]domain.Instance, error) {
@@ -1120,6 +1177,23 @@ func (s *Service) Launch(
 		return domain.PlaySession{}, err
 	}
 
+	// Record the exact launch command so issues like a wrong data path can be
+	// diagnosed from the instance log.
+	if _, writeErr := fmt.Fprintf(
+		logFile,
+		"Executing: %s %s\n",
+		version.ExecutablePath,
+		strings.Join(quoteLaunchArguments(arguments), " "),
+	); writeErr != nil {
+		_ = logFile.Close()
+		_ = cleanupCredentials()
+		return domain.PlaySession{}, &domain.AppError{
+			Code:    domain.ErrFilePermission,
+			Message: "Could not write the launch command to the instance log",
+			Cause:   writeErr,
+		}
+	}
+
 	workingDirectory := filepath.Dir(version.ExecutablePath)
 	process, err := s.launcher.Start(
 		context.Background(),
@@ -1174,6 +1248,18 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
+}
+
+func quoteLaunchArguments(arguments []string) []string {
+	result := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		if strings.ContainsAny(argument, " \t\"") {
+			result = append(result, `"`+strings.ReplaceAll(argument, `"`, `\"`)+`"`)
+		} else {
+			result = append(result, argument)
+		}
+	}
+	return result
 }
 
 func hardenLogs(logsDirectory string) error {

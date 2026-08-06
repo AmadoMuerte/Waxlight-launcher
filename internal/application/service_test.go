@@ -265,6 +265,81 @@ func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
 	}
 }
 
+func TestCreateInstanceDefaultNameAndSuffixes(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+
+	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Name != "Instance" {
+		t.Fatalf("expected default name %q, got %q", "Instance", first.Name)
+	}
+
+	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Name != "Instance-2" {
+		t.Fatalf("expected suffixed name %q, got %q", "Instance-2", second.Name)
+	}
+
+	third, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if third.Name != "Instance-3" {
+		t.Fatalf("expected suffixed name %q, got %q", "Instance-3", third.Name)
+	}
+
+	// An explicitly typed name is never renumbered, even when it collides.
+	explicit, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name:          "Instance",
+		GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if explicit.Name != "Instance" {
+		t.Fatalf("explicit name was changed to %q", explicit.Name)
+	}
+}
+
+func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+
+	if err := fixture.store.SaveSettings(ctx, domain.Settings{
+		Theme:                 "dark",
+		Language:              "ru",
+		DownloadsParallel:     3,
+		ConfirmDeletion:       true,
+		MinSessionDurationSec: 30,
+		GlobalLaunchArguments: []string{},
+		CheckForUpdates:       true,
+		UpdateChannel:         "stable",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Name != "Сборка" {
+		t.Fatalf("expected localized default name %q, got %q", "Сборка", first.Name)
+	}
+
+	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Name != "Сборка-2" {
+		t.Fatalf("expected localized suffixed name %q, got %q", "Сборка-2", second.Name)
+	}
+}
+
 func TestStartupReconciliationHardensExistingLogs(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
