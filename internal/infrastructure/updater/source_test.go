@@ -62,8 +62,8 @@ func TestSourceSelectsPrereleaseAheadOfStable(t *testing.T) {
 	}
 }
 
-func TestSourceSelectsNewerStableOnPrereleaseChannel(t *testing.T) {
-	assetName, err := expectedAssetName("0.2.1")
+func TestPrereleaseChannelIgnoresNewerStable(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.1-beta.3")
 	if err != nil {
 		t.Skip(err)
 	}
@@ -79,8 +79,68 @@ func TestSourceSelectsNewerStableOnPrereleaseChannel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !update.Available || update.Downgrade || update.Prerelease || update.Version != "0.2.1" {
-		t.Fatalf("unexpected stable update on prerelease channel: %+v", update)
+	if update.Available || update.Version != "0.2.1-beta.3" {
+		t.Fatalf("prerelease channel must stay on the newest prerelease, got: %+v", update)
+	}
+}
+
+func TestPrereleaseChannelOffersNewestPrereleaseFromStable(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.1-beta.3")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.0", false, assetName),
+		releaseFixture("v0.2.1-beta.3", true, assetName),
+	}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.2.0",
+		"prerelease",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || update.Downgrade || !update.Prerelease || update.Version != "0.2.1-beta.3" {
+		t.Fatalf("expected newest prerelease after switching from stable, got: %+v", update)
+	}
+}
+
+func TestPrereleaseChannelOffersDowngradeBelowInstalledStable(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.1-beta.3")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.1-beta.3", true, assetName),
+		releaseFixture("v0.2.2", false, assetName),
+	}
+	update, err := sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.2.2",
+		"prerelease",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || !update.Downgrade || !update.Prerelease || update.Version != "0.2.1-beta.3" {
+		t.Fatalf("expected prerelease downgrade below installed stable, got: %+v", update)
+	}
+}
+
+func TestPrereleaseChannelRejectsStableOnlyReleases(t *testing.T) {
+	assetName, err := expectedAssetName("0.2.0")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{releaseFixture("v0.2.0", false, assetName)}
+	_, err = sourceForReleases(t, releases, assetName).Check(
+		context.Background(),
+		"0.1.9",
+		"prerelease",
+	)
+	if err == nil || !strings.Contains(err.Error(), "no trusted launcher release is available") {
+		t.Fatalf("expected no trusted prerelease error, got %v", err)
 	}
 }
 

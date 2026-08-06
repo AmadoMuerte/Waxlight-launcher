@@ -153,16 +153,28 @@ func selectReleaseForChannel(
 		if release.Draft || version == "" {
 			continue
 		}
-		if channel == "stable" && releaseIsPrerelease(*release, version) {
+
+		isPrerelease := releaseIsPrerelease(*release, version)
+
+		// The stable channel only considers stable releases, and the
+		// prerelease channel only considers prerelease releases. This keeps
+		// channel switching predictable: switching from stable to prerelease
+		// always offers the newest prerelease even when a stable release has
+		// the same or a higher base version, and vice versa.
+		if channel == "stable" && isPrerelease {
 			continue
 		}
+		if channel == "prerelease" && !isPrerelease {
+			continue
+		}
+
 		if selected == nil || semver.Compare(version, selectedVersion) > 0 {
 			selected = release
 			selectedVersion = version
 		}
 	}
 	if selected == nil {
-		return nil, "", errors.New("no trusted launcher release is available")
+		return nil, "", errors.New("no trusted launcher release is available for channel " + channel)
 	}
 	return selected, selectedVersion, nil
 }
