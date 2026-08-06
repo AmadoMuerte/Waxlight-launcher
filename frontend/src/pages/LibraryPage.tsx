@@ -14,6 +14,7 @@ import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { ExportInstanceModal } from "../features/instance-package/ExportInstanceModal";
 import { ImportPackageModal } from "../features/instance-package/ImportPackageModal";
 import { ImportResultModal } from "../features/instance-package/ImportResultModal";
+import { CloneInstanceModal } from "../features/instance/CloneInstanceModal";
 import { ModUpdatesModal } from "../features/mods/ModUpdatesModal";
 import {
   instancePackageApi,
@@ -64,6 +65,7 @@ export function LibraryPage({
   const { t } = useTranslation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
+  const [cloningInstance, setCloningInstance] = useState<Instance>();
   const [exportingInstance, setExportingInstance] = useState<Instance>();
   const [importInspection, setImportInspection] = useState<PackageInspection>();
   const [importResult, setImportResult] = useState<ImportReport>();
@@ -268,7 +270,21 @@ export function LibraryPage({
           accounts={accounts}
           onClose={() => setSelectedInstance(undefined)}
           onExport={() => setExportingInstance(selectedInstance)}
+          onClone={() => setCloningInstance(selectedInstance)}
           refresh={refresh}
+          notify={notify}
+        />
+      )}
+
+      {cloningInstance && (
+        <CloneInstanceModal
+          instance={instances.find((item) => item.id === cloningInstance.id) ?? cloningInstance}
+          onClose={() => setCloningInstance(undefined)}
+          onDone={async () => {
+            setCloningInstance(undefined);
+            setSelectedInstance(undefined);
+            await refresh();
+          }}
           notify={notify}
         />
       )}
@@ -535,6 +551,7 @@ interface InstanceModalProps {
   accounts: Account[];
   onClose: () => void;
   onExport: () => void;
+  onClone: () => void;
   refresh: () => Promise<void>;
   notify: Notify;
 }
@@ -545,6 +562,7 @@ function InstanceModal({
   accounts,
   onClose,
   onExport,
+  onClone,
   refresh,
   notify,
 }: InstanceModalProps) {
@@ -752,6 +770,9 @@ function InstanceModal({
                 }}
               >
                 {t("open_directory")}
+              </Button>
+              <Button variant="secondary" onClick={onClone}>
+                {t("clone_instance")}
               </Button>
               <Button onClick={onExport}>⤓ {t("export_instance")}</Button>
             </div>

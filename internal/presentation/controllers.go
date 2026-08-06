@@ -209,6 +209,11 @@ type UpdateInstanceRequest struct {
 	LaunchArguments  []string `json:"launchArguments"`
 }
 
+type CloneInstanceRequest struct {
+	SourceID string `json:"sourceId"`
+	Name     string `json:"name"`
+}
+
 func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 	instances, err := controller.svc.ListInstances(context.Background())
 	result := make([]InstanceDTO, 0, len(instances))
@@ -277,6 +282,17 @@ func (controller *InstanceController) DeleteInstance(
 	deleteFiles bool,
 ) error {
 	return controller.svc.DeleteInstance(context.Background(), id, deleteFiles)
+}
+
+func (controller *InstanceController) CloneInstance(
+	request CloneInstanceRequest,
+) (InstanceDTO, error) {
+	instance, err := controller.svc.CloneInstance(
+		context.Background(),
+		request.SourceID,
+		request.Name,
+	)
+	return instanceDTO(instance), err
 }
 
 type ModManagerController struct {

@@ -85,6 +85,8 @@ export const instancesApi = {
   }) => call<Instance>("InstanceController", "UpdateInstance", request),
   remove: (id: string, deleteFiles: boolean) =>
     call<void>("InstanceController", "DeleteInstance", id, deleteFiles),
+  clone: (request: { sourceId: string; name: string }) =>
+    call<Instance>("InstanceController", "CloneInstance", request),
 };
 
 export const modsApi = {

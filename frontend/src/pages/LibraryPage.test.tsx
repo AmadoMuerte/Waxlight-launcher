@@ -10,10 +10,14 @@ import { LibraryPage } from "./LibraryPage";
 
 const api = vi.hoisted(() => ({
   create: vi.fn(),
+  clone: vi.fn(),
+  list: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock("../shared/api", () => ({
-  instancesApi: { create: api.create },
+  instancesApi: api,
   launcherApi: {},
   modsApi: {},
   settingsApi: {},
@@ -35,11 +39,27 @@ const versions: GameVersion[] = [
   },
 ];
 
+const instances = [
+  {
+    id: "inst-1",
+    name: "Warm home",
+    description: "A cozy base",
+    gameVersionId: "1.20",
+    directory: "/instances/inst-1",
+    status: "ready",
+    launchArguments: [],
+    createdAt: "2026-01-01T00:00:00Z",
+    enabledModCount: 0,
+    totalModCount: 0,
+    playtimeSeconds: 0,
+  },
+];
+
 function renderPage() {
   return render(
     <MemoryRouter>
       <LibraryPage
-        instances={[]}
+        instances={instances}
         versions={versions}
         accounts={[]}
         loading={false}
@@ -56,6 +76,7 @@ describe("library instance creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.create.mockResolvedValue({});
+    api.clone.mockResolvedValue({ id: "inst-2", name: "Warm home copy" });
   });
 
   it("submits an empty name so the backend generates a unique default", async () => {
@@ -80,6 +101,28 @@ describe("library instance creation", () => {
 
     await waitFor(() => {
       expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ name: "My cozy world" }));
+    });
+  });
+
+  it("clones an instance with the typed name", async () => {
+    renderPage();
+
+    await userEvent
+      .setup()
+      .click(screen.getAllByRole("button", { name: "Open instance details" })[0]);
+    await userEvent.setup().click(screen.getByRole("button", { name: /Clone/ }));
+    await userEvent.setup().clear(screen.getByLabelText("Name"));
+    await userEvent.setup().type(screen.getByLabelText("Name"), "Warm home copy");
+
+    const cloneButtons = screen.getAllByRole("button", { name: /Clone/ });
+    await userEvent.setup().click(cloneButtons[cloneButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(api.clone).toHaveBeenCalledWith({ sourceId: "inst-1", name: "Warm home copy" });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Warm home" })).toBeNull();
     });
   });
 });
