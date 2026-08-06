@@ -99,6 +99,11 @@ func modDetailsDTO(mod domain.ModDetails) ModDetailsDTO {
 	return dto
 }
 
+type ModTagDTO struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
 type ModSearchResultDTO struct {
 	Items      []ModSummaryDTO `json:"items"`
 	Page       int             `json:"page"`
