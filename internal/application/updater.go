@@ -208,6 +208,16 @@ func (service *LauncherUpdateService) cleanupSession(sessionDir string) {
 	os.Remove(sessionDir)
 }
 
+// PurgeStaleUpdateSessions removes every leftover update session directory under
+// dataRoot/updates. A successful launcher update intentionally leaves its
+// session directory behind so the platform installer can consume the package
+// asynchronously; without cleanup these directories accumulate on disk. At
+// startup no session belongs to the current process, so all leftovers are stale
+// and safe to remove. A missing updates directory is not an error.
+func PurgeStaleUpdateSessions(dataRoot string) error {
+	return os.RemoveAll(filepath.Join(dataRoot, "updates"))
+}
+
 func normalizeUpdateChannel(channel string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(channel)) {
 	case "", "stable":

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -359,5 +360,61 @@ func TestLauncherUpdatePublishesProgressPhases(t *testing.T) {
 		if phases[i] != expected {
 			t.Fatalf("phase %d: expected %q, got %q", i, expected, phases[i])
 		}
+	}
+}
+
+func TestPurgeStaleUpdateSessionsRemovesLeftovers(t *testing.T) {
+	dataRoot := t.TempDir()
+
+	sessionFiles := []string{
+		filepath.Join("updates", "1700000000000000000", "Waxlight-Launcher-v0.2.1-linux-amd64.tar.gz"),
+		filepath.Join("updates", "1700000000000000001", "nested", "file.bin"),
+	}
+	for _, relative := range sessionFiles {
+		path := filepath.Join(dataRoot, relative)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := PurgeStaleUpdateSessions(dataRoot); err != nil {
+		t.Fatalf("purge failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dataRoot, "updates")); !os.IsNotExist(err) {
+		t.Fatalf("updates directory should be removed, stat err: %v", err)
+	}
+}
+
+func TestPurgeStaleUpdateSessionsToleratesMissingDir(t *testing.T) {
+	dataRoot := filepath.Join(t.TempDir(), "no-updates-yet")
+	if err := PurgeStaleUpdateSessions(dataRoot); err != nil {
+		t.Fatalf("purge with missing updates directory failed: %v", err)
+	}
+}
+
+func TestPurgeStaleUpdateSessionsKeepsOtherData(t *testing.T) {
+	dataRoot := t.TempDir()
+	kept := filepath.Join(dataRoot, "waxlight.db")
+	if err := os.WriteFile(kept, []byte("db"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	session := filepath.Join(dataRoot, "updates", "1700000000000000000", "file.bin")
+	if err := os.MkdirAll(filepath.Dir(session), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(session, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := PurgeStaleUpdateSessions(dataRoot); err != nil {
+		t.Fatalf("purge failed: %v", err)
+	}
+
+	if _, err := os.Stat(kept); err != nil {
+		t.Fatalf("non-update data must be preserved: %v", err)
 	}
 }

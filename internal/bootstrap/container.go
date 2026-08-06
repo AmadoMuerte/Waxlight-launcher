@@ -46,6 +46,10 @@ func New() (*Container, error) {
 		return nil, fmt.Errorf("secure data directory: %w", err)
 	}
 
+	if err := application.PurgeStaleUpdateSessions(dataRoot); err != nil {
+		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
+	}
+
 	store, err := database.Open(filepath.Join(dataRoot, "waxlight.db"))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
