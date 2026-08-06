@@ -1177,6 +1177,23 @@ func (s *Service) Launch(
 		return domain.PlaySession{}, err
 	}
 
+	// Record the exact launch command so issues like a wrong data path can be
+	// diagnosed from the instance log.
+	if _, writeErr := fmt.Fprintf(
+		logFile,
+		"Executing: %s %s\n",
+		version.ExecutablePath,
+		strings.Join(quoteLaunchArguments(arguments), " "),
+	); writeErr != nil {
+		_ = logFile.Close()
+		_ = cleanupCredentials()
+		return domain.PlaySession{}, &domain.AppError{
+			Code:    domain.ErrFilePermission,
+			Message: "Could not write the launch command to the instance log",
+			Cause:   writeErr,
+		}
+	}
+
 	workingDirectory := filepath.Dir(version.ExecutablePath)
 	process, err := s.launcher.Start(
 		context.Background(),
@@ -1231,6 +1248,18 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
+}
+
+func quoteLaunchArguments(arguments []string) []string {
+	result := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		if strings.ContainsAny(argument, " \t\"") {
+			result = append(result, `"`+strings.ReplaceAll(argument, `"`, `\"`)+`"`)
+		} else {
+			result = append(result, argument)
+		}
+	}
+	return result
 }
 
 func hardenLogs(logsDirectory string) error {
