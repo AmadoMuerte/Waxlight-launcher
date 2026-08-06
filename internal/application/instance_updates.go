@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/modpack"
@@ -114,5 +115,10 @@ func (s *Service) CheckInstanceModUpdates(
 		}
 		build.Mods = append(build.Mods, install)
 	}
-	return modpack.Analyze(ctx, build, modpackCatalogAdapter{catalog: s.modCatalog})
+	report, err := modpack.Analyze(ctx, build, modpackCatalogAdapter{catalog: s.modCatalog})
+	if err != nil {
+		return report, err
+	}
+	slog.Info("mod updates checked", "instance", instance.Name, "updates", report.Summary.UpdatesAvailable)
+	return report, nil
 }

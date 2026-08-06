@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,6 +28,8 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	if !strings.HasPrefix(in.URL, "https://") {
 		return fmt.Errorf("only HTTPS downloads are allowed")
 	}
+	fileName := filepath.Base(in.DestinationPath)
+	slog.Info("download started", "file", fileName, "resume", in.Resume)
 	if err := os.MkdirAll(filepath.Dir(in.DestinationPath), 0o755); err != nil {
 		return err
 	}
@@ -52,6 +55,7 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		slog.Warn("download rejected by server", "file", fileName, "status", resp.StatusCode)
 		return fmt.Errorf("download returned HTTP %d", resp.StatusCode)
 	}
 	if in.MaxBytes > 0 && resp.ContentLength > in.MaxBytes {
@@ -117,6 +121,7 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 			return err
 		}
 		if !strings.EqualFold(actual, in.ExpectedChecksum) {
+			slog.Warn("download checksum mismatch", "file", fileName)
 			return fmt.Errorf(
 				"checksum mismatch: expected %s, got %s",
 				in.ExpectedChecksum,
@@ -124,6 +129,7 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 			)
 		}
 	}
+	slog.Info("download completed", "file", fileName, "bytes", downloaded)
 	return os.Rename(partial, in.DestinationPath)
 }
 

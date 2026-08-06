@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -113,14 +114,19 @@ func (c *Client) Login(
 		if response.PreLoginToken == nil || *response.PreLoginToken == "" {
 			return Session{}, nil, ErrInvalidAuthReply
 		}
+		slog.Info("auth server requested a TOTP challenge")
 		return Session{}, &TOTPChallenge{PreLoginToken: *response.PreLoginToken}, ErrTOTPRequired
 	case "invalidemailorpassword", "invalidtotpcode":
+		slog.Warn("auth login rejected with invalid credentials")
 		return Session{}, nil, ErrInvalidCredentials
 	case "ipchanged":
+		slog.Warn("auth login rejected because the session IP changed")
 		return Session{}, nil, ErrIPChanged
 	case "temporarilyblocked":
+		slog.Warn("auth login temporarily blocked")
 		return Session{}, nil, ErrTemporarilyBlocked
 	default:
+		slog.Warn("auth login returned an unknown response")
 		return Session{}, nil, ErrUnknown
 	}
 }
@@ -145,6 +151,9 @@ func (c *Client) Validate(ctx context.Context, uid, sessionKey string) (bool, er
 	var response validateResponse
 	if err := c.doJSON(request, &response); err != nil {
 		return false, err
+	}
+	if !bool(response.Valid) {
+		slog.Warn("auth session validation was rejected")
 	}
 	return bool(response.Valid), nil
 }

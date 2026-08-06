@@ -2,6 +2,6 @@
 
 package main
 
-import "log"
+import "log/slog"
 
-func showFatalError(message string) { log.Printf("Waxlight Launcher: %s", message) }
+func showFatalError(message string) { slog.Error("Waxlight Launcher: " + message) }

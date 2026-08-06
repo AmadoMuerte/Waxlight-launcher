@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -92,10 +93,12 @@ func (catalog *VersionCatalog) List(
 
 	response, err := catalog.client.Do(request)
 	if err != nil {
+		slog.Warn("game version catalog request failed", "error", err)
 		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		slog.Warn("game version catalog returned an error status", "status", response.StatusCode)
 		return nil, fmt.Errorf(
 			"version catalog returned HTTP %d",
 			response.StatusCode,

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -115,6 +116,7 @@ func (service *AccountService) startLogin(
 			ExpiresAt:         service.now().Add(service.flowTTL),
 		}
 		service.flowMu.Unlock()
+		slog.Info("login requires a TOTP challenge")
 		return LoginResult{Status: LoginStatusTOTPRequired, FlowID: flowID}, nil
 	}
 	if err != nil {
@@ -237,6 +239,8 @@ func (service *AccountService) persistSession(
 	account.UpdatedAt = now
 	account.LastValidatedAt = &now
 
+	slog.Info("account authenticated", "account", account.ID, "fresh", !found)
+
 	secret := Secret{
 		SessionKey:       session.SessionKey,
 		SessionSignature: session.SessionSignature,
@@ -306,15 +310,21 @@ func (service *AccountService) ValidateStaleAccounts(
 ) {
 	accounts, err := service.store.ListAccounts(ctx)
 	if err != nil {
+		slog.Warn("could not list accounts for stale validation", "error", err)
 		return
 	}
 	threshold := service.now().Add(-maxAge)
+	stale := 0
 	for _, account := range accounts {
 		if account.UID == "" ||
 			(account.LastValidatedAt != nil && account.LastValidatedAt.After(threshold)) {
 			continue
 		}
+		stale++
 		_, _ = service.ValidateAccount(ctx, account.ID)
+	}
+	if stale > 0 {
+		slog.Info("validated stale accounts", "count", stale)
 	}
 }
 
@@ -322,6 +332,7 @@ func (service *AccountService) SelectAccount(ctx context.Context, accountID stri
 	if _, err := service.store.GetAccount(ctx, accountID); err != nil {
 		return err
 	}
+	slog.Info("default account selected", "account", accountID)
 	return service.store.SetDefaultAccount(ctx, accountID)
 }
 
@@ -347,6 +358,7 @@ func (service *AccountService) RemoveAccount(ctx context.Context, accountID stri
 		}
 		return err
 	}
+	slog.Info("account removed", "account", accountID)
 	return nil
 }
 
@@ -367,6 +379,7 @@ func (service *AccountService) LogOutLocally(ctx context.Context, accountID stri
 	}
 	account.Status = domain.AccountStatusNeedsReauth
 	account.UpdatedAt = service.now()
+	slog.Info("account logged out locally", "account", accountID)
 	return service.store.SaveAccount(ctx, account)
 }
 
@@ -399,6 +412,7 @@ func (service *AccountService) ValidateAuthorizedAccount(
 		if saveErr := service.store.SaveAccount(ctx, safeAccount(account)); saveErr != nil {
 			return account, saveErr
 		}
+		slog.Warn("account session expired", "account", accountID)
 		return account, domain.NewError(domain.ErrSessionExpired, "The account session has expired")
 	}
 	account.Status = domain.AccountStatusValid

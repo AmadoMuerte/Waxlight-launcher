@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,6 +37,7 @@ func (ArchiveInstaller) Install(
 			return "", 0, err
 		}
 		if !strings.EqualFold(actual, expectedSHA256) {
+			slog.Warn("game archive checksum mismatch")
 			return "", 0, fmt.Errorf(
 				"checksum mismatch: expected %s, got %s",
 				expectedSHA256,
@@ -43,6 +45,7 @@ func (ArchiveInstaller) Install(
 			)
 		}
 	}
+	slog.Info("installing game archive", "source", filepath.Base(sourcePath))
 
 	partialPath := targetPath + ".partial"
 	if err := os.RemoveAll(partialPath); err != nil {
@@ -92,6 +95,7 @@ func (ArchiveInstaller) Install(
 	}
 
 	installed = true
+	slog.Info("game archive installed", "source", filepath.Base(sourcePath), "bytes", size)
 	return finalExecutable, size, nil
 }
 

@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime"
@@ -34,9 +35,11 @@ func (Launcher) Start(
 	command.Stderr = output
 
 	if err := command.Start(); err != nil {
+		slog.Warn("failed to start the game process", "error", err)
 		return nil, err
 	}
 
+	slog.Info("game process started", "pid", command.Process.Pid)
 	return &runningProcess{command: command}, nil
 }
 

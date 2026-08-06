@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -68,14 +69,19 @@ func (service *LauncherUpdateService) Check(
 	if err != nil {
 		return domain.LauncherUpdate{}, err
 	}
+	slog.Info("checking for launcher updates", "channel", channel)
 	update, err := service.source.Check(ctx, service.currentVersion, channel)
 	if err != nil {
+		slog.Warn("launcher update check failed", "error", err)
 		return domain.LauncherUpdate{}, &domain.AppError{
 			Code:      domain.ErrUpdateUnavailable,
 			Message:   "Could not check for launcher updates",
 			Retryable: true,
 			Cause:     err,
 		}
+	}
+	if update.Available {
+		slog.Info("launcher update available", "version", update.Version)
 	}
 	return update, nil
 }
@@ -115,6 +121,7 @@ func (service *LauncherUpdateService) Install(
 		service.cleanupSession(updateRoot)
 		return domain.NewError(domain.ErrUpdateUnavailable, "No launcher update is available")
 	}
+	slog.Info("installing launcher update", "version", update.Version)
 	if update.AssetName == "" || filepath.Base(update.AssetName) != update.AssetName {
 		service.cleanupSession(updateRoot)
 		return domain.NewError(domain.ErrUpdateFailed, "The release contains an unsafe update filename")
@@ -194,6 +201,7 @@ func (service *LauncherUpdateService) Install(
 		}
 	}
 	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "restarting", Progress: 1})
+	slog.Info("launcher update applied", "version", update.Version)
 	return nil
 }
 

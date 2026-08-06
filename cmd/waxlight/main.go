@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed"
-	"log"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -12,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 )
 
@@ -22,6 +22,10 @@ import (
 var appIcon []byte
 
 func main() {
+	// Set up the shared launcher logger before anything else so every log
+	// line, including bootstrap failures, reaches the in-memory console.
+	logging.Setup(logging.DefaultCapacity)
+
 	// The updated portable binary is launched by the old process with
 	// --update-wait-pid <oldpid> before the old process exits. Wait for it to
 	// release the database and the native credential store before bootstrapping
@@ -32,7 +36,7 @@ func main() {
 
 	container, err := bootstrap.New()
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal("Failed to bootstrap the launcher", err)
 	}
 
 	err = wails.Run(&options.App{
@@ -56,6 +60,6 @@ func main() {
 		},
 	})
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal("The launcher window failed to start", err)
 	}
 }

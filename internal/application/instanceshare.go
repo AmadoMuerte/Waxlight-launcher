@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ func (s *Service) ExportInstance(
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
+	slog.Info("exporting instance package", "instance", instance.Name)
 	version, err := s.store.GetVersion(ctx, instance.GameVersionID)
 	if err != nil {
 		return domain.PackageManifest{}, err
@@ -398,6 +400,7 @@ func (s *Service) ImportPackage(
 	if packagePath == "" {
 		return domain.ImportReport{}, domain.NewError(domain.ErrValidation, "Select a package file")
 	}
+	slog.Info("importing instance package", "package", packagePath)
 	pkg, err := instancepackage.Open(packagePath)
 	if err != nil {
 		return domain.ImportReport{}, err

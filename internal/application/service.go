@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -90,6 +91,7 @@ func (s *Service) ConfigureMods(
 ) {
 	s.modCatalog = catalog
 	s.modDownloads = downloads
+	slog.Info("mod subsystem configured")
 }
 
 func (s *Service) ConfigureVersionDownloads(
@@ -100,6 +102,7 @@ func (s *Service) ConfigureVersionDownloads(
 	s.versionCatalog = catalog
 	s.downloader = downloader
 	s.packageInstaller = installer
+	slog.Info("version download subsystem configured")
 }
 
 func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
@@ -174,6 +177,7 @@ func (s *Service) ConfigureAuthentication(
 	s.accounts = accounts
 	s.clientSettings = clientSettings
 	accounts.ConfigureInstanceCleanup(s.clearAccountFromInstances)
+	slog.Info("authentication subsystem configured")
 }
 
 func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
@@ -483,6 +487,7 @@ func (s *Service) DeleteVersion(ctx context.Context, id string, deleteFiles bool
 	if e != nil {
 		return e
 	}
+	slog.Info("removing game version", "version", v.Name)
 	instances, e := s.store.ListInstances(ctx)
 	if e != nil {
 		return e
@@ -540,6 +545,7 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 	} else if name, e = cleanName(name); e != nil {
 		return domain.Instance{}, e
 	}
+	slog.Info("creating instance", "name", name, "version", in.GameVersionID)
 	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
 		return domain.Instance{}, e
 	}
@@ -709,6 +715,7 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 		return e
 	}
 	s.emit("instance:deleted", map[string]string{"id": id})
+	slog.Info("instance deleted", "id", id)
 	return nil
 }
 
@@ -879,6 +886,7 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	if e != nil {
 		return domain.Operation{}, e
 	}
+	slog.Info("installing mod file", "instance", i.Name, "mod", name)
 	if sourcePath == "" {
 		return domain.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
 	}
@@ -982,6 +990,7 @@ func (s *Service) DeleteMod(ctx context.Context, id string) error {
 	}
 	if e = s.store.DeleteMod(ctx, id); e == nil {
 		s.emit("mod:removed", map[string]string{"id": id, "instanceId": m.InstanceID})
+		slog.Info("mod removed", "mod", m.Name)
 	}
 	return e
 }
@@ -1097,6 +1106,7 @@ func (s *Service) Launch(
 	if err != nil {
 		return domain.PlaySession{}, err
 	}
+	slog.Info("launching instance", "instance", instance.Name, "version", version.Name)
 	version, err = s.ensureVersionExecutable(ctx, version)
 	if err != nil {
 		return domain.PlaySession{}, domain.NewError(
@@ -1246,6 +1256,7 @@ func (s *Service) Launch(
 	s.runningMu.Unlock()
 
 	s.emit("game:started", session)
+	slog.Info("game started", "instance", instance.Name)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
 }
@@ -1329,6 +1340,11 @@ func (s *Service) waitForGame(
 
 	durationSeconds := int64(time.Since(startedAt).Seconds())
 	crashed := waitErr != nil || exitCode != 0
+	if crashed {
+		slog.Warn("game exited with an error", "instance", instance.Name, "exitCode", exitCode, "error", waitErr)
+	} else {
+		slog.Info("game exited", "instance", instance.Name, "exitCode", exitCode, "seconds", durationSeconds)
+	}
 	_ = s.store.FinishSession(
 		context.Background(),
 		sessionID,
@@ -1354,6 +1370,7 @@ func (s *Service) waitForGame(
 	})
 }
 func (s *Service) Stop(ctx context.Context, instanceID string, force bool) error {
+	slog.Info("stopping instance", "instance", instanceID, "force", force)
 	s.runningMu.Lock()
 	r, ok := s.running[instanceID]
 	s.runningMu.Unlock()
@@ -1488,5 +1505,9 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 	if len(v.SkippedUpdateVersion) > 64 {
 		return v, domain.NewError(domain.ErrValidation, "Skipped update version is too long")
 	}
-	return v, s.store.SaveSettings(ctx, v)
+	if err := s.store.SaveSettings(ctx, v); err != nil {
+		return v, err
+	}
+	slog.Info("settings saved", "language", v.Language, "updateChannel", v.UpdateChannel)
+	return v, nil
 }
