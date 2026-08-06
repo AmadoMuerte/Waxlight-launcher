@@ -27,6 +27,7 @@ import {
   compatibilityFor,
   compatibilityLabel,
   formatBytes,
+  formatGameVersions,
   instanceGameVersion,
   releaseTypeLabel,
 } from "./lib";
@@ -260,7 +261,11 @@ export function InstancePickerDialog({
               </Select>
             </Field>
             <div className="releaseSummary">
-              <span>{release?.gameVersions.join(", ") || t("compatibility_unknown")}</span>
+              <span>
+                {release && release.gameVersions.length > 0
+                  ? formatGameVersions(release.gameVersions)
+                  : t("compatibility_unknown")}
+              </span>
               <small>{formatBytes(release?.fileSize ?? 0)}</small>
             </div>
           </div>

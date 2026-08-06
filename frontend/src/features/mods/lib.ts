@@ -95,6 +95,14 @@ export function releaseTypeLabel(value: ModVersion["releaseType"]): string {
   }[value];
 }
 
+export function formatGameVersions(versions: string[], maxVisible = 4): string {
+  if (versions.length === 0) return "";
+  const visible = versions.slice(0, maxVisible);
+  const hidden = versions.length - visible.length;
+  if (hidden <= 0) return visible.join(", ");
+  return `${visible.join(", ")}… +${hidden}`;
+}
+
 export function chooseRelease(
   releases: ModVersion[],
   gameVersion?: string,

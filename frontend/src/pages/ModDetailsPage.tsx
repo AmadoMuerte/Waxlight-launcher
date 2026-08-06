@@ -7,6 +7,7 @@ import { InstancePickerDialog } from "../features/mods/InstancePickerDialog";
 import {
   formatBytes,
   formatDownloads,
+  formatGameVersions,
   plainText,
   relativeDate,
   releaseTypeLabel,
@@ -228,7 +229,11 @@ export function ModDetailsPage({
                       <span className={`releaseType release-${release.releaseType}`}>
                         {releaseTypeLabel(release.releaseType)}
                       </span>
-                      <small>{release.gameVersions.join(", ") || t("compatibility_unknown")}</small>
+                      <small>
+                        {release.gameVersions.length > 0
+                          ? formatGameVersions(release.gameVersions)
+                          : t("compatibility_unknown")}
+                      </small>
                     </div>
                     <div>
                       <span>{formatBytes(release.fileSize)}</span>
