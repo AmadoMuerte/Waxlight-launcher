@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
+import { ModUpdatesModal } from "../features/mods/ModUpdatesModal";
 import {
   instancesApi,
   launcherApi,
@@ -18,6 +19,7 @@ import {
   settingsApi,
   type Account,
   type GameVersion,
+  type InstanceModUpdateReport,
   type InstalledMod,
   type Instance,
 } from "../shared/api";
@@ -57,7 +59,49 @@ export function LibraryPage({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
   const [query, setQuery] = useState("");
+  const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const instancesRef = useRef(instances);
+  const checkedOnceRef = useRef(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    instancesRef.current = instances;
+  }, [instances]);
+
+  const checkAllUpdates = useCallback(async () => {
+    const current = instancesRef.current;
+    if (current.length === 0) {
+      return;
+    }
+    setCheckingUpdates(true);
+    const entries = await Promise.all(
+      current.map(async (instance) => {
+        try {
+          const report = await modsApi.checkInstanceUpdates(instance.id);
+          return [instance.id, report] as const;
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    const collected: Record<string, InstanceModUpdateReport> = {};
+    for (const entry of entries) {
+      if (entry) {
+        collected[entry[0]] = entry[1];
+      }
+    }
+    setModUpdates(collected);
+    setCheckingUpdates(false);
+  }, []);
+
+  useEffect(() => {
+    if (checkedOnceRef.current) {
+      return;
+    }
+    checkedOnceRef.current = true;
+    void checkAllUpdates();
+  }, [checkAllUpdates]);
 
   const visibleInstances = useMemo(
     () => instances.filter((instance) => instance.name.toLowerCase().includes(query.toLowerCase())),
@@ -127,6 +171,9 @@ export function LibraryPage({
             />
           </div>
           <span className="muted">{t("instances_count", { count: visibleInstances.length })}</span>
+          <Button variant="secondary" busy={checkingUpdates} onClick={() => void checkAllUpdates()}>
+            {t("check_mod_updates")}
+          </Button>
         </div>
       )}
 
@@ -164,6 +211,7 @@ export function LibraryPage({
               key={instance.id}
               instance={instance}
               version={versions.find((version) => version.id === instance.gameVersionId)}
+              updateCount={modUpdates[instance.id]?.summary.updatesAvailable ?? 0}
               onOpen={() => setSelectedInstance(instance)}
               onLaunch={() => void launch(instance)}
               onStop={async () => {
@@ -220,12 +268,20 @@ export function LibraryPage({
 interface InstanceCardProps {
   instance: Instance;
   version?: GameVersion;
+  updateCount?: number;
   onOpen: () => void;
   onLaunch: () => void;
   onStop: () => Promise<void>;
 }
 
-function InstanceCard({ instance, version, onOpen, onLaunch, onStop }: InstanceCardProps) {
+function InstanceCard({
+  instance,
+  version,
+  updateCount = 0,
+  onOpen,
+  onLaunch,
+  onStop,
+}: InstanceCardProps) {
   const { t } = useTranslation();
   return (
     <article className="instanceCard" style={{ position: "relative" }}>
@@ -239,6 +295,14 @@ function InstanceCard({ instance, version, onOpen, onLaunch, onStop }: InstanceC
         <span className="coverLetter">W</span>
         <div className="coverGlow" />
         <StatusPill status={instance.status} />
+        {updateCount > 0 && (
+          <span
+            className="modUpdatesBadge"
+            title={t("mod_updates_available", { count: updateCount })}
+          >
+            ▲ {updateCount}
+          </span>
+        )}
       </div>
 
       <div className="cardBody">
@@ -449,6 +513,9 @@ function InstanceModal({
     message?: string;
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
+  const [updateReport, setUpdateReport] = useState<InstanceModUpdateReport>();
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updatesDialogOpen, setUpdatesDialogOpen] = useState(false);
 
   const loadMods = useCallback(async () => {
     try {
@@ -458,9 +525,21 @@ function InstanceModal({
     }
   }, [instance.id, notify]);
 
+  const loadUpdates = useCallback(async () => {
+    setCheckingUpdates(true);
+    try {
+      setUpdateReport(await modsApi.checkInstanceUpdates(instance.id));
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    } finally {
+      setCheckingUpdates(false);
+    }
+  }, [instance.id, notify]);
+
   useEffect(() => {
     void loadMods();
-  }, [loadMods]);
+    void loadUpdates();
+  }, [loadMods, loadUpdates]);
 
   async function installMod() {
     try {
@@ -636,6 +715,9 @@ function InstanceModal({
               <p>{t("manage_instance_mods")}</p>
             </div>
             <div className="row">
+              <Button variant="secondary" busy={checkingUpdates} onClick={() => void loadUpdates()}>
+                {t("check_mod_updates")}
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
@@ -647,6 +729,18 @@ function InstanceModal({
               </Button>
             </div>
           </header>
+
+          {updateReport && updateReport.summary.updatesAvailable > 0 && (
+            <div className="modUpdatesBanner">
+              <div>
+                <strong>
+                  {t("mod_updates_available", { count: updateReport.summary.updatesAvailable })}
+                </strong>
+                <p>{t("mod_updates_banner_description")}</p>
+              </div>
+              <Button onClick={() => setUpdatesDialogOpen(true)}>{t("update_mods")}</Button>
+            </div>
+          )}
 
           {mods.length === 0 ? (
             <Empty
@@ -856,6 +950,21 @@ function InstanceModal({
         }}
         onCancel={() => setRemoveModConfirm((s) => ({ ...s, open: false }))}
       />
+
+      {updatesDialogOpen && updateReport && (
+        <ModUpdatesModal
+          instanceId={instance.id}
+          instanceName={instance.name}
+          report={updateReport}
+          onClose={() => setUpdatesDialogOpen(false)}
+          onApplied={async () => {
+            await loadMods();
+            await loadUpdates();
+            await refresh();
+          }}
+          notify={notify}
+        />
+      )}
     </Modal>
   );
 }

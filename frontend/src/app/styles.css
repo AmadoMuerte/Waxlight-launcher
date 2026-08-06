@@ -2965,3 +2965,140 @@ main {
     width: 32px;
   }
 }
+
+/* Instance mod updates */
+.modUpdatesBadge {
+  position: absolute;
+  z-index: 3;
+  bottom: 10px;
+  right: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #1c1408;
+  background: var(--amber);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modUpdatesBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #4c3d2d;
+  border-radius: 10px;
+  background: #282016;
+}
+
+.modUpdatesBanner strong {
+  color: var(--amber-light);
+}
+
+.modUpdatesBanner p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inlineNotice {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: #151417;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inlineNotice.warning {
+  border-color: #5a4a2e;
+  color: #d8bd8a;
+  background: #2a2115;
+}
+
+.modUpdatesDialog .modalBody {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modUpdateList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.modUpdateRow {
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #151417;
+}
+
+.modUpdateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modUpdateHeader strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modUpdateVersions {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.modUpdateTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag {
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: #1c1b1d;
+  font-size: 11px;
+}
+
+.tagDanger {
+  border-color: #5a3330;
+  color: #ef8c84;
+  background: #302020;
+}
+
+.modUpdateChangelog {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.modUpdateChangelog summary {
+  cursor: pointer;
+  color: var(--amber);
+}
+
+.modUpdateChangelog p {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.modUpdateDeps {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
