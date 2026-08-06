@@ -1070,3 +1070,38 @@ func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 		t.Fatal("expected invalid update channel to be rejected")
 	}
 }
+
+func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
+	fixture := newTestFixture(t)
+
+	if err := fixture.service.CanRelocateDataFolder(); err != nil {
+		t.Fatalf("relocation should be allowed initially: %v", err)
+	}
+
+	fixture.service.SetDataFolderRelocating(true)
+
+	if err := fixture.service.CanRelocateDataFolder(); err == nil {
+		t.Fatal("expected relocation to be rejected while busy")
+	}
+
+	_, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+		Name:          "blocked",
+		GameVersionID: "1.20",
+	})
+	if err == nil {
+		t.Fatal("expected instance creation to be rejected while relocating")
+	}
+	var appErr *domain.AppError
+	if !errors.As(err, &appErr) || appErr.Code != domain.ErrDataFolderBusy {
+		t.Fatalf("expected DATA_FOLDER_BUSY, got %v", err)
+	}
+
+	if err := fixture.service.DeleteMod(context.Background(), "missing"); err == nil {
+		t.Fatal("expected mod deletion to be rejected while relocating")
+	}
+
+	fixture.service.SetDataFolderRelocating(false)
+	if err := fixture.service.CanRelocateDataFolder(); err != nil {
+		t.Fatalf("relocation should be allowed again: %v", err)
+	}
+}

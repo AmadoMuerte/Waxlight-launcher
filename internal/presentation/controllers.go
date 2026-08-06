@@ -2,12 +2,15 @@ package presentation
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
@@ -433,15 +436,17 @@ func (controller *OperationController) ClearOperationHistory() (int64, error) {
 }
 
 type SettingsController struct {
-	svc  *application.Service
-	base *Base
+	svc      *application.Service
+	base     *Base
+	dataRoot *dataroot.Manager
 }
 
 func NewSettingsController(
 	service *application.Service,
 	base *Base,
+	dataRoot *dataroot.Manager,
 ) *SettingsController {
-	return &SettingsController{svc: service, base: base}
+	return &SettingsController{svc: service, base: base, dataRoot: dataRoot}
 }
 
 func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
@@ -467,6 +472,85 @@ func (controller *SettingsController) UpdateSettings(
 		},
 	)
 	return settingsDTO(settings), err
+}
+
+// GetDataFolder returns the current data folder, the default folder, and any
+// error left behind by a failed relocation from a previous run.
+func (controller *SettingsController) GetDataFolder() (DataFolderDTO, error) {
+	current, err := controller.dataRoot.Current()
+	if err != nil {
+		return DataFolderDTO{}, err
+	}
+	lastError, err := controller.dataRoot.ReadError()
+	if err != nil {
+		return DataFolderDTO{}, err
+	}
+	return DataFolderDTO{
+		CurrentPath: current,
+		DefaultPath: controller.dataRoot.Home(),
+		LastError:   lastError,
+	}, nil
+}
+
+// SelectDataFolder opens a native directory picker for the data folder target.
+func (controller *SettingsController) SelectDataFolder() (string, error) {
+	if controller.base.ctx == nil {
+		return "", nil
+	}
+	return wruntime.OpenDirectoryDialog(
+		controller.base.ctx,
+		wruntime.OpenDialogOptions{Title: "Select the launcher data folder"},
+	)
+}
+
+// MoveDataFolder starts a background relocation of the launcher data folder to
+// target. Progress is emitted through the "data-folder:progress" event; the
+// application relaunches itself when the copy finishes.
+func (controller *SettingsController) MoveDataFolder(target string) error {
+	ctx := controller.base.ctx
+	if ctx == nil {
+		return errors.New("application runtime is unavailable")
+	}
+	if err := controller.svc.CanRelocateDataFolder(); err != nil {
+		return err
+	}
+	controller.svc.SetDataFolderRelocating(true)
+	wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{Phase: "preparing"})
+	err := controller.dataRoot.StartRelocation(
+		target,
+		func(copied, total int64) {
+			progress := 0.0
+			if total > 0 {
+				progress = float64(copied) / float64(total)
+			}
+			wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{
+				CopiedBytes: copied,
+				TotalBytes:  total,
+				Progress:    progress,
+				Phase:       "moving",
+			})
+		},
+		func(err error) {
+			controller.svc.SetDataFolderRelocating(false)
+			if err != nil {
+				wruntime.EventsEmit(ctx, "data-folder:error", map[string]string{"message": err.Error()})
+				return
+			}
+			wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{
+				Progress: 1,
+				Phase:    "relaunching",
+			})
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+				wruntime.Quit(ctx)
+			}()
+		},
+	)
+	if err != nil {
+		controller.svc.SetDataFolderRelocating(false)
+		return err
+	}
+	return nil
 }
 
 func (controller *SettingsController) SelectGameArchive() (string, error) {
