@@ -2074,6 +2074,7 @@ main {
 
 .tagFilterCount {
   margin-left: auto;
+  margin-right: 10px;
   color: #77716d;
   font-size: 12px;
 }
