@@ -413,5 +413,15 @@
   "open_external_link_url": "{{url}}",
   "confirm": "Confirmar",
   "processing": "Procesando…",
-  "open": "Abrir"
+  "open": "Abrir",
+  "data_folder": "Carpeta de datos",
+  "data_folder_change": "Cambiar…",
+  "data_folder_current_location": "Ubicación actual",
+  "data_folder_description": "Aquí Waxlight guarda las versiones del juego, las instancias, los mods y su base de datos",
+  "data_folder_moving": "Moviendo la carpeta de datos…",
+  "data_folder_move_confirm_message": "El lanzador se reiniciará cuando se copien los archivos.",
+  "data_folder_move_confirm_title": "¿Mover la carpeta de datos?",
+  "data_folder_move_confirm_warning": "Las versiones del juego, las instancias, los mods y la base de datos se moverán. La copia anterior se elimina después de que el movimiento tenga éxito.",
+  "data_folder_move_error": "No se pudo mover la carpeta de datos",
+  "data_folder_previous_error": "Un movimiento anterior de la carpeta de datos falló: {{message}}"
 }

@@ -74,6 +74,22 @@ export namespace presentation {
 	        this.launchArguments = source["launchArguments"];
 	    }
 	}
+	export class DataFolderDTO {
+	    currentPath: string;
+	    defaultPath: string;
+	    lastError: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DataFolderDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentPath = source["currentPath"];
+	        this.defaultPath = source["defaultPath"];
+	        this.lastError = source["lastError"];
+	    }
+	}
 	export class DownloadCatalogModRequest {
 	    modId: string;
 	    versionId: string;

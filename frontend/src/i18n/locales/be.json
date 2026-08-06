@@ -413,5 +413,15 @@
   "open_external_link_url": "{{url}}",
   "confirm": "Пацвердзіць",
   "processing": "Апрацоўка…",
-  "open": "Адкрыць"
+  "open": "Адкрыць",
+  "data_folder": "Папка дадзеных",
+  "data_folder_change": "Змяніць…",
+  "data_folder_current_location": "Бягучае размяшчэнне",
+  "data_folder_description": "Тут Waxlight захоўвае версіі гульні, зборкі, моды і сваю базу даных",
+  "data_folder_moving": "Перанос папкі дадзеных…",
+  "data_folder_move_confirm_message": "Лаўнчэр перазапусціцца пасля капіявання файлаў.",
+  "data_folder_move_confirm_title": "Перанесці папку дадзеных?",
+  "data_folder_move_confirm_warning": "Версіі гульні, зборкі, моды і база даных будуць перанесены. Старая копія будзе выдалена пасля паспяховага пераносу.",
+  "data_folder_move_error": "Не атрымалася перанесці папку дадзеных",
+  "data_folder_previous_error": "Папярэдні перанос папкі дадзеных не ўдаўся: {{message}}"
 }

@@ -413,5 +413,15 @@
   "open_external_link_url": "{{url}}",
   "confirm": "Bekräfta",
   "processing": "Behandlar…",
-  "open": "Öppna"
+  "open": "Öppna",
+  "data_folder": "Data-mapp",
+  "data_folder_change": "Ändra…",
+  "data_folder_current_location": "Aktuell plats",
+  "data_folder_description": "Här lagrar Waxlight spelversioner, instanser, moddar och sin databas",
+  "data_folder_moving": "Flyttar data-mappen…",
+  "data_folder_move_confirm_message": "Startprogrammet startar om när filerna har kopierats.",
+  "data_folder_move_confirm_title": "Flytta data-mappen?",
+  "data_folder_move_confirm_warning": "Spelversioner, instanser, moddar och databasen flyttas. Den gamla kopian tas bort när flytten har lyckats.",
+  "data_folder_move_error": "Det gick inte att flytta data-mappen",
+  "data_folder_previous_error": "En tidigare flytt av data-mappen misslyckades: {{message}}"
 }
