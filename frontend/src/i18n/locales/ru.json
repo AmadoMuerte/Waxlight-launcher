@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} мода нельзя обновить автоматически (локальные или отсутствуют в каталоге).",
   "mods_not_updatable_hint_many": "{{count}} модов нельзя обновить автоматически (локальные или отсутствуют в каталоге).",
   "mods_not_updatable_hint_other": "Модов нельзя обновить автоматически: {{count}} (локальные или отсутствуют в каталоге).",
-  "mod_updates_applied": "Моды обновлены"
+  "mod_updates_applied": "Моды обновлены",
   "data_folder": "Папка данных",
   "data_folder_change": "Изменить…",
   "data_folder_current_location": "Текущее расположение",

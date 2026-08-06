@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} moddar kan inte uppdateras automatiskt (lokala eller saknas i katalogen).",
   "mods_not_updatable_hint_many": "{{count}} moddar kan inte uppdateras automatiskt (lokala eller saknas i katalogen).",
   "mods_not_updatable_hint_other": "{{count}} moddar kan inte uppdateras automatiskt (lokala eller saknas i katalogen).",
-  "mod_updates_applied": "Moddar uppdaterade"
+  "mod_updates_applied": "Moddar uppdaterade",
   "data_folder": "Data-mapp",
   "data_folder_change": "Ändra…",
   "data_folder_current_location": "Aktuell plats",

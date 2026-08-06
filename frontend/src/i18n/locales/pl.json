@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} mody nie można zaktualizować automatycznie (lokalne lub brak w katalogu).",
   "mods_not_updatable_hint_many": "{{count}} modów nie można zaktualizować automatycznie (lokalne lub brak w katalogu).",
   "mods_not_updatable_hint_other": "Modów nie można zaktualizować automatycznie: {{count}} (lokalne lub brak w katalogu).",
-  "mod_updates_applied": "Mody zaktualizowane"
+  "mod_updates_applied": "Mody zaktualizowane",
   "data_folder": "Folder danych",
   "data_folder_change": "Zmień…",
   "data_folder_current_location": "Bieżąca lokalizacja",

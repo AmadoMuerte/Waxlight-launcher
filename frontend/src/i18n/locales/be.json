@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} моды нельга абнавіць аўтаматычна (лакальныя або адсутнічаюць у каталогу).",
   "mods_not_updatable_hint_many": "{{count}} модаў нельга абнавіць аўтаматычна (лакальныя або адсутнічаюць у каталогу).",
   "mods_not_updatable_hint_other": "Модаў нельга абнавіць аўтаматычна: {{count}} (лакальныя або адсутнічаюць у каталогу).",
-  "mod_updates_applied": "Моды абноўлены"
+  "mod_updates_applied": "Моды абноўлены",
   "data_folder": "Папка дадзеных",
   "data_folder_change": "Змяніць…",
   "data_folder_current_location": "Бягучае размяшчэнне",

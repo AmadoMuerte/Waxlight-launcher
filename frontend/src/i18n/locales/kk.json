@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} модты автоматты жаңарту мүмкін емес (жергілікті немесе каталогта жоқ).",
   "mods_not_updatable_hint_many": "{{count}} модты автоматты жаңарту мүмкін емес (жергілікті немесе каталогта жоқ).",
   "mods_not_updatable_hint_other": "{{count}} модты автоматты жаңарту мүмкін емес (жергілікті немесе каталогта жоқ).",
-  "mod_updates_applied": "Модтар жаңартылды"
+  "mod_updates_applied": "Модтар жаңартылды",
   "data_folder": "Деректер қалтасы",
   "data_folder_change": "Өзгерту…",
   "data_folder_current_location": "Ағымдағы орны",

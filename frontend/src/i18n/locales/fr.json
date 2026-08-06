@@ -442,7 +442,7 @@
   "mods_not_updatable_hint_few": "{{count}} mods ne peuvent pas être mis à jour automatiquement (locaux ou absents du catalogue).",
   "mods_not_updatable_hint_many": "{{count}} mods ne peuvent pas être mis à jour automatiquement (locaux ou absents du catalogue).",
   "mods_not_updatable_hint_other": "{{count}} mods ne peuvent pas être mis à jour automatiquement (locaux ou absents du catalogue).",
-  "mod_updates_applied": "Mods mis à jour"
+  "mod_updates_applied": "Mods mis à jour",
   "data_folder": "Dossier de données",
   "data_folder_change": "Changer…",
   "data_folder_current_location": "Emplacement actuel",
