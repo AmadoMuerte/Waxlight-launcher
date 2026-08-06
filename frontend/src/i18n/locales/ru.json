@@ -496,5 +496,14 @@
   "data_folder_move": "Перенести",
   "author_links_invalid": "Ссылки должны быть валидными URL, начинающимися с http:// или https://",
   "default_instance_name": "Сборка",
-  "import_waiting_for_game_download": "Сборка станет доступна после загрузки игры."
+  "import_waiting_for_game_download": "Сборка станет доступна после загрузки игры.",
+  "logs_console": "Консоль лаунчера",
+  "copy_logs": "Скопировать логи",
+  "logs_copied": "Скопировано",
+  "logs_copy_failed": "Не удалось скопировать логи",
+  "clear_logs": "Очистить консоль",
+  "export_logs": "Выгрузить логи",
+  "exporting_logs": "Выгрузка…",
+  "logs_exported": "Логи сохранены в {{path}}",
+  "open_logs_directory": "Открыть папку логов"
 }

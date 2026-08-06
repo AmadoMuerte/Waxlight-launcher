@@ -496,5 +496,14 @@
   "data_folder_move": "Verschieben",
   "author_links_invalid": "Links müssen gültige URLs sein, die mit http:// oder https:// beginnen",
   "default_instance_name": "Instanz",
-  "import_waiting_for_game_download": "Die Instanz ist verfügbar, sobald die Spielversion heruntergeladen wurde."
+  "import_waiting_for_game_download": "Die Instanz ist verfügbar, sobald die Spielversion heruntergeladen wurde.",
+  "logs_console": "Launcher-Konsole",
+  "copy_logs": "Logs kopieren",
+  "logs_copied": "Kopiert",
+  "logs_copy_failed": "Logs konnten nicht kopiert werden",
+  "clear_logs": "Konsole leeren",
+  "export_logs": "Logs exportieren",
+  "exporting_logs": "Exportiere…",
+  "logs_exported": "Logs gespeichert unter {{path}}",
+  "open_logs_directory": "Logs-Ordner öffnen"
 }

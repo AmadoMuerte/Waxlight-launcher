@@ -496,5 +496,14 @@
   "data_folder_move": "Mover",
   "author_links_invalid": "Os links devem ser URLs válidos começando com http:// ou https://",
   "default_instance_name": "Instância",
-  "import_waiting_for_game_download": "A instância estará disponível quando a versão do jogo terminar de baixar."
+  "import_waiting_for_game_download": "A instância estará disponível quando a versão do jogo terminar de baixar.",
+  "logs_console": "Console do lançador",
+  "copy_logs": "Copiar registos",
+  "logs_copied": "Copiado",
+  "logs_copy_failed": "Não foi possível copiar os registos",
+  "clear_logs": "Limpar consola",
+  "export_logs": "Exportar registos",
+  "exporting_logs": "A exportar…",
+  "logs_exported": "Registos guardados em {{path}}",
+  "open_logs_directory": "Abrir pasta de registos"
 }

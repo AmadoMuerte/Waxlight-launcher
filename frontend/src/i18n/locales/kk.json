@@ -496,5 +496,14 @@
   "data_folder_move": "Жылжыту",
   "author_links_invalid": "Сілтемелер http:// немесе https:// басталатын жарамды URL болуы керек",
   "default_instance_name": "Жинақ",
-  "import_waiting_for_game_download": "Ойын нұсқасы жүктеліп болғаннан кейін жинақ қолжетімді болады."
+  "import_waiting_for_game_download": "Ойын нұсқасы жүктеліп болғаннан кейін жинақ қолжетімді болады.",
+  "logs_console": "Лаунчер консолі",
+  "copy_logs": "Журналдарды көшіру",
+  "logs_copied": "Көшірілді",
+  "logs_copy_failed": "Журналдарды көшіру мүмкін болмады",
+  "clear_logs": "Консольды тазалау",
+  "export_logs": "Журналдарды экспорттау",
+  "exporting_logs": "Экспортталуда…",
+  "logs_exported": "Журналдар {{path}} сақталды",
+  "open_logs_directory": "Журналдар қалтасын ашу"
 }
