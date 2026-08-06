@@ -52,6 +52,20 @@ export namespace presentation {
 	        this.installStatus = source["installStatus"];
 	    }
 	}
+	export class CloneInstanceRequest {
+	    sourceId: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CloneInstanceRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceId = source["sourceId"];
+	        this.name = source["name"];
+	    }
+	}
 	export class CreateInstanceRequest {
 	    name: string;
 	    description: string;
