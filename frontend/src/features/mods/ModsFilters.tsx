@@ -8,13 +8,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { GameVersion, ModSearchQuery } from "../../shared/api";
+import type { GameVersion, ModSearchQuery, ModTag } from "../../shared/api";
 import { Button, Field } from "../../shared/ui";
 import { sideLabel } from "./lib";
+import { TagMultiSelect } from "./TagMultiSelect";
 
 interface ModsFiltersProps {
   query: ModSearchQuery;
   versions: GameVersion[];
+  tags: ModTag[];
   mobileOpen: boolean;
   onMobileOpenChange: (open: boolean) => void;
   onChange: (patch: Partial<ModSearchQuery>) => void;
@@ -24,24 +26,41 @@ interface ModsFiltersProps {
 export function ModsFilters({
   query,
   versions,
+  tags,
   mobileOpen,
   onMobileOpenChange,
   onChange,
   onClear,
 }: ModsFiltersProps) {
   const { t } = useTranslation();
-  const active: { key: keyof ModSearchQuery; label: string }[] = [];
+  const active: { key: string; label: string; onRemove: () => void }[] = [];
   if (query.gameVersion) {
     active.push({
       key: "gameVersion",
       label: t("game_version_filter", { version: query.gameVersion }),
+      onRemove: () => onChange({ gameVersion: "" }),
     });
   }
   if (query.side) {
-    active.push({ key: "side", label: t("side_filter", { side: sideLabel(query.side) }) });
+    active.push({
+      key: "side",
+      label: t("side_filter", { side: sideLabel(query.side) }),
+      onRemove: () => onChange({ side: "" }),
+    });
   }
   if (query.updatedAfter) {
-    active.push({ key: "updatedAfter", label: t("recently_updated") });
+    active.push({
+      key: "updatedAfter",
+      label: t("recently_updated"),
+      onRemove: () => onChange({ updatedAfter: "" }),
+    });
+  }
+  for (const tag of query.tags) {
+    active.push({
+      key: `tag:${tag}`,
+      label: t("tag_filter", { tag }),
+      onRemove: () => onChange({ tags: query.tags.filter((item) => item !== tag) }),
+    });
   }
 
   return (
@@ -126,6 +145,13 @@ export function ModsFilters({
             </SelectContent>
           </Select>
         </Field>
+        <Field label={t("tags")}>
+          <TagMultiSelect
+            tags={tags}
+            selected={query.tags}
+            onChange={(next) => onChange({ tags: next })}
+          />
+        </Field>
         <Field label={t("sort_by")}>
           <Select value={query.sort} onValueChange={(value) => onChange({ sort: modSort(value) })}>
             <SelectTrigger>
@@ -146,7 +172,7 @@ export function ModsFilters({
       {active.length > 0 && (
         <div className="filterChips" aria-label={t("active_filters")}>
           {active.map((filter) => (
-            <button key={filter.key} onClick={() => onChange({ [filter.key]: "" })}>
+            <button key={filter.key} onClick={filter.onRemove}>
               {filter.label} <span>×</span>
             </button>
           ))}

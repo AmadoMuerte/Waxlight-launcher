@@ -62,6 +62,15 @@ func (controller *ModCatalogController) GetMod(modID string) (ModDetailsDTO, err
 	return modDetailsDTO(mod), err
 }
 
+func (controller *ModCatalogController) ListModTags() ([]ModTagDTO, error) {
+	tags, err := controller.svc.ListModTags(context.Background())
+	dtos := make([]ModTagDTO, 0, len(tags))
+	for _, tag := range tags {
+		dtos = append(dtos, ModTagDTO{Name: tag.Name, Count: tag.Count})
+	}
+	return dtos, err
+}
+
 func (controller *ModCatalogController) ListDownloadedMods() ([]DownloadedModDTO, error) {
 	mods, err := controller.svc.ListDownloadedMods(context.Background())
 	dto := make([]DownloadedModDTO, 0, len(mods))

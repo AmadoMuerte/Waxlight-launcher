@@ -74,6 +74,10 @@ func (catalog staticModCatalog) Get(_ context.Context, modID string) (domain.Mod
 	return domain.ModDetails{}, domain.NewError(domain.ErrModNotFound, "Mod not found")
 }
 
+func (catalog staticModCatalog) ListTags(context.Context) ([]domain.ModTag, error) {
+	return []domain.ModTag{}, nil
+}
+
 type modArchiveDownloader struct {
 	manifests map[string]map[string]any
 }

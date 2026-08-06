@@ -26,6 +26,7 @@ import type {
   ModInstallResult,
   ModSearchQuery,
   ModSearchResult,
+  ModTag,
   Settings,
   Statistics,
 } from "./types";
@@ -114,6 +115,7 @@ export const modCatalogApi = {
   cancelTask: (taskId: string) => call<void>("ModCatalogController", "CancelModTask", taskId),
   checkUpdates: (modId: string) =>
     call<DownloadedMod[]>("ModCatalogController", "CheckModUpdates", modId),
+  tags: () => call<ModTag[]>("ModCatalogController", "ListModTags"),
 };
 
 export const launcherApi = {

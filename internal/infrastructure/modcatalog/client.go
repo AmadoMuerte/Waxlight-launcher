@@ -170,6 +170,33 @@ func (client *Client) Search(
 	}, nil
 }
 
+func (client *Client) ListTags(ctx context.Context) ([]domain.ModTag, error) {
+	items, err := client.list(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]*domain.ModTag, len(items))
+	for _, item := range items {
+		for _, tag := range item.Tags {
+			key := strings.ToLower(tag)
+			entry := byKey[key]
+			if entry == nil {
+				byKey[key] = &domain.ModTag{Name: tag, Count: 1}
+				continue
+			}
+			entry.Count++
+		}
+	}
+	tags := make([]domain.ModTag, 0, len(byKey))
+	for _, tag := range byKey {
+		tags = append(tags, *tag)
+	}
+	sort.Slice(tags, func(left, right int) bool {
+		return strings.ToLower(tags[left].Name) < strings.ToLower(tags[right].Name)
+	})
+	return tags, nil
+}
+
 func (client *Client) list(ctx context.Context) ([]domain.ModSummary, error) {
 	client.mu.RLock()
 	if len(client.catalog) > 0 && time.Since(client.catalogAt) < catalogCacheTTL {
