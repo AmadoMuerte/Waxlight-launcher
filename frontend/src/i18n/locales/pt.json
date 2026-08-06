@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Mover a pasta de dados?",
   "data_folder_move_confirm_warning": "Versões do jogo, instâncias, mods e a base de dados serão movidos. A cópia antiga é removida depois que a mudança for concluída.",
   "data_folder_move_error": "Não foi possível mover a pasta de dados",
-  "data_folder_previous_error": "Uma mudança anterior da pasta de dados falhou: {{message}}"
+  "data_folder_previous_error": "Uma mudança anterior da pasta de dados falhou: {{message}}",
+  "data_folder_move": "Mover"
 }

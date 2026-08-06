@@ -428,6 +428,7 @@ export function SettingsPage({ settings, notify, onSaved, currentVersion }: Sett
         title={t("data_folder_move_confirm_title")}
         message={t("data_folder_move_confirm_message")}
         warningMessage={t("data_folder_move_confirm_warning")}
+        confirmLabel={t("data_folder_move")}
         destructive
         onConfirm={() => void confirmDataFolderMove()}
         onCancel={() => setMoveDialogOpen(false)}

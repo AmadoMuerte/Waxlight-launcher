@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Move the data folder?",
   "data_folder_move_confirm_warning": "Game versions, instances, mods and the database will be moved. The old copy is removed after the move succeeds.",
   "data_folder_move_error": "Could not move the data folder",
-  "data_folder_previous_error": "A previous data folder move failed: {{message}}"
+  "data_folder_previous_error": "A previous data folder move failed: {{message}}",
+  "data_folder_move": "Move"
 }

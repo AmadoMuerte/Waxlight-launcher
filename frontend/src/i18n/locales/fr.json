@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Déplacer le dossier de données ?",
   "data_folder_move_confirm_warning": "Les versions du jeu, les instances, les mods et la base de données seront déplacés. L'ancienne copie est supprimée après la réussite du déplacement.",
   "data_folder_move_error": "Impossible de déplacer le dossier de données",
-  "data_folder_previous_error": "Un déplacement précédent du dossier de données a échoué : {{message}}"
+  "data_folder_previous_error": "Un déplacement précédent du dossier de données a échoué : {{message}}",
+  "data_folder_move": "Déplacer"
 }

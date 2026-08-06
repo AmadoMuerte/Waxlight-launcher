@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Przenieść folder danych?",
   "data_folder_move_confirm_warning": "Wersje gry, instancje, mody i baza danych zostaną przeniesione. Stara kopia zostanie usunięta po pomyślnym przeniesieniu.",
   "data_folder_move_error": "Nie udało się przenieść folderu danych",
-  "data_folder_previous_error": "Poprzednie przeniesienie folderu danych nie powiodło się: {{message}}"
+  "data_folder_previous_error": "Poprzednie przeniesienie folderu danych nie powiodło się: {{message}}",
+  "data_folder_move": "Przenieś"
 }

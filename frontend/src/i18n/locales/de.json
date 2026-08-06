@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Datenordner verschieben?",
   "data_folder_move_confirm_warning": "Spielversionen, Instanzen, Mods und die Datenbank werden verschoben. Die alte Kopie wird nach erfolgreichem Verschieben entfernt.",
   "data_folder_move_error": "Der Datenordner konnte nicht verschoben werden",
-  "data_folder_previous_error": "Ein früherer Verschiebevorgang ist fehlgeschlagen: {{message}}"
+  "data_folder_previous_error": "Ein früherer Verschiebevorgang ist fehlgeschlagen: {{message}}",
+  "data_folder_move": "Verschieben"
 }

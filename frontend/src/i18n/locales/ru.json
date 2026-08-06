@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Перенести папку данных?",
   "data_folder_move_confirm_warning": "Версии игры, сборки, моды и база данных будут перенесены. Старая копия будет удалена после успешного переноса.",
   "data_folder_move_error": "Не удалось перенести папку данных",
-  "data_folder_previous_error": "Предыдущий перенос папки данных не удался: {{message}}"
+  "data_folder_previous_error": "Предыдущий перенос папки данных не удался: {{message}}",
+  "data_folder_move": "Перенести"
 }

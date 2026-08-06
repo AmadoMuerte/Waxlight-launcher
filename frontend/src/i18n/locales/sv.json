@@ -423,5 +423,6 @@
   "data_folder_move_confirm_title": "Flytta data-mappen?",
   "data_folder_move_confirm_warning": "Spelversioner, instanser, moddar och databasen flyttas. Den gamla kopian tas bort när flytten har lyckats.",
   "data_folder_move_error": "Det gick inte att flytta data-mappen",
-  "data_folder_previous_error": "En tidigare flytt av data-mappen misslyckades: {{message}}"
+  "data_folder_previous_error": "En tidigare flytt av data-mappen misslyckades: {{message}}",
+  "data_folder_move": "Flytta"
 }
