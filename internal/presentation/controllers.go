@@ -516,6 +516,7 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 	}
 	controller.svc.SetDataFolderRelocating(true)
 	wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{Phase: "preparing"})
+	lastProgressEmit := time.Time{}
 	err := controller.dataRoot.StartRelocation(
 		target,
 		func(copied, total int64) {
@@ -523,6 +524,11 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 			if total > 0 {
 				progress = float64(copied) / float64(total)
 			}
+			now := time.Now()
+			if now.Sub(lastProgressEmit) < 150*time.Millisecond && progress < 1 {
+				return
+			}
+			lastProgressEmit = now
 			wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{
 				CopiedBytes: copied,
 				TotalBytes:  total,

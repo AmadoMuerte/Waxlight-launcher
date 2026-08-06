@@ -129,6 +129,12 @@ operating system's user configuration directory:
 * Linux: `~/.config/waxlight/`
 * Windows: `%AppData%\waxlight\`
 
+The data folder (game versions, instances, mods, downloads, and the database)
+can be moved to any drive from **Settings → Data folder**. Waxlight copies the
+data with progress, restarts, and removes the old copy only after the new
+location works; account credentials always stay in the operating-system
+credential store.
+
 Stop all games before backing up or moving this directory. Never attach the
 entire data directory, instance `clientsettings.json` files, or logs to a public
 issue. Persistent session credentials are held by the operating-system
