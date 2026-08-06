@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -19,6 +20,51 @@ const (
 )
 
 var authKeys = []string{"sessionkey", "sessionsignature", "playeruid", "playername"}
+
+// sensitiveStringKeys are authentication properties and account personal data
+// that must never leave the machine inside an exported package.
+var sensitiveStringKeys = []string{
+	"sessionkey", "sessionsignature", "playeruid", "playername",
+	"useremail", "mptoken", "entitlements",
+}
+
+// sensitiveStringListKeys are machine-specific settings that must never leave
+// the machine inside an exported package.
+var sensitiveStringListKeys = []string{"modPaths", "modpaths", "multiplayerservers"}
+
+type rawSection struct {
+	key string
+	raw json.RawMessage
+}
+
+// matchingSections returns every root section whose key equals name ignoring
+// case. The game writes CamelCase sections ("stringSettings",
+// "stringListSettings") while older Waxlight versions wrote lowercase ones;
+// both spellings must be handled.
+func matchingSections(root map[string]json.RawMessage, name string) []rawSection {
+	var sections []rawSection
+	for key, raw := range root {
+		if strings.EqualFold(key, name) {
+			sections = append(sections, rawSection{key: key, raw: raw})
+		}
+	}
+	return sections
+}
+
+func stripKeys(settings map[string]json.RawMessage, forbidden []string) {
+	for key := range settings {
+		for _, candidate := range forbidden {
+			if strings.EqualFold(key, candidate) {
+				delete(settings, key)
+				break
+			}
+		}
+	}
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
+}
 
 type ClientSettingsService struct{}
 
@@ -76,53 +122,46 @@ func (ClientSettingsService) Clear(path string) error {
 // left by pre-journal Waxlight versions after a launcher crash.
 func (service ClientSettingsService) Reconcile(path string) error { return service.Clear(path) }
 
-// SanitizeClientSettings removes every authentication property and machine
-// specific mod path from a client settings document. The result can be safely
-// embedded in exported instance packages. An empty output means the document
-// held no settings.
+// SanitizeClientSettings removes every authentication property, account
+// personal data and machine specific mod path from a client settings document.
+// The result can be safely embedded in exported instance packages. An empty
+// output means the document held no settings.
 func SanitizeClientSettings(contents []byte) ([]byte, error) {
 	root := map[string]json.RawMessage{}
 	if err := decodeJSONObject(contents, &root); err != nil {
 		return nil, fmt.Errorf("invalid client settings: %w", err)
 	}
 
-	stringSettings := map[string]json.RawMessage{}
-	if raw, ok := root["stringsettings"]; ok {
-		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || decodeJSONObject(raw, &stringSettings) != nil {
-			return nil, errors.New("client settings stringsettings must be an object")
-		}
-	}
-	for _, key := range authKeys {
-		delete(stringSettings, key)
-	}
-	encodedStringSettings, err := json.Marshal(stringSettings)
-	if err != nil {
-		return nil, errors.New("encode string settings")
-	}
-	root["stringsettings"] = encodedStringSettings
-
-	// Vintage Story records absolute mod directory paths here. They point at
-	// the exporting machine's instance and must never travel inside a package.
-	for _, listKey := range []string{"stringListSettings", "stringlistsettings"} {
-		raw, ok := root[listKey]
-		if !ok {
+	for _, section := range matchingSections(root, "stringsettings") {
+		if isJSONNull(section.raw) {
 			continue
 		}
-		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		stringSettings := map[string]json.RawMessage{}
+		if err := decodeJSONObject(section.raw, &stringSettings); err != nil {
+			return nil, errors.New("client settings string settings must be an object")
+		}
+		stripKeys(stringSettings, sensitiveStringKeys)
+		encodedStringSettings, err := json.Marshal(stringSettings)
+		if err != nil {
+			return nil, errors.New("encode string settings")
+		}
+		root[section.key] = encodedStringSettings
+	}
+
+	for _, section := range matchingSections(root, "stringlistsettings") {
+		if isJSONNull(section.raw) {
 			continue
 		}
 		stringListSettings := map[string]json.RawMessage{}
-		if decodeJSONObject(raw, &stringListSettings) != nil {
-			return nil, errors.New("client settings stringlistsettings must be an object")
+		if err := decodeJSONObject(section.raw, &stringListSettings); err != nil {
+			return nil, errors.New("client settings string list settings must be an object")
 		}
-		for _, modPathKey := range []string{"modPaths", "modpaths"} {
-			delete(stringListSettings, modPathKey)
-		}
+		stripKeys(stringListSettings, sensitiveStringListKeys)
 		encodedListSettings, err := json.Marshal(stringListSettings)
 		if err != nil {
 			return nil, errors.New("encode string list settings")
 		}
-		root[listKey] = encodedListSettings
+		root[section.key] = encodedListSettings
 	}
 
 	output, err := json.MarshalIndent(root, "", "  ")
@@ -143,16 +182,33 @@ func patchClientSettings(path string, account *domain.Account) error {
 		return fmt.Errorf("read client settings: %w", err)
 	}
 
-	stringSettings := map[string]json.RawMessage{}
-	if raw, ok := root["stringsettings"]; ok {
-		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || decodeJSONObject(raw, &stringSettings) != nil {
+	// The game persists auth fields under the CamelCase "stringSettings"
+	// section; older Waxlight versions used lowercase "stringsettings". Both
+	// must be cleared so credentials cannot survive after exit, and a write
+	// targets whichever spelling already exists.
+	sections := map[string]map[string]json.RawMessage{}
+	for _, section := range matchingSections(root, "stringsettings") {
+		stringSettings := map[string]json.RawMessage{}
+		if isJSONNull(section.raw) || decodeJSONObject(section.raw, &stringSettings) != nil {
 			return errors.New("client settings stringsettings must be an object")
 		}
+		sections[section.key] = stringSettings
 	}
-	for _, key := range authKeys {
-		delete(stringSettings, key)
+	for _, settings := range sections {
+		stripKeys(settings, authKeys)
 	}
 	if account != nil {
+		primary := "stringsettings"
+		for _, candidate := range []string{"stringSettings", "stringsettings"} {
+			if _, ok := sections[candidate]; ok {
+				primary = candidate
+				break
+			}
+		}
+		settings := sections[primary]
+		if settings == nil {
+			settings = map[string]json.RawMessage{}
+		}
 		values := map[string]string{
 			"sessionkey": account.SessionKey, "sessionsignature": account.SessionSignature,
 			"playeruid": account.UID, "playername": account.Username,
@@ -162,14 +218,17 @@ func patchClientSettings(path string, account *domain.Account) error {
 			if err != nil {
 				return errors.New("encode authentication settings")
 			}
-			stringSettings[key] = encoded
+			settings[key] = encoded
 		}
+		sections[primary] = settings
 	}
-	encodedStringSettings, err := json.Marshal(stringSettings)
-	if err != nil {
-		return errors.New("encode string settings")
+	for key, settings := range sections {
+		encoded, err := json.Marshal(settings)
+		if err != nil {
+			return errors.New("encode authentication settings")
+		}
+		root[key] = encoded
 	}
-	root["stringsettings"] = encodedStringSettings
 	output, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return errors.New("encode client settings")

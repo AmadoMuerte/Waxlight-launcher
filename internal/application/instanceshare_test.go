@@ -34,7 +34,7 @@ func TestExportInstancePackageExcludesSensitiveData(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(modsDirectory, "catalog-mod.zip"), []byte("catalog"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(instance.Directory, "clientsettings.json"), []byte(`{"stringsettings":{"sessionkey":"TOP_SECRET","playername":"gasada","fov":80}}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(instance.Directory, "clientsettings.json"), []byte(`{"stringSettings":{"sessionkey":"TOP_SECRET","sessionsignature":"SIG","playeruid":"UID","playername":"gasada","useremail":"gasada@example.com","mptoken":"token","entitlements":"premium","fov":80},"stringListSettings":{"multiplayerservers":["server (:,192.0.2.1:42420,"],"modPaths":["Mods","/home/user/instances/original/Mods"]},"intsettings":{"viewDistance":256}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(instance.Directory, "Config"), 0o755); err != nil {
@@ -137,8 +137,14 @@ func TestExportInstancePackageExcludesSensitiveData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(settings), "TOP_SECRET") || strings.Contains(string(settings), "sessionkey") || strings.Contains(string(settings), "gasada") {
-		t.Fatalf("client settings leaked sensitive data: %s", settings)
+	settingsText := string(settings)
+	for _, forbidden := range []string{"TOP_SECRET", "sessionkey", "gasada", "useremail", "mptoken", "entitlements", "192.0.2.1", "modPaths"} {
+		if strings.Contains(settingsText, forbidden) {
+			t.Fatalf("client settings leaked sensitive data %q: %s", forbidden, settings)
+		}
+	}
+	if !strings.Contains(settingsText, "fov") || !strings.Contains(settingsText, "viewDistance") {
+		t.Fatalf("client settings lost non-sensitive values: %s", settings)
 	}
 }
 
@@ -386,8 +392,9 @@ func TestImportedInstanceHasNoStaleModPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The original instance's client settings carry the absolute mod path that
-	// Vintage Story wrote while the source instance was played.
-	staleSettings := `{"stringsettings":{"language":"en"},"stringListSettings":{"modPaths":["Mods","/home/user/.config/waxlight/instances/` + source.ID + `/Mods"]}}`
+	// Vintage Story wrote while the source instance was played, stored under
+	// the CamelCase sections the game actually uses.
+	staleSettings := `{"stringSettings":{"language":"en"},"stringListSettings":{"modPaths":["Mods","/home/user/.config/waxlight/instances/` + source.ID + `/Mods"]}}`
 	if err := os.WriteFile(filepath.Join(source.Directory, "clientsettings.json"), []byte(staleSettings), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -194,13 +195,17 @@ func stringContainsAuth(contents []byte) bool {
 }
 
 func TestSanitizeClientSettingsRemovesAuthAndModPaths(t *testing.T) {
-	original := `{"stringsettings":{"sessionkey":"s","playername":"Ada","language":"en"},"stringListSettings":{"multiplayerservers":[],"disabledMods":["m1"],"modPaths":["Mods","/home/user/.config/waxlight/instances/original/Mods"]},"intsettings":{"viewDistance":256}}`
+	original := `{"stringsettings":{"sessionkey":"s","sessionsignature":"sig","playeruid":"uid","playername":"Ada","useremail":"user@example.com","mptoken":"token","entitlements":"premium","language":"en"},"stringListSettings":{"multiplayerservers":["Just cozy server (:,192.0.2.1:42420,"],"disabledMods":["m1"],"modPaths":["Mods","/home/user/.config/waxlight/instances/original/Mods"]},"intsettings":{"viewDistance":256}}`
 	sanitized, err := SanitizeClientSettings([]byte(original))
 	if err != nil {
 		t.Fatal(err)
 	}
 	lower := strings.ToLower(string(sanitized))
-	for _, forbidden := range []string{"sessionkey", "playername", "modpaths", "instances/original", "session-key"} {
+	for _, forbidden := range []string{
+		"sessionkey", "sessionsignature", "playeruid", "playername",
+		"useremail", "mptoken", "entitlements", "modpaths",
+		"instances/original", "session-key", "192.0.2.1",
+	} {
 		if strings.Contains(lower, strings.ToLower(forbidden)) {
 			t.Fatalf("sanitized settings still contain %q: %s", forbidden, sanitized)
 		}
@@ -226,8 +231,138 @@ func TestSanitizeClientSettingsRemovesAuthAndModPaths(t *testing.T) {
 	if _, ok := lists["modPaths"]; ok {
 		t.Fatalf("modPaths was not removed: %s", sanitized)
 	}
+	if _, ok := lists["multiplayerservers"]; ok {
+		t.Fatalf("multiplayerservers was not removed: %s", sanitized)
+	}
 	var disabledMods []string
 	if err := json.Unmarshal(lists["disabledMods"], &disabledMods); err != nil || len(disabledMods) != 1 {
 		t.Fatalf("disabledMods were not preserved: %s", sanitized)
+	}
+}
+
+func TestSanitizeClientSettingsStripsCamelCaseSections(t *testing.T) {
+	original := `{"boolSettings":{"bloom":true},"floatSettings":{"guiScale":1.25},"intSettings":{"viewDistance":448},"stringListSettings":{"multiplayerservers":["Just cozy server (:,192.0.2.1:42420,"],"disabledMods":[],"modPaths":["Mods","/home/user/.config/VintagestoryData/Mods"]},"stringSettings":{"settingsVersion":"1.16","language":"ru","sessionkey":"redacted-session-key","sessionsignature":"redacted-signature","useremail":"player@example.com","entitlements":null,"mptoken":null,"playeruid":"redacted-uid","playername":"ExamplePlayer"}}`
+	sanitized, err := SanitizeClientSettings([]byte(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lower := strings.ToLower(string(sanitized))
+	for _, forbidden := range []string{
+		"sessionkey", "sessionsignature", "playeruid", "playername",
+		"useremail", "mptoken", "entitlements", "modpaths",
+		"192.0.2.1", "redacted-session-key", "player@example.com",
+	} {
+		if strings.Contains(lower, strings.ToLower(forbidden)) {
+			t.Fatalf("sanitized settings still contain %q: %s", forbidden, sanitized)
+		}
+	}
+	var result struct {
+		BoolSettings     map[string]bool `json:"boolSettings"`
+		FloatSettings    map[string]any  `json:"floatSettings"`
+		IntSettings      map[string]int  `json:"intSettings"`
+		StringSettings   map[string]any  `json:"stringSettings"`
+		StringListOffset json.RawMessage `json:"stringListSettings"`
+	}
+	if err := json.Unmarshal(sanitized, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.StringSettings["language"] != "ru" || result.StringSettings["settingsVersion"] != "1.16" {
+		t.Fatalf("camelCase string settings lost non-sensitive values: %s", sanitized)
+	}
+	if result.IntSettings["viewDistance"] != 448 || !result.BoolSettings["bloom"] {
+		t.Fatalf("settings lost non-sensitive values: %s", sanitized)
+	}
+	var lists map[string]json.RawMessage
+	if err := json.Unmarshal(result.StringListOffset, &lists); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := lists["modPaths"]; ok {
+		t.Fatalf("camelCase modPaths was not removed: %s", sanitized)
+	}
+	if _, ok := lists["multiplayerservers"]; ok {
+		t.Fatalf("camelCase multiplayerservers was not removed: %s", sanitized)
+	}
+}
+
+func TestSanitizeClientSettingsStripsBothSectionSpellings(t *testing.T) {
+	original := `{"stringSettings":{"sessionkey":"camel","language":"en"},"stringsettings":{"sessionkey":"lower","fov":90}}`
+	sanitized, err := SanitizeClientSettings([]byte(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lower := strings.ToLower(string(sanitized))
+	if strings.Contains(lower, "sessionkey") || strings.Contains(lower, "camel") || strings.Contains(lower, "lower") {
+		t.Fatalf("sanitized settings still contain credentials: %s", sanitized)
+	}
+	var result map[string]map[string]any
+	if err := json.Unmarshal(sanitized, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["stringSettings"]["language"] != "en" || result["stringsettings"]["fov"] != float64(90) {
+		t.Fatalf("non-sensitive values were not preserved: %s", sanitized)
+	}
+}
+
+func TestSanitizeClientSettingsAllowsNullSections(t *testing.T) {
+	sanitized, err := SanitizeClientSettings([]byte(`{"stringsettings":null,"intsettings":{"viewDistance":1}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]json.RawMessage
+	if err := json.Unmarshal(sanitized, &result); err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(bytes.TrimSpace(result["intsettings"]), []byte("null")) {
+		t.Fatalf("int settings were lost: %s", sanitized)
+	}
+}
+
+func TestPatchClientSettingsWritesIntoExistingCamelCaseSection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clientsettings.json")
+	if err := os.WriteFile(path, []byte(`{"stringSettings":{"language":"en"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (ClientSettingsService{}).Inject(path, testAccount()); err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]map[string]any
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(contents, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["stringSettings"]["sessionkey"] != "session-key" || result["stringSettings"]["language"] != "en" {
+		t.Fatalf("credentials were not written into the camelCase section: %s", contents)
+	}
+	if _, ok := result["stringsettings"]; ok {
+		t.Fatalf("a duplicate lowercase section was created: %s", contents)
+	}
+}
+
+func TestClearClientSettingsRemovesCamelCaseCredentials(t *testing.T) {
+	// The game itself persists auth fields under "stringSettings". Clear must
+	// remove them, not only the lowercase section Waxlight once used.
+	path := filepath.Join(t.TempDir(), "clientsettings.json")
+	if err := os.WriteFile(path, []byte(`{"stringSettings":{"sessionkey":"stale-key","sessionsignature":"stale-sig","playeruid":"uid","playername":"Ada","language":"en"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := (ClientSettingsService{}).Clear(path); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stringContainsAuth(contents) {
+		t.Fatalf("camelCase credentials remain after clear: %s", contents)
+	}
+	var result map[string]map[string]any
+	if err := json.Unmarshal(contents, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["stringSettings"]["language"] != "en" {
+		t.Fatalf("camelCase non-sensitive values were lost: %s", contents)
 	}
 }
