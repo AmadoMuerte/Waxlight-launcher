@@ -60,7 +60,6 @@ export function LibraryPage({
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
   const [query, setQuery] = useState("");
   const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
-  const [checkingUpdates, setCheckingUpdates] = useState(false);
   const instancesRef = useRef(instances);
   const checkedOnceRef = useRef(false);
   const navigate = useNavigate();
@@ -74,7 +73,6 @@ export function LibraryPage({
     if (current.length === 0) {
       return;
     }
-    setCheckingUpdates(true);
     const entries = await Promise.all(
       current.map(async (instance) => {
         try {
@@ -92,7 +90,6 @@ export function LibraryPage({
       }
     }
     setModUpdates(collected);
-    setCheckingUpdates(false);
   }, []);
 
   useEffect(() => {
@@ -171,9 +168,6 @@ export function LibraryPage({
             />
           </div>
           <span className="muted">{t("instances_count", { count: visibleInstances.length })}</span>
-          <Button variant="secondary" busy={checkingUpdates} onClick={() => void checkAllUpdates()}>
-            {t("check_mod_updates")}
-          </Button>
         </div>
       )}
 
@@ -514,7 +508,6 @@ function InstanceModal({
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
   const [updateReport, setUpdateReport] = useState<InstanceModUpdateReport>();
-  const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updatesDialogOpen, setUpdatesDialogOpen] = useState(false);
 
   const loadMods = useCallback(async () => {
@@ -526,13 +519,10 @@ function InstanceModal({
   }, [instance.id, notify]);
 
   const loadUpdates = useCallback(async () => {
-    setCheckingUpdates(true);
     try {
       setUpdateReport(await modsApi.checkInstanceUpdates(instance.id));
     } catch (error) {
       notify(errorMessage(error), "error");
-    } finally {
-      setCheckingUpdates(false);
     }
   }, [instance.id, notify]);
 
@@ -715,9 +705,6 @@ function InstanceModal({
               <p>{t("manage_instance_mods")}</p>
             </div>
             <div className="row">
-              <Button variant="secondary" busy={checkingUpdates} onClick={() => void loadUpdates()}>
-                {t("check_mod_updates")}
-              </Button>
               <Button
                 variant="secondary"
                 onClick={() => navigate(`/mods?instanceId=${encodeURIComponent(instance.id)}`)}
@@ -727,20 +714,25 @@ function InstanceModal({
               <Button onClick={() => void installMod()}>
                 <span aria-hidden="true">＋</span> {t("install_file")}
               </Button>
+              <Button
+                variant="secondary"
+                disabled={!updateReport}
+                title={
+                  updateReport && updateReport.summary.updatesAvailable === 0
+                    ? t("no_mod_updates")
+                    : undefined
+                }
+                onClick={() => setUpdatesDialogOpen(true)}
+              >
+                {t("update_mods")}
+                {updateReport && updateReport.summary.updatesAvailable > 0 && (
+                  <span className="updateCountBadge" aria-hidden="true">
+                    ▲ {updateReport.summary.updatesAvailable}
+                  </span>
+                )}
+              </Button>
             </div>
           </header>
-
-          {updateReport && updateReport.summary.updatesAvailable > 0 && (
-            <div className="modUpdatesBanner">
-              <div>
-                <strong>
-                  {t("mod_updates_available", { count: updateReport.summary.updatesAvailable })}
-                </strong>
-                <p>{t("mod_updates_banner_description")}</p>
-              </div>
-              <Button onClick={() => setUpdatesDialogOpen(true)}>{t("update_mods")}</Button>
-            </div>
-          )}
 
           {mods.length === 0 ? (
             <Empty
