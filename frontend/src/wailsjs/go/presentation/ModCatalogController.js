@@ -26,6 +26,10 @@ export function ListDownloadedMods() {
   return window['go']['presentation']['ModCatalogController']['ListDownloadedMods']();
 }
 
+export function ListModTags() {
+  return window['go']['presentation']['ModCatalogController']['ListModTags']();
+}
+
 export function RemoveDownloadedMod(arg1, arg2) {
   return window['go']['presentation']['ModCatalogController']['RemoveDownloadedMod'](arg1, arg2);
 }

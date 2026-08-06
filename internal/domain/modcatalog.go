@@ -79,6 +79,11 @@ type ModSearchQuery struct {
 	PageSize       int
 }
 
+type ModTag struct {
+	Name  string
+	Count int
+}
+
 type ModSearchResult struct {
 	Items      []ModSummary
 	Page       int

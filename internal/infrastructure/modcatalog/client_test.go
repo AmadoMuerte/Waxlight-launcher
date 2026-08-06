@@ -69,6 +69,33 @@ func TestClientMapsDetailsWithoutComments(t *testing.T) {
 	}
 }
 
+func TestClientListsTagsWithCounts(t *testing.T) {
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path != "/mods" {
+			t.Fatalf("unexpected path %s", request.URL.Path)
+		}
+		return jsonResponse(`{"statuscode":"200","mods":[
+			{"modid":1,"downloads":20,"name":"Server Tools","summary":"Admin helpers","author":"Ada","side":"server","type":"mod","tags":["Utility"],"lastreleased":"2026-08-01 12:00:00"},
+			{"modid":2,"downloads":200,"name":"Warm Light","summary":"Soft lamps","author":"Bea","side":"client","type":"mod","tags":["graphics"],"lastreleased":"2026-08-02 12:00:00"},
+			{"modid":3,"downloads":999,"name":"Glow Lamps","summary":"More lamps","author":"Bea","side":"both","type":"mod","tags":["Graphics","Utility"],"lastreleased":"2026-08-03 12:00:00"}
+		]}`), nil
+	})
+	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
+	tags, err := client.ListTags(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("unexpected tags: %#v", tags)
+	}
+	if tags[0].Name != "graphics" || tags[0].Count != 2 {
+		t.Fatalf("unexpected first tag: %#v", tags[0])
+	}
+	if tags[1].Name != "Utility" || tags[1].Count != 2 {
+		t.Fatalf("unexpected second tag: %#v", tags[1])
+	}
+}
+
 func TestSearchPreservesSummaryWhenFilteringByGameVersion(t *testing.T) {
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Path {

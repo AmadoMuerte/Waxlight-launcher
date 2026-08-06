@@ -150,6 +150,11 @@ export interface ModSearchResult {
   hasNext: boolean;
 }
 
+export interface ModTag {
+  name: string;
+  count: number;
+}
+
 export interface InstalledModInstance {
   instanceId: string;
   instanceName: string;

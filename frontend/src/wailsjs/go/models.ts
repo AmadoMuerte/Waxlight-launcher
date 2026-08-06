@@ -675,6 +675,20 @@ export namespace presentation {
 	        this.updateAvailable = source["updateAvailable"];
 	    }
 	}
+	export class ModTagDTO {
+	    name: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModTagDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.count = source["count"];
+	    }
+	}
 	export class ModSearchResultDTO {
 	    items: ModSummaryDTO[];
 	    page: number;

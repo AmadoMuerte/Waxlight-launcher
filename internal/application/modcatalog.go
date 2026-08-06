@@ -69,6 +69,13 @@ func (s *Service) SearchMods(
 	return result, nil
 }
 
+func (s *Service) ListModTags(ctx context.Context) ([]domain.ModTag, error) {
+	if s.modCatalog == nil {
+		return []domain.ModTag{}, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
+	}
+	return s.modCatalog.ListTags(ctx)
+}
+
 func (s *Service) GetCatalogMod(
 	ctx context.Context,
 	modID string,

@@ -2001,7 +2001,7 @@ main {
 
 .modsFilters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 16px;
   padding: 20px;
   border: 1px solid #2d292e;
@@ -2011,6 +2011,77 @@ main {
 
 .modsFilters .field {
   flex-basis: auto;
+}
+
+.tagFilterTrigger {
+  display: flex;
+  width: 100%;
+  height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0 12px;
+  color: var(--foreground);
+  background: var(--surface-input);
+  outline: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.tagFilterTrigger:hover {
+  border-color: #504b51;
+}
+
+.tagFilterTrigger:focus-visible {
+  border-color: #c48740;
+  box-shadow: 0 0 0 3px rgb(196 135 64 / 15%);
+}
+
+.tagFilterSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #77716d;
+  background: #141316;
+}
+
+.tagFilterSearch input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 8px 0;
+  color: var(--foreground);
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+}
+
+.tagFilterList {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tagFilterCount {
+  margin-left: auto;
+  margin-right: 10px;
+  color: #77716d;
+  font-size: 12px;
+}
+
+.tagFilterEmpty {
+  text-align: center;
+  text-transform: none;
 }
 
 .filterPanelTitle,

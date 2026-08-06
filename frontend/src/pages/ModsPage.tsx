@@ -15,6 +15,7 @@ import {
   type ModDetails,
   type ModSearchQuery,
   type ModSummary,
+  type ModTag,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { Button, Empty, PageHeader } from "../shared/ui";
@@ -34,6 +35,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   const location = useLocation();
   const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
   const [catalog, setCatalog] = useState<ModSummary[]>([]);
+  const [tags, setTags] = useState<ModTag[]>([]);
   const [downloaded, setDownloaded] = useState<DownloadedMod[]>([]);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -185,6 +187,22 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
     }
   }, [loading, location.search]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadTags() {
+      try {
+        const items = await modCatalogApi.tags();
+        if (active) setTags(items ?? []);
+      } catch {
+        // Tag filtering is optional when the catalog cannot be read.
+      }
+    }
+    if (view === "all") void loadTags();
+    return () => {
+      active = false;
+    };
+  }, [reloadKey, view]);
+
   const filteredDownloaded = useMemo(() => {
     let result = downloaded.filter((item) => {
       const text = query.text.toLowerCase();
@@ -221,6 +239,14 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   }
 
   function patchFilters(patch: Partial<ModSearchQuery>) {
+    if ("tags" in patch) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("tag");
+      next.set("page", "1");
+      for (const tag of patch.tags ?? []) next.append("tag", tag);
+      setSearchParams(next);
+      return;
+    }
     const next: Record<string, string | undefined> = { page: "1" };
     if ("gameVersion" in patch) next.gameVersion = patch.gameVersion || undefined;
     if ("side" in patch) next.side = patch.side || undefined;
@@ -325,6 +351,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       <ModsFilters
         query={query}
         versions={versions}
+        tags={tags}
         mobileOpen={filtersOpen}
         onMobileOpenChange={setFiltersOpen}
         onChange={patchFilters}

@@ -186,6 +186,7 @@ type DiskSpaceChecker interface {
 type ModCatalog interface {
 	Search(context.Context, domain.ModSearchQuery) (domain.ModSearchResult, error)
 	Get(context.Context, string) (domain.ModDetails, error)
+	ListTags(context.Context) ([]domain.ModTag, error)
 }
 
 type DownloadedModStore interface {
