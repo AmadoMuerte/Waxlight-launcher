@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -11,9 +13,11 @@ import {
 
 import { changeAppLanguage } from "../i18n";
 import { normalizeLanguage, supportedLanguages } from "../i18n/languages";
-import { Settings, settingsApi } from "../shared/api";
+import { DataFolder, DataFolderProgress, Settings, settingsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
-import { Checkbox, Field, PageHeader } from "../shared/ui";
+import { formatBytes } from "../shared/lib";
+import { Button, Checkbox, Field, PageHeader } from "../shared/ui";
+import { EventsOn } from "../wailsjs/runtime/runtime";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -47,6 +51,12 @@ export function SettingsPage({ settings, notify, onSaved, currentVersion }: Sett
   const { t } = useTranslation();
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
+  const [dataFolder, setDataFolder] = useState<DataFolder>();
+  const [dataFolderProgress, setDataFolderProgress] = useState<DataFolderProgress>();
+  const [moveTarget, setMoveTarget] = useState("");
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState("");
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -123,6 +133,74 @@ export function SettingsPage({ settings, notify, onSaved, currentVersion }: Sett
     },
     [],
   );
+
+  useEffect(() => {
+    void settingsApi
+      .getDataFolder()
+      .then(setDataFolder)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    try {
+      return EventsOn("data-folder:progress", (progress: DataFolderProgress) => {
+        setDataFolderProgress(progress);
+        if (progress.phase === "relaunching") {
+          setMoving(true);
+        }
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      return EventsOn("data-folder:error", (payload: { message?: string }) => {
+        const message = payload?.message ?? "";
+        setMoving(false);
+        setMoveError(message);
+        notifyRef.current(
+          message ? message : translateRef.current("data_folder_move_error"),
+          "error",
+        );
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
+
+  async function chooseDataFolder() {
+    if (moving) {
+      return;
+    }
+    try {
+      const target = await settingsApi.selectDataFolder();
+      if (!target) {
+        return;
+      }
+      setMoveTarget(target);
+      setMoveDialogOpen(true);
+    } catch (error) {
+      notifyRef.current(errorMessage(error), "error");
+    }
+  }
+
+  async function confirmDataFolderMove() {
+    if (!moveTarget) {
+      return;
+    }
+    setMoveDialogOpen(false);
+    setMoving(true);
+    setMoveError("");
+    setDataFolderProgress({ copiedBytes: 0, totalBytes: 0, progress: 0, phase: "preparing" });
+    try {
+      await settingsApi.moveDataFolder(moveTarget);
+    } catch (error) {
+      setMoving(false);
+      notifyRef.current(errorMessage(error), "error");
+    }
+  }
 
   if (!value) {
     return null;
@@ -298,8 +376,63 @@ export function SettingsPage({ settings, notify, onSaved, currentVersion }: Sett
               </div>
             </div>
           </section>
+
+          <section className="settingsPageSection">
+            <header>
+              <h2>{t("data_folder")}</h2>
+              <p>{t("data_folder_description")}</p>
+            </header>
+            <div className="formFields">
+              {moving ? (
+                <div className="launcherUpdateProgress">
+                  <Progress value={dataFolderProgress?.progress ?? 0} />
+                  <small>{t("data_folder_moving")}</small>
+                  {dataFolderProgress?.totalBytes ? (
+                    <small>
+                      {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
+                      {formatBytes(dataFolderProgress.totalBytes)}
+                    </small>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <div className="formRow">
+                    <Field label={t("data_folder_current_location")}>
+                      <input value={dataFolder?.currentPath ?? "—"} readOnly />
+                    </Field>
+                  </div>
+                  {moveError && <p className="updateHint">{moveError}</p>}
+                  {dataFolder?.lastError && (
+                    <p className="updateHint">
+                      {t("data_folder_previous_error", { message: dataFolder.lastError })}
+                    </p>
+                  )}
+                  <div className="formRow">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void chooseDataFolder()}
+                    >
+                      {t("data_folder_change")}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
         </div>
       </section>
+
+      <ConfirmDialog
+        open={moveDialogOpen}
+        title={t("data_folder_move_confirm_title")}
+        message={t("data_folder_move_confirm_message")}
+        warningMessage={t("data_folder_move_confirm_warning")}
+        confirmLabel={t("data_folder_move")}
+        destructive
+        onConfirm={() => void confirmDataFolderMove()}
+        onCancel={() => setMoveDialogOpen(false)}
+      />
 
       <footer className="legal">{t("not_affiliated_notice")}</footer>
     </>

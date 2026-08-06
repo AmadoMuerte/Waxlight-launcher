@@ -413,5 +413,16 @@
   "open_external_link_url": "{{url}}",
   "confirm": "Potwierdź",
   "processing": "Przetwarzanie…",
-  "open": "Otwórz"
+  "open": "Otwórz",
+  "data_folder": "Folder danych",
+  "data_folder_change": "Zmień…",
+  "data_folder_current_location": "Bieżąca lokalizacja",
+  "data_folder_description": "Waxlight przechowuje tu wersje gry, instancje, mody i swoją bazę danych",
+  "data_folder_moving": "Przenoszenie folderu danych…",
+  "data_folder_move_confirm_message": "Launcher uruchomi się ponownie po skopiowaniu plików.",
+  "data_folder_move_confirm_title": "Przenieść folder danych?",
+  "data_folder_move_confirm_warning": "Wersje gry, instancje, mody i baza danych zostaną przeniesione. Stara kopia zostanie usunięta po pomyślnym przeniesieniu.",
+  "data_folder_move_error": "Nie udało się przenieść folderu danych",
+  "data_folder_previous_error": "Poprzednie przeniesienie folderu danych nie powiodło się: {{message}}",
+  "data_folder_move": "Przenieś"
 }

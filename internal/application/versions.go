@@ -60,6 +60,9 @@ func (s *Service) InstallAvailableVersion(
 	ctx context.Context,
 	versionID string,
 ) (domain.Operation, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Operation{}, err
+	}
 	versionID = strings.TrimSpace(versionID)
 	if versionID == "" {
 		return domain.Operation{}, domain.NewError(

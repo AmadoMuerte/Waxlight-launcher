@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
@@ -28,17 +28,21 @@ import (
 type Container struct {
 	Service        *application.Service
 	AccountService *application.AccountService
+	DataRoot       *dataroot.Manager
 	Base           *presentation.Base
 	Controllers    []any
 }
 
 func New() (*Container, error) {
-	configDirectory, err := os.UserConfigDir()
+	dataRootManager, err := dataroot.New()
 	if err != nil {
 		return nil, err
 	}
 
-	dataRoot := filepath.Join(configDirectory, "waxlight")
+	dataRoot, err := dataRootManager.PrepareStartup()
+	if err != nil {
+		return nil, fmt.Errorf("prepare data directory: %w", err)
+	}
 	if err := os.MkdirAll(dataRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
@@ -50,9 +54,15 @@ func New() (*Container, error) {
 		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
 	}
 
-	store, err := database.Open(filepath.Join(dataRoot, "waxlight.db"))
+	store, err := database.Open(dataroot.DatabasePath(dataRoot))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
+	}
+	if err := dataRootManager.FinalizePrevious(func(oldRoot, newRoot string) error {
+		return store.RelocatePaths(context.Background(), oldRoot, newRoot)
+	}); err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("finish data folder relocation: %w", err)
 	}
 
 	_ = store.RecoverOpenSessions(context.Background(), time.Now().UTC())
@@ -130,13 +140,14 @@ func New() (*Container, error) {
 		presentation.NewLaunchController(service),
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),
-		presentation.NewSettingsController(service, base),
+		presentation.NewSettingsController(service, base, dataRootManager),
 		presentation.NewLauncherUpdateController(updateService, base),
 	}
 
 	return &Container{
 		Service:        service,
 		AccountService: accountService,
+		DataRoot:       dataRootManager,
 		Base:           base,
 		Controllers:    controllers,
 	}, nil

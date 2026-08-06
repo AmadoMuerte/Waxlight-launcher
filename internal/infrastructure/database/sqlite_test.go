@@ -133,3 +133,113 @@ func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
 		t.Fatalf("unexpected remaining operations: %+v", remaining)
 	}
 }
+
+func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
+	store, err := database.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+
+	oldRoot := filepath.Join(string(filepath.Separator), "old", "waxlight")
+	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
+
+	now := time.Now().UTC()
+	if err := store.SaveVersion(ctx, domain.GameVersion{
+		ID:              "v1",
+		Name:            "Test",
+		Platform:        "linux",
+		Architecture:    "amd64",
+		InstallationDir: filepath.Join(oldRoot, "versions", "v1"),
+		ExecutablePath:  filepath.Join(oldRoot, "versions", "v1", "game"),
+		Status:          "installed",
+		InstalledAt:     now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cover := filepath.Join(oldRoot, "instances", "i1", "cover.png")
+	if err := store.SaveInstance(ctx, domain.Instance{
+		ID:              "i1",
+		Name:            "Setup",
+		GameVersionID:   "v1",
+		Directory:       filepath.Join(oldRoot, "instances", "i1"),
+		CoverPath:       &cover,
+		Status:          "ready",
+		LaunchArguments: []string{},
+		CreatedAt:       now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.RelocatePaths(ctx, oldRoot, newRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	versions, err := store.ListVersions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 1 {
+		t.Fatalf("expected one version, got %d", len(versions))
+	}
+	wantInstall := filepath.Join(newRoot, "versions", "v1")
+	if versions[0].InstallationDir != wantInstall {
+		t.Fatalf("installation dir = %q, want %q", versions[0].InstallationDir, wantInstall)
+	}
+	if versions[0].ExecutablePath != filepath.Join(newRoot, "versions", "v1", "game") {
+		t.Fatalf("executable path was not rewritten: %q", versions[0].ExecutablePath)
+	}
+
+	instances, err := store.ListInstances(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected one instance, got %d", len(instances))
+	}
+	if instances[0].Directory != filepath.Join(newRoot, "instances", "i1") {
+		t.Fatalf("instance directory was not rewritten: %q", instances[0].Directory)
+	}
+	if instances[0].CoverPath == nil || *instances[0].CoverPath != filepath.Join(newRoot, "instances", "i1", "cover.png") {
+		t.Fatalf("instance cover path was not rewritten: %v", instances[0].CoverPath)
+	}
+}
+
+func TestRelocatePathsIsIdempotent(t *testing.T) {
+	store, err := database.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+
+	oldRoot := filepath.Join(string(filepath.Separator), "old", "waxlight")
+	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
+	now := time.Now().UTC()
+	if err := store.SaveVersion(ctx, domain.GameVersion{
+		ID:              "v1",
+		Name:            "Test",
+		Platform:        "linux",
+		Architecture:    "amd64",
+		InstallationDir: filepath.Join(oldRoot, "versions", "v1"),
+		ExecutablePath:  filepath.Join(oldRoot, "versions", "v1", "game"),
+		Status:          "installed",
+		InstalledAt:     now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := store.RelocatePaths(ctx, oldRoot, newRoot); err != nil {
+			t.Fatal(err)
+		}
+	}
+	versions, err := store.ListVersions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if versions[0].InstallationDir != filepath.Join(newRoot, "versions", "v1") {
+		t.Fatalf("path changed after repeated relocation: %q", versions[0].InstallationDir)
+	}
+}

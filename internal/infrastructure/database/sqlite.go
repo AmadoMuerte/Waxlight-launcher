@@ -1052,3 +1052,50 @@ func (s *SQLiteStore) SaveSettings(ctx context.Context, settings domain.Settings
 	_, e = s.db.ExecContext(ctx, query, string(encodedSettings))
 	return e
 }
+
+type relocationStatement struct {
+	query string
+	args  []any
+}
+
+// RelocatePaths rewrites stored absolute paths after the data root has moved.
+// Every stored path that begins with oldRoot is re-prefixed with newRoot. It
+// runs in a single transaction and is safe to run again after an interruption,
+// because already-rewritten paths no longer match the old prefix.
+func (s *SQLiteStore) RelocatePaths(ctx context.Context, oldRoot, newRoot string) error {
+	prefixLength := len(oldRoot) + 1
+	statements := []relocationStatement{
+		{
+			query: `UPDATE game_versions
+				SET installation_dir = ? || substr(installation_dir, ?),
+				    executable_path = ? || substr(executable_path, ?)
+				WHERE instr(installation_dir, ?) = 1 OR instr(executable_path, ?) = 1`,
+			args: []any{newRoot, prefixLength, newRoot, prefixLength, oldRoot, oldRoot},
+		},
+		{
+			query: `UPDATE instances
+				SET directory = ? || substr(directory, ?),
+				    cover_path = ? || substr(cover_path, ?)
+				WHERE instr(directory, ?) = 1 OR instr(cover_path, ?) = 1`,
+			args: []any{newRoot, prefixLength, newRoot, prefixLength, oldRoot, oldRoot},
+		},
+		{
+			query: `UPDATE installed_mods
+				SET file_path = ? || substr(file_path, ?)
+				WHERE instr(file_path, ?) = 1`,
+			args: []any{newRoot, prefixLength, oldRoot},
+		},
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}

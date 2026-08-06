@@ -40,6 +40,8 @@ type Service struct {
 	modsMu             sync.Mutex
 	versionInstallMu   sync.Mutex
 	operationsMu       sync.Mutex
+	relocatingMu       sync.Mutex
+	relocating         bool
 	operationCancels   map[string]context.CancelFunc
 	operationDone      map[string]<-chan error
 	versionOperations  map[string]string
@@ -106,6 +108,63 @@ func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
 
 func (s *Service) SetEventPublisher(publisher EventPublisher) {
 	s.events = publisher
+}
+
+// SetDataFolderRelocating marks whether a data folder relocation is running.
+// While relocating, disk-writing operations are rejected so the file copy stays
+// consistent.
+func (s *Service) SetDataFolderRelocating(relocating bool) {
+	s.relocatingMu.Lock()
+	s.relocating = relocating
+	s.relocatingMu.Unlock()
+}
+
+// DataFolderBusy reports whether a data folder relocation is in progress.
+func (s *Service) DataFolderBusy() bool {
+	s.relocatingMu.Lock()
+	defer s.relocatingMu.Unlock()
+	return s.relocating
+}
+
+// CanRelocateDataFolder rejects a data folder move while a game is running or a
+// long-running operation is still in progress, so the file copy stays
+// consistent.
+func (s *Service) CanRelocateDataFolder() error {
+	if s.DataFolderBusy() {
+		return domain.NewError(domain.ErrDataFolderBusy, "The data folder is already being moved")
+	}
+	s.runningMu.Lock()
+	gameRunning := len(s.running) > 0
+	s.runningMu.Unlock()
+	if gameRunning {
+		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before moving the data folder")
+	}
+	operations, err := s.store.ListOperations(context.Background(), 1000)
+	if err != nil {
+		return err
+	}
+	for _, operation := range operations {
+		if operation.Status == "running" {
+			return domain.NewError(
+				domain.ErrDataFolderBusy,
+				"Wait for running operations to finish before moving the data folder",
+			)
+		}
+	}
+	return nil
+}
+
+// rejectIfRelocating prevents disk operations while the data folder is moving.
+func (s *Service) rejectIfRelocating() error {
+	s.relocatingMu.Lock()
+	defer s.relocatingMu.Unlock()
+	if s.relocating {
+		return domain.NewError(
+			domain.ErrDataFolderBusy,
+			"The data folder is being moved; wait for the relocation to finish",
+		)
+	}
+	return nil
 }
 
 func (s *Service) ConfigureAuthentication(
@@ -304,6 +363,9 @@ func (s *Service) InstallVersion(
 	executableRelativePath string,
 	checksum string,
 ) (domain.Operation, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Operation{}, err
+	}
 	s.versionInstallMu.Lock()
 	defer s.versionInstallMu.Unlock()
 
@@ -414,6 +476,9 @@ func safeSegment(v string) string {
 	return b.String()
 }
 func (s *Service) DeleteVersion(ctx context.Context, id string, deleteFiles bool) error {
+	if err := s.rejectIfRelocating(); err != nil {
+		return err
+	}
 	v, e := s.store.GetVersion(ctx, id)
 	if e != nil {
 		return e
@@ -463,6 +528,9 @@ type CreateInstanceInput struct {
 }
 
 func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (domain.Instance, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Instance{}, err
+	}
 	name, e := cleanName(in.Name)
 	if e != nil {
 		return domain.Instance{}, e
@@ -557,6 +625,9 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 	return in, e
 }
 func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles bool) error {
+	if err := s.rejectIfRelocating(); err != nil {
+		return err
+	}
 	s.runningMu.Lock()
 	_, running := s.running[id]
 	s.runningMu.Unlock()
@@ -744,6 +815,9 @@ func findDiscoveredMod(
 	return -1
 }
 func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, name, version string) (domain.Operation, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Operation{}, err
+	}
 	i, e := s.store.GetInstance(ctx, instanceID)
 	if e != nil {
 		return domain.Operation{}, e
@@ -810,6 +884,9 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	return operation, nil
 }
 func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (domain.InstalledMod, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.InstalledMod{}, err
+	}
 	m, e := s.store.GetMod(ctx, id)
 	if e != nil {
 		return m, e
@@ -836,6 +913,9 @@ func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (d
 	return m, e
 }
 func (s *Service) DeleteMod(ctx context.Context, id string) error {
+	if err := s.rejectIfRelocating(); err != nil {
+		return err
+	}
 	m, e := s.store.GetMod(ctx, id)
 	if e != nil {
 		return e
@@ -936,6 +1016,9 @@ func (s *Service) Launch(
 	instanceID string,
 	accountID *string,
 ) (domain.PlaySession, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.PlaySession{}, err
+	}
 	s.launchMu.Lock()
 	defer s.launchMu.Unlock()
 	validation, err := s.ValidateLaunch(ctx, instanceID, accountID)
