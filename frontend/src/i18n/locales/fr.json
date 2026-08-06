@@ -459,4 +459,5 @@
   "data_folder_move_error": "Impossible de déplacer le dossier de données",
   "data_folder_previous_error": "Un déplacement précédent du dossier de données a échoué : {{message}}",
   "data_folder_move": "Déplacer"
+  "default_instance_name": "Instance",
 }

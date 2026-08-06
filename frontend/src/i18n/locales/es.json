@@ -459,4 +459,5 @@
   "data_folder_move_error": "No se pudo mover la carpeta de datos",
   "data_folder_previous_error": "Un movimiento anterior de la carpeta de datos falló: {{message}}",
   "data_folder_move": "Mover"
+  "default_instance_name": "Instancia",
 }

@@ -459,4 +459,5 @@
   "data_folder_move_error": "Не атрымалася перанесці папку дадзеных",
   "data_folder_previous_error": "Папярэдні перанос папкі дадзеных не ўдаўся: {{message}}",
   "data_folder_move": "Перанесці"
+  "default_instance_name": "Зборка",
 }

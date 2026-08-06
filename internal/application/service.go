@@ -531,8 +531,13 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 	if err := s.rejectIfRelocating(); err != nil {
 		return domain.Instance{}, err
 	}
-	name, e := cleanName(in.Name)
-	if e != nil {
+	var e error
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		if name, e = s.defaultInstanceName(ctx); e != nil {
+			return domain.Instance{}, e
+		}
+	} else if name, e = cleanName(name); e != nil {
 		return domain.Instance{}, e
 	}
 	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
@@ -588,6 +593,58 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 		s.emit("instance:created", instance)
 	}
 	return instance, e
+}
+
+// defaultInstanceName produces a localized name for an unnamed instance and
+// appends an incrementing suffix until it collides with nothing.
+func (s *Service) defaultInstanceName(ctx context.Context) (string, error) {
+	settings, err := s.store.GetSettings(ctx)
+	if err != nil {
+		return "", err
+	}
+	base := localizedInstanceName(settings.Language)
+
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return "", err
+	}
+	taken := make(map[string]bool, len(instances))
+	for _, instance := range instances {
+		taken[strings.ToLower(strings.TrimSpace(instance.Name))] = true
+	}
+
+	candidate := base
+	for index := 2; ; index++ {
+		if !taken[strings.ToLower(candidate)] {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s-%d", base, index)
+	}
+}
+
+func localizedInstanceName(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "ru":
+		return "Сборка"
+	case "be":
+		return "Зборка"
+	case "de":
+		return "Instanz"
+	case "es":
+		return "Instancia"
+	case "fr":
+		return "Instance"
+	case "kk":
+		return "Жинақ"
+	case "pl":
+		return "Instancja"
+	case "pt":
+		return "Instância"
+	case "sv":
+		return "Instans"
+	default:
+		return "Instance"
+	}
 }
 
 func (s *Service) ListInstances(ctx context.Context) ([]domain.Instance, error) {

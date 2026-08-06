@@ -459,4 +459,5 @@
   "data_folder_move_error": "Nie udało się przenieść folderu danych",
   "data_folder_previous_error": "Poprzednie przeniesienie folderu danych nie powiodło się: {{message}}",
   "data_folder_move": "Przenieś"
+  "default_instance_name": "Instancja",
 }

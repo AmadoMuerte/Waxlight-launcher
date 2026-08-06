@@ -459,4 +459,5 @@
   "data_folder_move_error": "Could not move the data folder",
   "data_folder_previous_error": "A previous data folder move failed: {{message}}",
   "data_folder_move": "Move"
+  "default_instance_name": "Instance",
 }

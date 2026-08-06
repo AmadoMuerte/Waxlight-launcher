@@ -372,7 +372,7 @@ function CreateInstanceModal({ versions, accounts, onClose, onDone }: CreateInst
     setError("");
     try {
       await instancesApi.create({
-        name,
+        name: name.trim(),
         description,
         gameVersionId: versionID,
         defaultAccountId: accountID || undefined,
@@ -393,10 +393,9 @@ function CreateInstanceModal({ versions, accounts, onClose, onDone }: CreateInst
         <div className="modalBody formFields">
           <Field label={t("name")}>
             <input
-              required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder={t("instance_name_example")}
+              placeholder={t("default_instance_name")}
             />
           </Field>
 

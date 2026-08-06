@@ -459,4 +459,5 @@
   "data_folder_move_error": "Det gick inte att flytta data-mappen",
   "data_folder_previous_error": "En tidigare flytt av data-mappen misslyckades: {{message}}",
   "data_folder_move": "Flytta"
+  "default_instance_name": "Instans",
 }

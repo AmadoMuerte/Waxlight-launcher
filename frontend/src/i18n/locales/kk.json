@@ -459,4 +459,5 @@
   "data_folder_move_error": "Деректер қалтасын жылжыту мүмкін болмады",
   "data_folder_previous_error": "Деректер қалтасын алдыңғы жылжыту сәтсіз аяқталды: {{message}}",
   "data_folder_move": "Жылжыту"
+  "default_instance_name": "Жинақ",
 }

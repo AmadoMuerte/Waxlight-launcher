@@ -459,4 +459,5 @@
   "data_folder_move_error": "Der Datenordner konnte nicht verschoben werden",
   "data_folder_previous_error": "Ein früherer Verschiebevorgang ist fehlgeschlagen: {{message}}",
   "data_folder_move": "Verschieben"
+  "default_instance_name": "Instanz",
 }

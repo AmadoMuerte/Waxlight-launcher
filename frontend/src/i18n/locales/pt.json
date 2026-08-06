@@ -459,4 +459,5 @@
   "data_folder_move_error": "Não foi possível mover a pasta de dados",
   "data_folder_previous_error": "Uma mudança anterior da pasta de dados falhou: {{message}}",
   "data_folder_move": "Mover"
+  "default_instance_name": "Instância",
 }
