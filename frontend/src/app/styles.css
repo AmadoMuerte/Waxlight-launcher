@@ -255,6 +255,7 @@ main {
 }
 
 .button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -272,6 +273,38 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: 0.18s;
+}
+
+.buttonLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.button.busy {
+  cursor: default;
+  opacity: 1;
+}
+
+.button.busy .buttonLabel {
+  visibility: hidden;
+}
+
+.buttonSpinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.button.busy.button.primary,
+.button.busy.button.secondary,
+.button.busy.button.danger,
+.button.busy.button.ghost {
+  opacity: 1;
 }
 
 .button.primary {
@@ -1358,6 +1391,12 @@ main {
 
 .instanceToolbar > div:first-child {
   min-width: 0;
+}
+
+.instanceToolbar .row {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 10px;
 }
 
 .instanceToolbar h3,
@@ -3001,6 +3040,7 @@ main {
   }
   .instanceToolbar .row {
     width: 100%;
+    flex-wrap: wrap;
   }
   .installedModRow {
     grid-template-columns: 42px minmax(0, 1fr);
@@ -3048,6 +3088,17 @@ main {
   color: #1c1408;
   background: var(--amber);
   font-size: 12px;
+  font-weight: 700;
+}
+
+.updateCountBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #1c1408;
+  background: var(--amber);
+  font-size: 11px;
   font-weight: 700;
 }
 

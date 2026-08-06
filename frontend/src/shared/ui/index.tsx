@@ -23,10 +23,13 @@ export function Button({
   return (
     <button
       {...props}
-      className={`button ${variant} ${className}`.trim()}
+      className={`button ${variant} ${busy ? "busy" : ""} ${className}`.trim()}
       disabled={busy || disabled}
     >
-      {busy ? <span className="spinner" /> : children}
+      <span className="buttonLabel" aria-hidden={busy}>
+        {children}
+      </span>
+      {busy && <span className="spinner buttonSpinner" />}
     </button>
   );
 }
