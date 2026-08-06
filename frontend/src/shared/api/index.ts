@@ -15,6 +15,7 @@ import type {
   AvailableGameVersion,
   DataFolder,
   GameVersion,
+  ImportReport,
   InstanceModUpdateReport,
   InstalledMod,
   Instance,
@@ -28,6 +29,9 @@ import type {
   ModSearchQuery,
   ModSearchResult,
   ModTag,
+  PackageAuthor,
+  PackageInspection,
+  PackageManifest,
   Settings,
   Statistics,
 } from "./types";
@@ -93,6 +97,31 @@ export const modsApi = {
   toggle: (id: string, enabled: boolean) =>
     call<InstalledMod>("ModManagerController", "SetModEnabled", id, enabled),
   remove: (id: string) => call<void>("ModManagerController", "RemoveMod", id),
+};
+
+export const instancePackageApi = {
+  export: (request: {
+    instanceId: string;
+    targetPath: string;
+    name?: string;
+    description?: string;
+    author?: PackageAuthor;
+  }) => call<PackageManifest>("InstancePackageController", "ExportInstance", request),
+  inspect: (packagePath: string) =>
+    call<PackageInspection>("InstancePackageController", "InspectPackage", packagePath),
+  import: (request: {
+    packagePath: string;
+    name: string;
+    description?: string;
+    directory: string;
+    gameVersionId: string;
+    installVersion: boolean;
+    allowIncompatible: boolean;
+    skipUnavailable: boolean;
+  }) => call<ImportReport>("InstancePackageController", "ImportPackage", request),
+  selectExportPath: (suggestedName: string) =>
+    call<string>("InstancePackageController", "SelectExportPath", suggestedName),
+  selectPackageFile: () => call<string>("InstancePackageController", "SelectPackageFile"),
 };
 
 export const modCatalogApi = {

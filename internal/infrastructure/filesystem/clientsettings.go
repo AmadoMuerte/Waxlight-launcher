@@ -76,6 +76,62 @@ func (ClientSettingsService) Clear(path string) error {
 // left by pre-journal Waxlight versions after a launcher crash.
 func (service ClientSettingsService) Reconcile(path string) error { return service.Clear(path) }
 
+// SanitizeClientSettings removes every authentication property and machine
+// specific mod path from a client settings document. The result can be safely
+// embedded in exported instance packages. An empty output means the document
+// held no settings.
+func SanitizeClientSettings(contents []byte) ([]byte, error) {
+	root := map[string]json.RawMessage{}
+	if err := decodeJSONObject(contents, &root); err != nil {
+		return nil, fmt.Errorf("invalid client settings: %w", err)
+	}
+
+	stringSettings := map[string]json.RawMessage{}
+	if raw, ok := root["stringsettings"]; ok {
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || decodeJSONObject(raw, &stringSettings) != nil {
+			return nil, errors.New("client settings stringsettings must be an object")
+		}
+	}
+	for _, key := range authKeys {
+		delete(stringSettings, key)
+	}
+	encodedStringSettings, err := json.Marshal(stringSettings)
+	if err != nil {
+		return nil, errors.New("encode string settings")
+	}
+	root["stringsettings"] = encodedStringSettings
+
+	// Vintage Story records absolute mod directory paths here. They point at
+	// the exporting machine's instance and must never travel inside a package.
+	for _, listKey := range []string{"stringListSettings", "stringlistsettings"} {
+		raw, ok := root[listKey]
+		if !ok {
+			continue
+		}
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			continue
+		}
+		stringListSettings := map[string]json.RawMessage{}
+		if decodeJSONObject(raw, &stringListSettings) != nil {
+			return nil, errors.New("client settings stringlistsettings must be an object")
+		}
+		for _, modPathKey := range []string{"modPaths", "modpaths"} {
+			delete(stringListSettings, modPathKey)
+		}
+		encodedListSettings, err := json.Marshal(stringListSettings)
+		if err != nil {
+			return nil, errors.New("encode string list settings")
+		}
+		root[listKey] = encodedListSettings
+	}
+
+	output, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return nil, errors.New("encode client settings")
+	}
+	return append(output, '\n'), nil
+}
+
 func patchClientSettings(path string, account *domain.Account) error {
 	root := map[string]json.RawMessage{}
 	contents, err := readRegularFile(path, maxClientSettingsBytes)

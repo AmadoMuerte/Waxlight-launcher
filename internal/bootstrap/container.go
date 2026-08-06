@@ -137,6 +137,7 @@ func New() (*Container, error) {
 		presentation.NewInstanceController(service),
 		presentation.NewModManagerController(service),
 		presentation.NewModCatalogController(service),
+		presentation.NewInstancePackageController(service, base),
 		presentation.NewLaunchController(service),
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),

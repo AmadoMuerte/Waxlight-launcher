@@ -185,12 +185,12 @@ export function App() {
     }
   }, []);
 
-  function notify(message: string, type: ToastType = "ok") {
+  function notify(message: string, type: ToastType = "ok", duration = 3_800) {
     setToast({ message, type });
 
     window.setTimeout(() => {
       setToast(undefined);
-    }, 3_800);
+    }, duration);
   }
 
   const handleSettingsSaved = useCallback((saved: Settings) => {
