@@ -496,5 +496,14 @@
   "data_folder_move": "Déplacer",
   "author_links_invalid": "Les liens doivent être des URL valides commençant par http:// ou https://",
   "default_instance_name": "Instance",
-  "import_waiting_for_game_download": "L'instance sera disponible une fois la version du jeu téléchargée."
+  "import_waiting_for_game_download": "L'instance sera disponible une fois la version du jeu téléchargée.",
+  "logs_console": "Console du lanceur",
+  "copy_logs": "Copier les journaux",
+  "logs_copied": "Copié",
+  "logs_copy_failed": "Impossible de copier les journaux",
+  "clear_logs": "Effacer la console",
+  "export_logs": "Exporter les journaux",
+  "exporting_logs": "Export…",
+  "logs_exported": "Journaux enregistrés dans {{path}}",
+  "open_logs_directory": "Ouvrir le dossier des journaux"
 }

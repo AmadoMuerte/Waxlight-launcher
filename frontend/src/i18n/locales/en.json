@@ -407,6 +407,14 @@
   "operations_removed_one": "{{count}} operation removed from history",
   "operations_removed_other": "{{count}} operations removed from history",
   "bytes_of_total": "{{current}} of {{total}}",
+  "logs_console": "Launcher console",
+  "copy_logs": "Copy logs",
+  "logs_copied": "Copied",
+  "logs_copy_failed": "Could not copy the logs",
+  "clear_logs": "Clear console",
+  "export_logs": "Export logs",
+  "exporting_logs": "Exporting…",
+  "logs_exported": "Logs saved to {{path}}",
   "information": "Information",
   "done": "Done",
   "close": "Close",
@@ -496,5 +504,6 @@
   "data_folder_move": "Move",
   "author_links_invalid": "Links must be valid URLs starting with http:// or https://",
   "default_instance_name": "Instance",
-  "import_waiting_for_game_download": "The instance will be available once the game version finishes downloading."
+  "import_waiting_for_game_download": "The instance will be available once the game version finishes downloading.",
+  "open_logs_directory": "Open logs folder"
 }

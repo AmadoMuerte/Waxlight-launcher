@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -77,6 +78,7 @@ func (source *Source) Check(
 ) (domain.LauncherUpdate, error) {
 	releases, err := source.releases(ctx)
 	if err != nil {
+		slog.Warn("launcher update source request failed", "error", err)
 		return domain.LauncherUpdate{}, err
 	}
 	current := canonicalVersion(currentVersion)

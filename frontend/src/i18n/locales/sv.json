@@ -496,5 +496,14 @@
   "data_folder_move": "Flytta",
   "author_links_invalid": "Länkar måste vara giltiga webbadresser som börjar med http:// eller https://",
   "default_instance_name": "Instans",
-  "import_waiting_for_game_download": "Instansen blir tillgänglig när spelversionen har laddats ner."
+  "import_waiting_for_game_download": "Instansen blir tillgänglig när spelversionen har laddats ner.",
+  "logs_console": "Lanserkonsol",
+  "copy_logs": "Kopiera loggar",
+  "logs_copied": "Kopierad",
+  "logs_copy_failed": "Kunde inte kopiera loggarna",
+  "clear_logs": "Rensa konsolen",
+  "export_logs": "Exportera loggar",
+  "exporting_logs": "Exporterar…",
+  "logs_exported": "Loggar sparade i {{path}}",
+  "open_logs_directory": "Öppna loggmappen"
 }

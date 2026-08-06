@@ -496,5 +496,14 @@
   "data_folder_move": "Перанесці",
   "author_links_invalid": "Спасылкі павінны быць сапраўднымі URL, якія пачынаюцца з http:// або https://",
   "default_instance_name": "Зборка",
-  "import_waiting_for_game_download": "Зборка стане даступнай пасля загрузкі гульні."
+  "import_waiting_for_game_download": "Зборка стане даступнай пасля загрузкі гульні.",
+  "logs_console": "Кансоль лаунчэра",
+  "copy_logs": "Скапіраваць логі",
+  "logs_copied": "Скапіравана",
+  "logs_copy_failed": "Не атрымалася скапіраваць логі",
+  "clear_logs": "Ачысціць кансоль",
+  "export_logs": "Выгрузіць логі",
+  "exporting_logs": "Выгрузка…",
+  "logs_exported": "Логі захаваны ў {{path}}",
+  "open_logs_directory": "Адчыніць тэчку лагоў"
 }

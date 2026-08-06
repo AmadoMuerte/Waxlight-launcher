@@ -11,9 +11,39 @@ const api = vi.hoisted(() => ({
   cancel: vi.fn(),
   remove: vi.fn(),
   clearHistory: vi.fn(),
+  logsList: vi.fn(),
+  logsExport: vi.fn(),
+  logsOpenDirectory: vi.fn(),
 }));
 
-vi.mock("../shared/api", () => ({ operationsApi: api }));
+vi.mock("../shared/api", () => ({
+  operationsApi: {
+    cancel: api.cancel,
+    remove: api.remove,
+    clearHistory: api.clearHistory,
+  },
+  logsApi: {
+    list: api.logsList,
+    exportLogs: api.logsExport,
+    openDirectory: api.logsOpenDirectory,
+  },
+}));
+
+vi.mock("@xterm/xterm", () => ({
+  Terminal: class {
+    write = vi.fn();
+    clear = vi.fn();
+    dispose = vi.fn();
+    loadAddon = vi.fn();
+    open = vi.fn();
+  },
+}));
+
+vi.mock("@xterm/addon-fit", () => ({
+  FitAddon: class {
+    fit = vi.fn();
+  },
+}));
 
 const createdAt = "2026-08-03T09:00:00Z";
 
@@ -46,9 +76,29 @@ describe("operations history controls", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("runtime", {
+      EventsOn: () => () => undefined,
+      EventsOnMultiple: () => () => undefined,
+      EventsEmit: () => undefined,
+    });
     api.cancel.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
     api.clearHistory.mockResolvedValue(3);
+    api.logsList.mockResolvedValue([]);
+    api.logsExport.mockResolvedValue("");
+    api.logsOpenDirectory.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("offers cancel only for active operations and delete only for finished ones", () => {
@@ -95,5 +145,26 @@ describe("operations history controls", () => {
     await waitFor(() => expect(api.clearHistory).toHaveBeenCalledTimes(1));
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith("3 operations removed from history");
+  });
+
+  it("renders the launcher console section alongside the history", () => {
+    renderPage([operation("completed", "Completed download", "completed")]);
+    expect(screen.getByRole("heading", { name: "Launcher console" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export logs" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy logs" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear console" })).toBeTruthy();
+  });
+
+  it("collapses and expands the console", async () => {
+    const user = userEvent.setup();
+    renderPage([operation("completed", "Completed download", "completed")]);
+
+    expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { expanded: true }));
+    expect(screen.getByRole("button", { expanded: false })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { expanded: false }));
+    expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
   });
 });

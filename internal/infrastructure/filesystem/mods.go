@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,6 +215,7 @@ func (ModFileManager) Install(
 	if err := os.Rename(partialPath, destinationPath); err != nil {
 		return "", 0, err
 	}
+	slog.Info("mod file installed", "file", filepath.Base(sourcePath))
 	return destinationPath, info.Size(), nil
 }
 

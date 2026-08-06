@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -54,6 +55,7 @@ func (store *Store) Probe(ctx context.Context) error {
 	if err := store.Delete(ctx, id); err != nil {
 		return err
 	}
+	slog.Info("credential store probe succeeded")
 	return nil
 }
 
@@ -63,6 +65,7 @@ func (store *Store) Get(ctx context.Context, accountID string) (application.Secr
 	}
 	value, err := store.backend.Get(ServiceNamespace, accountID)
 	if err != nil {
+		slog.Warn("credential store read failed", "error", err)
 		return application.Secret{}, mapStoreError(err)
 	}
 	return decodeSecret(value)
@@ -77,6 +80,7 @@ func (store *Store) Set(ctx context.Context, accountID string, secret applicatio
 		return err
 	}
 	if err := store.backend.Set(ServiceNamespace, accountID, value); err != nil {
+		slog.Warn("credential store write failed", "error", err)
 		return mapStoreError(err)
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -418,6 +419,7 @@ func (client *Client) getJSON(ctx context.Context, endpoint string, target any) 
 	request.Header.Set("Accept", "application/json")
 	response, err := client.httpClient.Do(request)
 	if err != nil {
+		slog.Warn("mod catalog request failed", "endpoint", endpoint, "error", err)
 		return &domain.AppError{Code: domain.ErrModCatalog, Message: "Could not connect to the mod catalog", Retryable: true, Cause: err}
 	}
 	defer response.Body.Close()
@@ -425,6 +427,7 @@ func (client *Client) getJSON(ctx context.Context, endpoint string, target any) 
 		return domain.NewError(domain.ErrModNotFound, "Mod not found")
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		slog.Warn("mod catalog returned an error status", "endpoint", endpoint, "status", response.StatusCode)
 		return &domain.AppError{Code: domain.ErrModCatalog, Message: "The mod catalog is temporarily unavailable", Retryable: true}
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, maxReplyBytes))

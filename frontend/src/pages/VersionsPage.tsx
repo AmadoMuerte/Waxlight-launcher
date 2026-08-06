@@ -74,9 +74,8 @@ export function VersionsPage({ versions, refresh, notify }: VersionsPageProps) {
             {versions.map((version) => (
               <div className="tableRow" key={version.id}>
                 <span className="versionIdentity">
-                  <strong>{version.name}</strong>
+                  <strong title={version.executablePath}>{version.name}</strong>
                   <small>{version.id}</small>
-                  <small title={version.executablePath}>{version.executablePath}</small>
                 </span>
                 <span>
                   {version.platform} · {version.architecture}

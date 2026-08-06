@@ -3,9 +3,13 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
@@ -14,6 +18,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
@@ -49,6 +54,20 @@ func New() (*Container, error) {
 	if err := securefs.Apply(dataRoot, 0o700, true); err != nil {
 		return nil, fmt.Errorf("secure data directory: %w", err)
 	}
+	slog.Info("bootstrap: data directory ready", "root", dataRoot)
+	// Mirror every log line to rolling session files in <dataRoot>/logs. The
+	// directory moves together with the data root during relocation. Every
+	// session file opens with the launcher version and system information.
+	fileHeader := fmt.Sprintf(
+		"Waxlight Launcher %s\nPlatform: %s/%s\nGo: %s\nStarted: %s",
+		version.Version(),
+		runtime.GOOS,
+		runtime.GOARCH,
+		runtime.Version(),
+		time.Now().UTC().Format(time.RFC3339),
+	)
+	logging.SetFileHeader(fileHeader)
+	logging.SetLogDirectory(filepath.Join(dataRoot, "logs"), logging.DefaultMaxLogFiles)
 
 	if err := application.PurgeStaleUpdateSessions(dataRoot); err != nil {
 		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
@@ -58,6 +77,7 @@ func New() (*Container, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	slog.Info("bootstrap: database opened")
 	if err := dataRootManager.FinalizePrevious(func(oldRoot, newRoot string) error {
 		return store.RelocatePaths(context.Background(), oldRoot, newRoot)
 	}); err != nil {
@@ -78,6 +98,7 @@ func New() (*Container, error) {
 		_ = store.Close()
 		return nil, fmt.Errorf("native credential store is unavailable or locked; unlock it and retry: %w", err)
 	}
+	slog.Info("bootstrap: native credential store ready")
 	accounts, err := store.ListAccounts(context.Background())
 	if err != nil {
 		_ = store.Close()
@@ -95,6 +116,7 @@ func New() (*Container, error) {
 		_ = store.Close()
 		return nil, err
 	}
+	slog.Info("bootstrap: credential reconciliation complete")
 	accountService := application.NewAccountService(
 		store,
 		auth.NewClient(nil),
@@ -141,6 +163,7 @@ func New() (*Container, error) {
 		presentation.NewLaunchController(service),
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),
+		presentation.NewLogController(service, base),
 		presentation.NewSettingsController(service, base, dataRootManager),
 		presentation.NewLauncherUpdateController(updateService, base),
 	}
@@ -156,6 +179,11 @@ func New() (*Container, error) {
 
 func (container *Container) Startup(ctx context.Context) {
 	container.Base.Startup(ctx)
+	// Push every new log line to the UI console as it is produced. The logging
+	// package stays framework-free; the Wails binding lives here.
+	logging.SetEmitter(func(entry logging.Entry) {
+		wruntime.EventsEmit(ctx, "logs:append", entry.Line())
+	})
 	go container.AccountService.ValidateStaleAccounts(ctx, 24*time.Hour)
 }
 

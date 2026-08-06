@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,6 +77,7 @@ func (store *Store) Save(_ context.Context, value domain.DownloadedMod) error {
 	if err != nil {
 		return err
 	}
+	slog.Info("cached mod saved", "modId", value.ModID, "versionId", value.VersionID)
 	return atomicfile.Write(path, encoded, 0o600)
 }
 

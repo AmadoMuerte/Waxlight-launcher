@@ -171,6 +171,12 @@ export const operationsApi = {
   clearHistory: () => call<number>("OperationController", "ClearOperationHistory"),
 };
 
+export const logsApi = {
+  list: (limit?: number) => call<string[]>("LogController", "ListLogs", limit ?? 0),
+  exportLogs: () => call<string>("LogController", "ExportLogs"),
+  openDirectory: () => call<void>("LogController", "OpenLogsDirectory"),
+};
+
 export const statisticsApi = {
   overview: () => call<Statistics>("StatisticsController", "GetOverviewStatistics"),
 };

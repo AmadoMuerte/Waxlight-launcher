@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -378,6 +379,18 @@ func (s *Service) finishVersionOperation(
 func (s *Service) saveOperation(operation domain.Operation, event string) {
 	_ = s.store.SaveOperation(context.Background(), operation)
 	s.emit(event, operation)
+	switch event {
+	case "operation:created":
+		slog.Info("operation started", "type", operation.Type, "title", operation.Title)
+	case "operation:completed":
+		slog.Info("operation completed", "type", operation.Type, "title", operation.Title)
+	case "operation:failed":
+		message := ""
+		if operation.ErrorMessage != nil {
+			message = *operation.ErrorMessage
+		}
+		slog.Error("operation failed", "type", operation.Type, "title", operation.Title, "error", message)
+	}
 }
 
 func isAppErrorCode(err error, code string) bool {

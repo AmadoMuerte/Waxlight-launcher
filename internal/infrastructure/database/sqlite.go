@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,7 @@ func Open(path string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, err
 	}
+	slog.Info("database opened and migrated", "file", filepath.Base(path))
 	return s, nil
 }
 

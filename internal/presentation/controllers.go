@@ -3,6 +3,7 @@ package presentation
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime"
@@ -402,15 +403,27 @@ func (controller *LaunchController) LaunchInstance(
 		request.InstanceID,
 		request.AccountID,
 	)
-	return sessionDTO(session), err
+	if err != nil {
+		slog.Warn("launch request failed", "error", err)
+		return PlaySessionDTO{}, err
+	}
+	return sessionDTO(session), nil
 }
 
 func (controller *LaunchController) StopInstance(id string) error {
-	return controller.svc.Stop(context.Background(), id, false)
+	err := controller.svc.Stop(context.Background(), id, false)
+	if err != nil {
+		slog.Warn("stop request failed", "error", err)
+	}
+	return err
 }
 
 func (controller *LaunchController) ForceStopInstance(id string) error {
-	return controller.svc.Stop(context.Background(), id, true)
+	err := controller.svc.Stop(context.Background(), id, true)
+	if err != nil {
+		slog.Warn("force stop request failed", "error", err)
+	}
+	return err
 }
 
 func (controller *LaunchController) GetRunningInstances() []string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,7 @@ func (s *Service) CloneInstance(
 	if err != nil {
 		return domain.Instance{}, err
 	}
+	slog.Info("cloning instance", "source", source.Name)
 
 	clone, err := s.CreateInstance(ctx, CreateInstanceInput{
 		Name:             name,

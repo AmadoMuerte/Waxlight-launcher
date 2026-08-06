@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -187,6 +188,7 @@ func (s *Service) DownloadCatalogMod(
 	if !strings.HasPrefix(selected.DownloadURL, "https://") {
 		return domain.ModInstallResult{}, domain.NewError(domain.ErrInvalidModFile, "The catalog returned an unsafe download URL")
 	}
+	slog.Info("downloading catalog mod", "mod", details.Name, "version", selected.Version, "instances", len(request.InstanceIDs))
 
 	instances := make([]domain.Instance, 0, len(request.InstanceIDs))
 	gameVersions := make([]string, 0, len(request.InstanceIDs))
@@ -822,6 +824,7 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	if s.modDownloads == nil {
 		return domain.NewError(domain.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
+	slog.Info("cached mod removed", "modId", modID, "versionId", versionID)
 	return s.modDownloads.Delete(ctx, modID, versionID)
 }
 

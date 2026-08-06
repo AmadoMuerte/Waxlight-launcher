@@ -496,5 +496,14 @@
   "data_folder_move": "Przenieś",
   "author_links_invalid": "Linki muszą być prawidłowymi adresami URL zaczynającymi się od http:// lub https://",
   "default_instance_name": "Instancja",
-  "import_waiting_for_game_download": "Instancja będzie dostępna po pobraniu wersji gry."
+  "import_waiting_for_game_download": "Instancja będzie dostępna po pobraniu wersji gry.",
+  "logs_console": "Konsola launchera",
+  "copy_logs": "Kopiuj logi",
+  "logs_copied": "Skopiowano",
+  "logs_copy_failed": "Nie udało się skopiować logów",
+  "clear_logs": "Wyczyść konsolę",
+  "export_logs": "Eksportuj logi",
+  "exporting_logs": "Eksportowanie…",
+  "logs_exported": "Logi zapisane w {{path}}",
+  "open_logs_directory": "Otwórz folder logów"
 }

@@ -955,6 +955,11 @@ main {
   font-size: 14px;
 }
 
+.table,
+.availableVersionList {
+  width: 100%;
+}
+
 .availableVersionList {
   overflow: hidden;
   border: 1px solid #2c292d;
@@ -1003,7 +1008,10 @@ main {
 .tableHead,
 .tableRow {
   display: grid;
-  grid-template-columns: minmax(180px, 1.7fr) 0.8fr 0.7fr 1fr auto;
+  grid-template-columns: minmax(140px, 1.5fr) minmax(110px, 0.9fr) minmax(90px, 0.7fr) minmax(
+      140px,
+      1fr
+    ) auto;
   gap: 16px;
   align-items: center;
   min-width: 0;
@@ -1072,6 +1080,9 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .operation {
@@ -1958,7 +1969,7 @@ main {
 
   .tableHead,
   .tableRow {
-    grid-template-columns: minmax(180px, 1.5fr) 0.8fr 0.8fr auto;
+    grid-template-columns: minmax(140px, 1.5fr) minmax(110px, 0.9fr) minmax(90px, 0.7fr) auto;
   }
 
   .tableHead > :nth-child(4),
@@ -3284,4 +3295,104 @@ main {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Operations: activity history and launcher console */
+.sectionTitle {
+  margin: 0 0 14px;
+  color: var(--amber);
+  font-family: Manrope, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.8px;
+  text-transform: uppercase;
+}
+
+.operationsSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding-right: 8px;
+}
+
+.operationsSectionHead .sectionTitle {
+  margin: 0;
+}
+
+.operationsSection {
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.logConsoleSlot {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.35s ease;
+}
+
+.logConsoleSlot.collapsed {
+  grid-template-rows: 0fr;
+}
+
+.logConsoleSlot > .logConsole {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.logConsole {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--background);
+}
+
+.logConsoleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.logConsoleTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.logConsoleTitle svg {
+  flex: none;
+  color: var(--amber);
+}
+
+.logConsoleTitle strong {
+  font-family: Manrope, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.logConsoleHeader .row {
+  flex: none;
+}
+
+.logConsoleBody {
+  flex: 1;
+  min-height: 280px;
+  padding: 8px 10px;
+  background: var(--background);
+}
+
+.logConsoleBody .xterm {
+  height: 100%;
 }

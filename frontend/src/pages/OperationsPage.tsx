@@ -1,7 +1,9 @@
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
+import { LogConsole } from "../features/operations/LogConsole";
 import { Operation, operationsApi } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
 import { formatBytes, formatDate } from "../shared/lib";
@@ -16,6 +18,7 @@ interface OperationsPageProps {
 export function OperationsPage({ operations, refresh, notify }: OperationsPageProps) {
   const { t } = useTranslation();
   const [pendingAction, setPendingAction] = useState<string>();
+  const [consoleOpen, setConsoleOpen] = useState(true);
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     title: string;
@@ -86,19 +89,20 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
         eyebrow={t("activity_log")}
         title={t("operations")}
         description={t("operations_description")}
-        action={
-          finishedOperations.length > 0 ? (
-            <Button
-              variant="secondary"
-              disabled={pendingAction !== undefined}
-              onClick={() => clearHistory()}
-            >
-              {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
-            </Button>
-          ) : undefined
-        }
       />
 
+      <div className="operationsSectionHead">
+        <h2 className="sectionTitle">{t("activity_log")}</h2>
+        {finishedOperations.length > 0 ? (
+          <Button
+            variant="secondary"
+            disabled={pendingAction !== undefined}
+            onClick={() => clearHistory()}
+          >
+            {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
+          </Button>
+        ) : undefined}
+      </div>
       {operations.length === 0 ? (
         <Empty
           icon="⇣"
@@ -165,6 +169,22 @@ export function OperationsPage({ operations, refresh, notify }: OperationsPagePr
           ))}
         </div>
       )}
+
+      <div className="operationsSection">
+        <div className="operationsSectionHead">
+          <h2 className="sectionTitle">{t("logs_console")}</h2>
+          <Button
+            variant="ghost"
+            aria-expanded={consoleOpen}
+            onClick={() => setConsoleOpen((open) => !open)}
+          >
+            {consoleOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </Button>
+        </div>
+        <div className={`logConsoleSlot ${consoleOpen ? "" : "collapsed"}`.trim()}>
+          <LogConsole notify={notify} />
+        </div>
+      </div>
 
       <ConfirmDialog
         open={confirmState.open}
