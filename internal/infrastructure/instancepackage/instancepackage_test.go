@@ -21,7 +21,7 @@ func TestWriteAndOpenRoundTrip(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(instanceDir, "Config", "nested"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	settings := []byte(`{"stringsettings":{"sessionkey":"SECRET","playername":"u","fov":90}}`)
+	settings := []byte(`{"stringSettings":{"sessionkey":"SECRET","sessionsignature":"SIG","playername":"u","useremail":"user@example.com","mptoken":"token","entitlements":"premium","fov":90},"stringListSettings":{"multiplayerservers":["server (:,1.2.3.4:42420,"],"modPaths":["Mods","/home/user/instances/original/Mods"]}}`)
 	if err := os.WriteFile(filepath.Join(instanceDir, "clientsettings.json"), settings, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -93,10 +93,13 @@ func TestWriteAndOpenRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(restoredSettings), "SECRET") || strings.Contains(string(restoredSettings), "playername") {
-		t.Fatalf("client settings were not sanitized: %s", restoredSettings)
+	restoredText := string(restoredSettings)
+	for _, forbidden := range []string{"SECRET", "playername", "useremail", "mptoken", "entitlements", "1.2.3.4", "modPaths"} {
+		if strings.Contains(restoredText, forbidden) {
+			t.Fatalf("client settings were not sanitized (%q present): %s", forbidden, restoredSettings)
+		}
 	}
-	if !strings.Contains(string(restoredSettings), "fov") {
+	if !strings.Contains(restoredText, "fov") {
 		t.Fatalf("client settings lost non-secret values: %s", restoredSettings)
 	}
 	restoredNested, err := os.ReadFile(filepath.Join(target, "Config", "nested", "mod.json"))
@@ -129,7 +132,7 @@ func TestExtractConfigsSanitizesStaleClientSettings(t *testing.T) {
 
 	// A package produced by an older launcher embeds the client settings as
 	// they were on the source machine, including absolute mod paths.
-	stale := []byte(`{"stringsettings":{"language":"en"},"stringListSettings":{"modPaths":["Mods","/home/user/instances/original/Mods"]}}`)
+	stale := []byte(`{"stringSettings":{"language":"en"},"stringListSettings":{"modPaths":["Mods","/home/user/instances/original/Mods"]}}`)
 	if err := os.WriteFile(filepath.Join(root, "clientsettings.json"), stale, 0o600); err != nil {
 		t.Fatal(err)
 	}
