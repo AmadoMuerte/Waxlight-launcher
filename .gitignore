@@ -50,6 +50,9 @@ account-secrets.json
 Thumbs.db
 Desktop.ini
 
+# Local agent instructions (kept out of the repository)
+/AGENTS.md
+
 # Temporary files
 /tmp/
 /temp/
