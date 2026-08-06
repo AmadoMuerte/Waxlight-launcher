@@ -13,6 +13,7 @@ import { call } from "./bridge";
 import type {
   Account,
   AvailableGameVersion,
+  DataFolder,
   GameVersion,
   InstalledMod,
   Instance,
@@ -145,6 +146,9 @@ export const settingsApi = {
   selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
   selectModFile: () => call<string>("SettingsController", "SelectModFile"),
   openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),
+  getDataFolder: () => call<DataFolder>("SettingsController", "GetDataFolder"),
+  selectDataFolder: () => call<string>("SettingsController", "SelectDataFolder"),
+  moveDataFolder: (target: string) => call<void>("SettingsController", "MoveDataFolder", target),
 };
 
 export const updatesApi = {

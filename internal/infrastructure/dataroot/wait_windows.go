@@ -17,5 +17,5 @@ func waitForProcessExit(pid int, timeout time.Duration) {
 		return
 	}
 	defer windows.CloseHandle(handle)
-	_ = windows.WaitForSingleObject(handle, uint32(timeout/time.Millisecond))
+	_, _ = windows.WaitForSingleObject(handle, uint32(timeout/time.Millisecond))
 }
