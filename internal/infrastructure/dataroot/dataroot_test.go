@@ -86,12 +86,13 @@ func TestCopyDataExcludesReservedFiles(t *testing.T) {
 	writeFile(t, filepath.Join(src, "versions", "v1", "game.bin"), "game")
 	writeFile(t, filepath.Join(src, "instances", "i1", "mods", "mod.jar"), "jar")
 	writeFile(t, filepath.Join(src, "instances", "i1", "waxlight.db"), "instance-db")
+	writeFile(t, filepath.Join(src, "logs", "launcher-test.log"), "log")
 
 	total, err := TotalSize(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != int64(len("game")+len("jar")+len("instance-db")) {
+	if total != int64(len("game")+len("jar")+len("instance-db")+len("log")) {
 		t.Fatalf("TotalSize = %d, want only non-reserved bytes", total)
 	}
 
@@ -103,6 +104,7 @@ func TestCopyDataExcludesReservedFiles(t *testing.T) {
 		filepath.Join(dst, "versions", "v1", "game.bin"),
 		filepath.Join(dst, "instances", "i1", "mods", "mod.jar"),
 		filepath.Join(dst, "instances", "i1", "waxlight.db"),
+		filepath.Join(dst, "logs", "launcher-test.log"),
 	} {
 		if _, err := os.Stat(shouldExist); err != nil {
 			t.Fatalf("copied file missing %q: %v", shouldExist, err)
@@ -245,6 +247,7 @@ func TestFinalizePreviousKeepsHomeDirectory(t *testing.T) {
 	home := manager.Home()
 	newRoot := filepath.Join(t.TempDir(), "new")
 	writeFile(t, filepath.Join(home, "versions", "v1", "game.bin"), "game")
+	writeFile(t, filepath.Join(home, "logs", "launcher-20260806-120000.log"), "log")
 	writeFile(t, filepath.Join(home, "waxlight.db"), "db")
 	if err := manager.writeMarker(pointerFile, newRoot); err != nil {
 		t.Fatal(err)
@@ -261,6 +264,9 @@ func TestFinalizePreviousKeepsHomeDirectory(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(home, "versions")); !os.IsNotExist(err) {
 		t.Fatalf("home data subdirectories should be removed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "logs")); !os.IsNotExist(err) {
+		t.Fatalf("home log directory should be removed: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(home, pointerFile)); err != nil {
 		t.Fatalf("pointer file should survive: %v", err)
