@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   removeDownloaded: vi.fn(),
   cancelTask: vi.fn(),
   checkUpdates: vi.fn(),
+  tags: vi.fn(),
 }));
 
 vi.mock("../shared/api", () => ({ modCatalogApi: api }));
@@ -113,6 +114,7 @@ describe("mods browser", () => {
     api.get.mockResolvedValue(details);
     api.downloaded.mockResolvedValue([]);
     api.checkUpdates.mockResolvedValue([]);
+    api.tags.mockResolvedValue([]);
   });
 
   it("loads a URL-backed search and opens the instance picker", async () => {
@@ -125,6 +127,23 @@ describe("mods browser", () => {
     expect(await screen.findByRole("dialog", { name: "Download “Player Corpse”" })).toBeTruthy();
     expect(screen.getByText("Survival")).toBeTruthy();
     expect(screen.getByText("Compatible")).toBeTruthy();
+  });
+
+  it("filters the catalog by tags from the tag dropdown", async () => {
+    api.tags.mockResolvedValue([
+      { name: "Utility", count: 2 },
+      { name: "Graphics", count: 1 },
+    ]);
+    renderPage("/mods");
+    await screen.findByText("Player Corpse");
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tags" }));
+    await userEvent.setup().click(screen.getByRole("menuitemcheckbox", { name: /Utility/ }));
+
+    await waitFor(() =>
+      expect(api.search).toHaveBeenCalledWith(expect.objectContaining({ tags: ["Utility"] })),
+    );
+    expect(await screen.findByText("Tag: Utility")).toBeTruthy();
   });
 
   it("keeps downloaded mods available through the dedicated tab", async () => {
