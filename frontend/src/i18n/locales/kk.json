@@ -443,4 +443,15 @@
   "mods_not_updatable_hint_many": "{{count}} модты автоматты жаңарту мүмкін емес (жергілікті немесе каталогта жоқ).",
   "mods_not_updatable_hint_other": "{{count}} модты автоматты жаңарту мүмкін емес (жергілікті немесе каталогта жоқ).",
   "mod_updates_applied": "Модтар жаңартылды"
+  "data_folder": "Деректер қалтасы",
+  "data_folder_change": "Өзгерту…",
+  "data_folder_current_location": "Ағымдағы орны",
+  "data_folder_description": "Waxlight ойын нұсқаларын, инстанстарды, модтарды және өз дерекқорын осында сақтайды",
+  "data_folder_moving": "Деректер қалтасы жылжытылуда…",
+  "data_folder_move_confirm_message": "Файлдар көшірілгеннен кейін іске қосқыш қайта іске қосылады.",
+  "data_folder_move_confirm_title": "Деректер қалтасын жылжыту керек пе?",
+  "data_folder_move_confirm_warning": "Ойын нұсқалары, инстанстар, модтар және дерекқор жылжытылады. Ескі көшірме сәтті жылжытудан кейін жойылады.",
+  "data_folder_move_error": "Деректер қалтасын жылжыту мүмкін болмады",
+  "data_folder_previous_error": "Деректер қалтасын алдыңғы жылжыту сәтсіз аяқталды: {{message}}",
+  "data_folder_move": "Жылжыту"
 }

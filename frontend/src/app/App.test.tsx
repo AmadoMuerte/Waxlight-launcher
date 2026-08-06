@@ -27,6 +27,11 @@ const api = vi.hoisted(() => ({
     skippedUpdateVersion: "",
   }),
   update: vi.fn().mockImplementation(async (settings) => settings),
+  getDataFolder: vi.fn().mockResolvedValue({
+    currentPath: "/data",
+    defaultPath: "/data",
+    lastError: "",
+  }),
   checkUpdate: vi.fn().mockResolvedValue({
     installedVersion: "0.1.4",
     version: "0.1.4",
@@ -45,7 +50,7 @@ vi.mock("../shared/api", () => ({
   accountsApi: { list: api.list },
   operationsApi: { list: api.list },
   statisticsApi: { overview: api.overview },
-  settingsApi: { get: api.get, update: api.update },
+  settingsApi: { get: api.get, update: api.update, getDataFolder: api.getDataFolder },
   updatesApi: {
     currentVersion: vi.fn().mockResolvedValue("0.1.4"),
     check: api.checkUpdate,

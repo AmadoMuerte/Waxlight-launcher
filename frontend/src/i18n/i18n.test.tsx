@@ -9,7 +9,10 @@ import { SettingsPage } from "../pages/SettingsPage";
 import type { Settings } from "../shared/api";
 import { normalizeLanguage } from "./languages";
 
-const api = vi.hoisted(() => ({ update: vi.fn() }));
+const api = vi.hoisted(() => ({
+  update: vi.fn(),
+  getDataFolder: vi.fn().mockResolvedValue({ currentPath: "", defaultPath: "", lastError: "" }),
+}));
 vi.mock("../shared/api", () => ({ settingsApi: api }));
 
 const settings: Settings = {

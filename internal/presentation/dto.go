@@ -313,3 +313,16 @@ func settingsDTO(settings domain.Settings) SettingsDTO {
 		SkippedUpdateVersion:  settings.SkippedUpdateVersion,
 	}
 }
+
+type DataFolderDTO struct {
+	CurrentPath string `json:"currentPath"`
+	DefaultPath string `json:"defaultPath"`
+	LastError   string `json:"lastError"`
+}
+
+type DataFolderProgressDTO struct {
+	CopiedBytes int64   `json:"copiedBytes"`
+	TotalBytes  int64   `json:"totalBytes"`
+	Progress    float64 `json:"progress"`
+	Phase       string  `json:"phase"`
+}

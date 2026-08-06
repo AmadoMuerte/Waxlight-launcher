@@ -443,4 +443,15 @@
   "mods_not_updatable_hint_many": "{{count}} Mods können nicht automatisch aktualisiert werden (lokal oder nicht im Katalog).",
   "mods_not_updatable_hint_other": "{{count}} Mods können nicht automatisch aktualisiert werden (lokal oder nicht im Katalog).",
   "mod_updates_applied": "Mods aktualisiert"
+  "data_folder": "Datenordner",
+  "data_folder_change": "Ändern…",
+  "data_folder_current_location": "Aktueller Speicherort",
+  "data_folder_description": "Hier speichert Waxlight Spielversionen, Instanzen, Mods und seine Datenbank",
+  "data_folder_moving": "Datenordner wird verschoben…",
+  "data_folder_move_confirm_message": "Der Launcher wird nach dem Kopieren der Dateien neu gestartet.",
+  "data_folder_move_confirm_title": "Datenordner verschieben?",
+  "data_folder_move_confirm_warning": "Spielversionen, Instanzen, Mods und die Datenbank werden verschoben. Die alte Kopie wird nach erfolgreichem Verschieben entfernt.",
+  "data_folder_move_error": "Der Datenordner konnte nicht verschoben werden",
+  "data_folder_previous_error": "Ein früherer Verschiebevorgang ist fehlgeschlagen: {{message}}",
+  "data_folder_move": "Verschieben"
 }

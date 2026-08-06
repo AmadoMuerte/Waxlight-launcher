@@ -443,4 +443,15 @@
   "mods_not_updatable_hint_many": "{{count}} mods cannot be updated automatically (local or missing from the catalog).",
   "mods_not_updatable_hint_other": "{{count}} mods cannot be updated automatically (local or missing from the catalog).",
   "mod_updates_applied": "Mods updated"
+  "data_folder": "Data folder",
+  "data_folder_change": "Change…",
+  "data_folder_current_location": "Current location",
+  "data_folder_description": "Where Waxlight stores game versions, instances, mods and its database",
+  "data_folder_moving": "Moving data folder…",
+  "data_folder_move_confirm_message": "The launcher will restart once the files are copied.",
+  "data_folder_move_confirm_title": "Move the data folder?",
+  "data_folder_move_confirm_warning": "Game versions, instances, mods and the database will be moved. The old copy is removed after the move succeeds.",
+  "data_folder_move_error": "Could not move the data folder",
+  "data_folder_previous_error": "A previous data folder move failed: {{message}}",
+  "data_folder_move": "Move"
 }

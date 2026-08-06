@@ -53,6 +53,7 @@ const (
 	ErrUpdateUnavailable   = "UPDATE_UNAVAILABLE"
 	ErrUpdateInProgress    = "UPDATE_ALREADY_IN_PROGRESS"
 	ErrUpdateFailed        = "UPDATE_FAILED"
+	ErrDataFolderBusy      = "DATA_FOLDER_BUSY"
 
 	ErrUpdateDownloadFailed     = "UPDATE_DOWNLOAD_FAILED"
 	ErrUpdateChecksumMismatch   = "UPDATE_CHECKSUM_MISMATCH"

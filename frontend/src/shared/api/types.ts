@@ -290,6 +290,19 @@ export interface Settings {
   skippedUpdateVersion: string;
 }
 
+export interface DataFolder {
+  currentPath: string;
+  defaultPath: string;
+  lastError: string;
+}
+
+export interface DataFolderProgress {
+  copiedBytes: number;
+  totalBytes: number;
+  progress: number;
+  phase: string;
+}
+
 export interface LauncherUpdate {
   installedVersion: string;
   version: string;

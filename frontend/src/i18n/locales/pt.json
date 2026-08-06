@@ -443,4 +443,15 @@
   "mods_not_updatable_hint_many": "{{count}} mods não podem ser atualizados automaticamente (locais ou ausentes do catálogo).",
   "mods_not_updatable_hint_other": "{{count}} mods não podem ser atualizados automaticamente (locais ou ausentes do catálogo).",
   "mod_updates_applied": "Mods atualizados"
+  "data_folder": "Pasta de dados",
+  "data_folder_change": "Alterar…",
+  "data_folder_current_location": "Localização atual",
+  "data_folder_description": "Aqui o Waxlight guarda versões do jogo, instâncias, mods e sua base de dados",
+  "data_folder_moving": "Movendo a pasta de dados…",
+  "data_folder_move_confirm_message": "O lançador será reiniciado quando os arquivos forem copiados.",
+  "data_folder_move_confirm_title": "Mover a pasta de dados?",
+  "data_folder_move_confirm_warning": "Versões do jogo, instâncias, mods e a base de dados serão movidos. A cópia antiga é removida depois que a mudança for concluída.",
+  "data_folder_move_error": "Não foi possível mover a pasta de dados",
+  "data_folder_previous_error": "Uma mudança anterior da pasta de dados falhou: {{message}}",
+  "data_folder_move": "Mover"
 }
