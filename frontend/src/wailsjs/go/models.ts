@@ -186,6 +186,60 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	export class PackageAuthorDTO {
+	    name?: string;
+	    homepage?: string;
+	    source?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageAuthorDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.homepage = source["homepage"];
+	        this.source = source["source"];
+	    }
+	}
+	export class ExportInstanceRequest {
+	    instanceId: string;
+	    targetPath: string;
+	    name: string;
+	    description: string;
+	    author?: PackageAuthorDTO;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportInstanceRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.targetPath = source["targetPath"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.author = this.convertValues(source["author"], PackageAuthorDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class GameVersionDTO {
 	    id: string;
 	    name: string;
@@ -216,6 +270,89 @@ export namespace presentation {
 	        this.installedAt = source["installedAt"];
 	    }
 	}
+	export class ImportInstanceRequest {
+	    packagePath: string;
+	    name: string;
+	    description: string;
+	    directory: string;
+	    gameVersionId: string;
+	    installVersion: boolean;
+	    allowIncompatible: boolean;
+	    skipUnavailable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportInstanceRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.packagePath = source["packagePath"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.directory = source["directory"];
+	        this.gameVersionId = source["gameVersionId"];
+	        this.installVersion = source["installVersion"];
+	        this.allowIncompatible = source["allowIncompatible"];
+	        this.skipUnavailable = source["skipUnavailable"];
+	    }
+	}
+	export class ImportedModResultDTO {
+	    name: string;
+	    version: string;
+	    status: string;
+	    message?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedModResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.status = source["status"];
+	        this.message = source["message"];
+	    }
+	}
+	export class ImportReportDTO {
+	    instanceId: string;
+	    instanceName: string;
+	    gameVersionId: string;
+	    mods: ImportedModResultDTO[];
+	    warnings: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportReportDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.instanceName = source["instanceName"];
+	        this.gameVersionId = source["gameVersionId"];
+	        this.mods = this.convertValues(source["mods"], ImportedModResultDTO);
+	        this.warnings = source["warnings"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class InstallDownloadedModRequest {
 	    modId: string;
 	    versionId: string;
@@ -898,6 +1035,181 @@ export namespace presentation {
 	        this.finishedAt = source["finishedAt"];
 	    }
 	}
+	
+	export class PackageGameVersionDTO {
+	    id: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageGameVersionDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
+	export class PackageModCheckDTO {
+	    modId?: string;
+	    versionId?: string;
+	    name: string;
+	    version: string;
+	    source: string;
+	    enabled: boolean;
+	    status: string;
+	    message?: string;
+	    hasEmbedded?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageModCheckDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.versionId = source["versionId"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.source = source["source"];
+	        this.enabled = source["enabled"];
+	        this.status = source["status"];
+	        this.message = source["message"];
+	        this.hasEmbedded = source["hasEmbedded"];
+	    }
+	}
+	export class PackageInspectionDTO {
+	    path: string;
+	    schemaVersion: number;
+	    name: string;
+	    description?: string;
+	    author?: PackageAuthorDTO;
+	    gameVersion: PackageGameVersionDTO;
+	    versionStatus: string;
+	    launchArguments: string[];
+	    mods: PackageModCheckDTO[];
+	    configFiles: string[];
+	    hasIcon: boolean;
+	    totalSize: number;
+	    unverifiedFiles: number;
+	    warnings: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageInspectionDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.schemaVersion = source["schemaVersion"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.author = this.convertValues(source["author"], PackageAuthorDTO);
+	        this.gameVersion = this.convertValues(source["gameVersion"], PackageGameVersionDTO);
+	        this.versionStatus = source["versionStatus"];
+	        this.launchArguments = source["launchArguments"];
+	        this.mods = this.convertValues(source["mods"], PackageModCheckDTO);
+	        this.configFiles = source["configFiles"];
+	        this.hasIcon = source["hasIcon"];
+	        this.totalSize = source["totalSize"];
+	        this.unverifiedFiles = source["unverifiedFiles"];
+	        this.warnings = source["warnings"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PackageModDTO {
+	    modId?: string;
+	    versionId?: string;
+	    name: string;
+	    version?: string;
+	    fileName: string;
+	    source: string;
+	    checksum?: string;
+	    downloadUrl?: string;
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageModDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.versionId = source["versionId"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.fileName = source["fileName"];
+	        this.source = source["source"];
+	        this.checksum = source["checksum"];
+	        this.downloadUrl = source["downloadUrl"];
+	        this.enabled = source["enabled"];
+	    }
+	}
+	export class PackageManifestDTO {
+	    schemaVersion: number;
+	    name: string;
+	    description?: string;
+	    author?: PackageAuthorDTO;
+	    gameVersion: PackageGameVersionDTO;
+	    launchArguments: string[];
+	    mods: PackageModDTO[];
+	    configFiles: string[];
+	    hasIcon: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PackageManifestDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schemaVersion = source["schemaVersion"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.author = this.convertValues(source["author"], PackageAuthorDTO);
+	        this.gameVersion = this.convertValues(source["gameVersion"], PackageGameVersionDTO);
+	        this.launchArguments = source["launchArguments"];
+	        this.mods = this.convertValues(source["mods"], PackageModDTO);
+	        this.configFiles = source["configFiles"];
+	        this.hasIcon = source["hasIcon"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class PlaySessionDTO {
 	    id: string;
 	    instanceId: string;
