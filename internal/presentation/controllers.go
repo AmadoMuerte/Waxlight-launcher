@@ -301,6 +301,16 @@ func (controller *ModManagerController) ListInstalledMods(
 	return result, err
 }
 
+func (controller *ModManagerController) CheckInstanceModUpdates(
+	instanceID string,
+) (InstanceModUpdateReportDTO, error) {
+	report, err := controller.svc.CheckInstanceModUpdates(
+		context.Background(),
+		instanceID,
+	)
+	return instanceModUpdateReportDTO(report), err
+}
+
 func (controller *ModManagerController) InstallModFile(
 	request InstallModFileRequest,
 ) (OperationDTO, error) {
