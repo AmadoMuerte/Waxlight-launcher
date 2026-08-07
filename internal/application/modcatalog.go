@@ -877,6 +877,33 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	return s.modDownloads.Delete(ctx, modID, versionID)
 }
 
+// removeSupersededCacheVersion deletes a cached mod version that was replaced by
+// an update, unless another instance still has that version installed. This
+// keeps the downloaded mods list free of duplicate entries for the same mod.
+func (s *Service) removeSupersededCacheVersion(ctx context.Context, modID, versionID string) {
+	if s.modDownloads == nil {
+		return
+	}
+	source := modDBSource(modID, versionID)
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return
+	}
+	for _, instance := range instances {
+		mods, err := s.store.ListMods(ctx, instance.ID)
+		if err != nil {
+			return
+		}
+		for _, mod := range mods {
+			if mod.Source == source {
+				return
+			}
+		}
+	}
+	slog.Info("superseded cached mod version removed", "modId", modID, "versionId", versionID)
+	_ = s.modDownloads.Delete(ctx, modID, versionID)
+}
+
 type modVersionMatch struct {
 	details domain.ModDetails
 	version domain.ModVersion
@@ -1346,6 +1373,9 @@ func (s *Service) installDownloadedMod(
 		if err := s.store.DeleteMod(ctx, previous.ID); err != nil {
 			result.Message = "Installed the file but could not update its metadata"
 			return result
+		}
+		if modID, versionID, ok := parseModDBSource(previous.Source); ok {
+			s.removeSupersededCacheVersion(ctx, modID, versionID)
 		}
 	}
 	now := time.Now().UTC()

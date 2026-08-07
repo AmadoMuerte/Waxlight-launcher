@@ -404,3 +404,104 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 		t.Fatalf("cached dependencies must not be reported as newly downloaded: %s", data)
 	}
 }
+
+func twoVersionCorpseCatalog() staticModCatalog {
+	details := domain.ModDetails{
+		ModSummary: domain.ModSummary{
+			ID: "51", Name: "Player Corpse", AuthorName: "Ada", LatestVersion: "2.1.0",
+		},
+		Versions: []domain.ModVersion{
+			{
+				ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
+				FileName: "v7.zip", DownloadURL: "https://cdn.test/v7.zip",
+			},
+			{
+				ID: "9", Version: "2.1.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
+				FileName: "v9.zip", DownloadURL: "https://cdn.test/v9.zip",
+			},
+		},
+	}
+	return staticModCatalog{details: details}
+}
+
+func TestUpdateModRemovesSupersededCacheVersion(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{}, nil)
+	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Updater", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		ModID: "51", VersionID: "7", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		ModID: "51", VersionID: "9", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(downloaded) != 1 {
+		t.Fatalf("superseded cache version was not removed, got %#v", downloaded)
+	}
+	if downloaded[0].VersionID != "9" || downloaded[0].DownloadedVersion != "2.1.0" {
+		t.Fatalf("unexpected surviving version: %#v", downloaded[0])
+	}
+}
+
+func TestUpdateKeepsCacheVersionUsedByAnotherInstance(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{}, nil)
+	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
+	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Old", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "New", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both instances start on version 7.
+	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		ModID: "51", VersionID: "7", InstanceIDs: []string{first.ID, second.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Only the second instance is updated to version 9.
+	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		ModID: "51", VersionID: "9", InstanceIDs: []string{second.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(downloaded) != 2 {
+		t.Fatalf("cache version still used by another instance must be kept, got %#v", downloaded)
+	}
+	byVersion := map[string]domain.DownloadedMod{}
+	for _, mod := range downloaded {
+		byVersion[mod.VersionID] = mod
+	}
+	if len(byVersion["7"].InstalledInstances) != 1 || len(byVersion["9"].InstalledInstances) != 1 {
+		t.Fatalf("each version must list its own instance: %#v", downloaded)
+	}
+}
