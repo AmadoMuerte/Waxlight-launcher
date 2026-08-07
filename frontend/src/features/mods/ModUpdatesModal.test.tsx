@@ -112,4 +112,22 @@ describe("ModUpdatesModal", () => {
     await user.click(screen.getByLabelText(/allow updates/i));
     expect(apply.disabled).toBe(false);
   });
+
+  it("strips HTML tags from the changelog description", async () => {
+    const withHtml: InstanceModUpdateReport = {
+      ...report,
+      mods: [
+        {
+          ...report.mods[0],
+          changelog: "<p>Fixed a crash</p><ul><li>One</li><li>Two</li></ul>",
+        },
+      ],
+    };
+    renderModal(withHtml);
+    await userEvent.setup().click(screen.getByText("Changelog"));
+    expect(screen.getByText(/Fixed a crash/)).toBeTruthy();
+    expect(screen.getByText(/One/)).toBeTruthy();
+    expect(screen.queryByText("<p>")).toBeNull();
+    expect(screen.queryByText("<li>")).toBeNull();
+  });
 });
