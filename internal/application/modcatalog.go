@@ -94,6 +94,11 @@ func (s *Service) GetCatalogMod(
 			details.IsDownloaded = true
 			details.IsInstalled = details.IsInstalled || len(local.InstalledInstances) > 0
 			details.UpdateAvailable = details.UpdateAvailable || local.UpdateAvailable
+			for index := range details.Versions {
+				if details.Versions[index].ID == local.VersionID && local.FileSize > 0 {
+					details.Versions[index].FileSize = local.FileSize
+				}
+			}
 		}
 	}
 	return details, nil
