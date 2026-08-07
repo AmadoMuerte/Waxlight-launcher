@@ -429,6 +429,8 @@
   "close": "Cerrar",
   "retry": "Reintentar",
   "could_not_connect_to_core": "No se pudo conectar al núcleo",
+  "frontend_error": "La interfaz del lanzador encontró un error inesperado",
+  "reload_launcher": "Recargar interfaz",
   "launcher_uppercase": "LANZADOR",
   "unofficial_launcher": "Lanzador no oficial",
   "for_vintage_story": "para Vintage Story",

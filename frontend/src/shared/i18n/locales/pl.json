@@ -429,6 +429,8 @@
   "close": "Zamknij",
   "retry": "Spróbuj ponownie",
   "could_not_connect_to_core": "Nie udało się połączyć z rdzeniem",
+  "frontend_error": "Interfejs launchera napotkał nieoczekiwany błąd",
+  "reload_launcher": "Przeładuj interfejs",
   "launcher_uppercase": "LAUNCHER",
   "unofficial_launcher": "Nieoficjalny launcher",
   "for_vintage_story": "dla Vintage Story",

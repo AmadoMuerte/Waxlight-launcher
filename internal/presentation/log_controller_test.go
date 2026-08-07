@@ -84,3 +84,66 @@ func TestListLogsReturnsRecentLines(t *testing.T) {
 		t.Fatalf("expected 3 lines with no limit, got %d", len(all))
 	}
 }
+
+func TestWriteLogRoutesIntoLoggingPipeline(t *testing.T) {
+	logging.Setup(16)
+	defer logging.Clear()
+
+	controller := &LogController{}
+	if err := controller.WriteLog("warn", "render failed", map[string]string{"component": "Sidebar"}); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := logging.Snapshot()
+	if len(snapshot) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(snapshot))
+	}
+	entry := snapshot[0]
+	if entry.Level != logging.LevelWarn {
+		t.Fatalf("expected WARN level, got %s", entry.Level)
+	}
+	if !strings.Contains(entry.Message, "render failed") {
+		t.Fatalf("message missing: %q", entry.Message)
+	}
+	for _, want := range []string{"source=frontend", "component=Sidebar"} {
+		if !strings.Contains(entry.Message, want) {
+			t.Fatalf("entry missing %q: %q", want, entry.Message)
+		}
+	}
+}
+
+func TestWriteLogValidatesInput(t *testing.T) {
+	logging.Setup(16)
+	defer logging.Clear()
+
+	controller := &LogController{}
+	for _, level := range []string{"fatal", "TRACE", "verbose"} {
+		if err := controller.WriteLog(level, "message", nil); err == nil {
+			t.Fatalf("expected validation error for level %q", level)
+		}
+	}
+	if err := controller.WriteLog("info", "   ", nil); err == nil {
+		t.Fatal("expected validation error for empty message")
+	}
+	if err := controller.WriteLog("info", "ok", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestWriteLogRedactsSensitiveValues(t *testing.T) {
+	logging.Setup(16)
+	defer logging.Clear()
+
+	controller := &LogController{}
+	if err := controller.WriteLog("error", "request failed", map[string]string{"sessionkey": "TOP-SECRET"}); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := logging.Snapshot()
+	if len(snapshot) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(snapshot))
+	}
+	if strings.Contains(snapshot[0].Message, "TOP-SECRET") {
+		t.Fatalf("sensitive value leaked: %q", snapshot[0].Message)
+	}
+}

@@ -429,6 +429,8 @@
   "close": "Жабу",
   "retry": "Қайталау",
   "could_not_connect_to_core": "Ядроға қосылу мүмкін болмады",
+  "frontend_error": "Іске қосқыш интерфейсі күтпеген қатеге тап болды",
+  "reload_launcher": "Интерфейсті қайта іске қосу",
   "launcher_uppercase": "ІСКЕ ҚОСҚЫШ",
   "unofficial_launcher": "Бейресми іске қосқыш",
   "for_vintage_story": "Vintage Story үшін",

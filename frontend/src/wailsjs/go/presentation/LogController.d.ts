@@ -6,3 +6,5 @@ export function ExportLogs():Promise<string>;
 export function ListLogs(arg1:number):Promise<Array<string>>;
 
 export function OpenLogsDirectory():Promise<void>;
+
+export function WriteLog(arg1:string,arg2:string,arg3:Record<string, string>):Promise<void>;

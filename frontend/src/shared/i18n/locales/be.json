@@ -429,6 +429,8 @@
   "close": "Закрыць",
   "retry": "Паўтарыць",
   "could_not_connect_to_core": "Не ўдалося падключыцца да ядра",
+  "frontend_error": "Інтэрфейс лаўнчара сутыкнуўся з непрадбачанай памылкай",
+  "reload_launcher": "Перазапусціць інтэрфейс",
   "launcher_uppercase": "ЛАЎНЧАР",
   "unofficial_launcher": "Неафіцыйны лаўнчар",
   "for_vintage_story": "для Vintage Story",
