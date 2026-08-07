@@ -139,7 +139,7 @@ it("does not replace autosaved settings during background refresh", async () => 
   expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
 });
 
-it("shows a non-intrusive startup update notice that can be postponed", async () => {
+it("shows a non-intrusive startup update dialog that can be postponed", async () => {
   api.checkUpdate.mockResolvedValueOnce({
     installedVersion: "0.1.4",
     version: "0.1.5",
@@ -152,8 +152,9 @@ it("shows a non-intrusive startup update notice that can be postponed", async ()
   });
   renderApp();
 
-  expect(await screen.findByText(/0\.1\.4.*0\.1\.5/)).toBeTruthy();
+  expect(await screen.findByText(/0\.1\.4/)).toBeTruthy();
+  expect(screen.getByText("0.1.5")).toBeTruthy();
   expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Позже" }));
-  await waitFor(() => expect(screen.queryByText(/0\.1\.4.*0\.1\.5/)).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Напомнить позже" }));
+  await waitFor(() => expect(screen.queryByText(/0\.1\.4/)).toBeNull());
 });

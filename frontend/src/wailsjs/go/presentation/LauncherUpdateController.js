@@ -17,3 +17,7 @@ export function InstallUpdate(arg1) {
 export function OpenReleasePage(arg1) {
   return window['go']['presentation']['LauncherUpdateController']['OpenReleasePage'](arg1);
 }
+
+export function OpenUrl(arg1) {
+  return window['go']['presentation']['LauncherUpdateController']['OpenUrl'](arg1);
+}

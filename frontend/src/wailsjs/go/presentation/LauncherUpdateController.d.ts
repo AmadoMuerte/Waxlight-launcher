@@ -9,3 +9,5 @@ export function CurrentVersion():Promise<string>;
 export function InstallUpdate(arg1:string):Promise<void>;
 
 export function OpenReleasePage(arg1:string):Promise<void>;
+
+export function OpenUrl(arg1:string):Promise<void>;

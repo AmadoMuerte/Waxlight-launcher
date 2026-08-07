@@ -3,6 +3,7 @@ package presentation
 import (
 	"context"
 	"errors"
+	"net/url"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -70,11 +71,35 @@ func (controller *LauncherUpdateController) OpenReleasePage(channel string) erro
 	if update.ReleasePageURL == "" {
 		return errors.New("release page is unavailable")
 	}
+	return controller.openExternalURL(update.ReleasePageURL)
+}
+
+// OpenUrl opens an http(s) link in the user's default browser. Only well-formed
+// web links are accepted; any other scheme or a missing host is rejected.
+func (controller *LauncherUpdateController) OpenUrl(rawURL string) error {
+	return controller.openExternalURL(rawURL)
+}
+
+func (controller *LauncherUpdateController) openExternalURL(rawURL string) error {
 	if controller.base.ctx == nil {
 		return errors.New("application runtime is unavailable")
 	}
-	wruntime.BrowserOpenURL(controller.base.ctx, update.ReleasePageURL)
+	if !validExternalURL(rawURL) {
+		return domain.NewError(domain.ErrInvalidURL, "only http and https links can be opened")
+	}
+	wruntime.BrowserOpenURL(controller.base.ctx, rawURL)
 	return nil
+}
+
+func validExternalURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	return parsed.Host != ""
 }
 
 func launcherUpdateDTO(update domain.LauncherUpdate) LauncherUpdateDTO {
