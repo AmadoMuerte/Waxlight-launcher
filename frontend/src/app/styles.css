@@ -295,9 +295,11 @@ main {
 
 .buttonSpinner {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
 }
 
 .button.busy.button.primary,
@@ -375,6 +377,18 @@ main {
   to {
     transform: rotate(360deg);
   }
+}
+
+.appLoading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.appLoading .spinner {
+  width: 34px;
+  height: 34px;
+  border-width: 3px;
 }
 
 .toolbar,
@@ -3225,6 +3239,36 @@ main {
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.removeDependenciesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.removeDependenciesList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #151417;
+}
+
+.removeDependenciesList li strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.removeDependenciesList li small {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .modUpdateRow {

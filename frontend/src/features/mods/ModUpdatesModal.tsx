@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { modCatalogApi, type InstanceModUpdateReport, type ModUpdate } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button, Checkbox, Modal } from "../../shared/ui";
+import { plainText } from "./lib";
 
 type Notify = (message: string, type?: "ok" | "error") => void;
 
@@ -151,7 +152,7 @@ function ModUpdateRow({ mod, gameVersion }: { mod: ModUpdate; gameVersion: strin
       {mod.changelog && (
         <details className="modUpdateChangelog">
           <summary>{t("mod_update_changelog")}</summary>
-          <p>{mod.changelog}</p>
+          <p>{plainText(mod.changelog)}</p>
         </details>
       )}
 

@@ -32,6 +32,7 @@ import {
   type Statistics,
 } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
+import { Spinner } from "../shared/ui";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 
 type ToastType = "ok" | "error";
@@ -249,7 +250,7 @@ export function App() {
   if (loading) {
     return (
       <div className="appLoading">
-        <span className="spinner" />
+        <Spinner />
       </div>
     );
   }

@@ -2,6 +2,7 @@ package application
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tidwall/gjson"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"golang.org/x/mod/semver"
 )
@@ -650,6 +652,9 @@ func readModArchiveInfo(filePath string) (modArchiveInfo, error) {
 			modInfoFile = file
 			break
 		}
+		if modInfoFile == nil && strings.EqualFold(filepath.Base(name), "modinfo.json") {
+			modInfoFile = file
+		}
 	}
 	if modInfoFile == nil {
 		return modArchiveInfo{}, nil
@@ -680,21 +685,72 @@ func readModArchiveInfo(filePath string) (modArchiveInfo, error) {
 		return modArchiveInfo{}, domain.NewError(domain.ErrInvalidModFile, "modinfo.json is unexpectedly large")
 	}
 
-	var info modArchiveInfo
-	if err := json.Unmarshal(data, &info); err != nil {
+	info, err := decodeModArchiveInfo(data)
+	if err != nil {
 		return modArchiveInfo{}, &domain.AppError{
 			Code:    domain.ErrInvalidModFile,
 			Message: "The downloaded mod contains an invalid modinfo.json",
 			Cause:   err,
 		}
 	}
-	if info.Dependencies == nil {
-		info.Dependencies = map[string]string{}
+	return info, nil
+}
+
+func decodeModArchiveInfo(data []byte) (modArchiveInfo, error) {
+	// Some mod packs save modinfo.json with a UTF-8 byte order mark, which the
+	// standard library rejects even though the JSON itself is valid.
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	info := modArchiveInfo{}
+	strictErr := json.Unmarshal(data, &info)
+	if strictErr == nil {
+		if info.Dependencies == nil {
+			info.Dependencies = map[string]string{}
+		}
+		return info, nil
+	}
+	// A few mods publish modinfo.json with lenient JSON, such as trailing
+	// commas, that the game accepts but the standard library rejects. Keep
+	// the core fields so the mod can still be matched and installed, and
+	// preserve the string dependencies that are parseable.
+	info = modArchiveInfo{Dependencies: map[string]string{}}
+	info.ModID = strings.TrimSpace(gjson.GetBytes(data, "modid").String())
+	info.Version = strings.TrimSpace(gjson.GetBytes(data, "version").String())
+	if info.ModID == "" {
+		return modArchiveInfo{}, strictErr
+	}
+	if dependencies := gjson.GetBytes(data, "dependencies"); dependencies.IsObject() {
+		dependencies.ForEach(func(key, value gjson.Result) bool {
+			if !value.IsObject() && !value.IsArray() {
+				info.Dependencies[key.String()] = value.String()
+			}
+			return true
+		})
 	}
 	return info, nil
 }
 
 func findDependencyVersion(
+	versions []domain.ModVersion,
+	requirement string,
+	gameVersions []string,
+	allowIncompatible bool,
+) (domain.ModVersion, bool) {
+	best, ok := bestSatisfyingVersion(versions, requirement, gameVersions, allowIncompatible)
+	if ok {
+		return best, true
+	}
+	// A dependency required as "any version" puts no compatibility constraint
+	// on the dependency. ModDB release tags are frequently not refreshed for
+	// newer game versions even though the mod keeps working, so fall back to
+	// the best release rather than failing the whole install.
+	requirement = strings.TrimSpace(requirement)
+	if requirement == "" || requirement == "*" {
+		return bestSatisfyingVersion(versions, requirement, gameVersions, true)
+	}
+	return domain.ModVersion{}, false
+}
+
+func bestSatisfyingVersion(
 	versions []domain.ModVersion,
 	requirement string,
 	gameVersions []string,
@@ -875,6 +931,33 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	}
 	slog.Info("cached mod removed", "modId", modID, "versionId", versionID)
 	return s.modDownloads.Delete(ctx, modID, versionID)
+}
+
+// removeSupersededCacheVersion deletes a cached mod version that was replaced by
+// an update, unless another instance still has that version installed. This
+// keeps the downloaded mods list free of duplicate entries for the same mod.
+func (s *Service) removeSupersededCacheVersion(ctx context.Context, modID, versionID string) {
+	if s.modDownloads == nil {
+		return
+	}
+	source := modDBSource(modID, versionID)
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return
+	}
+	for _, instance := range instances {
+		mods, err := s.store.ListMods(ctx, instance.ID)
+		if err != nil {
+			return
+		}
+		for _, mod := range mods {
+			if mod.Source == source {
+				return
+			}
+		}
+	}
+	slog.Info("superseded cached mod version removed", "modId", modID, "versionId", versionID)
+	_ = s.modDownloads.Delete(ctx, modID, versionID)
 }
 
 type modVersionMatch struct {
@@ -1346,6 +1429,9 @@ func (s *Service) installDownloadedMod(
 		if err := s.store.DeleteMod(ctx, previous.ID); err != nil {
 			result.Message = "Installed the file but could not update its metadata"
 			return result
+		}
+		if modID, versionID, ok := parseModDBSource(previous.Source); ok {
+			s.removeSupersededCacheVersion(ctx, modID, versionID)
 		}
 	}
 	now := time.Now().UTC()

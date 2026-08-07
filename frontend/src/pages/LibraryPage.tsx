@@ -588,6 +588,76 @@ function InstanceModal({
     message?: string;
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
+  const [removeModDepsDialog, setRemoveModDepsDialog] = useState<{
+    open: boolean;
+    modId: string;
+    modName: string;
+    dependencies: InstalledMod[];
+  }>({ open: false, modId: "", modName: "", dependencies: [] });
+  async function removeMod(modId: string) {
+    await modsApi.remove(modId, false);
+    await loadMods();
+    await refresh();
+  }
+
+  async function removeModWithDependencies(modId: string) {
+    await modsApi.remove(modId, true);
+    await loadMods();
+    await refresh();
+  }
+
+  async function requestModRemoval(mod: InstalledMod) {
+    try {
+      const preview = await modsApi.previewDelete(mod.id);
+      if ((preview.dependencies?.length ?? 0) === 0) {
+        setRemoveModConfirm({
+          open: true,
+          title: t("remove_mod_confirmation", { name: mod.name }),
+          onConfirm: async () => {
+            try {
+              await removeMod(mod.id);
+            } catch (error) {
+              notify(errorMessage(error), "error");
+            }
+          },
+        });
+        return;
+      }
+      setRemoveModDepsDialog({
+        open: true,
+        modId: mod.id,
+        modName: mod.name,
+        dependencies: preview.dependencies,
+      });
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
+
+  function closeRemoveModDepsDialog() {
+    setRemoveModDepsDialog((state) => ({ ...state, open: false }));
+  }
+
+  async function confirmRemoveOnly() {
+    const modId = removeModDepsDialog.modId;
+    closeRemoveModDepsDialog();
+    try {
+      await removeMod(modId);
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
+
+  async function confirmRemoveWithDependencies() {
+    const modId = removeModDepsDialog.modId;
+    closeRemoveModDepsDialog();
+    try {
+      await removeModWithDependencies(modId);
+    } catch (error) {
+      notify(errorMessage(error), "error");
+    }
+  }
+
   const [updateReport, setUpdateReport] = useState<InstanceModUpdateReport>();
   const [updatesDialogOpen, setUpdatesDialogOpen] = useState(false);
   const autoLinkedRef = useRef(false);
@@ -904,21 +974,7 @@ function InstanceModal({
                     <Button
                       variant="ghost"
                       className="dangerGhost"
-                      onClick={() => {
-                        setRemoveModConfirm({
-                          open: true,
-                          title: t("remove_mod_confirmation", { name: mod.name }),
-                          onConfirm: async () => {
-                            try {
-                              await modsApi.remove(mod.id);
-                              await loadMods();
-                              await refresh();
-                            } catch (error) {
-                              notify(errorMessage(error), "error");
-                            }
-                          },
-                        });
-                      }}
+                      onClick={() => void requestModRemoval(mod)}
                     >
                       {t("remove")}
                     </Button>
@@ -1066,6 +1122,42 @@ function InstanceModal({
         }}
         onCancel={() => setRemoveModConfirm((s) => ({ ...s, open: false }))}
       />
+
+      {removeModDepsDialog.open && (
+        <Modal
+          title={t("remove_mod_dependencies_title", { name: removeModDepsDialog.modName })}
+          onClose={closeRemoveModDepsDialog}
+        >
+          <div className="modalBody formFields">
+            <p className="muted">
+              {t("remove_mod_dependencies_hint", { name: removeModDepsDialog.modName })}
+            </p>
+            <ul className="removeDependenciesList">
+              {removeModDepsDialog.dependencies.map((dependency) => (
+                <li key={dependency.id}>
+                  <strong>{dependency.name}</strong>
+                  <small>{dependency.version}</small>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="dialogFooter">
+            <Button type="button" variant="ghost" onClick={closeRemoveModDepsDialog}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => void confirmRemoveOnly()}>
+              {t("remove_mod_only")}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => void confirmRemoveWithDependencies()}
+            >
+              {t("remove_mod_with_dependencies")}
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {updatesDialogOpen && updateReport && (
         <ModUpdatesModal
