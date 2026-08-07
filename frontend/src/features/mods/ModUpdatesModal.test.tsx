@@ -4,7 +4,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { InstanceModUpdateReport } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import type { InstanceModUpdateReport } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
 const api = vi.hoisted(() => ({
@@ -57,13 +58,15 @@ const report: InstanceModUpdateReport = {
 };
 
 function renderModal(reportValue: InstanceModUpdateReport = report) {
+  const notify = vi.fn();
+  useToastStore.setState({ notify });
   const props = {
     instanceId: "instance-1",
     instanceName: "Survival",
     report: reportValue,
     onClose: vi.fn(),
     onApplied: vi.fn().mockResolvedValue(undefined),
-    notify: vi.fn(),
+    notify,
   };
   render(<ModUpdatesModal {...props} />);
   return props;

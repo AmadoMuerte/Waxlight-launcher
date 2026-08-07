@@ -1,5 +1,5 @@
-import i18n from "../../i18n";
 import type { GameVersion, Instance, ModSide, ModVersion } from "../../shared/api";
+import i18n from "../../shared/i18n";
 
 export type Compatibility = "compatible" | "possibly_compatible" | "incompatible" | "unknown";
 

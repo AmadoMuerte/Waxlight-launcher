@@ -1,23 +1,15 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
-import {
-  instancePackageApi,
-  type GameVersion,
-  type ImportReport,
-  type PackageInspection,
-} from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import type { GameVersion } from "../../entities/game-version/model";
+import { instancePackageApi } from "../../shared/api";
+import type { ImportReport, PackageInspection } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button, Checkbox, Field, Modal, SubmitForm } from "../../shared/ui";
+import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 
 interface ImportPackageModalProps {
@@ -26,7 +18,6 @@ interface ImportPackageModalProps {
   onClose: () => void;
   onDone: (report: ImportReport) => Promise<void>;
   onBackgroundDone: () => Promise<void>;
-  notify: (message: string, type?: "ok" | "error", duration?: number) => void;
 }
 
 export function ImportPackageModal({
@@ -35,9 +26,9 @@ export function ImportPackageModal({
   onClose,
   onDone,
   onBackgroundDone,
-  notify,
 }: ImportPackageModalProps) {
   const { t } = useTranslation();
+  const notify = useToastStore((state) => state.notify);
   const [name, setName] = useState(inspection.name);
   const [description, setDescription] = useState(inspection.description ?? "");
   const [versionChoice, setVersionChoice] = useState("");

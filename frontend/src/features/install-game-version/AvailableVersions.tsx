@@ -1,35 +1,27 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-import { versionsApi, type AvailableGameVersion } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import { versionsApi } from "../../entities/game-version/api";
+import type { AvailableGameVersion } from "../../entities/game-version/model";
 import { errorMessage } from "../../shared/api/bridge";
+import { GAME_VERSIONS_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { formatBytes } from "../../shared/lib";
 import { Button, Empty, StatusPill } from "../../shared/ui";
 
-type Notify = (message: string, type?: "ok" | "error") => void;
-
 interface AvailableVersionsProps {
   installedVersionIDs: string[];
-  notify: Notify;
-  onOperationStarted: () => Promise<void>;
 }
 
 type ChannelFilter = "all" | "stable" | "unstable";
 
-export function AvailableVersions({
-  installedVersionIDs,
-  notify,
-  onOperationStarted,
-}: AvailableVersionsProps) {
+export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const notify = useToastStore((state) => state.notify);
   const [versions, setVersions] = useState<AvailableGameVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -80,7 +72,8 @@ export function AvailableVersions({
     setStartingVersionID(version.id);
     try {
       await versionsApi.installAvailable(version.id);
-      await onOperationStarted();
+      await queryClient.invalidateQueries({ queryKey: GAME_VERSIONS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEY });
       notify(t("downloading_version", { name: version.name }));
     } catch (installError) {
       notify(errorMessage(installError), "error");

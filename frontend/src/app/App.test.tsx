@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
-import i18n, { changeAppLanguage } from "../i18n";
+import i18n, { changeAppLanguage } from "../shared/i18n";
 import { App } from "./App";
 
 const api = vi.hoisted(() => ({
@@ -77,15 +78,27 @@ afterEach(() => {
   });
 });
 
+function renderApp(initialEntries?: string[]) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 it("applies persisted language before rendering and navigation reacts to changes", async () => {
   api.get.mockClear();
   api.update.mockClear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  render(
-    <MemoryRouter>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp();
   expect(await screen.findByRole("link", { name: /Библиотека/ })).toBeTruthy();
   expect(document.documentElement.lang).toBe("ru");
   expect(api.get).toHaveBeenCalledTimes(1);
@@ -102,11 +115,7 @@ it("does not replace autosaved settings during background refresh", async () => 
   api.get.mockClear();
   api.update.mockClear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  render(
-    <MemoryRouter initialEntries={["/settings"]}>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp(["/settings"]);
 
   const parallelDownloads = (await screen.findAllByRole("spinbutton"))[0] as HTMLInputElement;
   fireEvent.change(parallelDownloads, { target: { value: "7" } });
@@ -129,11 +138,7 @@ it("shows a non-intrusive startup update notice that can be postponed", async ()
     assetName: "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
     assetSize: 1024,
   });
-  render(
-    <MemoryRouter>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp();
 
   expect(await screen.findByText(/0\.1\.4.*0\.1\.5/)).toBeTruthy();
   expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();

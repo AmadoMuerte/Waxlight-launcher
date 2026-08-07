@@ -1,0 +1,19 @@
+export const ACCOUNTS_QUERY_KEY = ["accounts"] as const;
+export const INSTANCES_QUERY_KEY = ["instances"] as const;
+export const GAME_VERSIONS_QUERY_KEY = ["game-versions"] as const;
+export const OPERATIONS_QUERY_KEY = ["operations"] as const;
+export const STATISTICS_QUERY_KEY = ["statistics"] as const;
+export const SETTINGS_QUERY_KEY = ["settings"] as const;
+
+export const DOWNLOADED_MODS_QUERY_KEY = ["mods", "downloaded"] as const;
+export const MOD_TAGS_QUERY_KEY = ["mods", "tags"] as const;
+export const MOD_DETAILS_QUERY_KEY = (modId: string) => ["mods", "details", modId] as const;
+
+export const WATCHED_QUERY_KEYS = [
+  ACCOUNTS_QUERY_KEY,
+  INSTANCES_QUERY_KEY,
+  GAME_VERSIONS_QUERY_KEY,
+  OPERATIONS_QUERY_KEY,
+  STATISTICS_QUERY_KEY,
+  SETTINGS_QUERY_KEY,
+] as const;

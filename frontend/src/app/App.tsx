@@ -1,161 +1,83 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { AppToast } from "../components/layout/AppToast";
-import { ErrorBanner } from "../components/layout/ErrorBanner";
-import { Sidebar } from "../components/layout/Sidebar";
-import { UpdateNotice } from "../components/layout/UpdateNotice";
-import { changeAppLanguage } from "../i18n";
-import { AccountsPage } from "../pages/AccountsPage";
-import { LibraryPage } from "../pages/LibraryPage";
-import { ModDetailsPage } from "../pages/ModDetailsPage";
-import { ModsPage } from "../pages/ModsPage";
-import { OperationsPage } from "../pages/OperationsPage";
-import { SettingsPage } from "../pages/SettingsPage";
-import { StatisticsPage } from "../pages/StatisticsPage";
-import { VersionsPage } from "../pages/VersionsPage";
-import {
-  accountsApi,
-  instancesApi,
-  operationsApi,
-  settingsApi,
-  statisticsApi,
-  updatesApi,
-  versionsApi,
-  type Account,
-  type GameVersion,
-  type Instance,
-  type LauncherUpdate,
-  type LauncherUpdateProgress,
-  type Operation,
-  type Settings,
-  type Statistics,
-} from "../shared/api";
+import { useAccountsQuery } from "../entities/account/queries";
+import { useGameVersionsQuery } from "../entities/game-version/queries";
+import { useInstancesQuery } from "../entities/instance/queries";
+import { useOperationsQuery } from "../entities/operation/queries";
+import { useSettingsQuery } from "../entities/settings/queries";
+import { useStatisticsQuery } from "../entities/statistics/queries";
+import { AccountsPage } from "../pages/accounts/AccountsPage";
+import { LibraryPage } from "../pages/library/LibraryPage";
+import { ModDetailsPage } from "../pages/mod-details/ModDetailsPage";
+import { ModsPage } from "../pages/mods/ModsPage";
+import { OperationsPage } from "../pages/operations/OperationsPage";
+import { SettingsPage } from "../pages/settings/SettingsPage";
+import { StatisticsPage } from "../pages/statistics/StatisticsPage";
+import { VersionsPage } from "../pages/versions/VersionsPage";
+import { updatesApi, type LauncherUpdateProgress, type Settings } from "../shared/api";
 import { errorMessage } from "../shared/api/bridge";
+import { changeAppLanguage } from "../shared/i18n";
 import { Spinner } from "../shared/ui";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
+import { AppToast } from "../widgets/layout/AppToast";
+import { ErrorBanner } from "../widgets/layout/ErrorBanner";
+import { Sidebar } from "../widgets/layout/Sidebar";
+import { UpdateNotice } from "../widgets/layout/UpdateNotice";
+import { useAppShellStore } from "./stores/app-shell";
 
-type ToastType = "ok" | "error";
+const POLL_INTERVAL = 8_000;
 
 export function App() {
-  const updateCheckSequenceRef = useRef(0);
+  const accountsQuery = useAccountsQuery({ refetchInterval: POLL_INTERVAL });
+  const instancesQuery = useInstancesQuery({ refetchInterval: POLL_INTERVAL });
+  const versionsQuery = useGameVersionsQuery({ refetchInterval: POLL_INTERVAL });
+  const operationsQuery = useOperationsQuery({ refetchInterval: POLL_INTERVAL });
+  const statisticsQuery = useStatisticsQuery({ refetchInterval: POLL_INTERVAL });
+  const settingsQuery = useSettingsQuery();
 
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [versions, setVersions] = useState<GameVersion[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [operations, setOperations] = useState<Operation[]>([]);
-  const [statistics, setStatistics] = useState<Statistics>();
-  const [settings, setSettings] = useState<Settings>();
-  const [launcherVersion, setLauncherVersion] = useState("");
-  const [launcherUpdate, setLauncherUpdate] = useState<LauncherUpdate>();
-  const [updateProgress, setUpdateProgress] = useState<LauncherUpdateProgress>();
-  const [installingUpdate, setInstallingUpdate] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [fatalError, setFatalError] = useState("");
-  const [toast, setToast] = useState<{
-    message: string;
-    type: ToastType;
-  }>();
-  const [platform, setPlatform] = useState("");
+  const watchers = [
+    accountsQuery,
+    instancesQuery,
+    versionsQuery,
+    operationsQuery,
+    statisticsQuery,
+    settingsQuery,
+  ];
+  const loading = watchers.some((query) => query.isPending);
+  const firstError = watchers.find((query) => query.error);
+  const fatalError = firstError?.error ? errorMessage(firstError.error) : "";
 
-  const checkLauncherUpdate = useCallback(
-    async (channel: Settings["updateChannel"], skippedVersion: string) => {
-      const sequence = ++updateCheckSequenceRef.current;
+  const setFatalError = useAppShellStore((state) => state.setFatalError);
+  const setPlatform = useAppShellStore((state) => state.setPlatform);
+  const setLauncherVersion = useAppShellStore((state) => state.setLauncherVersion);
+  const setUpdateProgress = useAppShellStore((state) => state.setUpdateProgress);
+  const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
 
-      try {
-        const update = await updatesApi.check(channel);
-
-        if (sequence !== updateCheckSequenceRef.current) {
-          return;
-        }
-
-        setLauncherVersion(update.installedVersion);
-
-        if (update.available && update.version !== skippedVersion) {
-          setLauncherUpdate(update);
-        } else {
-          setLauncherUpdate(undefined);
-        }
-      } catch {
-        if (sequence === updateCheckSequenceRef.current) {
-          setLauncherUpdate(undefined);
-        }
-      }
-    },
-    [],
-  );
-
-  const refresh = useCallback(
-    async (includeSettings = false) => {
-      try {
-        const [
-          instanceItems,
-          versionItems,
-          accountItems,
-          operationItems,
-          statisticsOverview,
-          applicationSettings,
-        ] = await Promise.all([
-          instancesApi.list(),
-          versionsApi.list(),
-          accountsApi.list(),
-          operationsApi.list(),
-          statisticsApi.overview(),
-          includeSettings ? settingsApi.get() : Promise.resolve(undefined),
-        ]);
-
-        setInstances(instanceItems ?? []);
-        setVersions(versionItems ?? []);
-        setAccounts(accountItems ?? []);
-        setOperations(operationItems ?? []);
-        setStatistics(statisticsOverview);
-
-        if (applicationSettings) {
-          await changeAppLanguage(applicationSettings.language);
-
-          setSettings(applicationSettings);
-
-          if (applicationSettings.checkForUpdates) {
-            void checkLauncherUpdate(
-              applicationSettings.updateChannel,
-              applicationSettings.skippedUpdateVersion,
-            );
-          }
-        }
-
-        setFatalError("");
-      } catch (error) {
-        setFatalError(errorMessage(error));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [checkLauncherUpdate],
-  );
+  const settings = settingsQuery.data;
+  const updateCheckedOnceRef = useRef(false);
+  const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
 
   useEffect(() => {
-    void refresh(true);
-    void updatesApi
-      .currentVersion()
-      .then(setLauncherVersion)
-      .catch(() => undefined);
-    void (async () => {
-      try {
-        const environment = await Environment();
-        setPlatform(environment.platform);
-      } catch {
-        setPlatform("");
-      }
-    })();
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, 8_000);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [refresh]);
+    setFatalError(fatalError);
+  }, [fatalError, setFatalError]);
 
-  const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
+  useEffect(() => {
+    if (!settings) {
+      return;
+    }
+    void changeAppLanguage(settings.language);
+  }, [settings]);
+
+  useEffect(() => {
+    if (!settings) {
+      return;
+    }
+    if (settings.checkForUpdates && !updateCheckedOnceRef.current) {
+      updateCheckedOnceRef.current = true;
+      void checkForUpdate(settings.updateChannel, settings.skippedUpdateVersion);
+    }
+  }, [checkForUpdate, settings]);
 
   useEffect(() => {
     if (!settings) {
@@ -171,12 +93,24 @@ export function App() {
       return;
     }
 
-    setLauncherUpdate(undefined);
+    useAppShellStore.getState().dismissUpdate();
 
-    void checkLauncherUpdate(current, settings.skippedUpdateVersion);
-  }, [checkLauncherUpdate, settings]);
+    void checkForUpdate(current, settings.skippedUpdateVersion);
+  }, [checkForUpdate, settings]);
 
   useEffect(() => {
+    void updatesApi
+      .currentVersion()
+      .then(setLauncherVersion)
+      .catch(() => undefined);
+    void (async () => {
+      try {
+        const environment = await Environment();
+        setPlatform(environment.platform);
+      } catch {
+        setPlatform("");
+      }
+    })();
     try {
       return EventsOn("updates:progress", (progress: LauncherUpdateProgress) => {
         setUpdateProgress(progress);
@@ -184,68 +118,7 @@ export function App() {
     } catch {
       return undefined;
     }
-  }, []);
-
-  function notify(message: string, type: ToastType = "ok", duration = 3_800) {
-    setToast({ message, type });
-
-    window.setTimeout(() => {
-      setToast(undefined);
-    }, duration);
-  }
-
-  const handleSettingsSaved = useCallback((saved: Settings) => {
-    setSettings(saved);
-  }, []);
-
-  async function installLauncherUpdate() {
-    if (!settings) {
-      return;
-    }
-
-    setInstallingUpdate(true);
-
-    setUpdateProgress({
-      phase: "downloading",
-      downloadedBytes: 0,
-      totalBytes: launcherUpdate?.assetSize ?? 0,
-      progress: 0,
-    });
-
-    try {
-      await updatesApi.install(settings.updateChannel);
-    } catch (error) {
-      setInstallingUpdate(false);
-      setUpdateProgress(undefined);
-      notify(errorMessage(error), "error");
-    }
-  }
-
-  async function skipLauncherUpdate() {
-    if (!settings || !launcherUpdate) {
-      return;
-    }
-
-    try {
-      const saved = await settingsApi.update({
-        ...settings,
-        skippedUpdateVersion: launcherUpdate.version,
-      });
-
-      setSettings(saved);
-      setLauncherUpdate(undefined);
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
-  }
-
-  async function openLauncherRelease() {
-    try {
-      await updatesApi.openReleasePage(settings?.updateChannel ?? "stable");
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
-  }
+  }, [setLauncherVersion, setPlatform, setUpdateProgress]);
 
   if (loading) {
     return (
@@ -257,99 +130,26 @@ export function App() {
 
   return (
     <div className="shell">
-      <Sidebar accounts={accounts} operations={operations} refresh={refresh} notify={notify} />
+      <Sidebar />
 
       <main>
-        {fatalError && <ErrorBanner message={fatalError} onRetry={refresh} />}
-
-        {launcherUpdate && (
-          <UpdateNotice
-            platform={platform}
-            update={launcherUpdate}
-            installingUpdate={installingUpdate}
-            updateProgress={updateProgress}
-            onInstall={() => {
-              void installLauncherUpdate();
-            }}
-            onOpenRelease={() => {
-              void openLauncherRelease();
-            }}
-            onSkip={() => {
-              void skipLauncherUpdate();
-            }}
-            onDismiss={() => {
-              setLauncherUpdate(undefined);
-            }}
-          />
-        )}
+        <ErrorBanner />
+        <UpdateNotice />
 
         <Routes>
-          <Route
-            path="/library"
-            element={
-              <LibraryPage
-                instances={instances}
-                versions={versions}
-                accounts={accounts}
-                loading={loading}
-                refresh={refresh}
-                notify={notify}
-              />
-            }
-          />
-
-          <Route
-            path="/mods/:modId"
-            element={<ModDetailsPage instances={instances} versions={versions} notify={notify} />}
-          />
-
-          <Route
-            path="/mods"
-            element={<ModsPage instances={instances} versions={versions} notify={notify} />}
-          />
-
-          <Route
-            path="/versions"
-            element={<VersionsPage versions={versions} refresh={refresh} notify={notify} />}
-          />
-
-          <Route
-            path="/operations"
-            element={<OperationsPage operations={operations} refresh={refresh} notify={notify} />}
-          />
-
-          <Route
-            path="/accounts"
-            element={<AccountsPage accounts={accounts} refresh={refresh} notify={notify} />}
-          />
-
-          <Route
-            path="/statistics"
-            element={<StatisticsPage statistics={statistics} instances={instances} />}
-          />
-
-          <Route
-            path="/settings"
-            element={
-              <SettingsPage
-                settings={settings}
-                notify={notify}
-                onSaved={handleSettingsSaved}
-                currentVersion={launcherVersion}
-              />
-            }
-          />
-
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/mods/:modId" element={<ModDetailsPage />} />
+          <Route path="/mods" element={<ModsPage />} />
+          <Route path="/versions" element={<VersionsPage />} />
+          <Route path="/operations" element={<OperationsPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/statistics" element={<StatisticsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </main>
 
-      <AppToast
-        toast={toast}
-        onDismiss={() => {
-          setToast(undefined);
-        }}
-      />
+      <AppToast />
     </div>
   );
 }

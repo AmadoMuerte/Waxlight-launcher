@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { instancePackageApi, type Instance } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import type { Instance } from "../../entities/instance/model";
+import { instancePackageApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
 
@@ -9,16 +11,11 @@ interface ExportInstanceModalProps {
   instance: Instance;
   onClose: () => void;
   onDone: () => Promise<void>;
-  notify: (message: string, type?: "ok" | "error") => void;
 }
 
-export function ExportInstanceModal({
-  instance,
-  onClose,
-  onDone,
-  notify,
-}: ExportInstanceModalProps) {
+export function ExportInstanceModal({ instance, onClose, onDone }: ExportInstanceModalProps) {
   const { t } = useTranslation();
+  const notify = useToastStore((state) => state.notify);
   const [name, setName] = useState(instance.name);
   const [description, setDescription] = useState(instance.description);
   const [authorName, setAuthorName] = useState("");

@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import {
   modCatalogApi,
   type DownloadedMod,
@@ -21,6 +14,7 @@ import {
 } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button, Empty, Field, Modal } from "../../shared/ui";
+import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
   chooseRelease,

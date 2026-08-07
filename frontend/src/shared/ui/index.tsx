@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, FormEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Checkbox as RadixCheckbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox as RadixCheckbox } from "@/shared/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 

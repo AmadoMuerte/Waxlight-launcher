@@ -1,6 +1,6 @@
 import { beforeEach } from "vitest";
 
-import i18n from "./i18n";
+import i18n from "./shared/i18n";
 
 if (typeof HTMLElement !== "undefined") {
   Object.defineProperties(HTMLElement.prototype, {
