@@ -355,3 +355,11 @@ for the complete list.
 Waxlight Launcher is free software licensed under the
 [GNU General Public License v3.0](LICENSE). See [NOTICE](NOTICE) for third-party
 and project notices.
+
+## Telemetry
+
+Waxlight sends minimal usage statistics (launcher version, OS, numeric counters)
+to improve the project. Telemetry is on by default and can be disabled in
+**Settings → Privacy & telemetry**. Logins, passwords, tokens, and personal
+files are never sent. The installation ID is a random value, stored on the
+server in pseudonymized form.
