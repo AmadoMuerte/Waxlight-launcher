@@ -92,14 +92,23 @@ func (source *Source) Check(
 	}
 
 	comparison := semver.Compare(version, current)
+	installedPrerelease := semver.Prerelease(current) != ""
 	result := domain.LauncherUpdate{
 		InstalledVersion: strings.TrimPrefix(current, "v"),
 		Version:          strings.TrimPrefix(version, "v"),
 		Available:        comparison != 0,
-		Downgrade:        comparison < 0,
-		Prerelease:       releaseIsPrerelease(*selected, version),
-		ReleaseNotes:     strings.TrimSpace(selected.Body),
-		ReleasePageURL:   selected.HTMLURL,
+		// A stable release offered while a prerelease is installed means a
+		// switch back to the stable channel, even when its version number is
+		// higher than the installed prerelease.
+		Downgrade:      comparison < 0 || (!releaseIsPrerelease(*selected, version) && installedPrerelease),
+		Prerelease:     releaseIsPrerelease(*selected, version),
+		ReleaseNotes:   strings.TrimSpace(selected.Body),
+		ReleasePageURL: selected.HTMLURL,
+	}
+	// A prerelease that is older than the installed stable version is not an
+	// upgrade and must never be suggested.
+	if result.Prerelease && comparison < 0 && !installedPrerelease {
+		result.Available = false
 	}
 	if err := validateReleasePageURL(result.ReleasePageURL, selected.TagName); err != nil {
 		return domain.LauncherUpdate{}, err

@@ -24,7 +24,7 @@ import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 import { AppToast } from "../widgets/layout/AppToast";
 import { ErrorBanner } from "../widgets/layout/ErrorBanner";
 import { Sidebar } from "../widgets/layout/Sidebar";
-import { UpdateNotice } from "../widgets/layout/UpdateNotice";
+import { UpdateDialog } from "../widgets/layout/UpdateDialog";
 import { useAppShellStore } from "./stores/app-shell";
 
 const POLL_INTERVAL = 8_000;
@@ -135,7 +135,7 @@ export function App() {
 
       <main>
         <ErrorBanner />
-        <UpdateNotice />
+        <UpdateDialog />
 
         <Routes>
           <Route path="/library" element={<LibraryPage />} />

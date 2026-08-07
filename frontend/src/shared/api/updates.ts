@@ -9,4 +9,5 @@ export const updatesApi = {
     call<void>("LauncherUpdateController", "InstallUpdate", channel),
   openReleasePage: (channel: Settings["updateChannel"]) =>
     call<void>("LauncherUpdateController", "OpenReleasePage", channel),
+  openUrl: (url: string) => call<void>("LauncherUpdateController", "OpenUrl", url),
 };
