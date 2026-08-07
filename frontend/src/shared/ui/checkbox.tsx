@@ -9,12 +9,12 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border border-[#575157] bg-[var(--surface-input)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-2 data-[state=checked]:border-[var(--amber)] data-[state=checked]:bg-[var(--amber)] disabled:cursor-not-allowed disabled:opacity-50",
+        "peer relative flex size-[18px] shrink-0 items-center justify-center overflow-hidden rounded-[5px] border border-[#575157] bg-[var(--surface-input)] transition-[border-color,background-color] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-2 data-[state=checked]:border-[var(--amber)] data-[state=checked]:bg-[var(--amber)] disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     >
-      <CheckboxPrimitive.Indicator className="flex items-center justify-center text-[#20150b]">
+      <CheckboxPrimitive.Indicator className="absolute inset-0 flex items-center justify-center text-[#20150b]">
         <Check className="size-3" strokeWidth={3} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
