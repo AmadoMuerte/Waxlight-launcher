@@ -290,11 +290,9 @@ func statisticsDTO(statistics application.Statistics) StatisticsDTO {
 }
 
 type SettingsDTO struct {
-	Theme                 string   `json:"theme"`
 	Language              string   `json:"language"`
 	DownloadsParallel     int      `json:"downloadsParallel"`
 	ConfirmDeletion       bool     `json:"confirmDeletion"`
-	MinSessionDurationSec int64    `json:"minSessionDurationSec"`
 	GlobalLaunchArguments []string `json:"globalLaunchArguments"`
 	CheckForUpdates       bool     `json:"checkForUpdates"`
 	UpdateChannel         string   `json:"updateChannel"`
@@ -309,11 +307,9 @@ func settingsDTO(settings domain.Settings) SettingsDTO {
 	}
 
 	return SettingsDTO{
-		Theme:                 settings.Theme,
 		Language:              settings.Language,
 		DownloadsParallel:     settings.DownloadsParallel,
 		ConfirmDeletion:       settings.ConfirmDeletion,
-		MinSessionDurationSec: settings.MinSessionDurationSec,
 		GlobalLaunchArguments: launchArguments,
 		CheckForUpdates:       settings.CheckForUpdates,
 		UpdateChannel:         settings.UpdateChannel,

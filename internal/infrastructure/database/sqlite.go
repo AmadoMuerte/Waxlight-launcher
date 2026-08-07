@@ -1007,11 +1007,9 @@ func (s *SQLiteStore) ClearFinishedOperations(ctx context.Context) (int64, error
 
 func (s *SQLiteStore) GetSettings(ctx context.Context) (domain.Settings, error) {
 	settings := domain.Settings{
-		Theme:                 "dark",
 		Language:              "en",
 		DownloadsParallel:     3,
 		ConfirmDeletion:       true,
-		MinSessionDurationSec: 30,
 		GlobalLaunchArguments: []string{},
 		CheckForUpdates:       true,
 		UpdateChannel:         "stable",

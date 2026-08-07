@@ -9,11 +9,9 @@ import type { Settings } from "../../entities/settings/model";
 import { SettingsPage } from "./SettingsPage";
 
 const settings: Settings = {
-  theme: "dark",
   language: "en",
   downloadsParallel: 3,
   confirmDeletion: true,
-  minSessionDurationSec: 10,
   globalLaunchArguments: [],
   checkForUpdates: true,
   updateChannel: "stable",

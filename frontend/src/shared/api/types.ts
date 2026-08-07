@@ -327,11 +327,9 @@ export interface Statistics {
 }
 
 export interface Settings {
-  theme: string;
   language: string;
   downloadsParallel: number;
   confirmDeletion: boolean;
-  minSessionDurationSec: number;
   globalLaunchArguments: string[];
   checkForUpdates: boolean;
   updateChannel: "stable" | "prerelease";

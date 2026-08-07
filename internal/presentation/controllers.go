@@ -556,11 +556,9 @@ func (controller *SettingsController) UpdateSettings(
 	settings, err := controller.svc.SaveSettings(
 		context.Background(),
 		domain.Settings{
-			Theme:                 request.Theme,
 			Language:              request.Language,
 			DownloadsParallel:     request.DownloadsParallel,
 			ConfirmDeletion:       request.ConfirmDeletion,
-			MinSessionDurationSec: request.MinSessionDurationSec,
 			GlobalLaunchArguments: request.GlobalLaunchArguments,
 			CheckForUpdates:       request.CheckForUpdates,
 			UpdateChannel:         request.UpdateChannel,

@@ -1678,9 +1678,6 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 	if v.DownloadsParallel < 1 || v.DownloadsParallel > 10 {
 		return v, domain.NewError(domain.ErrValidation, "Parallel downloads must be between 1 and 10")
 	}
-	if v.MinSessionDurationSec < 0 {
-		return v, domain.NewError(domain.ErrValidation, "Session duration threshold cannot be negative")
-	}
 	v.Language = normalizeLanguage(v.Language)
 	channel, err := normalizeUpdateChannel(v.UpdateChannel)
 	if err != nil {

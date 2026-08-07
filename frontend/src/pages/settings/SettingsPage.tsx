@@ -26,11 +26,9 @@ const autosaveDelayMs = 400;
 
 function settingsEqual(left: Settings, right: Settings) {
   return (
-    left.theme === right.theme &&
     left.language === right.language &&
     left.downloadsParallel === right.downloadsParallel &&
     left.confirmDeletion === right.confirmDeletion &&
-    left.minSessionDurationSec === right.minSessionDurationSec &&
     left.checkForUpdates === right.checkForUpdates &&
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
@@ -220,7 +218,7 @@ export function SettingsPage() {
               <h2>{t("interface")}</h2>
               <p>{t("language_and_appearance_preferences")}</p>
             </header>
-            <div className="formRow">
+            <div className="formFields">
               <Field label={t("language")}>
                 <Select
                   value={normalizeLanguage(value.language)}
@@ -242,21 +240,6 @@ export function SettingsPage() {
                   </SelectContent>
                 </Select>
               </Field>
-
-              <Field label={t("theme")}>
-                <Select
-                  value={value.theme}
-                  onValueChange={(theme) => setValue({ ...value, theme })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dark">{t("dark")}</SelectItem>
-                    <SelectItem value="system">{t("system")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
             </div>
           </section>
 
@@ -266,36 +249,20 @@ export function SettingsPage() {
               <p>{t("background_work_and_launch_configuration")}</p>
             </header>
             <div className="formFields">
-              <div className="formRow">
-                <Field label={t("parallel_downloads")}>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={value.downloadsParallel}
-                    onChange={(event) =>
-                      setValue({
-                        ...value,
-                        downloadsParallel: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
-
-                <Field label={t("minimum_session_duration_seconds")}>
-                  <input
-                    type="number"
-                    min={0}
-                    value={value.minSessionDurationSec}
-                    onChange={(event) =>
-                      setValue({
-                        ...value,
-                        minSessionDurationSec: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </div>
+              <Field label={t("parallel_downloads")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={value.downloadsParallel}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      downloadsParallel: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
 
               <Field label={t("global_launch_arguments")} hint={t("global_launch_arguments_hint")}>
                 <input
