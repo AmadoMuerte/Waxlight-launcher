@@ -17,6 +17,7 @@ import type {
   GameVersion,
   ImportReport,
   InstanceModUpdateReport,
+  InstallModFilesResult,
   InstalledMod,
   Instance,
   LaunchValidation,
@@ -96,6 +97,8 @@ export const modsApi = {
     call<InstanceModUpdateReport>("ModManagerController", "CheckInstanceModUpdates", instanceId),
   install: (request: { instanceId: string; sourcePath: string; name: string; version: string }) =>
     call<Operation>("ModManagerController", "InstallModFile", request),
+  installMany: (request: { instanceId: string; sourcePaths: string[] }) =>
+    call<InstallModFilesResult>("ModManagerController", "InstallModFiles", request),
   toggle: (id: string, enabled: boolean) =>
     call<InstalledMod>("ModManagerController", "SetModEnabled", id, enabled),
   remove: (id: string) => call<void>("ModManagerController", "RemoveMod", id),
@@ -187,6 +190,7 @@ export const settingsApi = {
   selectGameArchive: () => call<string>("SettingsController", "SelectGameArchive"),
   selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
   selectModFile: () => call<string>("SettingsController", "SelectModFile"),
+  selectModFiles: () => call<string[]>("SettingsController", "SelectModFiles"),
   openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),
   getDataFolder: () => call<DataFolder>("SettingsController", "GetDataFolder"),
   selectDataFolder: () => call<string>("SettingsController", "SelectDataFolder"),

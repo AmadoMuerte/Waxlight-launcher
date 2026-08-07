@@ -612,21 +612,29 @@ function InstanceModal({
     void loadUpdates();
   }, [loadMods, loadUpdates]);
 
-  async function installMod() {
+  async function installMods() {
     try {
-      const path = await settingsApi.selectModFile();
-      if (!path) {
+      const paths = await settingsApi.selectModFiles();
+      if (!paths || paths.length === 0) {
         return;
       }
-      await modsApi.install({
+      const result = await modsApi.installMany({
         instanceId: instance.id,
-        sourcePath: path,
-        name: "",
-        version: "",
+        sourcePaths: paths,
       });
       await loadMods();
       await refresh();
-      notify(t("mod_installed"));
+      const segments: string[] = [];
+      if (result.installed.length > 0) {
+        segments.push(t("mods_installed_count", { count: result.installed.length }));
+      }
+      if (result.skipped.length > 0) {
+        segments.push(t("mods_skipped_count", { count: result.skipped.length }));
+      }
+      if (result.failed.length > 0) {
+        segments.push(t("mods_failed_count", { count: result.failed.length }));
+      }
+      notify(segments.join(" · ") || t("mod_installed"));
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -798,8 +806,8 @@ function InstanceModal({
               >
                 {t("browse_mods")}
               </Button>
-              <Button onClick={() => void installMod()}>
-                <span aria-hidden="true">＋</span> {t("install_file")}
+              <Button onClick={() => void installMods()}>
+                <span aria-hidden="true">＋</span> {t("install_files")}
               </Button>
               <Button
                 variant="secondary"
@@ -834,7 +842,7 @@ function InstanceModal({
                   >
                     {t("browse_mods")}
                   </Button>
-                  <Button onClick={() => void installMod()}>{t("install_file")}</Button>
+                  <Button onClick={() => void installMods()}>{t("install_files")}</Button>
                 </div>
               }
             />
