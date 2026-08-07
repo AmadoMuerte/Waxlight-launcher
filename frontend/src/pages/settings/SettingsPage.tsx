@@ -20,6 +20,8 @@ import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { Field } from "../../shared/ui/field";
 import { PageHeader } from "../../shared/ui/page-header";
+import { Stepper } from "../../shared/ui/stepper";
+import { Switch } from "../../shared/ui/switch";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const autosaveDelayMs = 400;
@@ -248,25 +250,39 @@ export function SettingsPage() {
               <h2>{t("downloads_and_game")}</h2>
               <p>{t("background_work_and_launch_configuration")}</p>
             </header>
-            <div className="formFields">
-              <Field label={t("parallel_downloads")}>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={value.downloadsParallel}
-                  onChange={(event) =>
-                    setValue({
-                      ...value,
-                      downloadsParallel: Number(event.target.value),
-                    })
-                  }
-                />
-              </Field>
+            <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("parallel_downloads")}</span>
+                  <small className="settingRowDescription">
+                    {t("parallel_downloads_description")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Stepper
+                    label={t("parallel_downloads")}
+                    value={value.downloadsParallel}
+                    min={1}
+                    max={10}
+                    decreaseLabel={t("decrease")}
+                    increaseLabel={t("increase")}
+                    onChange={(downloadsParallel) => setValue({ ...value, downloadsParallel })}
+                  />
+                </div>
+              </div>
 
-              <Field label={t("global_launch_arguments")} hint={t("global_launch_arguments_hint")}>
+              <div className="settingRowDivider" />
+
+              <div className="settingRow settingRowColumn">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("global_launch_arguments")}</span>
+                  <small className="settingRowDescription">
+                    {t("global_launch_arguments_description")}
+                  </small>
+                </div>
                 <input
-                  className="codeInput"
+                  className="settingTileInput codeInput"
+                  aria-label={t("global_launch_arguments")}
                   value={launchArgumentsText}
                   onChange={(event) => {
                     const argumentsValue = event.target.value;
@@ -279,17 +295,24 @@ export function SettingsPage() {
                   }}
                   placeholder="--debug"
                 />
-              </Field>
+              </div>
 
-              <div className="checkboxSetting">
-                <Checkbox
-                  label={t("confirm_deletion")}
-                  checked={value.confirmDeletion}
-                  onChange={(event) =>
-                    setValue({ ...value, confirmDeletion: event.target.checked })
-                  }
-                />
-                <small>{t("confirm_before_removing_items")}</small>
+              <div className="settingRowDivider" />
+
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("confirm_deletion")}</span>
+                  <small className="settingRowDescription">
+                    {t("confirm_before_removing_items")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Switch
+                    label={t("confirm_deletion")}
+                    checked={value.confirmDeletion}
+                    onCheckedChange={(confirmDeletion) => setValue({ ...value, confirmDeletion })}
+                  />
+                </div>
               </div>
             </div>
           </section>

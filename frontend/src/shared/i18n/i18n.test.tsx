@@ -107,7 +107,7 @@ describe("i18n", () => {
     fireEvent.change(screen.getByPlaceholderText("--debug"), {
       target: { value: "--debug --safe" },
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("switch"));
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update).toHaveBeenLastCalledWith(
