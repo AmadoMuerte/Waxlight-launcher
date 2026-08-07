@@ -541,11 +541,12 @@ func releaseType(version string) string {
 
 func supportsVersion(versions []string, requested string) bool {
 	requested = strings.TrimSpace(requested)
+	series := strings.TrimSuffix(requested, ".x")
 	for _, version := range versions {
-		if version == requested {
+		if version == requested || (series != "" && version == series) {
 			return true
 		}
-		if strings.HasSuffix(requested, ".x") && strings.HasPrefix(version, strings.TrimSuffix(requested, "x")) {
+		if series != "" && strings.HasPrefix(version, series+".") {
 			return true
 		}
 	}

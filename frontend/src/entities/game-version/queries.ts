@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { GAME_VERSIONS_QUERY_KEY } from "../../shared/api/keys";
+import { AVAILABLE_GAME_VERSIONS_QUERY_KEY, GAME_VERSIONS_QUERY_KEY } from "../../shared/api/keys";
 import { versionsApi } from "./api";
-import type { GameVersion } from "./model";
+import type { AvailableGameVersion, GameVersion } from "./model";
 
 interface QueryOptions {
   refetchInterval?: number | false;
@@ -16,4 +16,13 @@ export function useGameVersionsQuery(options?: QueryOptions) {
   });
 }
 
-export type { GameVersion };
+export function useAvailableGameVersionsQuery(options?: QueryOptions) {
+  return useQuery({
+    queryKey: AVAILABLE_GAME_VERSIONS_QUERY_KEY,
+    queryFn: versionsApi.available,
+    staleTime: 5 * 60_000,
+    ...options,
+  });
+}
+
+export type { AvailableGameVersion, GameVersion };

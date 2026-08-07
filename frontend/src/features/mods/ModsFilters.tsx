@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-import type { GameVersion, ModSearchQuery, ModTag } from "../../shared/api";
+import type { ModSearchQuery, ModTag } from "../../shared/api";
 import { Button } from "../../shared/ui/button";
 import { Field } from "../../shared/ui/field";
 import { sideLabel } from "./lib";
@@ -10,7 +10,7 @@ import { TagMultiSelect } from "./TagMultiSelect";
 
 interface ModsFiltersProps {
   query: Omit<ModSearchQuery, "page">;
-  versions: GameVersion[];
+  series: string[];
   tags: ModTag[];
   mobileOpen: boolean;
   onMobileOpenChange: (open: boolean) => void;
@@ -20,7 +20,7 @@ interface ModsFiltersProps {
 
 export function ModsFilters({
   query,
-  versions,
+  series,
   tags,
   mobileOpen,
   onMobileOpenChange,
@@ -97,9 +97,9 @@ export function ModsFilters({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("all_versions")}</SelectItem>
-              {versions.map((version) => (
-                <SelectItem key={version.id} value={`version:${version.name || version.id}`}>
-                  {version.name || version.id}
+              {series.map((item) => (
+                <SelectItem key={item} value={`version:${item}`}>
+                  {item}
                 </SelectItem>
               ))}
             </SelectContent>

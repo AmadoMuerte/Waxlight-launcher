@@ -5,7 +5,10 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useToastStore } from "../../app/stores/toast";
-import { useGameVersionsQuery } from "../../entities/game-version/queries";
+import {
+  useAvailableGameVersionsQuery,
+  useGameVersionsQuery,
+} from "../../entities/game-version/queries";
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { modCatalogApi } from "../../entities/mod/api";
 import type {
@@ -21,6 +24,11 @@ import {
 } from "../../entities/mod/queries";
 import { settingsApi } from "../../entities/settings/api";
 import { InstancePickerDialog } from "../../features/mods/InstancePickerDialog";
+import {
+  gameVersionSeries,
+  gameVersionSeriesOf,
+  matchesGameVersionSeries,
+} from "../../features/mods/lib";
 import { ModCard } from "../../features/mods/ModCard";
 import { ModsFilters } from "../../features/mods/ModsFilters";
 import { errorMessage } from "../../shared/api/bridge";
@@ -38,6 +46,7 @@ export function ModsPage() {
   const notify = useToastStore((state) => state.notify);
   const { data: instances = [] } = useInstancesQuery();
   const { data: versions = [] } = useGameVersionsQuery();
+  const { data: availableVersions = [] } = useAvailableGameVersionsQuery();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,11 +76,16 @@ export function ModsPage() {
     ? versions.find((item) => item.id === contextInstance.gameVersionId)
     : undefined;
   const compatibleOnly = contextInstance !== undefined;
+  const versionSeries = useMemo(() => {
+    const series = gameVersionSeries(availableVersions);
+    return series.length > 0 ? series : gameVersionSeries(versions);
+  }, [availableVersions, versions]);
   const query = useMemo<Omit<ModSearchQuery, "page">>(
     () => ({
       text: searchParams.get("q") ?? "",
       gameVersion:
-        searchParams.get("gameVersion") ?? (contextVersion?.name || contextVersion?.id || ""),
+        searchParams.get("gameVersion") ??
+        (contextInstance ? gameVersionSeriesOf(contextInstance.gameVersionId) : ""),
       side: modSide(searchParams.get("side")),
       updatedAfter: searchParams.get("updatedAfter") ?? undefined,
       tags: searchParams.getAll("tag"),
@@ -80,7 +94,7 @@ export function ModsPage() {
       sort: modSort(searchParams.get("sort")),
       pageSize: 24,
     }),
-    [compatibleOnly, contextVersion?.id, contextVersion?.name, instanceId, searchParams],
+    [compatibleOnly, contextInstance, instanceId, searchParams],
   );
 
   const searchQuery = useModCatalogQuery(query, view === "all");
@@ -168,9 +182,7 @@ export function ModsPage() {
       if (query.side && item.side !== query.side) return false;
       if (
         query.gameVersion &&
-        !item.gameVersions.some((version) =>
-          version.startsWith(query.gameVersion.replace(/x$/, "")),
-        )
+        !item.gameVersions.some((version) => matchesGameVersionSeries(version, query.gameVersion))
       ) {
         return false;
       }
@@ -403,7 +415,7 @@ export function ModsPage() {
 
       <ModsFilters
         query={query}
-        versions={versions}
+        series={versionSeries}
         tags={tags}
         mobileOpen={filtersOpen}
         onMobileOpenChange={setFiltersOpen}

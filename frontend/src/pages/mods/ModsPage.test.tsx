@@ -29,11 +29,14 @@ const settings = vi.hoisted(() => ({
 
 const instancesList = vi.hoisted(() => vi.fn());
 const versionsList = vi.hoisted(() => vi.fn());
+const availableVersionsList = vi.hoisted(() => vi.fn());
 
 vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
 vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesList } }));
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi: { list: versionsList } }));
+vi.mock("../../shared/api/game-versions", () => ({
+  versionsApi: { list: versionsList, available: availableVersionsList },
+}));
 
 const summary = {
   id: "51",
@@ -94,6 +97,48 @@ function renderPage(path = "/mods?q=corpse", notify = vi.fn()) {
       status: "installed",
       sizeBytes: 1,
       installedAt: "2026-01-01T00:00:00Z",
+    },
+  ]);
+  availableVersionsList.mockResolvedValue([
+    {
+      id: "1.20.2",
+      name: "1.20.2",
+      channel: "stable",
+      platform: "linux",
+      architecture: "amd64",
+      downloadSize: 1,
+      latest: true,
+      installed: false,
+    },
+    {
+      id: "1.20.0-rc.1",
+      name: "1.20.0-rc.1",
+      channel: "unstable",
+      platform: "linux",
+      architecture: "amd64",
+      downloadSize: 1,
+      latest: false,
+      installed: false,
+    },
+    {
+      id: "1.19.4",
+      name: "1.19.4",
+      channel: "stable",
+      platform: "linux",
+      architecture: "amd64",
+      downloadSize: 1,
+      latest: false,
+      installed: false,
+    },
+    {
+      id: "1.4.8",
+      name: "1.4.8",
+      channel: "stable",
+      platform: "linux",
+      architecture: "amd64",
+      downloadSize: 1,
+      latest: false,
+      installed: false,
     },
   ]);
   useToastStore.setState({ notify });
@@ -160,6 +205,56 @@ describe("mods browser", () => {
       expect(api.search).toHaveBeenCalledWith(expect.objectContaining({ tags: ["Utility"] })),
     );
     expect(await screen.findByText("Tag: Utility")).toBeTruthy();
+  });
+
+  it("lists game version series from the official catalog in the filter", async () => {
+    renderPage("/mods");
+    await screen.findByText("Player Corpse");
+
+    await userEvent.setup().click(screen.getByRole("combobox", { name: /Game version/ }));
+
+    expect(await screen.findByRole("option", { name: "1.20.x" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "1.19.x" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "1.4.x" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "1.20.2" })).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole("option", { name: "1.19.x" }));
+    await waitFor(() =>
+      expect(api.search).toHaveBeenCalledWith(expect.objectContaining({ gameVersion: "1.19.x" })),
+    );
+  });
+
+  it("filters downloaded mods by the selected game version series", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    renderPage("/mods?view=downloaded");
+    await screen.findByRole("tab", { name: /Downloaded/ });
+    expect(await screen.findByText("Player Corpse")).toBeTruthy();
+
+    await userEvent.setup().click(screen.getByRole("combobox", { name: /Game version/ }));
+    await userEvent.setup().click(screen.getByRole("option", { name: "1.19.x" }));
+
+    await waitFor(() => expect(screen.queryByText("Player Corpse")).toBeNull());
+
+    await userEvent.setup().click(screen.getByRole("combobox", { name: /Game version/ }));
+    await userEvent.setup().click(screen.getByRole("option", { name: "1.20.x" }));
+
+    expect(await screen.findByText("Player Corpse")).toBeTruthy();
   });
 
   it("keeps downloaded mods available through the dedicated tab", async () => {

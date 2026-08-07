@@ -61,6 +61,39 @@ export function instanceGameVersion(instance: Instance, versions: GameVersion[])
   return version?.name || version?.id || instance.gameVersionId;
 }
 
+const SERIES_PATTERN = /^(\d+)\.(\d+)/;
+
+export function gameVersionSeriesOf(versionID: string): string {
+  const match = SERIES_PATTERN.exec(versionID);
+  return match ? `${match[1]}.${match[2]}.x` : "";
+}
+
+export function gameVersionSeries(versions: { id: string }[]): string[] {
+  const seen = new Set<string>();
+  const series: string[] = [];
+  for (const version of versions) {
+    const value = gameVersionSeriesOf(version.id);
+    if (value && !seen.has(value)) {
+      seen.add(value);
+      series.push(value);
+    }
+  }
+  return series.toSorted((left, right) => {
+    const leftParts = left.split(".");
+    const rightParts = right.split(".");
+    for (let index = 0; index < leftParts.length && index < rightParts.length; index++) {
+      const difference = Number(rightParts[index]) - Number(leftParts[index]);
+      if (difference !== 0) return difference;
+    }
+    return 0;
+  });
+}
+
+export function matchesGameVersionSeries(supported: string, series: string): boolean {
+  const prefix = series.replace(/\.x$/, "");
+  return supported === prefix || supported.startsWith(`${prefix}.`);
+}
+
 export function compatibilityFor(
   instance: Instance,
   gameVersions: GameVersion[],

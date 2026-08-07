@@ -1,6 +1,7 @@
 export const ACCOUNTS_QUERY_KEY = ["accounts"] as const;
 export const INSTANCES_QUERY_KEY = ["instances"] as const;
 export const GAME_VERSIONS_QUERY_KEY = ["game-versions"] as const;
+export const AVAILABLE_GAME_VERSIONS_QUERY_KEY = ["game-versions", "available"] as const;
 export const OPERATIONS_QUERY_KEY = ["operations"] as const;
 export const STATISTICS_QUERY_KEY = ["statistics"] as const;
 export const SETTINGS_QUERY_KEY = ["settings"] as const;
