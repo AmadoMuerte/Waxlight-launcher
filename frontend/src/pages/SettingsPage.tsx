@@ -40,6 +40,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.checkForUpdates === right.checkForUpdates &&
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
+    left.telemetryEnabled === right.telemetryEnabled &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -418,6 +419,25 @@ export function SettingsPage({ settings, notify, onSaved, currentVersion }: Sett
                   </div>
                 </>
               )}
+            </div>
+          </section>
+
+          <section className="settingsPageSection">
+            <header>
+              <h2>{t("privacy_and_telemetry")}</h2>
+              <p>{t("privacy_and_telemetry_description")}</p>
+            </header>
+            <div className="formFields">
+              <div className="checkboxSetting">
+                <Checkbox
+                  label={t("send_usage_analytics")}
+                  checked={value.telemetryEnabled}
+                  onChange={(event) =>
+                    setValue({ ...value, telemetryEnabled: event.target.checked })
+                  }
+                />
+                <small>{t("telemetry_consent_notice")}</small>
+              </div>
             </div>
           </section>
         </div>

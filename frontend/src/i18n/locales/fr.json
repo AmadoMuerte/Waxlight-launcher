@@ -540,5 +540,9 @@
   "mods_link_failed_count_one": "{{count}} mod n'a pas pu être lié",
   "mods_link_failed_count_few": "{{count}} mods n'ont pas pu être liés",
   "mods_link_failed_count_many": "{{count}} mods n'ont pas pu être liés",
-  "mods_link_failed_count_other": "{{count}} mods n'ont pas pu être liés"
+  "mods_link_failed_count_other": "{{count}} mods n'ont pas pu être liés",
+  "privacy_and_telemetry": "Confidentialité et télémétrie",
+  "privacy_and_telemetry_description": "Contrôlez ce que Waxlight peut partager. La télémétrie est activée par défaut et peut être désactivée ici.",
+  "send_usage_analytics": "Envoyer des statistiques d'utilisation",
+  "telemetry_consent_notice": "Waxlight n'envoie qu'un identifiant d'installation aléatoire, la version du launcher, le système d'exploitation, l'architecture et des compteurs numériques (instances, mods). Jamais : identifiants de compte, jetons d'authentification, fichiers personnels, noms d'instances, listes de mods ou erreurs brutes."
 }
