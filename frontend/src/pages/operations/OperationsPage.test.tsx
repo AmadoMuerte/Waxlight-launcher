@@ -19,6 +19,10 @@ const api = vi.hoisted(() => ({
   logsOpenDirectory: vi.fn(),
 }));
 
+const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+
+vi.mock("../../entities/settings/queries", () => settingsQuery);
+
 vi.mock("../../shared/api/operations", () => ({
   operationsApi: {
     list: api.list,
@@ -99,6 +103,7 @@ describe("operations history controls", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -189,5 +194,103 @@ describe("operations history controls", () => {
 
     await user.click(screen.getByRole("button", { expanded: false }));
     expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
+  });
+});
+
+describe("confirmDeletion gate", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.remove.mockResolvedValue(undefined);
+    api.clearHistory.mockResolvedValue(3);
+    api.logsList.mockResolvedValue([]);
+    api.logsExport.mockResolvedValue("");
+    api.logsOpenDirectory.mockResolvedValue(undefined);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("runtime", {
+      EventsOn: () => () => undefined,
+      EventsOnMultiple: () => () => undefined,
+      EventsEmit: () => undefined,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("removes a finished operation directly when confirmDeletion is false", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: false } });
+    const user = userEvent.setup();
+    const { notify } = await renderPageLoaded([
+      operation("completed", "Completed download", "completed"),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Delete Completed download" }));
+
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("completed"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(notify).toHaveBeenCalledWith("Operation removed from history");
+  });
+
+  it("shows a confirm dialog before removing when confirmDeletion is true", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: true } });
+    const user = userEvent.setup();
+    const { notify } = await renderPageLoaded([
+      operation("completed", "Completed download", "completed"),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Delete Completed download" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.remove).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("completed"));
+    expect(notify).toHaveBeenCalledWith("Operation removed from history");
+  });
+
+  it("shows a confirm dialog when settings are still loading", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    const user = userEvent.setup();
+    await renderPageLoaded([operation("completed", "Completed download", "completed")]);
+
+    await user.click(screen.getByRole("button", { name: "Delete Completed download" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
+  it("clears history directly when confirmDeletion is false", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: false } });
+    const user = userEvent.setup();
+    const { notify } = await renderPageLoaded([operation("failed", "Failed download", "failed")]);
+
+    await user.click(screen.getByRole("button", { name: "Clear history" }));
+
+    await waitFor(() => expect(api.clearHistory).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(notify).toHaveBeenCalledWith("3 operations removed from history");
+  });
+
+  it("shows a confirm dialog before clearing history when confirmDeletion is true", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: true } });
+    const user = userEvent.setup();
+    await renderPageLoaded([operation("failed", "Failed download", "failed")]);
+
+    await user.click(screen.getByRole("button", { name: "Clear history" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.clearHistory).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.clearHistory).toHaveBeenCalledTimes(1));
   });
 });

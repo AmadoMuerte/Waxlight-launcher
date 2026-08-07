@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useToastStore } from "../../app/stores/toast";
 import { versionsApi } from "../../entities/game-version/api";
 import { useGameVersionsQuery } from "../../entities/game-version/queries";
+import { useSettingsQuery } from "../../entities/settings/queries";
 import { AvailableVersions } from "../../features/install-game-version/AvailableVersions";
 import { InstallLocalVersionModal } from "../../features/install-game-version/InstallLocalVersionModal";
 import { errorMessage } from "../../shared/api/bridge";
@@ -20,6 +21,7 @@ export function VersionsPage() {
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const { data: versions = [] } = useGameVersionsQuery();
+  const { data: settings } = useSettingsQuery();
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -29,6 +31,19 @@ export function VersionsPage() {
   }>({ open: false, title: "", onConfirm: () => {} });
 
   function removeVersion(version: (typeof versions)[number]) {
+    if (settings?.confirmDeletion === false) {
+      void (async () => {
+        try {
+          await versionsApi.remove(version.id, true);
+          await queryClient.invalidateQueries({ queryKey: GAME_VERSIONS_QUERY_KEY });
+          await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEY });
+          notify(t("game_version_removed"));
+        } catch (error) {
+          notify(errorMessage(error), "error");
+        }
+      })();
+      return;
+    }
     setConfirmState({
       open: true,
       title: t("remove_version_confirmation", { name: version.name }),
