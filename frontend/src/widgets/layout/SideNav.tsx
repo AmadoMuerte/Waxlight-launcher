@@ -8,7 +8,6 @@ const navigation = [
   { to: "/mods", icon: "◇", labelKey: "mods" },
   { to: "/versions", icon: "⬡", labelKey: "game_versions" },
   { to: "/operations", icon: "⇣", labelKey: "operations" },
-  { to: "/accounts", icon: "♙", labelKey: "accounts" },
   { to: "/statistics", icon: "◷", labelKey: "statistics" },
   { to: "/settings", icon: "⚙", labelKey: "settings" },
 ] as const;
