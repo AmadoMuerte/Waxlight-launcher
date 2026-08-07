@@ -429,6 +429,8 @@
   "close": "Закрыть",
   "retry": "Повторить",
   "could_not_connect_to_core": "Не удалось подключиться к ядру",
+  "frontend_error": "Интерфейс лаунчера столкнулся с непредвиденной ошибкой",
+  "reload_launcher": "Перезапустить интерфейс",
   "launcher_uppercase": "ЛАУНЧЕР",
   "unofficial_launcher": "Неофициальный лаунчер",
   "for_vintage_story": "для Vintage Story",

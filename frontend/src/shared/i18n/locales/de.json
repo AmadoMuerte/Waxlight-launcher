@@ -429,6 +429,8 @@
   "close": "Schließen",
   "retry": "Erneut versuchen",
   "could_not_connect_to_core": "Verbindung zum Kern konnte nicht hergestellt werden",
+  "frontend_error": "Die Launcher-Oberfläche ist auf einen unerwarteten Fehler gestoßen",
+  "reload_launcher": "Oberfläche neu laden",
   "launcher_uppercase": "LAUNCHER",
   "unofficial_launcher": "Inoffizieller Launcher",
   "for_vintage_story": "für Vintage Story",

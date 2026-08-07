@@ -3,6 +3,7 @@ package presentation
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"strings"
@@ -15,6 +16,14 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
+
+// maxFrontendLogMessage caps how large a single frontend-provided log message
+// may be so the UI cannot flood the log buffer.
+const maxFrontendLogMessage = 4096
+
+// maxFrontendLogAttrs caps how many key/value pairs the frontend may attach to
+// one log message.
+const maxFrontendLogAttrs = 16
 
 // LogController exposes the launcher's in-memory log console and lets the user
 // export the recent logs plus a system summary for support.
@@ -36,6 +45,53 @@ func (controller *LogController) ListLogs(limit int) ([]string, error) {
 		lines = lines[len(lines)-limit:]
 	}
 	return lines, nil
+}
+
+// WriteLog routes a log entry reported from the frontend into the launcher's
+// logging pipeline (in-memory console, live push, session file, support
+// export). The level must be one of "debug", "info", "warn" or "error";
+// messages are length-capped and sensitive values are redacted like any other
+// log line. Attrs are attached as key/value pairs; the entry is marked with
+// source=frontend so UI-originated lines are distinguishable.
+func (controller *LogController) WriteLog(level string, message string, attrs map[string]string) error {
+	slogLevel, err := frontendLogLevel(level)
+	if err != nil {
+		return err
+	}
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return domain.NewError(domain.ErrValidation, "Log message must not be empty")
+	}
+	if len(message) > maxFrontendLogMessage {
+		message = message[:maxFrontendLogMessage]
+	}
+	args := make([]any, 0, 2+len(attrs)*2)
+	args = append(args, "source", "frontend")
+	for key, value := range attrs {
+		if len(args) >= 2+maxFrontendLogAttrs*2 {
+			break
+		}
+		args = append(args, key, value)
+	}
+	slog.Log(context.Background(), slogLevel, message, args...)
+	return nil
+}
+
+// frontendLogLevel maps a frontend level name onto a slog level. An unknown
+// level is a validation error so a buggy UI cannot corrupt the log stream.
+func frontendLogLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "", "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, domain.NewError(domain.ErrValidation, "Unsupported log level: "+level)
+	}
 }
 
 // OpenLogsDirectory opens the launcher's rolling log directory in the native

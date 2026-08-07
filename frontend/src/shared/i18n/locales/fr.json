@@ -429,6 +429,8 @@
   "close": "Fermer",
   "retry": "Réessayer",
   "could_not_connect_to_core": "Impossible de se connecter au noyau",
+  "frontend_error": "L'interface du lanceur a rencontré une erreur inattendue",
+  "reload_launcher": "Recharger l'interface",
   "launcher_uppercase": "LANCEUR",
   "unofficial_launcher": "Lanceur non officiel",
   "for_vintage_story": "pour Vintage Story",

@@ -437,6 +437,8 @@
   "close": "Close",
   "retry": "Retry",
   "could_not_connect_to_core": "Could not connect to the core",
+  "frontend_error": "The launcher interface hit an unexpected error",
+  "reload_launcher": "Reload launcher",
   "launcher_uppercase": "LAUNCHER",
   "unofficial_launcher": "Unofficial launcher",
   "for_vintage_story": "for Vintage Story",

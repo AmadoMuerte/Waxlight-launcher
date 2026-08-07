@@ -5,10 +5,14 @@ import { HashRouter } from "react-router-dom";
 
 import "@xterm/xterm/css/xterm.css";
 import "../shared/i18n";
+import { installGlobalErrorLogging } from "../shared/lib/logger";
 import { App } from "./App";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { queryClient } from "./providers/queryClient";
 
 import "./styles.css";
+
+installGlobalErrorLogging();
 
 const rootElement = document.getElementById("root");
 
@@ -20,7 +24,9 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <HashRouter>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </HashRouter>
     </QueryClientProvider>
   </React.StrictMode>,

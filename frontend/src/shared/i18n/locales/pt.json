@@ -429,6 +429,8 @@
   "close": "Fechar",
   "retry": "Tentar novamente",
   "could_not_connect_to_core": "Não foi possível conectar ao núcleo",
+  "frontend_error": "A interface do inicializador encontrou um erro inesperado",
+  "reload_launcher": "Recarregar interface",
   "launcher_uppercase": "INICIALIZADOR",
   "unofficial_launcher": "Inicializador não oficial",
   "for_vintage_story": "para Vintage Story",

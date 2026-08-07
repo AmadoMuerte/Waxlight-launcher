@@ -429,6 +429,8 @@
   "close": "Stäng",
   "retry": "Försök igen",
   "could_not_connect_to_core": "Det gick inte att ansluta till kärnan",
+  "frontend_error": "Startprogrammets gränssnitt stötte på ett oväntat fel",
+  "reload_launcher": "Starta om gränssnittet",
   "launcher_uppercase": "STARTPROGRAM",
   "unofficial_launcher": "Inofficiellt startprogram",
   "for_vintage_story": "för Vintage Story",
