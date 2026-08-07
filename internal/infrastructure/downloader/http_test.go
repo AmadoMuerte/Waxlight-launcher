@@ -57,6 +57,82 @@ func TestDownloaderVerifiesOfficialMD5AndReportsProgress(t *testing.T) {
 	}
 }
 
+func TestNormalizeDownloadURL(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "encodes raw spaces in query",
+			raw:  "https://moddbcdn.vintagestory.at/Immersive+Light_0.2._abc.zip?dl=Immersive Light_0.2.5.zip",
+			want: "https://moddbcdn.vintagestory.at/Immersive+Light_0.2._abc.zip?dl=Immersive+Light_0.2.5.zip",
+		},
+		{
+			name: "keeps clean URL unchanged",
+			raw:  "https://moddbcdn.vintagestory.at/ImmersiveMining_0.3._abc.zip?dl=ImmersiveMining_0.3.0.zip",
+			want: "https://moddbcdn.vintagestory.at/ImmersiveMining_0.3._abc.zip?dl=ImmersiveMining_0.3.0.zip",
+		},
+		{
+			name: "keeps URL without query unchanged",
+			raw:  "https://example.com/files/mod.zip",
+			want: "https://example.com/files/mod.zip",
+		},
+		{
+			name: "preserves percent-encoded query values",
+			raw:  "https://example.com/mod.zip?dl=a%20b.zip&x=1",
+			want: "https://example.com/mod.zip?dl=a+b.zip&x=1",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := normalizeDownloadURL(test.raw)
+			if err != nil {
+				t.Fatalf("normalizeDownloadURL returned error: %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("normalizeDownloadURL(%q) = %q, want %q", test.raw, got, test.want)
+			}
+		})
+	}
+}
+
+func TestDownloaderAcceptsURLWithRawSpacesInQuery(t *testing.T) {
+	content := []byte("mod archive")
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		if got := request.URL.Query().Get("dl"); got != "Immersive Light_0.2.5.zip" {
+			http.Error(writer, "unexpected dl parameter: "+got, http.StatusBadRequest)
+			return
+		}
+		_, _ = writer.Write(content)
+	}))
+	defer server.Close()
+
+	destination := filepath.Join(t.TempDir(), "Immersive Light_0.2.5.zip")
+	downloader := &HTTPDownloader{Client: server.Client()}
+	err := downloader.Download(
+		context.Background(),
+		application.DownloadRequest{
+			URL:             server.URL + "/mod.zip?dl=Immersive Light_0.2.5.zip",
+			DestinationPath: destination,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	written, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(content) {
+		t.Fatalf("unexpected downloaded content %q", written)
+	}
+}
+
 func TestDownloaderRejectsChecksumMismatch(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(
 		writer http.ResponseWriter,
