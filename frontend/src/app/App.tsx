@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 
 import { useAccountsQuery } from "../entities/account/queries";
 import { useGameVersionsQuery } from "../entities/game-version/queries";

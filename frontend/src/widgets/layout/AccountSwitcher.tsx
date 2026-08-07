@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useAccountsQuery } from "../../entities/account/queries";

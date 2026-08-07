@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import {

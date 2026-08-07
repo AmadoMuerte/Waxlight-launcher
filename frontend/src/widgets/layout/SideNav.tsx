@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 
 import { useOperationsQuery } from "../../entities/operation/queries";
 
