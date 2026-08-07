@@ -11,11 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"golang.org/x/mod/semver"
 )
 
@@ -559,6 +561,8 @@ func (s *Service) downloadCatalogVersion(
 		message := "Could not download the mod"
 		if errors.Is(err, context.Canceled) {
 			message = "Download cancelled"
+		} else {
+			s.reportModDownloadError(err)
 		}
 		return domain.DownloadedMod{}, false, &domain.AppError{
 			Code:      domain.ErrDownloadFailed,
@@ -594,7 +598,30 @@ func (s *Service) downloadCatalogVersion(
 	if err := s.modDownloads.Save(ctx, downloaded); err != nil {
 		return domain.DownloadedMod{}, false, err
 	}
+	s.reportEvent(ctx, telemetry.EventModDownloaded)
 	return downloaded, true, nil
+}
+
+// reportModDownloadError classifies a mod download failure into a structured
+// telemetry error. The downloader reports HTTP statuses as
+// "download returned HTTP <code>"; only the category is transmitted.
+func (s *Service) reportModDownloadError(err error) {
+	code := telemetry.ErrorModDownloadFailed
+	if status := downloadHTTPStatus(err); status == 404 {
+		code = telemetry.ErrorModDownloadHTTP404
+	}
+	s.reportError(context.Background(), code, telemetry.ComponentModDownloader, telemetry.OperationDownloadMod)
+}
+
+func downloadHTTPStatus(err error) int {
+	message := err.Error()
+	marker := "HTTP "
+	if index := strings.LastIndex(message, marker); index >= 0 {
+		if status, parseErr := strconv.Atoi(strings.TrimSpace(message[index+len(marker):])); parseErr == nil {
+			return status
+		}
+	}
+	return 0
 }
 
 func (s *Service) installModPlan(
@@ -874,7 +901,11 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 		return domain.NewError(domain.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
 	slog.Info("cached mod removed", "modId", modID, "versionId", versionID)
-	return s.modDownloads.Delete(ctx, modID, versionID)
+	if err := s.modDownloads.Delete(ctx, modID, versionID); err != nil {
+		return err
+	}
+	s.reportEvent(ctx, telemetry.EventModRemoved)
+	return nil
 }
 
 type modVersionMatch struct {
@@ -1138,6 +1169,7 @@ func (s *Service) linkLocalModFile(
 	s.emit("mods:downloads-changed", map[string]any{
 		"taskId": "", "modId": downloaded.ModID, "downloadedDependencies": []modDownloadedDependencyEvent{},
 	})
+	s.reportEvent(ctx, telemetry.EventModDownloaded)
 	return downloaded, link, nil
 }
 

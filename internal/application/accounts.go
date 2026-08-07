@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
 const defaultLoginFlowTTL = 5 * time.Minute
@@ -52,10 +53,36 @@ type AccountService struct {
 	persistMu        sync.Mutex
 	loginFlow        map[string]*PendingLogin
 	cleanupInstances func(context.Context, string) error
+	telemetry        *telemetry.Service
 }
 
 func (service *AccountService) ConfigureInstanceCleanup(cleanup func(context.Context, string) error) {
 	service.cleanupInstances = cleanup
+}
+
+// ConfigureTelemetry wires the telemetry service into authentication. Only
+// generic server-unavailability categories are reported; credentials, player
+// names, UIDs, and server responses never enter telemetry.
+func (service *AccountService) ConfigureTelemetry(t *telemetry.Service) {
+	service.telemetry = t
+}
+
+// reportAuthFailure reports AUTH_SERVER_UNAVAILABLE when the Vintage Story
+// authentication server is unreachable or failing. Invalid credentials and
+// other user-side outcomes are not reported.
+func (service *AccountService) reportAuthFailure(err error) {
+	if service.telemetry == nil {
+		return
+	}
+	if !errors.Is(err, auth.ErrNetwork) && !errors.Is(err, auth.ErrServer) {
+		return
+	}
+	service.telemetry.Error(
+		context.Background(),
+		telemetry.ErrorAuthServerUnavailable,
+		telemetry.ComponentAuthentication,
+		telemetry.OperationAuthenticate,
+	)
 }
 
 func NewAccountService(store Store, client AuthClient, secrets SecretStore) *AccountService {
@@ -120,6 +147,7 @@ func (service *AccountService) startLogin(
 		return LoginResult{Status: LoginStatusTOTPRequired, FlowID: flowID}, nil
 	}
 	if err != nil {
+		service.reportAuthFailure(err)
 		return loginFailure(err), nil
 	}
 	return service.persistSession(ctx, expectedAccountID, email, session)
@@ -155,6 +183,7 @@ func (service *AccountService) CompleteTOTP(
 		flow.PreLoginToken,
 	)
 	if err != nil {
+		service.reportAuthFailure(err)
 		return loginFailure(err), nil
 	}
 
@@ -401,6 +430,7 @@ func (service *AccountService) ValidateAuthorizedAccount(
 	}
 	valid, err := service.client.Validate(ctx, account.UID, account.SessionKey)
 	if err != nil {
+		service.reportAuthFailure(err)
 		return account, mapAuthError(err)
 	}
 
