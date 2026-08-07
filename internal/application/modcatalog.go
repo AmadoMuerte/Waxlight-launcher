@@ -735,6 +735,27 @@ func findDependencyVersion(
 	gameVersions []string,
 	allowIncompatible bool,
 ) (domain.ModVersion, bool) {
+	best, ok := bestSatisfyingVersion(versions, requirement, gameVersions, allowIncompatible)
+	if ok {
+		return best, true
+	}
+	// A dependency required as "any version" puts no compatibility constraint
+	// on the dependency. ModDB release tags are frequently not refreshed for
+	// newer game versions even though the mod keeps working, so fall back to
+	// the best release rather than failing the whole install.
+	requirement = strings.TrimSpace(requirement)
+	if requirement == "" || requirement == "*" {
+		return bestSatisfyingVersion(versions, requirement, gameVersions, true)
+	}
+	return domain.ModVersion{}, false
+}
+
+func bestSatisfyingVersion(
+	versions []domain.ModVersion,
+	requirement string,
+	gameVersions []string,
+	allowIncompatible bool,
+) (domain.ModVersion, bool) {
 	candidates := make([]domain.ModVersion, 0, len(versions))
 	for _, version := range versions {
 		if !strings.HasPrefix(version.DownloadURL, "https://") {
