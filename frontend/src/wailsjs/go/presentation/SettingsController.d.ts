@@ -18,4 +18,6 @@ export function SelectGameDirectory():Promise<string>;
 
 export function SelectModFile():Promise<string>;
 
+export function SelectModFiles():Promise<Array<string>>;
+
 export function UpdateSettings(arg1:presentation.SettingsDTO):Promise<presentation.SettingsDTO>;

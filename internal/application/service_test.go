@@ -464,6 +464,88 @@ func TestLocalModLifecycle(t *testing.T) {
 	}
 }
 
+func TestInstallModFilesBatch(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Batch", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	makeMod := func(name string) string {
+		path := filepath.Join(fixture.root, name+".zip")
+		if err := os.WriteFile(path, []byte("mod"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	first := makeMod("first")
+	second := makeMod("second")
+	unsupported := filepath.Join(fixture.root, "not-a-mod.txt")
+	if err := os.WriteFile(unsupported, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := fixture.service.InstallModFiles(ctx, instance.ID, []string{first, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Installed) != 2 || len(result.Skipped) != 0 || len(result.Failed) != 0 {
+		t.Fatalf("unexpected batch result: %#v", result)
+	}
+
+	duplicateResult, err := fixture.service.InstallModFiles(
+		ctx,
+		instance.ID,
+		[]string{first, second},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(duplicateResult.Installed) != 0 {
+		t.Fatalf("expected no new installs, got %#v", duplicateResult.Installed)
+	}
+	if len(duplicateResult.Skipped) != 2 {
+		t.Fatalf("expected two skipped duplicates, got %#v", duplicateResult.Skipped)
+	}
+	if len(duplicateResult.Failed) != 0 {
+		t.Fatalf("expected no failures, got %#v", duplicateResult.Failed)
+	}
+
+	partialResult, err := fixture.service.InstallModFiles(
+		ctx,
+		instance.ID,
+		[]string{first, unsupported},
+	)
+	if err == nil {
+		t.Fatal("expected an error when nothing could be installed")
+	}
+	if len(partialResult.Installed) != 0 || len(partialResult.Skipped) != 1 ||
+		len(partialResult.Failed) != 1 || partialResult.Failed[0].Path != unsupported {
+		t.Fatalf("unexpected partial result: %#v", partialResult)
+	}
+
+	mods, err := fixture.service.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mods) != 2 {
+		t.Fatalf("expected two installed mods, got %d", len(mods))
+	}
+
+	allFailResult, err := fixture.service.InstallModFiles(ctx, instance.ID, []string{unsupported})
+	if err == nil {
+		t.Fatal("expected an error when nothing could be installed")
+	}
+	if len(allFailResult.Installed) != 0 || len(allFailResult.Failed) != 1 {
+		t.Fatalf("unexpected all-fail result: %#v", allFailResult)
+	}
+}
+
 func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()

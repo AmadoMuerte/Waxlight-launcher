@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type AppError struct {
 	Code      string
@@ -18,6 +21,10 @@ func (e *AppError) Unwrap() error { return e.Cause }
 func NewError(code, message string) error {
 	return &AppError{Code: code, Message: message}
 }
+
+// ErrModFileExists is returned when a mod file with the same name already
+// exists in the target Mods directory.
+var ErrModFileExists = errors.New("mod file already exists")
 
 const (
 	ErrValidation          = "VALIDATION_ERROR"
