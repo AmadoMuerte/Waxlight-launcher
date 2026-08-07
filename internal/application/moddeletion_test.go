@@ -33,7 +33,7 @@ func TestDeleteModRemovesUnusedDependencies(t *testing.T) {
 	root := installedModByName(mods, "Root Mod")
 	lib := installedModByName(mods, "Lib Mod")
 
-	if err := fixture.service.DeleteMod(ctx, root.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, root.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	remaining, err := fixture.service.ListMods(ctx, instance.ID)
@@ -67,7 +67,7 @@ func TestDeleteModKeepsDependencyUsedByAnotherMod(t *testing.T) {
 	rootA := installedModByName(mods, "Root A")
 	lib := installedModByName(mods, "Shared Lib")
 
-	if err := fixture.service.DeleteMod(ctx, rootA.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, rootA.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	remaining, err := fixture.service.ListMods(ctx, instance.ID)
@@ -80,7 +80,7 @@ func TestDeleteModKeepsDependencyUsedByAnotherMod(t *testing.T) {
 	assertFileExists(t, lib.FilePath)
 
 	rootB := installedModByName(remaining, "Root B")
-	if err := fixture.service.DeleteMod(ctx, rootB.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, rootB.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	finalMods, err := fixture.service.ListMods(ctx, instance.ID)
@@ -115,7 +115,7 @@ func TestDeleteModRemovesTransitiveDependencies(t *testing.T) {
 	lib := installedModByName(mods, "Lib Mod")
 	sublib := installedModByName(mods, "Sub Lib")
 
-	if err := fixture.service.DeleteMod(ctx, root.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, root.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	remaining, err := fixture.service.ListMods(ctx, instance.ID)
@@ -127,6 +127,49 @@ func TestDeleteModRemovesTransitiveDependencies(t *testing.T) {
 	}
 	assertFileRemoved(t, lib.FilePath)
 	assertFileRemoved(t, sublib.FilePath)
+}
+
+func TestModDeletePreviewListsUnusedDependencies(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Preview", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	installModWithDeps(t, fixture, instance.ID, "rootmod", "Root Mod", map[string]string{"libmod": "1.0"})
+	installModWithDeps(t, fixture, instance.ID, "other", "Other Mod", map[string]string{"libmod": "1.0"})
+	installModWithDeps(t, fixture, instance.ID, "libmod", "Lib Mod", map[string]string{})
+
+	mods, err := fixture.service.ListMods(ctx, instance.ID)
+	if err != nil || len(mods) != 3 {
+		t.Fatalf("expected three installed mods, got %#v, %v", mods, err)
+	}
+	root := installedModByName(mods, "Root Mod")
+	other := installedModByName(mods, "Other Mod")
+
+	// The shared dependency is not listed while another mod requires it.
+	preview, err := fixture.service.ModDeletePreview(ctx, root.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.ModID != root.ID || preview.ModName != "Root Mod" || len(preview.Dependencies) != 0 {
+		t.Fatalf("unexpected preview for shared dependency: %#v", preview)
+	}
+
+	// After the other user is gone, the dependency appears in the preview.
+	if err := fixture.service.DeleteMod(ctx, other.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	preview, err = fixture.service.ModDeletePreview(ctx, root.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.Dependencies) != 1 || preview.Dependencies[0].Name != "Lib Mod" {
+		t.Fatalf("expected Lib Mod in the preview, got %#v", preview)
+	}
 }
 
 func TestDeleteModWithoutDependenciesKeepsSiblings(t *testing.T) {
@@ -148,7 +191,7 @@ func TestDeleteModWithoutDependenciesKeepsSiblings(t *testing.T) {
 	}
 	alpha := installedModByName(mods, "Alpha")
 
-	if err := fixture.service.DeleteMod(ctx, alpha.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, alpha.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	remaining, err := fixture.service.ListMods(ctx, instance.ID)

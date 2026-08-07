@@ -401,8 +401,20 @@ func (controller *ModManagerController) SetModEnabled(
 	return modDTO(mod), err
 }
 
-func (controller *ModManagerController) RemoveMod(id string) error {
-	return controller.svc.DeleteMod(context.Background(), id)
+func (controller *ModManagerController) RemoveMod(id string, deleteDependencies bool) error {
+	return controller.svc.DeleteMod(context.Background(), id, deleteDependencies)
+}
+
+func (controller *ModManagerController) GetModDeletePreview(id string) (ModDeletePreviewDTO, error) {
+	preview, err := controller.svc.ModDeletePreview(context.Background(), id)
+	if err != nil {
+		return ModDeletePreviewDTO{}, err
+	}
+	dto := ModDeletePreviewDTO{ModID: preview.ModID, ModName: preview.ModName}
+	for _, dependency := range preview.Dependencies {
+		dto.Dependencies = append(dto.Dependencies, modDTO(dependency))
+	}
+	return dto, nil
 }
 
 type LaunchController struct {

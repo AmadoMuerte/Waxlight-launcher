@@ -485,6 +485,41 @@ export namespace presentation {
 	        this.expectedSha256 = source["expectedSha256"];
 	    }
 	}
+	export class ModDeletePreviewDTO {
+	    modId: string;
+	    modName: string;
+	    dependencies: InstalledModDTO[];
+
+	    static createFrom(source: any = {}) {
+	        return new ModDeletePreviewDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.modName = source["modName"];
+	        this.dependencies = this.convertValues(source["dependencies"], InstalledModDTO);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+	        if (!a) {
+	            return a;
+	        }
+	        if (a.slice) {
+	            return (a as any[]).map((elem: any) => this.convertValues(elem, classs, asMap));
+	        } else if ("object" === typeof a) {
+	            if (asMap) {
+	                for (const key of Object.keys(a)) {
+	                    a[key] = new classs(a[key]);
+	                }
+	                return a;
+	            }
+	            return new classs(a);
+	        }
+	        return a;
+	    }
+	}
+
 	export class InstalledModDTO {
 	    id: string;
 	    instanceId: string;

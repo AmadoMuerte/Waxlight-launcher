@@ -1026,7 +1026,7 @@ func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (d
 	}
 	return m, e
 }
-func (s *Service) DeleteMod(ctx context.Context, id string) error {
+func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies bool) error {
 	if err := s.rejectIfRelocating(); err != nil {
 		return err
 	}
@@ -1034,9 +1034,12 @@ func (s *Service) DeleteMod(ctx context.Context, id string) error {
 	if e != nil {
 		return e
 	}
-	toDelete, e := s.modDeletionSet(ctx, m)
-	if e != nil {
-		return e
+	toDelete := []domain.InstalledMod{m}
+	if deleteDependencies {
+		toDelete, e = s.modDeletionSet(ctx, m)
+		if e != nil {
+			return e
+		}
 	}
 	for _, mod := range toDelete {
 		if e = os.Remove(mod.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
@@ -1049,6 +1052,30 @@ func (s *Service) DeleteMod(ctx context.Context, id string) error {
 		slog.Info("mod removed", "mod", mod.Name)
 	}
 	return nil
+}
+
+// ModDeletePreview reports which dependencies would be removed together with
+// the given mod, so the UI can ask the user before deleting anything.
+func (s *Service) ModDeletePreview(ctx context.Context, id string) (ModDeletePreview, error) {
+	m, err := s.store.GetMod(ctx, id)
+	if err != nil {
+		return ModDeletePreview{}, err
+	}
+	toDelete, err := s.modDeletionSet(ctx, m)
+	if err != nil {
+		return ModDeletePreview{}, err
+	}
+	preview := ModDeletePreview{ModID: m.ID, ModName: m.Name}
+	for _, dependency := range toDelete[1:] {
+		preview.Dependencies = append(preview.Dependencies, dependency)
+	}
+	return preview, nil
+}
+
+type ModDeletePreview struct {
+	ModID        string
+	ModName      string
+	Dependencies []domain.InstalledMod
 }
 
 // modDeletionSet returns the mod to delete followed by every dependency that

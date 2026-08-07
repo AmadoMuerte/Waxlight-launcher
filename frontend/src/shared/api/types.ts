@@ -81,6 +81,12 @@ export interface InstalledMod {
   installedAt: string;
 }
 
+export interface ModDeletePreview {
+  modId: string;
+  modName: string;
+  dependencies: InstalledMod[];
+}
+
 export interface ModFileFailure {
   path: string;
   error: string;

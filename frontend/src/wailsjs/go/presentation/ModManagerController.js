@@ -6,6 +6,10 @@ export function CheckInstanceModUpdates(arg1) {
   return window['go']['presentation']['ModManagerController']['CheckInstanceModUpdates'](arg1);
 }
 
+export function GetModDeletePreview(arg1) {
+  return window['go']['presentation']['ModManagerController']['GetModDeletePreview'](arg1);
+}
+
 export function InstallModFile(arg1) {
   return window['go']['presentation']['ModManagerController']['InstallModFile'](arg1);
 }
@@ -22,8 +26,8 @@ export function ListInstalledMods(arg1) {
   return window['go']['presentation']['ModManagerController']['ListInstalledMods'](arg1);
 }
 
-export function RemoveMod(arg1) {
-  return window['go']['presentation']['ModManagerController']['RemoveMod'](arg1);
+export function RemoveMod(arg1, arg2) {
+  return window['go']['presentation']['ModManagerController']['RemoveMod'](arg1, arg2);
 }
 
 export function SetModEnabled(arg1, arg2) {
