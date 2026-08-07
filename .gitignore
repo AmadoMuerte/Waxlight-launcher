@@ -39,6 +39,7 @@ account-secrets.json
 *.pfx
 
 # IDEs and editors
+.omo
 .idea/
 .vscode/
 *.swp

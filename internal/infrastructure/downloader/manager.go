@@ -40,3 +40,7 @@ func (manager *Manager) Download(
 	}
 	return manager.downloader.Download(ctx, request, progress)
 }
+
+func (manager *Manager) ContentLength(ctx context.Context, url string) (int64, error) {
+	return manager.downloader.ContentLength(ctx, url)
+}

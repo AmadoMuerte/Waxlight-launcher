@@ -37,6 +37,10 @@ func (stub *updateDownloaderStub) Download(
 	return stub.err
 }
 
+func (stub *updateDownloaderStub) ContentLength(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
 type updateInstallerStub struct {
 	path string
 	err  error

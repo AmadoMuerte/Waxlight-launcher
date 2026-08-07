@@ -142,6 +142,29 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	return os.Rename(partial, in.DestinationPath)
 }
 
+func (d *HTTPDownloader) ContentLength(ctx context.Context, rawURL string) (int64, error) {
+	if !strings.HasPrefix(rawURL, "https://") {
+		return 0, fmt.Errorf("only HTTPS URLs are allowed")
+	}
+	normalizedURL, err := normalizeDownloadURL(rawURL)
+	if err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, normalizedURL, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("HEAD returned HTTP %d", resp.StatusCode)
+	}
+	return resp.ContentLength, nil
+}
+
 func normalizeDownloadURL(raw string) (string, error) {
 	parsed, err := url.Parse(raw)
 	if err != nil {

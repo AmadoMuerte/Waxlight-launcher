@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
@@ -159,5 +160,55 @@ func TestDownloaderRejectsChecksumMismatch(t *testing.T) {
 	}
 	if _, statErr := os.Stat(destination); !os.IsNotExist(statErr) {
 		t.Fatalf("final file must not exist after mismatch: %v", statErr)
+	}
+}
+
+func TestContentLengthReturnsCorrectSize(t *testing.T) {
+	content := []byte("test content for size")
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		writer.Header().Set("Content-Length", fmt.Sprint(len(content)))
+		_, _ = writer.Write(content)
+	}))
+	defer server.Close()
+
+	downloader := &HTTPDownloader{Client: server.Client()}
+	size, err := downloader.ContentLength(context.Background(), server.URL+"/mod.zip")
+	if err != nil {
+		t.Fatalf("ContentLength returned error: %v", err)
+	}
+	if size != int64(len(content)) {
+		t.Fatalf("ContentLength = %d, want %d", size, len(content))
+	}
+}
+
+func TestContentLengthWithSpacesInURL(t *testing.T) {
+	content := []byte("mod archive")
+	receivedURL := ""
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		receivedURL = request.URL.String()
+		writer.Header().Set("Content-Length", fmt.Sprint(len(content)))
+		_, _ = writer.Write(content)
+	}))
+	defer server.Close()
+
+	downloader := &HTTPDownloader{Client: server.Client()}
+	// URL with raw space in query — should be normalized before HEAD request
+	size, err := downloader.ContentLength(context.Background(),
+		server.URL+"/mod.zip?dl=Immersive Light_0.2.5.zip")
+	if err != nil {
+		t.Fatalf("ContentLength returned error: %v", err)
+	}
+	if size != int64(len(content)) {
+		t.Fatalf("ContentLength = %d, want %d", size, len(content))
+	}
+	// Verify the space was encoded (server received %20 or +)
+	if !strings.Contains(receivedURL, "%20") && !strings.Contains(receivedURL, "+") {
+		t.Fatalf("URL was not encoded, got: %s", receivedURL)
 	}
 }

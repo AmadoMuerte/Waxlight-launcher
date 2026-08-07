@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -101,6 +102,49 @@ func (s *Service) GetCatalogMod(
 			}
 		}
 	}
+
+	// Fetch file sizes for versions not yet in cache.
+	type sizeResult struct {
+		index int
+		size  int64
+	}
+	sizeJobs := make(chan int)
+	sizeResults := make(chan sizeResult, len(details.Versions))
+	workers := 4
+	if workers > len(details.Versions) {
+		workers = len(details.Versions)
+	}
+	var sizeWait sync.WaitGroup
+	for range workers {
+		sizeWait.Add(1)
+		go func() {
+			defer sizeWait.Done()
+			for index := range sizeJobs {
+				v := details.Versions[index]
+				if v.FileSize != 0 || !strings.HasPrefix(v.DownloadURL, "https://") {
+					continue
+				}
+				headCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				size, err := s.downloader.ContentLength(headCtx, v.DownloadURL)
+				cancel()
+				if err == nil && size > 0 {
+					sizeResults <- sizeResult{index: index, size: size}
+				}
+			}
+		}()
+	}
+	go func() {
+		for index := 0; index < len(details.Versions); index++ {
+			sizeJobs <- index
+		}
+		close(sizeJobs)
+		sizeWait.Wait()
+		close(sizeResults)
+	}()
+	for result := range sizeResults {
+		details.Versions[result.index].FileSize = result.size
+	}
+
 	return details, nil
 }
 

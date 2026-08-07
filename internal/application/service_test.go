@@ -110,6 +110,10 @@ func (downloader recordingDownloader) Download(
 	return nil
 }
 
+func (downloader recordingDownloader) ContentLength(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
 type fakeGamePackageInstaller struct{}
 
 type fixedDiskSpace int64
