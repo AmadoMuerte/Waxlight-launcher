@@ -447,6 +447,7 @@
   "launcher_updates": "Абнаўленні лаўнчара",
   "launcher_updates_description": "Праверка афіцыйных рэлізаў GitHub і ўсталяванне правераных абнаўленняў лаўнчара.",
   "automatically_check_for_updates": "Аўтаматычна правяраць абнаўленні",
+  "check_for_updates": "Праверыць абнаўленні",
   "automatic_updates_consent_notice": "Абнаўленні ніколі не спампоўваюцца і не ўсталёўваюцца без вашай згоды.",
   "update_channel": "Канал абнаўленняў",
   "prerelease": "Папярэднія версіі",

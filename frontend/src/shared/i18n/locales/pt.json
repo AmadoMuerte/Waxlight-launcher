@@ -447,6 +447,7 @@
   "launcher_updates": "Atualizações do inicializador",
   "launcher_updates_description": "Verifique os lançamentos oficiais do GitHub e instale atualizações verificadas do inicializador.",
   "automatically_check_for_updates": "Verificar atualizações automaticamente",
+  "check_for_updates": "Verificar atualizações",
   "automatic_updates_consent_notice": "As atualizações nunca são baixadas nem instaladas sem o seu consentimento.",
   "update_channel": "Canal de atualizações",
   "prerelease": "Versão de pré-lançamento",

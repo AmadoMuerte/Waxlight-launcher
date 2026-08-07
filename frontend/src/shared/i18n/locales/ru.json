@@ -447,6 +447,7 @@
   "launcher_updates": "Обновления лаунчера",
   "launcher_updates_description": "Проверка официальных GitHub Releases и установка проверенных обновлений лаунчера.",
   "automatically_check_for_updates": "Автоматически проверять обновления",
+  "check_for_updates": "Проверить обновления",
   "automatic_updates_consent_notice": "Обновления никогда не скачиваются и не устанавливаются без вашего согласия.",
   "update_channel": "Канал обновлений",
   "prerelease": "Предварительные версии",

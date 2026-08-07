@@ -455,6 +455,7 @@
   "launcher_updates": "Launcher updates",
   "launcher_updates_description": "Check official GitHub Releases and install verified launcher updates.",
   "automatically_check_for_updates": "Automatically check for updates",
+  "check_for_updates": "Check for updates",
   "automatic_updates_consent_notice": "Updates are never downloaded or installed without your consent.",
   "update_channel": "Update channel",
   "prerelease": "Prerelease",

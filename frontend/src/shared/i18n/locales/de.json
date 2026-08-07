@@ -447,6 +447,7 @@
   "launcher_updates": "Launcher-Updates",
   "launcher_updates_description": "Offizielle GitHub-Releases prüfen und verifizierte Launcher-Updates installieren.",
   "automatically_check_for_updates": "Automatisch nach Updates suchen",
+  "check_for_updates": "Nach Updates suchen",
   "automatic_updates_consent_notice": "Updates werden niemals ohne deine Zustimmung heruntergeladen oder installiert.",
   "update_channel": "Update-Kanal",
   "prerelease": "Vorabversion",

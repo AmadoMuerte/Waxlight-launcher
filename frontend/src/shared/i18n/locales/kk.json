@@ -447,6 +447,7 @@
   "launcher_updates": "Лаунчер жаңартулары",
   "launcher_updates_description": "Ресми GitHub шығарылымдарын тексеріп, расталған лаунчер жаңартуларын орнатыңыз.",
   "automatically_check_for_updates": "Жаңартуларды автоматты түрде тексеру",
+  "check_for_updates": "Жаңартуларды тексеру",
   "automatic_updates_consent_notice": "Жаңартулар сіздің келісіміңізсіз жүктелмейді және орнатылмайды.",
   "update_channel": "Жаңарту арнасы",
   "prerelease": "Алдын ала нұсқа",

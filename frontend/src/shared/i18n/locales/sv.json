@@ -447,6 +447,7 @@
   "launcher_updates": "Uppdateringar för startprogrammet",
   "launcher_updates_description": "Sök efter officiella GitHub-utgåvor och installera verifierade uppdateringar för startprogrammet.",
   "automatically_check_for_updates": "Sök automatiskt efter uppdateringar",
+  "check_for_updates": "Sök efter uppdateringar",
   "automatic_updates_consent_notice": "Uppdateringar hämtas eller installeras aldrig utan ditt godkännande.",
   "update_channel": "Uppdateringskanal",
   "prerelease": "Förhandsversion",

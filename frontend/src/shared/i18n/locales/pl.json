@@ -447,6 +447,7 @@
   "launcher_updates": "Aktualizacje launchera",
   "launcher_updates_description": "Sprawdzaj oficjalne wydania GitHub i instaluj zweryfikowane aktualizacje launchera.",
   "automatically_check_for_updates": "Automatycznie sprawdzaj aktualizacje",
+  "check_for_updates": "Sprawdź aktualizacje",
   "automatic_updates_consent_notice": "Aktualizacje nigdy nie są pobierane ani instalowane bez Twojej zgody.",
   "update_channel": "Kanał aktualizacji",
   "prerelease": "Wersja przedpremierowa",

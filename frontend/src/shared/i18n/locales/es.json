@@ -447,6 +447,7 @@
   "launcher_updates": "Actualizaciones del lanzador",
   "launcher_updates_description": "Comprueba las versiones oficiales de GitHub e instala actualizaciones verificadas del lanzador.",
   "automatically_check_for_updates": "Buscar actualizaciones automáticamente",
+  "check_for_updates": "Buscar actualizaciones",
   "automatic_updates_consent_notice": "Las actualizaciones nunca se descargan ni se instalan sin tu consentimiento.",
   "update_channel": "Canal de actualizaciones",
   "prerelease": "Versión preliminar",

@@ -447,6 +447,7 @@
   "launcher_updates": "Mises à jour du lanceur",
   "launcher_updates_description": "Vérifiez les versions officielles de GitHub et installez les mises à jour vérifiées du lanceur.",
   "automatically_check_for_updates": "Rechercher automatiquement les mises à jour",
+  "check_for_updates": "Rechercher des mises à jour",
   "automatic_updates_consent_notice": "Les mises à jour ne sont jamais téléchargées ni installées sans votre accord.",
   "update_channel": "Canal de mise à jour",
   "prerelease": "Préversion",

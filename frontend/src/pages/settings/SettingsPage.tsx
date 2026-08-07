@@ -48,6 +48,7 @@ export function SettingsPage() {
   const { data: settings } = useSettingsQuery();
   const notify = useToastStore((state) => state.notify);
   const currentVersion = useAppShellStore((state) => state.launcherVersion);
+  const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
   const [dataFolder, setDataFolder] = useState<DataFolder>();
@@ -56,6 +57,7 @@ export function SettingsPage() {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
+  const [checking, setChecking] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -370,6 +372,26 @@ export function SettingsPage() {
                 <Field label={t("current_launcher_version")}>
                   <input value={currentVersion || "—"} readOnly />
                 </Field>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={checking}
+                  onClick={async () => {
+                    setChecking(true);
+                    try {
+                      await checkForUpdate(value.updateChannel, value.skippedUpdateVersion);
+                      // If no update found, launcherUpdate stays undefined.
+                      if (!useAppShellStore.getState().launcherUpdate) {
+                        notify(t("launcher_is_up_to_date"));
+                      }
+                    } finally {
+                      setChecking(false);
+                    }
+                  }}
+                >
+                  {t("check_for_updates")}
+                </Button>
               </div>
             </div>
           </section>
