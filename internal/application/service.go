@@ -1034,14 +1034,85 @@ func (s *Service) DeleteMod(ctx context.Context, id string) error {
 	if e != nil {
 		return e
 	}
-	if e = os.Remove(m.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
+	toDelete, e := s.modDeletionSet(ctx, m)
+	if e != nil {
 		return e
 	}
-	if e = s.store.DeleteMod(ctx, id); e == nil {
-		s.emit("mod:removed", map[string]string{"id": id, "instanceId": m.InstanceID})
-		slog.Info("mod removed", "mod", m.Name)
+	for _, mod := range toDelete {
+		if e = os.Remove(mod.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
+			return e
+		}
+		if e = s.store.DeleteMod(ctx, mod.ID); e != nil {
+			return e
+		}
+		s.emit("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
+		slog.Info("mod removed", "mod", mod.Name)
 	}
-	return e
+	return nil
+}
+
+// modDeletionSet returns the mod to delete followed by every dependency that
+// no remaining installed mod still requires. Dependencies that another
+// installed mod depends on are kept, so deleting one mod never breaks another.
+func (s *Service) modDeletionSet(ctx context.Context, target domain.InstalledMod) ([]domain.InstalledMod, error) {
+	mods, err := s.store.ListMods(ctx, target.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	requiredBy := make(map[string][]string, len(mods))
+	providers := make(map[string][]domain.InstalledMod)
+	for _, mod := range mods {
+		info, infoErr := readModArchiveInfo(mod.FilePath)
+		if infoErr != nil || strings.TrimSpace(info.ModID) == "" {
+			continue
+		}
+		for dependencyID := range info.Dependencies {
+			if !isBuiltInModDependency(dependencyID) {
+				requiredBy[mod.ID] = append(requiredBy[mod.ID], dependencyID)
+			}
+		}
+		key := strings.ToLower(strings.TrimSpace(info.ModID))
+		providers[key] = append(providers[key], mod)
+	}
+	ordered := []domain.InstalledMod{target}
+	deleting := map[string]struct{}{target.ID: {}}
+	for index := 0; index < len(ordered); index++ {
+		for _, dependencyID := range requiredBy[ordered[index].ID] {
+			providerKey := strings.ToLower(strings.TrimSpace(dependencyID))
+			if len(providers[providerKey]) == 0 || stillRequiredByOther(mods, deleting, requiredBy, dependencyID) {
+				continue
+			}
+			for _, provider := range providers[providerKey] {
+				if _, alreadyDeleting := deleting[provider.ID]; alreadyDeleting {
+					continue
+				}
+				deleting[provider.ID] = struct{}{}
+				ordered = append(ordered, provider)
+			}
+		}
+	}
+	return ordered, nil
+}
+
+// stillRequiredByOther reports whether an installed mod outside the deletion
+// set declares the given dependency.
+func stillRequiredByOther(
+	mods []domain.InstalledMod,
+	deleting map[string]struct{},
+	requiredBy map[string][]string,
+	dependencyID string,
+) bool {
+	for _, mod := range mods {
+		if _, willBeDeleted := deleting[mod.ID]; willBeDeleted {
+			continue
+		}
+		for _, required := range requiredBy[mod.ID] {
+			if strings.EqualFold(required, dependencyID) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type LaunchValidation struct {
