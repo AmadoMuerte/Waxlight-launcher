@@ -4,14 +4,15 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { InstanceModUpdateReport } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import type { InstanceModUpdateReport } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
 const api = vi.hoisted(() => ({
   download: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ modCatalogApi: api }));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",
@@ -57,13 +58,15 @@ const report: InstanceModUpdateReport = {
 };
 
 function renderModal(reportValue: InstanceModUpdateReport = report) {
+  const notify = vi.fn();
+  useToastStore.setState({ notify });
   const props = {
     instanceId: "instance-1",
     instanceName: "Survival",
     report: reportValue,
     onClose: vi.fn(),
     onApplied: vi.fn().mockResolvedValue(undefined),
-    notify: vi.fn(),
+    notify,
   };
   render(<ModUpdatesModal {...props} />);
   return props;
@@ -111,5 +114,23 @@ describe("ModUpdatesModal", () => {
 
     await user.click(screen.getByLabelText(/allow updates/i));
     expect(apply.disabled).toBe(false);
+  });
+
+  it("strips HTML tags from the changelog description", async () => {
+    const withHtml: InstanceModUpdateReport = {
+      ...report,
+      mods: [
+        {
+          ...report.mods[0],
+          changelog: "<p>Fixed a crash</p><ul><li>One</li><li>Two</li></ul>",
+        },
+      ],
+    };
+    renderModal(withHtml);
+    await userEvent.setup().click(screen.getByText("Changelog"));
+    expect(screen.getByText(/Fixed a crash/)).toBeTruthy();
+    expect(screen.getByText(/One/)).toBeTruthy();
+    expect(screen.queryByText("<p>")).toBeNull();
+    expect(screen.queryByText("<li>")).toBeNull();
   });
 });

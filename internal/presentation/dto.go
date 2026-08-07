@@ -167,6 +167,12 @@ type InstalledModDTO struct {
 	InstalledAt string `json:"installedAt"`
 }
 
+type ModDeletePreviewDTO struct {
+	ModID        string            `json:"modId"`
+	ModName      string            `json:"modName"`
+	Dependencies []InstalledModDTO `json:"dependencies"`
+}
+
 func modDTO(mod domain.InstalledMod) InstalledModDTO {
 	return InstalledModDTO{
 		ID:          mod.ID,

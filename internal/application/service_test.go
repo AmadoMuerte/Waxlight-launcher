@@ -456,7 +456,7 @@ func TestLocalModLifecycle(t *testing.T) {
 		t.Fatalf("unexpected disabled mod directory %q", directoryName)
 	}
 
-	if err := fixture.service.DeleteMod(ctx, disabledMod.ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, disabledMod.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(disabledMod.FilePath); !os.IsNotExist(err) {
@@ -1349,7 +1349,7 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 		t.Fatalf("expected DATA_FOLDER_BUSY, got %v", err)
 	}
 
-	if err := fixture.service.DeleteMod(context.Background(), "missing"); err == nil {
+	if err := fixture.service.DeleteMod(context.Background(), "missing", false); err == nil {
 		t.Fatal("expected mod deletion to be rejected while relocating")
 	}
 

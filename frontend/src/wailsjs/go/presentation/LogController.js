@@ -13,3 +13,7 @@ export function ListLogs(arg1) {
 export function OpenLogsDirectory() {
   return window['go']['presentation']['LogController']['OpenLogsDirectory']();
 }
+
+export function WriteLog(arg1, arg2, arg3) {
+  return window['go']['presentation']['LogController']['WriteLog'](arg1, arg2, arg3);
+}

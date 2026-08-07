@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const directory = fileURLToPath(new URL("../src/i18n/locales/", import.meta.url));
+const directory = fileURLToPath(new URL("../src/shared/i18n/locales/", import.meta.url));
 const config = JSON.parse(
   await readFile(new URL("../../internal/language/languages.json", import.meta.url), "utf8"),
 );

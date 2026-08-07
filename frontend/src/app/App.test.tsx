@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
-import i18n, { changeAppLanguage } from "../i18n";
+import i18n, { changeAppLanguage } from "../shared/i18n";
 import { App } from "./App";
 
 const api = vi.hoisted(() => ({
@@ -44,23 +45,35 @@ const api = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("../shared/api", () => ({
+vi.mock("../shared/api/instances", () => ({
   instancesApi: { list: api.list },
+}));
+vi.mock("../shared/api/game-versions", () => ({
   versionsApi: { list: api.list },
+}));
+vi.mock("../shared/api/accounts", () => ({
   accountsApi: { list: api.list },
+}));
+vi.mock("../shared/api/operations", () => ({
   operationsApi: { list: api.list },
+}));
+vi.mock("../shared/api/statistics", () => ({
   statisticsApi: { overview: api.overview },
+}));
+vi.mock("../shared/api/settings", () => ({
   settingsApi: { get: api.get, update: api.update, getDataFolder: api.getDataFolder },
+}));
+vi.mock("../shared/api/updates", () => ({
   updatesApi: {
     currentVersion: vi.fn().mockResolvedValue("0.1.4"),
     check: api.checkUpdate,
     install: vi.fn(),
     openReleasePage: vi.fn(),
   },
-  launcherApi: {},
-  modsApi: {},
-  modCatalogApi: {},
 }));
+vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
+vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
+vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi: {} }));
 
 afterEach(() => {
   cleanup();
@@ -77,15 +90,27 @@ afterEach(() => {
   });
 });
 
+function renderApp(initialEntries?: string[]) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 it("applies persisted language before rendering and navigation reacts to changes", async () => {
   api.get.mockClear();
   api.update.mockClear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  render(
-    <MemoryRouter>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp();
   expect(await screen.findByRole("link", { name: /Библиотека/ })).toBeTruthy();
   expect(document.documentElement.lang).toBe("ru");
   expect(api.get).toHaveBeenCalledTimes(1);
@@ -102,11 +127,7 @@ it("does not replace autosaved settings during background refresh", async () => 
   api.get.mockClear();
   api.update.mockClear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  render(
-    <MemoryRouter initialEntries={["/settings"]}>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp(["/settings"]);
 
   const parallelDownloads = (await screen.findAllByRole("spinbutton"))[0] as HTMLInputElement;
   fireEvent.change(parallelDownloads, { target: { value: "7" } });
@@ -118,7 +139,7 @@ it("does not replace autosaved settings during background refresh", async () => 
   expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
 });
 
-it("shows a non-intrusive startup update notice that can be postponed", async () => {
+it("shows a non-intrusive startup update dialog that can be postponed", async () => {
   api.checkUpdate.mockResolvedValueOnce({
     installedVersion: "0.1.4",
     version: "0.1.5",
@@ -129,14 +150,11 @@ it("shows a non-intrusive startup update notice that can be postponed", async ()
     assetName: "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
     assetSize: 1024,
   });
-  render(
-    <MemoryRouter>
-      <App />
-    </MemoryRouter>,
-  );
+  renderApp();
 
-  expect(await screen.findByText(/0\.1\.4.*0\.1\.5/)).toBeTruthy();
+  expect(await screen.findByText(/0\.1\.4/)).toBeTruthy();
+  expect(screen.getByText("0.1.5")).toBeTruthy();
   expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Позже" }));
-  await waitFor(() => expect(screen.queryByText(/0\.1\.4.*0\.1\.5/)).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Напомнить позже" }));
+  await waitFor(() => expect(screen.queryByText(/0\.1\.4/)).toBeNull());
 });

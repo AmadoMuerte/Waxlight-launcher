@@ -4,6 +4,8 @@ import {presentation} from '../models';
 
 export function CheckInstanceModUpdates(arg1:string):Promise<presentation.InstanceModUpdateReportDTO>;
 
+export function GetModDeletePreview(arg1:string):Promise<presentation.ModDeletePreviewDTO>;
+
 export function InstallModFile(arg1:presentation.InstallModFileRequest):Promise<presentation.OperationDTO>;
 
 export function InstallModFiles(arg1:presentation.InstallModFilesRequest):Promise<presentation.InstallModFilesResultDTO>;
@@ -12,6 +14,6 @@ export function LinkLocalMods(arg1:string):Promise<presentation.LinkLocalModsRes
 
 export function ListInstalledMods(arg1:string):Promise<Array<presentation.InstalledModDTO>>;
 
-export function RemoveMod(arg1:string):Promise<void>;
+export function RemoveMod(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetModEnabled(arg1:string,arg2:boolean):Promise<presentation.InstalledModDTO>;

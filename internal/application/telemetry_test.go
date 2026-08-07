@@ -172,7 +172,7 @@ func TestTelemetryModEventsAtSuccessBoundaries(t *testing.T) {
 	if len(mods) != 1 {
 		t.Fatalf("expected one installed mod, got %d", len(mods))
 	}
-	if err := fixture.service.DeleteMod(ctx, mods[0].ID); err != nil {
+	if err := fixture.service.DeleteMod(ctx, mods[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventModRemoved)

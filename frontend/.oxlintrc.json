@@ -55,13 +55,13 @@
       }
     },
     {
-      "files": ["src/main.tsx"],
+      "files": ["src/app/index.tsx"],
       "rules": {
         "import/no-unassigned-import": "off"
       }
     },
     {
-      "files": ["src/i18n/index.ts"],
+      "files": ["src/shared/i18n/index.ts"],
       "rules": {
         "import/no-named-as-default-member": "off"
       }

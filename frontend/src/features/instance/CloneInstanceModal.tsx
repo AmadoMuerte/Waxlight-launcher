@@ -1,19 +1,24 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { instancesApi, type Instance } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import { instancesApi } from "../../entities/instance/api";
+import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 interface CloneInstanceModalProps {
   instance: Instance;
   onClose: () => void;
   onDone: () => Promise<void>;
-  notify: (message: string, type?: "ok" | "error") => void;
 }
 
-export function CloneInstanceModal({ instance, onClose, onDone, notify }: CloneInstanceModalProps) {
+export function CloneInstanceModal({ instance, onClose, onDone }: CloneInstanceModalProps) {
   const { t } = useTranslation();
+  const notify = useToastStore((state) => state.notify);
   const [name, setName] = useState(instance.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { settingsApi, versionsApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { versionsApi } from "../../shared/api/game-versions";
+import { settingsApi } from "../../shared/api/settings";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 interface InstallLocalVersionModalProps {
   installedVersionIDs: Set<string>;

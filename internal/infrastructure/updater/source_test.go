@@ -106,14 +106,13 @@ func TestPrereleaseChannelOffersNewestPrereleaseFromStable(t *testing.T) {
 	}
 }
 
-func TestPrereleaseChannelOffersDowngradeBelowInstalledStable(t *testing.T) {
+func TestPrereleaseChannelDoesNotOfferPrereleaseBelowInstalledStable(t *testing.T) {
 	assetName, err := expectedAssetName("0.2.1-beta.3")
 	if err != nil {
 		t.Skip(err)
 	}
 	releases := []githubRelease{
 		releaseFixture("v0.2.1-beta.3", true, assetName),
-		releaseFixture("v0.2.2", false, assetName),
 	}
 	update, err := sourceForReleases(t, releases, assetName).Check(
 		context.Background(),
@@ -123,8 +122,8 @@ func TestPrereleaseChannelOffersDowngradeBelowInstalledStable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !update.Available || !update.Downgrade || !update.Prerelease || update.Version != "0.2.1-beta.3" {
-		t.Fatalf("expected prerelease downgrade below installed stable, got: %+v", update)
+	if update.Available || update.Version != "0.2.1-beta.3" {
+		t.Fatalf("a prerelease below the installed stable must not be offered, got: %+v", update)
 	}
 }
 
@@ -163,6 +162,27 @@ func TestSourceOffersDowngradeWhenSwitchingToStable(t *testing.T) {
 	}
 	if !update.Available || !update.Downgrade || update.Prerelease || update.Version != "0.2.0" {
 		t.Fatalf("expected stable channel downgrade, got: %+v", update)
+	}
+}
+
+func TestSourceFlagsReturnToNewerStableAsDowngrade(t *testing.T) {
+	stableAsset, err := expectedAssetName("0.2.2")
+	if err != nil {
+		t.Skip(err)
+	}
+	releases := []githubRelease{
+		releaseFixture("v0.2.2", false, stableAsset),
+	}
+	update, err := sourceForReleases(t, releases, stableAsset).Check(
+		context.Background(),
+		"0.2.1-beta.3",
+		"stable",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !update.Available || !update.Downgrade || update.Prerelease || update.Version != "0.2.2" {
+		t.Fatalf("expected switch back to stable flagged as downgrade, got: %+v", update)
 	}
 }
 

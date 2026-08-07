@@ -295,9 +295,11 @@ main {
 
 .buttonSpinner {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
 }
 
 .button.busy.button.primary,
@@ -375,6 +377,18 @@ main {
   to {
     transform: rotate(360deg);
   }
+}
+
+.appLoading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.appLoading .spinner {
+  width: 34px;
+  height: 34px;
+  border-width: 3px;
 }
 
 .toolbar,
@@ -1891,49 +1905,293 @@ main {
   cursor: pointer;
 }
 
-.launcherUpdateNotice {
+.errorBoundary {
   display: flex;
-  gap: 22px;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  padding: 18px 20px;
-  border: 1px solid #665033;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2b241a, #1a1818);
-  box-shadow: 0 14px 36px #0005;
+  gap: 12px;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
 }
 
-.launcherUpdateNotice > div:first-child {
-  min-width: 0;
-}
-
-.launcherUpdateNotice strong {
-  display: block;
-  margin: 4px 0 6px;
-  color: #f6d6a3;
-  font-family: Newsreader, Georgia, serif;
-  font-size: 20px;
-}
-
-.launcherUpdateNotice p {
-  display: -webkit-box;
-  max-width: 720px;
+.errorBoundary p {
+  max-width: 480px;
   margin: 0;
-  overflow: hidden;
+  color: #bc8c87;
+  font-size: 13px;
+}
+
+.updateDialog {
+  width: min(720px, calc(100vw - 32px));
+  height: min(720px, 82vh);
+}
+
+.updateDialogBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.updateDialogTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 16px 56px 0 24px;
+  font-family: Manrope, system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.updateDialogVersions {
+  margin: 8px 0 0;
+  padding: 0 24px;
   color: var(--text-muted);
   font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-line;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
 }
 
-.launcherUpdateActions {
+.updateDialogDescription {
+  margin: 6px 0 0;
+  padding: 0 24px;
+}
+
+.updateDialogPortableHint {
+  display: block;
+  margin-top: 4px;
+}
+
+.updateDialogChangelog {
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+  padding: 14px 24px 20px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.updateDialogChangelogFallback {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.updateDialogFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 24px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: #171619f5;
+}
+
+.updateDialogMetadata {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.updateDialogMetadata p {
+  margin: 0;
+}
+
+.updateDialogActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
+}
+
+.updateDialogBodyCentered {
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.updateDialogProgressTitle {
+  font-family: Manrope, system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.updateDialogProgressProduct {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.updateDialogProgressProduct span {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.updateDialogProgressBar {
+  width: min(420px, 100%);
+  margin-top: 22px;
+}
+
+.updateDialogProgressBytes {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.markdownBody {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.markdownBody > :first-child {
+  margin-top: 0;
+}
+
+.markdownBody > :last-child {
+  margin-bottom: 0;
+}
+
+.markdownBody p {
+  margin: 0 0 10px;
+}
+
+.markdownBody h1,
+.markdownBody h2,
+.markdownBody h3,
+.markdownBody h4 {
+  margin: 22px 0 10px;
+  color: var(--cream);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.markdownBody h1 {
+  font-size: 16px;
+}
+
+.markdownBody h2 {
+  font-size: 15px;
+}
+
+.markdownBody h3,
+.markdownBody h4 {
+  font-size: 14px;
+}
+
+.markdownBody ul,
+.markdownBody ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.markdownBody ul ul,
+.markdownBody ol ol,
+.markdownBody ul ol,
+.markdownBody ol ul {
+  margin-bottom: 0;
+}
+
+.markdownBody li {
+  margin-bottom: 5px;
+}
+
+.markdownBody li > p {
+  margin-bottom: 5px;
+}
+
+.markdownBody strong {
+  color: var(--cream);
+  font-weight: 650;
+}
+
+.markdownBody .markdownMention {
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: #f6d6a3;
+  background: #2b241a;
+  font-weight: 600;
+}
+
+.markdownBody a {
+  color: var(--amber);
+  text-decoration: none;
+}
+
+.markdownBody a:hover {
+  text-decoration: underline;
+}
+
+.markdownBody code {
+  padding: 2px 5px;
+  border: 1px solid #332e2a;
+  border-radius: 5px;
+  color: #e8c48a;
+  background: #211d19;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.markdownBody pre {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #141317;
+}
+
+.markdownBody pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+}
+
+.markdownBody blockquote {
+  margin: 0 0 12px;
+  padding-left: 12px;
+  border-left: 3px solid var(--border-default);
+  color: var(--text-muted);
+}
+
+.markdownBody hr {
+  margin: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.markdownBody img {
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+.markdownBody table {
+  margin: 0 0 12px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.markdownBody th,
+.markdownBody td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.markdownBody th {
+  color: var(--cream);
+  background: #1c1b1d;
+}
+
+.markdownBody input[type="checkbox"] {
+  accent-color: var(--amber);
 }
 
 .launcherUpdateProgress {
@@ -1954,15 +2212,6 @@ main {
 }
 
 @media (max-width: 1100px) {
-  .launcherUpdateNotice {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .launcherUpdateActions {
-    justify-content: flex-start;
-  }
-
   main {
     padding-inline: 28px;
   }
@@ -3225,6 +3474,36 @@ main {
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.removeDependenciesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.removeDependenciesList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #151417;
+}
+
+.removeDependenciesList li strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.removeDependenciesList li small {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .modUpdateRow {
