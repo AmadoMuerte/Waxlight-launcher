@@ -92,6 +92,10 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.sidebarContent {
+  flex: 1;
+}
+
 .brand {
   display: flex;
   align-items: center;
