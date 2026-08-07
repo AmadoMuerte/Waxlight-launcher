@@ -13,6 +13,7 @@ interface ModCardProps {
   onOpen: () => void;
   onInstall: () => void;
   onDelete?: () => void;
+  installBusy?: boolean;
 }
 
 function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
@@ -20,7 +21,15 @@ function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
   callback();
 }
 
-export function ModCard({ mod, downloaded, layout, onOpen, onInstall, onDelete }: ModCardProps) {
+export function ModCard({
+  mod,
+  downloaded,
+  layout,
+  onOpen,
+  onInstall,
+  onDelete,
+  installBusy = false,
+}: ModCardProps) {
   const { t } = useTranslation();
   function openFromKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
@@ -116,6 +125,7 @@ export function ModCard({ mod, downloaded, layout, onOpen, onInstall, onDelete }
             )}
             <Button
               style={{ position: "relative", zIndex: 2 }}
+              busy={installBusy}
               onClick={(event) => stopPropagationAndRun(event, onInstall)}
             >
               {actionLabel}

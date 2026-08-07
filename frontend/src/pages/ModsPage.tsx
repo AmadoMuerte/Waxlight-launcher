@@ -50,6 +50,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
     downloaded?: DownloadedMod;
     preferredVersionId?: string;
   }>();
+  const [openingModId, setOpeningModId] = useState("");
   const [layout, setLayout] = useState<"grid" | "list">(() =>
     readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
   );
@@ -265,6 +266,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   }
 
   async function openInstaller(modId: string, local?: DownloadedMod) {
+    setOpeningModId(modId);
     try {
       const details = await modCatalogApi.get(modId);
       let localDownloaded = local;
@@ -281,6 +283,8 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
       });
     } catch (loadError) {
       notify(errorMessage(loadError), "error");
+    } finally {
+      setOpeningModId("");
     }
   }
 
@@ -496,6 +500,7 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
                 layout={layout}
                 onOpen={() => openDetails(mod.id)}
                 onInstall={() => void openInstaller(mod.id, local)}
+                installBusy={openingModId === mod.id}
                 onDelete={
                   local
                     ? () => {
