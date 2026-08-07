@@ -410,7 +410,7 @@ func (controller *ModManagerController) GetModDeletePreview(id string) (ModDelet
 	if err != nil {
 		return ModDeletePreviewDTO{}, err
 	}
-	dto := ModDeletePreviewDTO{ModID: preview.ModID, ModName: preview.ModName}
+	dto := ModDeletePreviewDTO{ModID: preview.ModID, ModName: preview.ModName, Dependencies: []InstalledModDTO{}}
 	for _, dependency := range preview.Dependencies {
 		dto.Dependencies = append(dto.Dependencies, modDTO(dependency))
 	}

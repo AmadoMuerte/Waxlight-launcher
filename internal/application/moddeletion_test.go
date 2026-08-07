@@ -158,6 +158,9 @@ func TestModDeletePreviewListsUnusedDependencies(t *testing.T) {
 	if preview.ModID != root.ID || preview.ModName != "Root Mod" || len(preview.Dependencies) != 0 {
 		t.Fatalf("unexpected preview for shared dependency: %#v", preview)
 	}
+	if preview.Dependencies == nil {
+		t.Fatal("preview dependencies must be an empty slice, not nil")
+	}
 
 	// After the other user is gone, the dependency appears in the preview.
 	if err := fixture.service.DeleteMod(ctx, other.ID, false); err != nil {

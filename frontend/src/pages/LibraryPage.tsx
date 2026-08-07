@@ -609,7 +609,7 @@ function InstanceModal({
   async function requestModRemoval(mod: InstalledMod) {
     try {
       const preview = await modsApi.previewDelete(mod.id);
-      if (preview.dependencies.length === 0) {
+      if ((preview.dependencies?.length ?? 0) === 0) {
         setRemoveModConfirm({
           open: true,
           title: t("remove_mod_confirmation", { name: mod.name }),

@@ -1065,7 +1065,7 @@ func (s *Service) ModDeletePreview(ctx context.Context, id string) (ModDeletePre
 	if err != nil {
 		return ModDeletePreview{}, err
 	}
-	preview := ModDeletePreview{ModID: m.ID, ModName: m.Name}
+	preview := ModDeletePreview{ModID: m.ID, ModName: m.Name, Dependencies: []domain.InstalledMod{}}
 	for _, dependency := range toDelete[1:] {
 		preview.Dependencies = append(preview.Dependencies, dependency)
 	}
