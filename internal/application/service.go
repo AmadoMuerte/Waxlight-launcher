@@ -19,6 +19,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/language"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
 type Service struct {
@@ -36,6 +37,7 @@ type Service struct {
 	launcher           ProcessLauncher
 	dataRoot           string
 	events             EventPublisher
+	telemetry          *telemetry.Service
 	runningMu          sync.Mutex
 	launchMu           sync.Mutex
 	modsMu             sync.Mutex
@@ -111,6 +113,29 @@ func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
 
 func (s *Service) SetEventPublisher(publisher EventPublisher) {
 	s.events = publisher
+}
+
+// ConfigureTelemetry wires the privacy-preserving telemetry service into the
+// application layer. All telemetry calls inside this service are optional and
+// never affect the outcome of the operations that produce them.
+func (s *Service) ConfigureTelemetry(t *telemetry.Service) {
+	s.telemetry = t
+}
+
+// reportEvent forwards an allowlisted telemetry event. Telemetry is strictly
+// best-effort: delivery failures never surface to the caller.
+func (s *Service) reportEvent(ctx context.Context, name string) {
+	if s.telemetry != nil {
+		s.telemetry.Event(ctx, name)
+	}
+}
+
+// reportError forwards a structured telemetry error category. Raw errors are
+// never attached; only allowlisted codes reach the telemetry backend.
+func (s *Service) reportError(ctx context.Context, code, component, operation string) {
+	if s.telemetry != nil {
+		s.telemetry.Error(ctx, code, component, operation)
+	}
 }
 
 // SetDataFolderRelocating marks whether a data folder relocation is running.
@@ -597,6 +622,7 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 	}
 	if e = s.store.SaveInstance(ctx, instance); e == nil {
 		s.emit("instance:created", instance)
+		s.reportEvent(ctx, telemetry.EventInstanceCreated)
 	}
 	return instance, e
 }
@@ -715,6 +741,7 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 		return e
 	}
 	s.emit("instance:deleted", map[string]string{"id": id})
+	s.reportEvent(ctx, telemetry.EventInstanceDeleted)
 	slog.Info("instance deleted", "id", id)
 	return nil
 }
@@ -1049,6 +1076,7 @@ func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies b
 			return e
 		}
 		s.emit("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
+		s.reportEvent(ctx, telemetry.EventModRemoved)
 		slog.Info("mod removed", "mod", mod.Name)
 	}
 	return nil
@@ -1363,6 +1391,8 @@ func (s *Service) Launch(
 	if err != nil {
 		_ = logFile.Close()
 		_ = cleanupCredentials()
+		s.reportEvent(ctx, telemetry.EventGameLaunchFailed)
+		s.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
 		return domain.PlaySession{}, &domain.AppError{
 			Code:    domain.ErrProcessStart,
 			Message: "Failed to start Vintage Story",
@@ -1403,6 +1433,7 @@ func (s *Service) Launch(
 	s.runningMu.Unlock()
 
 	s.emit("game:started", session)
+	s.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
 	return session, nil
@@ -1614,6 +1645,14 @@ func normalizeLanguage(lang string) string {
 	return language.NormalizeLanguage(lang)
 }
 
+func (s *Service) GetSettingValue(ctx context.Context, key string) (string, error) {
+	return s.store.GetSettingValue(ctx, key)
+}
+
+func (s *Service) SetSettingValue(ctx context.Context, key, value string) error {
+	return s.store.SetSettingValue(ctx, key, value)
+}
+
 func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
 	settings, err := s.store.GetSettings(ctx)
 	if err != nil {
@@ -1652,9 +1691,26 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 	if len(v.SkippedUpdateVersion) > 64 {
 		return v, domain.NewError(domain.ErrValidation, "Skipped update version is too long")
 	}
+	previous, getErr := s.store.GetSettings(ctx)
+	if getErr != nil {
+		// Keep saving even if the previous settings could not be read; the
+		// transition check simply falls back to a fresh comparison.
+		previous = domain.Settings{}
+	}
 	if err := s.store.SaveSettings(ctx, v); err != nil {
 		return v, err
 	}
 	slog.Info("settings saved", "language", v.Language, "updateChannel", v.UpdateChannel)
+	if v.TelemetryEnabled && !previous.TelemetryEnabled {
+		// Telemetry was just enabled: the installation becomes eligible for a
+		// heartbeat. No historical events are reconstructed.
+		s.telemetryHeartbeat()
+	}
 	return v, nil
+}
+
+func (s *Service) telemetryHeartbeat() {
+	if s.telemetry != nil {
+		s.telemetry.MaybeSendHeartbeat()
+	}
 }

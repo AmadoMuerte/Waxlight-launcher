@@ -1426,6 +1426,7 @@ export namespace presentation {
 	    checkForUpdates: boolean;
 	    updateChannel: string;
 	    skippedUpdateVersion: string;
+	    telemetryEnabled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -1442,6 +1443,7 @@ export namespace presentation {
 	        this.checkForUpdates = source["checkForUpdates"];
 	        this.updateChannel = source["updateChannel"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
+	        this.telemetryEnabled = source["telemetryEnabled"];
 	    }
 	}
 	export class StatisticsDTO {

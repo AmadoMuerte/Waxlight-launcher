@@ -27,6 +27,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
@@ -36,6 +37,7 @@ type Container struct {
 	DataRoot       *dataroot.Manager
 	Base           *presentation.Base
 	Controllers    []any
+	telemetry      *telemetry.Service
 }
 
 func New() (*Container, error) {
@@ -122,10 +124,16 @@ func New() (*Container, error) {
 		auth.NewClient(nil),
 		secretStore,
 	)
+	telemetryService := telemetry.NewService(
+		telemetry.NewClient(telemetry.ProductionEndpoint()),
+		service,
+	)
+	service.ConfigureTelemetry(telemetryService)
 	service.ConfigureAuthentication(
 		accountService,
 		filesystem.ClientSettingsService{},
 	)
+	accountService.ConfigureTelemetry(telemetryService)
 	if err := service.ReconcileInjectedCredentials(context.Background()); err != nil {
 		_ = store.Close()
 		return nil, err
@@ -151,6 +159,7 @@ func New() (*Container, error) {
 		dataRoot,
 		version.Version(),
 	)
+	updateService.ConfigureTelemetry(telemetryService)
 	base := presentation.NewBase(service)
 	controllers := []any{
 		presentation.NewAppController(base),
@@ -174,6 +183,7 @@ func New() (*Container, error) {
 		DataRoot:       dataRootManager,
 		Base:           base,
 		Controllers:    controllers,
+		telemetry:      telemetryService,
 	}, nil
 }
 
@@ -185,6 +195,15 @@ func (container *Container) Startup(ctx context.Context) {
 		wruntime.EventsEmit(ctx, "logs:append", entry.Line())
 	})
 	go container.AccountService.ValidateStaleAccounts(ctx, 24*time.Hour)
+	container.telemetryHeartbeat()
+}
+
+func (container *Container) telemetryHeartbeat() {
+	// The heartbeat is fully asynchronous and isolated: telemetry failures
+	// never affect launcher startup or any other functionality.
+	if container.telemetry != nil {
+		container.telemetry.MaybeSendHeartbeat()
+	}
 }
 
 func (container *Container) Shutdown(context.Context) {

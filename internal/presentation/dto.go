@@ -299,6 +299,7 @@ type SettingsDTO struct {
 	CheckForUpdates       bool     `json:"checkForUpdates"`
 	UpdateChannel         string   `json:"updateChannel"`
 	SkippedUpdateVersion  string   `json:"skippedUpdateVersion"`
+	TelemetryEnabled      bool     `json:"telemetryEnabled"`
 }
 
 func settingsDTO(settings domain.Settings) SettingsDTO {
@@ -317,6 +318,7 @@ func settingsDTO(settings domain.Settings) SettingsDTO {
 		CheckForUpdates:       settings.CheckForUpdates,
 		UpdateChannel:         settings.UpdateChannel,
 		SkippedUpdateVersion:  settings.SkippedUpdateVersion,
+		TelemetryEnabled:      settings.TelemetryEnabled,
 	}
 }
 

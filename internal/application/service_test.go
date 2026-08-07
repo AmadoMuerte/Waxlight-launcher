@@ -1232,6 +1232,98 @@ func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 	}
 }
 
+func TestTelemetrySettingDefaultsEnabled(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	settings, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.TelemetryEnabled {
+		t.Fatal("telemetry must default to enabled for new installations")
+	}
+}
+
+func TestTelemetryExplicitDisableSurvivesReload(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	settings, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.TelemetryEnabled = false
+	if _, err := fixture.service.SaveSettings(ctx, settings); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.TelemetryEnabled {
+		t.Fatal("explicitly disabled telemetry was silently re-enabled")
+	}
+}
+
+func TestTelemetrySettingPersistsAcrossSaves(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	settings, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.TelemetryEnabled = true
+	saved, err := fixture.service.SaveSettings(ctx, settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.TelemetryEnabled {
+		t.Fatal("telemetry setting was not persisted")
+	}
+	reloaded, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.TelemetryEnabled {
+		t.Fatal("telemetry setting did not survive a reload")
+	}
+
+	reloaded.TelemetryEnabled = false
+	if _, err := fixture.service.SaveSettings(ctx, reloaded); err != nil {
+		t.Fatal(err)
+	}
+	final, err := fixture.service.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if final.TelemetryEnabled {
+		t.Fatal("telemetry setting could not be disabled again")
+	}
+}
+
+func TestSettingValuesRoundtrip(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+
+	value, err := fixture.store.GetSettingValue(ctx, "missing_key")
+	if err != nil {
+		t.Fatalf("missing key returned an error: %v", err)
+	}
+	if value != "" {
+		t.Fatalf("missing key returned %q", value)
+	}
+
+	if err := fixture.store.SetSettingValue(ctx, "telemetry_installation_id", "550e8400-e29b-41d4-a716-446655440000"); err != nil {
+		t.Fatal(err)
+	}
+	value, err = fixture.store.GetSettingValue(ctx, "telemetry_installation_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("roundtrip mismatch: %q", value)
+	}
+}
+
 func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 	fixture := newTestFixture(t)
 

@@ -565,6 +565,7 @@ func (controller *SettingsController) UpdateSettings(
 			CheckForUpdates:       request.CheckForUpdates,
 			UpdateChannel:         request.UpdateChannel,
 			SkippedUpdateVersion:  request.SkippedUpdateVersion,
+			TelemetryEnabled:      request.TelemetryEnabled,
 		},
 	)
 	return settingsDTO(settings), err

@@ -27,6 +27,7 @@ const settings: Settings = {
   checkForUpdates: true,
   updateChannel: "stable",
   skippedUpdateVersion: "",
+  telemetryEnabled: false,
 };
 
 async function renderPage() {

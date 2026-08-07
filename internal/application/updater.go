@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
 const maximumLauncherUpdateSize = 512 * 1024 * 1024
@@ -35,6 +36,7 @@ type LauncherUpdateService struct {
 	signatureVerifier SignatureVerifier
 	dataRoot          string
 	currentVersion    string
+	telemetry         *telemetry.Service
 	mu                sync.Mutex
 	installing        bool
 }
@@ -54,6 +56,24 @@ func NewLauncherUpdateService(
 		signatureVerifier: signatureVerifier,
 		dataRoot:          dataRoot,
 		currentVersion:    currentVersion,
+	}
+}
+
+// ConfigureTelemetry wires the telemetry service into the updater. Update
+// events are strictly best-effort and never affect the update outcome.
+func (service *LauncherUpdateService) ConfigureTelemetry(t *telemetry.Service) {
+	service.telemetry = t
+}
+
+func (service *LauncherUpdateService) reportEvent(ctx context.Context, name string) {
+	if service.telemetry != nil {
+		service.telemetry.Event(ctx, name)
+	}
+}
+
+func (service *LauncherUpdateService) reportError(ctx context.Context, code, operation string) {
+	if service.telemetry != nil {
+		service.telemetry.Error(ctx, code, telemetry.ComponentUpdater, operation)
 	}
 }
 
@@ -140,6 +160,14 @@ func (service *LauncherUpdateService) Install(
 		}
 	}
 
+	// update_started marks the moment the launcher update operation actually
+	// begins: the update was detected, validated, and is about to be
+	// downloaded. update_succeeded is deliberately NOT emitted here: the
+	// platform installer applies the package asynchronously after this process
+	// quits, so a successful completion cannot be reliably observed in
+	// process. It is deferred to a future startup confirmation mechanism.
+	service.reportEvent(ctx, telemetry.EventUpdateStarted)
+
 	destination := filepath.Join(updateRoot, update.AssetName)
 
 	progress := make(chan DownloadProgress, 1)
@@ -172,6 +200,8 @@ func (service *LauncherUpdateService) Install(
 	<-done
 	if err != nil {
 		service.cleanupSession(updateRoot)
+		service.reportEvent(ctx, telemetry.EventUpdateFailed)
+		service.reportError(ctx, telemetry.ErrorUpdateDownloadFailed, telemetry.OperationDownloadUpdate)
 		return &domain.AppError{
 			Code:      domain.ErrUpdateDownloadFailed,
 			Message:   "Could not download the launcher update",
@@ -184,6 +214,8 @@ func (service *LauncherUpdateService) Install(
 	if err := service.signatureVerifier.Verify(ctx, destination); err != nil {
 		os.Remove(destination)
 		service.cleanupSession(updateRoot)
+		service.reportEvent(ctx, telemetry.EventUpdateFailed)
+		service.reportError(ctx, telemetry.ErrorUpdateSignatureInvalid, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
 			Code:    domain.ErrUpdateSignatureInvalid,
 			Message: fmt.Sprintf("Could not verify update signature: %v", err),
@@ -194,6 +226,8 @@ func (service *LauncherUpdateService) Install(
 	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "installing", Progress: 1})
 	if err := service.installer.Apply(ctx, destination, os.Getpid()); err != nil {
 		service.cleanupSession(updateRoot)
+		service.reportEvent(ctx, telemetry.EventUpdateFailed)
+		service.reportError(ctx, telemetry.ErrorUpdateInstallFailed, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
 			Code:    domain.ErrUpdateInstallerStartFail,
 			Message: fmt.Sprintf("Could not start the installer: %v", err),
