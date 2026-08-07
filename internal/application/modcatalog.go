@@ -2,6 +2,7 @@ package application
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -650,6 +651,9 @@ func readModArchiveInfo(filePath string) (modArchiveInfo, error) {
 			modInfoFile = file
 			break
 		}
+		if modInfoFile == nil && strings.EqualFold(filepath.Base(name), "modinfo.json") {
+			modInfoFile = file
+		}
 	}
 	if modInfoFile == nil {
 		return modArchiveInfo{}, nil
@@ -680,18 +684,39 @@ func readModArchiveInfo(filePath string) (modArchiveInfo, error) {
 		return modArchiveInfo{}, domain.NewError(domain.ErrInvalidModFile, "modinfo.json is unexpectedly large")
 	}
 
-	var info modArchiveInfo
-	if err := json.Unmarshal(data, &info); err != nil {
+	info, err := decodeModArchiveInfo(data)
+	if err != nil {
 		return modArchiveInfo{}, &domain.AppError{
 			Code:    domain.ErrInvalidModFile,
 			Message: "The downloaded mod contains an invalid modinfo.json",
 			Cause:   err,
 		}
 	}
-	if info.Dependencies == nil {
-		info.Dependencies = map[string]string{}
-	}
 	return info, nil
+}
+
+func decodeModArchiveInfo(data []byte) (modArchiveInfo, error) {
+	// Some mod packs save modinfo.json with a UTF-8 byte order mark, which the
+	// standard library rejects even though the JSON itself is valid.
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	var info modArchiveInfo
+	if err := json.Unmarshal(data, &info); err == nil {
+		if info.Dependencies == nil {
+			info.Dependencies = map[string]string{}
+		}
+		return info, nil
+	}
+	// A few mods publish a dependencies block that does not match the expected
+	// map-of-strings shape. Keep the core fields so the mod can still be
+	// matched and installed; its dependencies are then simply not resolved.
+	var core struct {
+		ModID   string `json:"modid"`
+		Version string `json:"version"`
+	}
+	if coreErr := json.Unmarshal(data, &core); coreErr != nil {
+		return modArchiveInfo{}, coreErr
+	}
+	return modArchiveInfo{ModID: core.ModID, Version: core.Version, Dependencies: map[string]string{}}, nil
 }
 
 func findDependencyVersion(
