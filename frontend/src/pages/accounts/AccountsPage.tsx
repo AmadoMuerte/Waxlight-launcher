@@ -7,6 +7,7 @@ import { useToastStore } from "../../app/stores/toast";
 import { accountsApi } from "../../entities/account/api";
 import type { Account } from "../../entities/account/model";
 import { useAccountsQuery } from "../../entities/account/queries";
+import { useSettingsQuery } from "../../entities/settings/queries";
 import { LoginModal, authErrorMessages, isValidEmail } from "../../features/auth/LoginModal";
 import { errorMessage } from "../../shared/api/bridge";
 import { ACCOUNTS_QUERY_KEY } from "../../shared/api/keys";
@@ -23,6 +24,7 @@ export function AccountsPage() {
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const { data: accounts = [] } = useAccountsQuery();
+  const { data: settings } = useSettingsQuery();
   const [loginAccount, setLoginAccount] = useState<Account | null>();
   const [searchParams, setSearchParams] = useSearchParams();
   const [removeConfirm, setRemoveConfirm] = useState<{
@@ -78,6 +80,10 @@ export function AccountsPage() {
   }
 
   function removeAccount(account: Account) {
+    if (settings?.confirmDeletion === false) {
+      removeMutation.mutate(account.id);
+      return;
+    }
     setRemoveConfirm({
       open: true,
       title: t("remove_account_confirmation", { name: account.displayName }),

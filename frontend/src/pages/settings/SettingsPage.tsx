@@ -20,17 +20,17 @@ import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { Field } from "../../shared/ui/field";
 import { PageHeader } from "../../shared/ui/page-header";
+import { Stepper } from "../../shared/ui/stepper";
+import { Switch } from "../../shared/ui/switch";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const autosaveDelayMs = 400;
 
 function settingsEqual(left: Settings, right: Settings) {
   return (
-    left.theme === right.theme &&
     left.language === right.language &&
     left.downloadsParallel === right.downloadsParallel &&
     left.confirmDeletion === right.confirmDeletion &&
-    left.minSessionDurationSec === right.minSessionDurationSec &&
     left.checkForUpdates === right.checkForUpdates &&
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
@@ -48,6 +48,7 @@ export function SettingsPage() {
   const { data: settings } = useSettingsQuery();
   const notify = useToastStore((state) => state.notify);
   const currentVersion = useAppShellStore((state) => state.launcherVersion);
+  const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
   const [dataFolder, setDataFolder] = useState<DataFolder>();
@@ -56,6 +57,7 @@ export function SettingsPage() {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
+  const [checking, setChecking] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -218,7 +220,7 @@ export function SettingsPage() {
               <h2>{t("interface")}</h2>
               <p>{t("language_and_appearance_preferences")}</p>
             </header>
-            <div className="formRow">
+            <div className="formFields">
               <Field label={t("language")}>
                 <Select
                   value={normalizeLanguage(value.language)}
@@ -240,21 +242,6 @@ export function SettingsPage() {
                   </SelectContent>
                 </Select>
               </Field>
-
-              <Field label={t("theme")}>
-                <Select
-                  value={value.theme}
-                  onValueChange={(theme) => setValue({ ...value, theme })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dark">{t("dark")}</SelectItem>
-                    <SelectItem value="system">{t("system")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
             </div>
           </section>
 
@@ -263,41 +250,39 @@ export function SettingsPage() {
               <h2>{t("downloads_and_game")}</h2>
               <p>{t("background_work_and_launch_configuration")}</p>
             </header>
-            <div className="formFields">
-              <div className="formRow">
-                <Field label={t("parallel_downloads")}>
-                  <input
-                    type="number"
+            <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("parallel_downloads")}</span>
+                  <small className="settingRowDescription">
+                    {t("parallel_downloads_description")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Stepper
+                    label={t("parallel_downloads")}
+                    value={value.downloadsParallel}
                     min={1}
                     max={10}
-                    value={value.downloadsParallel}
-                    onChange={(event) =>
-                      setValue({
-                        ...value,
-                        downloadsParallel: Number(event.target.value),
-                      })
-                    }
+                    decreaseLabel={t("decrease")}
+                    increaseLabel={t("increase")}
+                    onChange={(downloadsParallel) => setValue({ ...value, downloadsParallel })}
                   />
-                </Field>
-
-                <Field label={t("minimum_session_duration_seconds")}>
-                  <input
-                    type="number"
-                    min={0}
-                    value={value.minSessionDurationSec}
-                    onChange={(event) =>
-                      setValue({
-                        ...value,
-                        minSessionDurationSec: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
+                </div>
               </div>
 
-              <Field label={t("global_launch_arguments")} hint={t("global_launch_arguments_hint")}>
+              <div className="settingRowDivider" />
+
+              <div className="settingRow settingRowColumn">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("global_launch_arguments")}</span>
+                  <small className="settingRowDescription">
+                    {t("global_launch_arguments_description")}
+                  </small>
+                </div>
                 <input
-                  className="codeInput"
+                  className="settingTileInput codeInput"
+                  aria-label={t("global_launch_arguments")}
                   value={launchArgumentsText}
                   onChange={(event) => {
                     const argumentsValue = event.target.value;
@@ -310,17 +295,24 @@ export function SettingsPage() {
                   }}
                   placeholder="--debug"
                 />
-              </Field>
+              </div>
 
-              <div className="checkboxSetting">
-                <Checkbox
-                  label={t("confirm_deletion")}
-                  checked={value.confirmDeletion}
-                  onChange={(event) =>
-                    setValue({ ...value, confirmDeletion: event.target.checked })
-                  }
-                />
-                <small>{t("confirm_before_removing_items")}</small>
+              <div className="settingRowDivider" />
+
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("confirm_deletion")}</span>
+                  <small className="settingRowDescription">
+                    {t("confirm_before_removing_items")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Switch
+                    label={t("confirm_deletion")}
+                    checked={value.confirmDeletion}
+                    onCheckedChange={(confirmDeletion) => setValue({ ...value, confirmDeletion })}
+                  />
+                </div>
               </div>
             </div>
           </section>
@@ -370,6 +362,26 @@ export function SettingsPage() {
                 <Field label={t("current_launcher_version")}>
                   <input value={currentVersion || "—"} readOnly />
                 </Field>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={checking}
+                  onClick={async () => {
+                    setChecking(true);
+                    try {
+                      await checkForUpdate(value.updateChannel, value.skippedUpdateVersion);
+                      // If no update found, launcherUpdate stays undefined.
+                      if (!useAppShellStore.getState().launcherUpdate) {
+                        notify(t("launcher_is_up_to_date"));
+                      }
+                    } finally {
+                      setChecking(false);
+                    }
+                  }}
+                >
+                  {t("check_for_updates")}
+                </Button>
               </div>
             </div>
           </section>

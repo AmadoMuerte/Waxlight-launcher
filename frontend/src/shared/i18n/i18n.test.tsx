@@ -18,11 +18,9 @@ const api = vi.hoisted(() => ({
 vi.mock("../api/settings", () => ({ settingsApi: api }));
 
 const settings: Settings = {
-  theme: "dark",
   language: "en",
   downloadsParallel: 3,
   confirmDeletion: true,
-  minSessionDurationSec: 10,
   globalLaunchArguments: [],
   checkForUpdates: true,
   updateChannel: "stable",
@@ -103,24 +101,19 @@ describe("i18n", () => {
     const user = userEvent.setup();
 
     expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
-    await user.click(screen.getAllByRole("combobox")[1]);
-    await user.click(screen.getByRole("option", { name: "System" }));
 
     const numberInputs = screen.getAllByRole("spinbutton");
     fireEvent.change(numberInputs[0], { target: { value: "7" } });
-    fireEvent.change(numberInputs[1], { target: { value: "45" } });
     fireEvent.change(screen.getByPlaceholderText("--debug"), {
       target: { value: "--debug --safe" },
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("switch"));
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        theme: "system",
         language: "en",
         downloadsParallel: 7,
-        minSessionDurationSec: 45,
         globalLaunchArguments: ["--debug", "--safe"],
         confirmDeletion: false,
       }),

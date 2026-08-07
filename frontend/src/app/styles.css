@@ -92,6 +92,10 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.sidebarContent {
+  flex: 1;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -807,11 +811,179 @@ main {
   resize: vertical;
 }
 
+.stepper {
+  display: flex;
+  align-items: stretch;
+  min-height: 42px;
+  max-width: 140px;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: var(--surface-input);
+  transition:
+    border-color 0.16s,
+    background-color 0.16s,
+    box-shadow 0.16s;
+}
+
+.stepper:hover {
+  border-color: #504b51;
+  background: var(--surface-input-hover);
+}
+
+.stepper:focus-within {
+  border-color: #b67a38;
+  box-shadow: 0 0 0 3px #d5953a12;
+}
+
+.stepperButton {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  color: #8d877f;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.16s,
+    background-color 0.16s;
+}
+
+.stepperButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.stepperButton:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: #ffffff10;
+}
+
+.stepperButton:disabled {
+  color: #4c4846;
+  cursor: default;
+}
+
+.stepper .stepperInput {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  min-height: 0;
+  padding: 10px 4px;
+  border: 0;
+  color: var(--text-primary);
+  background: transparent;
+  text-align: center;
+  appearance: textfield;
+}
+
+.stepper .stepperInput:hover {
+  background: transparent;
+}
+
+.stepper .stepperInput:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.stepper .stepperInput::-webkit-outer-spin-button,
+.stepper .stepperInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .formRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   min-width: 0;
+}
+
+.downloadsPanel {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 15px;
+  overflow: hidden;
+  background: #141316;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px;
+}
+
+.settingRowColumn {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.settingRowDivider {
+  margin: 0 28px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settingRowText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settingRowTitle {
+  display: block;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settingRowDescription {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.settingRowControl {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.settingRowColumn .settingTileInput {
+  margin-top: 14px;
+}
+
+.settingTileInput {
+  width: 100%;
+  min-height: 42px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  outline: 0;
+  color: var(--text-primary);
+  background: var(--surface-input);
+  font-size: 14px;
+  transition:
+    border-color 0.16s,
+    background-color 0.16s,
+    box-shadow 0.16s;
+}
+
+.settingTileInput:hover {
+  border-color: #504b51;
+  background: var(--surface-input-hover);
+}
+
+.settingTileInput:focus {
+  border-color: #b67a38;
+  box-shadow: 0 0 0 3px #d5953a12;
 }
 
 .modalActions {
@@ -3191,6 +3363,22 @@ main {
   }
   .modInformation {
     position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .settingRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .settingRowControl {
+    justify-content: flex-start;
+  }
+
+  .settingRowColumn .settingTileInput {
+    margin-top: 0;
   }
 }
 

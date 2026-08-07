@@ -1417,11 +1417,9 @@ export namespace presentation {
 	    }
 	}
 	export class SettingsDTO {
-	    theme: string;
 	    language: string;
 	    downloadsParallel: number;
 	    confirmDeletion: boolean;
-	    minSessionDurationSec: number;
 	    globalLaunchArguments: string[];
 	    checkForUpdates: boolean;
 	    updateChannel: string;
@@ -1434,11 +1432,9 @@ export namespace presentation {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.theme = source["theme"];
 	        this.language = source["language"];
 	        this.downloadsParallel = source["downloadsParallel"];
 	        this.confirmDeletion = source["confirmDeletion"];
-	        this.minSessionDurationSec = source["minSessionDurationSec"];
 	        this.globalLaunchArguments = source["globalLaunchArguments"];
 	        this.checkForUpdates = source["checkForUpdates"];
 	        this.updateChannel = source["updateChannel"];

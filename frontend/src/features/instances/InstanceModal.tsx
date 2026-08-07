@@ -13,6 +13,7 @@ import type { Instance } from "../../entities/instance/model";
 import { modsApi } from "../../entities/mod/api";
 import type { InstalledMod, InstanceModUpdateReport } from "../../entities/mod/model";
 import { settingsApi } from "../../entities/settings/api";
+import { useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import { formatDuration } from "../../shared/lib";
@@ -49,6 +50,7 @@ export function InstanceModal({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
+  const { data: settings } = useSettingsQuery();
   const [tab, setTab] = useState<InstanceTab>("overview");
   const [mods, setMods] = useState<InstalledMod[]>([]);
   const [name, setName] = useState(instance.name);
@@ -91,6 +93,14 @@ export function InstanceModal({
     try {
       const preview = await modsApi.previewDelete(mod.id);
       if ((preview.dependencies?.length ?? 0) === 0) {
+        if (settings?.confirmDeletion === false) {
+          try {
+            await removeMod(mod.id);
+          } catch (error) {
+            notify(errorMessage(error), "error");
+          }
+          return;
+        }
         setRemoveModConfirm({
           open: true,
           title: t("remove_mod_confirmation", { name: mod.name }),
@@ -234,6 +244,17 @@ export function InstanceModal({
   }
 
   async function deleteInstance() {
+    if (settings?.confirmDeletion === false) {
+      try {
+        await instancesApi.remove(instance.id, true);
+        onClose();
+        await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+        notify(t("instance_deleted"));
+      } catch (error) {
+        notify(errorMessage(error), "error");
+      }
+      return;
+    }
     setDeleteConfirm({
       open: true,
       title: t("delete_instance_confirmation", { name: instance.name }),

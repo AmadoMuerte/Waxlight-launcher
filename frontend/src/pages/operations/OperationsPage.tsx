@@ -7,6 +7,7 @@ import { useToastStore } from "../../app/stores/toast";
 import { operationsApi } from "../../entities/operation/api";
 import type { Operation } from "../../entities/operation/model";
 import { useOperationsQuery } from "../../entities/operation/queries";
+import { useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
 import { OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { formatBytes, formatDate } from "../../shared/lib";
@@ -27,6 +28,7 @@ export function OperationsPage() {
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const { data: operations = [] } = useOperationsQuery();
+  const { data: settings } = useSettingsQuery();
   const [pendingAction, setPendingAction] = useState<string>();
   const [consoleOpen, setConsoleOpen] = useState(true);
   const [confirmState, setConfirmState] = useState<{
@@ -56,6 +58,21 @@ export function OperationsPage() {
   }
 
   function remove(operation: Operation) {
+    if (settings?.confirmDeletion === false) {
+      void (async () => {
+        setPendingAction(operation.id);
+        try {
+          await operationsApi.remove(operation.id);
+          await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEY });
+          notify(t("operation_removed"));
+        } catch (removeError) {
+          notify(errorMessage(removeError), "error");
+        } finally {
+          setPendingAction(undefined);
+        }
+      })();
+      return;
+    }
     askConfirm(
       t("delete_operation_confirmation", { title: operation.title }),
       async () => {
@@ -75,6 +92,21 @@ export function OperationsPage() {
   }
 
   function clearHistory() {
+    if (settings?.confirmDeletion === false) {
+      void (async () => {
+        setPendingAction("clear-history");
+        try {
+          const removed = await operationsApi.clearHistory();
+          await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEY });
+          notify(t("operations_removed", { count: removed }));
+        } catch (clearError) {
+          notify(errorMessage(clearError), "error");
+        } finally {
+          setPendingAction(undefined);
+        }
+      })();
+      return;
+    }
     askConfirm(
       t("clear_history"),
       async () => {

@@ -20,6 +20,10 @@ const api = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 
+const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+
+vi.mock("../../entities/settings/queries", () => settingsQuery);
+
 vi.mock("../../shared/api/accounts", () => ({ accountsApi: api }));
 
 const validAccount: Account = {
@@ -63,6 +67,7 @@ describe("account authentication UI", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: {
@@ -196,6 +201,53 @@ describe("account authentication UI", () => {
     await user.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith("first"));
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(4));
+  });
+});
+
+describe("confirmDeletion gate", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.remove.mockResolvedValue(undefined);
+    api.list.mockResolvedValue([validAccount]);
+  });
+
+  it("removes an account directly when confirmDeletion is false", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: false } });
+    const user = userEvent.setup();
+    renderPage([validAccount]);
+    await screen.findByText("Waxlighter");
+
+    await user.click(screen.getByRole("button", { name: "Remove from launcher" }));
+
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("first"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows a confirm dialog before removing when confirmDeletion is true", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: true } });
+    const user = userEvent.setup();
+    renderPage([validAccount]);
+    await screen.findByText("Waxlighter");
+
+    await user.click(screen.getByRole("button", { name: "Remove from launcher" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.remove).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("first"));
+  });
+
+  it("shows a confirm dialog when settings are still loading", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    const user = userEvent.setup();
+    renderPage([validAccount]);
+    await screen.findByText("Waxlighter");
+
+    await user.click(screen.getByRole("button", { name: "Remove from launcher" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.remove).not.toHaveBeenCalled();
   });
 });
 

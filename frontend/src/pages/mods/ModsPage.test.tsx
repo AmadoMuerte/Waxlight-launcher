@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,12 +27,15 @@ const settings = vi.hoisted(() => ({
   selectModFiles: vi.fn(),
 }));
 
+const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+
 const instancesList = vi.hoisted(() => vi.fn());
 const versionsList = vi.hoisted(() => vi.fn());
 const availableVersionsList = vi.hoisted(() => vi.fn());
 
 vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
+vi.mock("../../entities/settings/queries", () => settingsQuery);
 vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesList } }));
 vi.mock("../../shared/api/game-versions", () => ({
   versionsApi: { list: versionsList, available: availableVersionsList },
@@ -164,6 +167,7 @@ describe("mods browser", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
     api.search.mockResolvedValue({
       items: [summary],
       page: 1,
@@ -322,5 +326,82 @@ describe("mods browser", () => {
     );
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("linked"));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("not found"));
+  });
+});
+
+describe("confirmDeletion gate", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    api.search.mockResolvedValue({
+      items: [summary],
+      page: 1,
+      pageSize: 24,
+      totalItems: 1,
+      totalPages: 1,
+      hasNext: false,
+    });
+    api.get.mockResolvedValue(details);
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    api.removeDownloaded.mockResolvedValue(undefined);
+    api.tags.mockResolvedValue([]);
+  });
+
+  it("removes a downloaded mod directly when confirmDeletion is false", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: false } });
+    const user = userEvent.setup();
+    renderPage("/mods?view=downloaded");
+    await screen.findByRole("tab", { name: /Downloaded/ });
+    await screen.findByText("Player Corpse");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(api.removeDownloaded).toHaveBeenCalledWith("51", "7"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows a confirm dialog before removing when confirmDeletion is true", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: { confirmDeletion: true } });
+    const user = userEvent.setup();
+    renderPage("/mods?view=downloaded");
+    await screen.findByRole("tab", { name: /Downloaded/ });
+    await screen.findByText("Player Corpse");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.removeDownloaded).not.toHaveBeenCalled();
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.removeDownloaded).toHaveBeenCalledWith("51", "7"));
+  });
+
+  it("shows a confirm dialog when settings are still loading", async () => {
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    const user = userEvent.setup();
+    renderPage("/mods?view=downloaded");
+    await screen.findByRole("tab", { name: /Downloaded/ });
+    await screen.findByText("Player Corpse");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(api.removeDownloaded).not.toHaveBeenCalled();
   });
 });

@@ -17,11 +17,9 @@ const api = vi.hoisted(() => ({
     recentSessions: [],
   }),
   get: vi.fn().mockResolvedValue({
-    theme: "dark",
     language: "ru",
     downloadsParallel: 3,
     confirmDeletion: true,
-    minSessionDurationSec: 10,
     globalLaunchArguments: [],
     checkForUpdates: true,
     updateChannel: "stable",

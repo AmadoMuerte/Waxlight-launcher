@@ -13,6 +13,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
@@ -532,17 +533,19 @@ func (controller *OperationController) ClearOperationHistory() (int64, error) {
 }
 
 type SettingsController struct {
-	svc      *application.Service
-	base     *Base
-	dataRoot *dataroot.Manager
+	svc       *application.Service
+	base      *Base
+	dataRoot  *dataroot.Manager
+	downloads *downloader.Manager
 }
 
 func NewSettingsController(
 	service *application.Service,
 	base *Base,
 	dataRoot *dataroot.Manager,
+	downloads *downloader.Manager,
 ) *SettingsController {
-	return &SettingsController{svc: service, base: base, dataRoot: dataRoot}
+	return &SettingsController{svc: service, base: base, dataRoot: dataRoot, downloads: downloads}
 }
 
 func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
@@ -556,11 +559,9 @@ func (controller *SettingsController) UpdateSettings(
 	settings, err := controller.svc.SaveSettings(
 		context.Background(),
 		domain.Settings{
-			Theme:                 request.Theme,
 			Language:              request.Language,
 			DownloadsParallel:     request.DownloadsParallel,
 			ConfirmDeletion:       request.ConfirmDeletion,
-			MinSessionDurationSec: request.MinSessionDurationSec,
 			GlobalLaunchArguments: request.GlobalLaunchArguments,
 			CheckForUpdates:       request.CheckForUpdates,
 			UpdateChannel:         request.UpdateChannel,
@@ -568,7 +569,11 @@ func (controller *SettingsController) UpdateSettings(
 			TelemetryEnabled:      request.TelemetryEnabled,
 		},
 	)
-	return settingsDTO(settings), err
+	if err != nil {
+		return settingsDTO(settings), err
+	}
+	controller.downloads.SetLimit(request.DownloadsParallel)
+	return settingsDTO(settings), nil
 }
 
 // GetDataFolder returns the current data folder, the default folder, and any

@@ -23,6 +23,7 @@ import {
   useModTagsQuery,
 } from "../../entities/mod/queries";
 import { settingsApi } from "../../entities/settings/api";
+import { useSettingsQuery } from "../../entities/settings/queries";
 import { InstancePickerDialog } from "../../features/mods/InstancePickerDialog";
 import {
   gameVersionSeries,
@@ -44,6 +45,7 @@ export function ModsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
+  const { data: settings } = useSettingsQuery();
   const { data: instances = [] } = useInstancesQuery();
   const { data: versions = [] } = useGameVersionsQuery();
   const { data: availableVersions = [] } = useAvailableGameVersionsQuery();
@@ -290,13 +292,23 @@ export function ModsPage() {
   );
 
   const handleDelete = useCallback(
-    (local: DownloadedMod) => {
+    async (local: DownloadedMod) => {
       const warning =
         local.installedInstances.length > 0
           ? t("delete_cached_installed_mod_confirmation", {
               count: local.installedInstances.length,
             })
           : t("delete_cached_mod_confirmation");
+      if (settings?.confirmDeletion === false) {
+        try {
+          await modCatalogApi.removeDownloaded(local.modId, local.versionId);
+          await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+          notify(t("downloaded_mod_removed"));
+        } catch (removeError) {
+          notify(errorMessage(removeError), "error");
+        }
+        return;
+      }
       setDeleteConfirm({
         open: true,
         title: warning,
@@ -311,7 +323,7 @@ export function ModsPage() {
         },
       });
     },
-    [notify, queryClient, t],
+    [notify, queryClient, settings, t],
   );
 
   async function uploadMods() {

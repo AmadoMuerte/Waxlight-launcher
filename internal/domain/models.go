@@ -132,11 +132,9 @@ type Operation struct {
 }
 
 type Settings struct {
-	Theme                 string
 	Language              string
 	DownloadsParallel     int
 	ConfirmDeletion       bool
-	MinSessionDurationSec int64
 	GlobalLaunchArguments []string
 	CheckForUpdates       bool
 	UpdateChannel         string

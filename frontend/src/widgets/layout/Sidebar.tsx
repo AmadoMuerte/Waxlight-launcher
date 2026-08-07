@@ -7,7 +7,9 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <Brand />
-      <SideNav />
+      <div className="sidebarContent">
+        <SideNav />
+      </div>
       <AccountSwitcher />
       <SidebarFooter />
     </aside>

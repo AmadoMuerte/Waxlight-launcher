@@ -138,7 +138,15 @@ func New() (*Container, error) {
 		_ = store.Close()
 		return nil, err
 	}
-	downloadManager := downloader.NewManager(downloader.NewHTTPDownloader(), 3)
+	settings, err := store.GetSettings(context.Background())
+	if err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("load settings: %w", err)
+	}
+	downloadManager := downloader.NewManager(
+		downloader.NewHTTPDownloader(),
+		settings.DownloadsParallel,
+	)
 	service.ConfigureVersionDownloads(
 		vintagestory.NewVersionCatalog(nil),
 		downloadManager,
@@ -173,7 +181,7 @@ func New() (*Container, error) {
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),
 		presentation.NewLogController(service, base),
-		presentation.NewSettingsController(service, base, dataRootManager),
+		presentation.NewSettingsController(service, base, dataRootManager, downloadManager),
 		presentation.NewLauncherUpdateController(updateService, base),
 	}
 

@@ -11,11 +11,9 @@ import { UpdateDialog } from "./UpdateDialog";
 
 const api = vi.hoisted(() => ({
   settings: {
-    theme: "dark",
     language: "en",
     downloadsParallel: 3,
     confirmDeletion: true,
-    minSessionDurationSec: 10,
     globalLaunchArguments: [],
     checkForUpdates: true,
     updateChannel: "stable",

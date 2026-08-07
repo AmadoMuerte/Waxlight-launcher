@@ -315,11 +315,9 @@ func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
 	ctx := context.Background()
 
 	if err := fixture.store.SaveSettings(ctx, domain.Settings{
-		Theme:                 "dark",
 		Language:              "ru",
 		DownloadsParallel:     3,
 		ConfirmDeletion:       true,
-		MinSessionDurationSec: 30,
 		GlobalLaunchArguments: []string{},
 		CheckForUpdates:       true,
 		UpdateChannel:         "stable",
