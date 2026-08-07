@@ -4,9 +4,10 @@ import { Copy, Download, Eraser, FolderOpen, Terminal as TerminalIcon } from "lu
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { logsApi } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button } from "../../shared/ui";
+import { logsApi } from "../../shared/api/logs";
+import { Button } from "../../shared/ui/button";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const consoleTheme = {
@@ -32,12 +33,9 @@ const consoleTheme = {
   brightWhite: "#ffffff",
 };
 
-interface LogConsoleProps {
-  notify: (message: string, type?: "ok" | "error") => void;
-}
-
-export function LogConsole({ notify }: LogConsoleProps) {
+export function LogConsole() {
   const { t } = useTranslation();
+  const notify = useToastStore((state) => state.notify);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);

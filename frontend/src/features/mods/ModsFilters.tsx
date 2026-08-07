@@ -1,20 +1,15 @@
 import { useTranslation } from "react-i18next";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import type { GameVersion, ModSearchQuery, ModTag } from "../../shared/api";
-import { Button, Field } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
 import { sideLabel } from "./lib";
 import { TagMultiSelect } from "./TagMultiSelect";
 
 interface ModsFiltersProps {
-  query: ModSearchQuery;
+  query: Omit<ModSearchQuery, "page">;
   versions: GameVersion[];
   tags: ModTag[];
   mobileOpen: boolean;

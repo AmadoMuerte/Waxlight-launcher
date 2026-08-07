@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 
-import type { ImportReport } from "../../shared/api";
-import { Button, Modal } from "../../shared/ui";
+import type { ImportReport } from "../../shared/api/types";
+import { Button } from "../../shared/ui/button";
+import { Modal } from "../../shared/ui/modal";
 
 interface ImportResultModalProps {
   report: ImportReport;

@@ -1,4 +1,4 @@
-import i18n from "../i18n";
+import i18n from "./i18n";
 
 export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { modCatalogApi, type InstanceModUpdateReport, type ModUpdate } from "../../shared/api";
+import { useToastStore } from "../../app/stores/toast";
+import { modCatalogApi } from "../../entities/mod/api";
+import type { InstanceModUpdateReport, ModUpdate } from "../../entities/mod/model";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Checkbox, Modal } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
+import { Modal } from "../../shared/ui/modal";
 import { plainText } from "./lib";
-
-type Notify = (message: string, type?: "ok" | "error") => void;
 
 interface ModUpdatesModalProps {
   instanceId: string;
@@ -14,7 +16,6 @@ interface ModUpdatesModalProps {
   report: InstanceModUpdateReport;
   onClose: () => void;
   onApplied: () => Promise<void>;
-  notify: Notify;
 }
 
 export function ModUpdatesModal({
@@ -23,9 +24,9 @@ export function ModUpdatesModal({
   report,
   onClose,
   onApplied,
-  notify,
 }: ModUpdatesModalProps) {
   const { t } = useTranslation();
+  const notify = useToastStore((state) => state.notify);
   const [allowIncompatible, setAllowIncompatible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

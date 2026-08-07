@@ -1,8 +1,9 @@
+import { memo } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DownloadedMod, ModSummary } from "../../shared/api";
-import { Button } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { formatBytes, formatDownloads, relativeDate, sideLabel } from "./lib";
 import { ModArtwork } from "./ModArtwork";
 
@@ -10,9 +11,9 @@ interface ModCardProps {
   mod: ModSummary;
   downloaded?: DownloadedMod;
   layout: "grid" | "list";
-  onOpen: () => void;
-  onInstall: () => void;
-  onDelete?: () => void;
+  onOpen: (modId: string) => void;
+  onInstall: (modId: string, downloaded?: DownloadedMod) => void;
+  onDelete?: (downloaded: DownloadedMod) => void;
   installBusy?: boolean;
 }
 
@@ -21,7 +22,7 @@ function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
   callback();
 }
 
-export function ModCard({
+export const ModCard = memo(function ModCard({
   mod,
   downloaded,
   layout,
@@ -34,7 +35,7 @@ export function ModCard({
   function openFromKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onOpen();
+      onOpen(mod.id);
     }
   }
 
@@ -55,7 +56,7 @@ export function ModCard({
       <button
         type="button"
         aria-label={t("open_mod", { name: mod.name })}
-        onClick={onOpen}
+        onClick={() => onOpen(mod.id)}
         onKeyDown={openFromKeyboard}
         style={{
           position: "absolute",
@@ -114,11 +115,11 @@ export function ModCard({
             ) : null}
           </div>
           <div className="row">
-            {onDelete && (
+            {onDelete && downloaded && (
               <Button
                 variant="ghost"
                 style={{ position: "relative", zIndex: 2 }}
-                onClick={(event) => stopPropagationAndRun(event, onDelete)}
+                onClick={(event) => stopPropagationAndRun(event, () => onDelete(downloaded))}
               >
                 {t("delete")}
               </Button>
@@ -126,7 +127,7 @@ export function ModCard({
             <Button
               style={{ position: "relative", zIndex: 2 }}
               busy={installBusy}
-              onClick={(event) => stopPropagationAndRun(event, onInstall)}
+              onClick={(event) => stopPropagationAndRun(event, () => onInstall(mod.id, downloaded))}
             >
               {actionLabel}
             </Button>
@@ -135,4 +136,4 @@ export function ModCard({
       </div>
     </article>
   );
-}
+});

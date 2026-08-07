@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useToastStore } from "../../app/stores/toast";
 import type { PackageInspection } from "../../shared/api";
 import { ExportInstanceModal } from "./ExportInstanceModal";
 import { ImportPackageModal } from "./ImportPackageModal";
@@ -16,7 +17,7 @@ const api = vi.hoisted(() => ({
   selectPackageFile: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ instancePackageApi: api }));
+vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: api }));
 
 class ResizeObserverStub {
   observe() {}
@@ -118,7 +119,6 @@ describe("instance package modals", () => {
         onClose={() => {}}
         onDone={onDone}
         onBackgroundDone={vi.fn().mockResolvedValue(undefined)}
-        notify={vi.fn()}
       />,
     );
 
@@ -150,6 +150,7 @@ describe("instance package modals", () => {
     const onBackgroundDone = vi.fn().mockResolvedValue(undefined);
     const onDone = vi.fn();
     const notify = vi.fn();
+    useToastStore.setState({ notify });
 
     render(
       <ImportPackageModal
@@ -158,7 +159,6 @@ describe("instance package modals", () => {
         onClose={onClose}
         onDone={onDone}
         onBackgroundDone={onBackgroundDone}
-        notify={notify}
       />,
     );
 
@@ -192,14 +192,7 @@ describe("instance package modals", () => {
     api.selectExportPath.mockResolvedValue("/tmp/My World.waxlight");
     const onDone = vi.fn();
 
-    render(
-      <ExportInstanceModal
-        instance={instance}
-        onClose={() => {}}
-        onDone={onDone}
-        notify={vi.fn()}
-      />,
-    );
+    render(<ExportInstanceModal instance={instance} onClose={() => {}} onDone={onDone} />);
 
     expect(await screen.findByRole("dialog", { name: "Export instance" })).toBeTruthy();
 
@@ -224,14 +217,7 @@ describe("instance package modals", () => {
     api.selectExportPath.mockResolvedValue("/tmp/My World.waxlight");
     const onDone = vi.fn();
 
-    render(
-      <ExportInstanceModal
-        instance={instance}
-        onClose={() => {}}
-        onDone={onDone}
-        notify={vi.fn()}
-      />,
-    );
+    render(<ExportInstanceModal instance={instance} onClose={() => {}} onDone={onDone} />);
 
     expect(await screen.findByRole("dialog", { name: "Export instance" })).toBeTruthy();
 

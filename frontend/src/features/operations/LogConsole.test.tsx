@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useToastStore } from "../../app/stores/toast";
 import { LogConsole } from "./LogConsole";
 
 const api = vi.hoisted(() => ({
@@ -13,7 +14,7 @@ const api = vi.hoisted(() => ({
   eventsOn: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({
+vi.mock("../../shared/api/logs", () => ({
   logsApi: {
     list: api.list,
     exportLogs: api.exportLogs,
@@ -46,7 +47,8 @@ vi.mock("../../wailsjs/runtime/runtime", () => ({
 
 function renderConsole() {
   const notify = vi.fn();
-  render(<LogConsole notify={notify} />);
+  useToastStore.setState({ notify });
+  render(<LogConsole />);
   return { notify };
 }
 
