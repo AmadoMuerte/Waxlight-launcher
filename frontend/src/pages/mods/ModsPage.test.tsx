@@ -30,12 +30,10 @@ const settings = vi.hoisted(() => ({
 const instancesList = vi.hoisted(() => vi.fn());
 const versionsList = vi.hoisted(() => vi.fn());
 
-vi.mock("../../shared/api", () => ({
-  modCatalogApi: api,
-  settingsApi: settings,
-  instancesApi: { list: instancesList },
-  versionsApi: { list: versionsList },
-}));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
+vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
+vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesList } }));
+vi.mock("../../shared/api/game-versions", () => ({ versionsApi: { list: versionsList } }));
 
 const summary = {
   id: "51",

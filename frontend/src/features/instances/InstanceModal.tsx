@@ -16,8 +16,14 @@ import { settingsApi } from "../../entities/settings/api";
 import { errorMessage } from "../../shared/api/bridge";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import { formatDuration } from "../../shared/lib";
-import { Button, Checkbox, Empty, Field, Modal, StatusPill, SubmitForm } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { StatusPill } from "../../shared/ui/status-pill";
+import { SubmitForm } from "../../shared/ui/submit-form";
 import { ModUpdatesModal } from "../mods/ModUpdatesModal";
 
 type InstanceTab = "overview" | "mods" | "settings";

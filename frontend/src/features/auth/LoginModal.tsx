@@ -5,7 +5,10 @@ import { useTranslation } from "react-i18next";
 import { accountsApi } from "../../entities/account/api";
 import type { Account, LoginResult, LoginStatus } from "../../entities/account/model";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 export const authErrorMessages: Record<
   Exclude<LoginStatus, "success" | "totp_required">,

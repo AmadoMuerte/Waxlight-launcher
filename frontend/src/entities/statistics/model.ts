@@ -1,1 +1,1 @@
-export type { PlaySession, Statistics } from "../../shared/api";
+export type { PlaySession, Statistics } from "../../shared/api/types";

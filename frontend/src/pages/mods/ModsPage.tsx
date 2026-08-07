@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -25,8 +25,10 @@ import { ModCard } from "../../features/mods/ModCard";
 import { ModsFilters } from "../../features/mods/ModsFilters";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY, MOD_TAGS_QUERY_KEY } from "../../shared/api/keys";
-import { Button, Empty, PageHeader } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { PageHeader } from "../../shared/ui/page-header";
 
 const EMPTY_DOWNLOADED_MODS: DownloadedMod[] = [];
 
@@ -225,33 +227,80 @@ export function ModsPage() {
     }
   }
 
-  async function openInstaller(modId: string, local?: DownloadedMod) {
-    setOpeningModId(modId);
-    try {
-      const details = await modCatalogApi.get(modId);
-      const localDownloaded = local ?? downloaded.find((item) => item.modId === modId);
-      setInstalling({
-        details,
-        downloaded: localDownloaded,
-        preferredVersionId: localDownloaded?.updateAvailable
-          ? details.versions[0]?.id
-          : localDownloaded?.versionId,
-      });
-    } catch (loadError) {
-      notify(errorMessage(loadError), "error");
-    } finally {
-      setOpeningModId("");
-    }
-  }
+  const localByModId = useMemo(
+    () => new Map(filteredDownloaded.map((item) => [item.modId, item])),
+    [filteredDownloaded],
+  );
 
-  function openDetails(modId: string) {
-    writeStorage(
-      "sessionStorage",
-      `waxlight.mods.scroll:${location.search}`,
-      String(window.scrollY),
-    );
-    void navigate(`/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`);
-  }
+  const openInstaller = useCallback(
+    async (modId: string, local?: DownloadedMod) => {
+      setOpeningModId(modId);
+      try {
+        const details = await modCatalogApi.get(modId);
+        const localDownloaded = local ?? localByModId.get(modId);
+        setInstalling({
+          details,
+          downloaded: localDownloaded,
+          preferredVersionId: localDownloaded?.updateAvailable
+            ? details.versions[0]?.id
+            : localDownloaded?.versionId,
+        });
+      } catch (loadError) {
+        notify(errorMessage(loadError), "error");
+      } finally {
+        setOpeningModId("");
+      }
+    },
+    [localByModId, notify],
+  );
+
+  const openDetails = useCallback(
+    (modId: string) => {
+      writeStorage(
+        "sessionStorage",
+        `waxlight.mods.scroll:${location.search}`,
+        String(window.scrollY),
+      );
+      void navigate(
+        `/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`,
+      );
+    },
+    [location.search, navigate],
+  );
+
+  const handleOpen = useCallback((modId: string) => openDetails(modId), [openDetails]);
+
+  const handleInstall = useCallback(
+    (modId: string, local?: DownloadedMod) => {
+      void openInstaller(modId, local);
+    },
+    [openInstaller],
+  );
+
+  const handleDelete = useCallback(
+    (local: DownloadedMod) => {
+      const warning =
+        local.installedInstances.length > 0
+          ? t("delete_cached_installed_mod_confirmation", {
+              count: local.installedInstances.length,
+            })
+          : t("delete_cached_mod_confirmation");
+      setDeleteConfirm({
+        open: true,
+        title: warning,
+        onConfirm: async () => {
+          try {
+            await modCatalogApi.removeDownloaded(local.modId, local.versionId);
+            await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+            notify(t("downloaded_mod_removed"));
+          } catch (removeError) {
+            notify(errorMessage(removeError), "error");
+          }
+        },
+      });
+    },
+    [notify, queryClient, t],
+  );
 
   async function uploadMods() {
     let paths: string[];
@@ -430,46 +479,17 @@ export function ModsPage() {
       ) : (
         <div className={`modGrid modGrid-${layout}`}>
           {displayed.map((mod) => {
-            const local =
-              view === "downloaded"
-                ? filteredDownloaded.find((item) => item.modId === mod.id)
-                : undefined;
+            const local = view === "downloaded" ? localByModId.get(mod.id) : undefined;
             return (
               <ModCard
                 key={`${mod.id}:${local?.versionId ?? "catalog"}`}
                 mod={mod}
                 downloaded={local}
                 layout={layout}
-                onOpen={() => openDetails(mod.id)}
-                onInstall={() => void openInstaller(mod.id, local)}
+                onOpen={handleOpen}
+                onInstall={handleInstall}
                 installBusy={openingModId === mod.id}
-                onDelete={
-                  local
-                    ? () => {
-                        const warning =
-                          local.installedInstances.length > 0
-                            ? t("delete_cached_installed_mod_confirmation", {
-                                count: local.installedInstances.length,
-                              })
-                            : t("delete_cached_mod_confirmation");
-                        setDeleteConfirm({
-                          open: true,
-                          title: warning,
-                          onConfirm: async () => {
-                            try {
-                              await modCatalogApi.removeDownloaded(local.modId, local.versionId);
-                              await queryClient.invalidateQueries({
-                                queryKey: DOWNLOADED_MODS_QUERY_KEY,
-                              });
-                              notify(t("downloaded_mod_removed"));
-                            } catch (removeError) {
-                              notify(errorMessage(removeError), "error");
-                            }
-                          },
-                        });
-                      }
-                    : undefined
-                }
+                onDelete={local ? handleDelete : undefined}
               />
             );
           })}

@@ -1,1 +1,1 @@
-export type { Operation, OperationStatus } from "../../shared/api";
+export type { Operation, OperationStatus } from "../../shared/api/types";

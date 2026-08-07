@@ -5,7 +5,9 @@ import { useToastStore } from "../../app/stores/toast";
 import { modCatalogApi } from "../../entities/mod/api";
 import type { InstanceModUpdateReport, ModUpdate } from "../../entities/mod/model";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Checkbox, Modal } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
+import { Modal } from "../../shared/ui/modal";
 import { plainText } from "./lib";
 
 interface ModUpdatesModalProps {

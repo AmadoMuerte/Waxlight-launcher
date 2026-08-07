@@ -20,7 +20,7 @@ const api = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ accountsApi: api }));
+vi.mock("../../shared/api/accounts", () => ({ accountsApi: api }));
 
 const validAccount: Account = {
   id: "first",

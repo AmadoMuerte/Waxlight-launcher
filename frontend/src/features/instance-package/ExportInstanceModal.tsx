@@ -3,9 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { Instance } from "../../entities/instance/model";
-import { instancePackageApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { instancePackageApi } from "../../shared/api/instance-package";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 interface ExportInstanceModalProps {
   instance: Instance;

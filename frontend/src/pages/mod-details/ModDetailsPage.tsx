@@ -20,8 +20,9 @@ import {
 import { ModArtwork } from "../../features/mods/ModArtwork";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
-import { Button, Empty } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
 import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 
 export function ModDetailsPage() {

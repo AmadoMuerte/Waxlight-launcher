@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
 import { useSettingsQuery } from "../../entities/settings/queries";
-import { Button } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { Progress } from "../../shared/ui/progress";
 
 export function UpdateNotice() {

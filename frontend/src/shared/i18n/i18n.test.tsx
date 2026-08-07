@@ -15,7 +15,7 @@ const api = vi.hoisted(() => ({
   update: vi.fn(),
   getDataFolder: vi.fn().mockResolvedValue({ currentPath: "", defaultPath: "", lastError: "" }),
 }));
-vi.mock("../api", () => ({ settingsApi: api }));
+vi.mock("../api/settings", () => ({ settingsApi: api }));
 
 const settings: Settings = {
   theme: "dark",

@@ -1,1 +1,1 @@
-export type { AvailableGameVersion, GameVersion } from "../../shared/api";
+export type { AvailableGameVersion, GameVersion } from "../../shared/api/types";

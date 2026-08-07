@@ -10,8 +10,11 @@ import { useAccountsQuery } from "../../entities/account/queries";
 import { LoginModal, authErrorMessages, isValidEmail } from "../../features/auth/LoginModal";
 import { errorMessage } from "../../shared/api/bridge";
 import { ACCOUNTS_QUERY_KEY } from "../../shared/api/keys";
-import { Button, Empty, PageHeader, StatusPill } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { PageHeader } from "../../shared/ui/page-header";
+import { StatusPill } from "../../shared/ui/status-pill";
 
 export { authErrorMessages, isValidEmail };
 

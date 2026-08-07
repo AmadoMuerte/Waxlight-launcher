@@ -1,1 +1,1 @@
-export { versionsApi } from "../../shared/api";
+export { versionsApi } from "../../shared/api/game-versions";

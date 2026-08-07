@@ -1,1 +1,1 @@
-export { accountsApi } from "../../shared/api";
+export { accountsApi } from "../../shared/api/accounts";

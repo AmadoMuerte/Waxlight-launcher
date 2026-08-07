@@ -1,13 +1,9 @@
 import { create } from "zustand";
 
-import {
-  settingsApi,
-  updatesApi,
-  type LauncherUpdate,
-  type LauncherUpdateProgress,
-  type Settings,
-} from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
+import { settingsApi } from "../../shared/api/settings";
+import type { LauncherUpdate, LauncherUpdateProgress, Settings } from "../../shared/api/types";
+import { updatesApi } from "../../shared/api/updates";
 import { useToastStore } from "./toast";
 
 let updateCheckSequence = 0;

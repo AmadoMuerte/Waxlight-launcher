@@ -4,7 +4,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
-import { Field, Modal } from "@/shared/ui";
+import { Field } from "@/shared/ui/field";
+import { Modal } from "@/shared/ui/modal";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 

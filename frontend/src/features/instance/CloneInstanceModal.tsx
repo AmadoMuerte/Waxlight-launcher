@@ -5,7 +5,10 @@ import { useToastStore } from "../../app/stores/toast";
 import { instancesApi } from "../../entities/instance/api";
 import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 interface CloneInstanceModalProps {
   instance: Instance;

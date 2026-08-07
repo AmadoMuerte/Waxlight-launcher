@@ -10,8 +10,10 @@ import { InstallLocalVersionModal } from "../../features/install-game-version/In
 import { errorMessage } from "../../shared/api/bridge";
 import { GAME_VERSIONS_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { formatBytes, formatDate } from "../../shared/lib";
-import { Button, PageHeader, StatusPill } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { PageHeader } from "../../shared/ui/page-header";
+import { StatusPill } from "../../shared/ui/status-pill";
 
 export function VersionsPage() {
   const { t } = useTranslation();

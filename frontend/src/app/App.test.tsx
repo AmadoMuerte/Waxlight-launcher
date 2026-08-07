@@ -45,23 +45,35 @@ const api = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("../shared/api", () => ({
+vi.mock("../shared/api/instances", () => ({
   instancesApi: { list: api.list },
+}));
+vi.mock("../shared/api/game-versions", () => ({
   versionsApi: { list: api.list },
+}));
+vi.mock("../shared/api/accounts", () => ({
   accountsApi: { list: api.list },
+}));
+vi.mock("../shared/api/operations", () => ({
   operationsApi: { list: api.list },
+}));
+vi.mock("../shared/api/statistics", () => ({
   statisticsApi: { overview: api.overview },
+}));
+vi.mock("../shared/api/settings", () => ({
   settingsApi: { get: api.get, update: api.update, getDataFolder: api.getDataFolder },
+}));
+vi.mock("../shared/api/updates", () => ({
   updatesApi: {
     currentVersion: vi.fn().mockResolvedValue("0.1.4"),
     check: api.checkUpdate,
     install: vi.fn(),
     openReleasePage: vi.fn(),
   },
-  launcherApi: {},
-  modsApi: {},
-  modCatalogApi: {},
 }));
+vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
+vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
+vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi: {} }));
 
 afterEach(() => {
   cleanup();

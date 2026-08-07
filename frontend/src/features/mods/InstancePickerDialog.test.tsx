@@ -12,7 +12,7 @@ const api = vi.hoisted(() => ({
   cancelTask: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ modCatalogApi: api }));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 
 const instance = (id: string, name: string): Instance => ({
   id,

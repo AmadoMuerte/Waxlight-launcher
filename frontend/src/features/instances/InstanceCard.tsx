@@ -1,20 +1,22 @@
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";
 import { formatDate, formatDuration } from "../../shared/lib";
-import { Button, StatusPill } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { StatusPill } from "../../shared/ui/status-pill";
 
 interface InstanceCardProps {
   instance: Instance;
   version?: GameVersion;
   updateCount?: number;
-  onOpen: () => void;
-  onLaunch: () => void;
-  onStop: () => Promise<void>;
+  onOpen: (instance: Instance) => void;
+  onLaunch: (instance: Instance) => void;
+  onStop: (instance: Instance) => Promise<void>;
 }
 
-export function InstanceCard({
+export const InstanceCard = memo(function InstanceCard({
   instance,
   version,
   updateCount = 0,
@@ -28,7 +30,7 @@ export function InstanceCard({
       <button
         type="button"
         aria-label={t("open_instance_details")}
-        onClick={onOpen}
+        onClick={() => onOpen(instance)}
         style={{ position: "absolute", zIndex: 1, inset: 0, border: 0, background: "transparent" }}
       />
       <div className="cover">
@@ -52,7 +54,7 @@ export function InstanceCard({
             type="button"
             className="more"
             aria-label={t("open_instance_details")}
-            onClick={onOpen}
+            onClick={() => onOpen(instance)}
             style={{ position: "relative", zIndex: 2 }}
           >
             •••
@@ -75,7 +77,7 @@ export function InstanceCard({
               style={{ position: "relative", zIndex: 2 }}
               onClick={(event) => {
                 event.stopPropagation();
-                void onStop();
+                void onStop(instance);
               }}
             >
               {t("stop")}
@@ -85,7 +87,7 @@ export function InstanceCard({
               style={{ position: "relative", zIndex: 2 }}
               onClick={(event) => {
                 event.stopPropagation();
-                onLaunch();
+                onLaunch(instance);
               }}
             >
               ▶ {t("play")}
@@ -95,4 +97,4 @@ export function InstanceCard({
       </div>
     </article>
   );
-}
+});

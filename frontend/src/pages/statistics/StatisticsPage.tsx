@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { useStatisticsQuery } from "../../entities/statistics/queries";
 import { formatDate, formatDuration } from "../../shared/lib";
-import { Empty, PageHeader } from "../../shared/ui";
+import { Empty } from "../../shared/ui/empty";
+import { PageHeader } from "../../shared/ui/page-header";
 
 export function StatisticsPage() {
   const { t } = useTranslation();

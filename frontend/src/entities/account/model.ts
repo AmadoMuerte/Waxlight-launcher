@@ -1,1 +1,1 @@
-export type { Account, LoginResult, LoginStatus } from "../../shared/api";
+export type { Account, LoginResult, LoginStatus } from "../../shared/api/types";

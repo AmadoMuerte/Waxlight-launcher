@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
-import { logsApi } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button } from "../../shared/ui";
+import { logsApi } from "../../shared/api/logs";
+import { Button } from "../../shared/ui/button";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const consoleTheme = {

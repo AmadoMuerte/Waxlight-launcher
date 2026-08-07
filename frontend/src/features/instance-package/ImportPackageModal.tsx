@@ -5,11 +5,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { useToastStore } from "../../app/stores/toast";
 import type { GameVersion } from "../../entities/game-version/model";
-import { instancePackageApi } from "../../shared/api";
-import type { ImportReport, PackageInspection } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Checkbox, Field, Modal, SubmitForm } from "../../shared/ui";
+import { instancePackageApi } from "../../shared/api/instance-package";
+import type { ImportReport, PackageInspection } from "../../shared/api/types";
+import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 
 interface ImportPackageModalProps {

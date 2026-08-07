@@ -20,15 +20,13 @@ const api = vi.hoisted(() => ({
 const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
 
-vi.mock("../../shared/api", () => ({
-  instancesApi: api,
-  versionsApi,
-  accountsApi,
-  launcherApi: {},
-  modsApi: {},
-  settingsApi: {},
-  instancePackageApi: {},
-}));
+vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
+vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
+vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
+vi.mock("../../shared/api/launcher", () => ({ launcherApi: {} }));
+vi.mock("../../shared/api/mods", () => ({ modsApi: {} }));
+vi.mock("../../shared/api/settings", () => ({ settingsApi: {} }));
+vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: {} }));
 
 const versions: GameVersion[] = [
   {

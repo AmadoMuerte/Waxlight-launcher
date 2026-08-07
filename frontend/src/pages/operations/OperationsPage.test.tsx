@@ -19,13 +19,15 @@ const api = vi.hoisted(() => ({
   logsOpenDirectory: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({
+vi.mock("../../shared/api/operations", () => ({
   operationsApi: {
     list: api.list,
     cancel: api.cancel,
     remove: api.remove,
     clearHistory: api.clearHistory,
   },
+}));
+vi.mock("../../shared/api/logs", () => ({
   logsApi: {
     list: api.logsList,
     exportLogs: api.logsExport,
@@ -168,10 +170,10 @@ describe("operations history controls", () => {
     expect(notify).toHaveBeenCalledWith("3 operations removed from history");
   });
 
-  it("renders the launcher console section alongside the history", () => {
-    void renderPageLoaded([operation("completed", "Completed download", "completed")]);
+  it("renders the launcher console section alongside the history", async () => {
+    await renderPageLoaded([operation("completed", "Completed download", "completed")]);
     expect(screen.getByRole("heading", { name: "Launcher console" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export logs" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Export logs" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy logs" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear console" })).toBeTruthy();
   });

@@ -17,11 +17,14 @@ import { CloneInstanceModal } from "../../features/instance/CloneInstanceModal";
 import { CreateInstanceModal } from "../../features/instances/CreateInstanceModal";
 import { InstanceCard } from "../../features/instances/InstanceCard";
 import { InstanceModal } from "../../features/instances/InstanceModal";
-import { instancePackageApi, type ImportReport, type PackageInspection } from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
+import { instancePackageApi } from "../../shared/api/instance-package";
 import { GAME_VERSIONS_QUERY_KEY, INSTANCES_QUERY_KEY } from "../../shared/api/keys";
-import { Button, Empty, PageHeader } from "../../shared/ui";
+import type { ImportReport, PackageInspection } from "../../shared/api/types";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { PageHeader } from "../../shared/ui/page-header";
 
 export function LibraryPage() {
   const { t } = useTranslation();
@@ -96,6 +99,11 @@ export function LibraryPage() {
     [instances, query],
   );
 
+  const versionById = useMemo(
+    () => new Map(versions.map((version) => [version.id, version])),
+    [versions],
+  );
+
   const [launchWarnConfirm, setLaunchWarnConfirm] = useState<{
     open: boolean;
     title: string;
@@ -103,36 +111,62 @@ export function LibraryPage() {
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
 
-  async function launch(instance: (typeof instances)[number]) {
-    try {
-      const validation = await launcherApi.validate(instance.id, instance.defaultAccountId);
-      const issues = validation?.issues ?? [];
-      const warnings = validation?.warnings ?? [];
+  const launch = useCallback(
+    async (instance: (typeof instances)[number]) => {
+      try {
+        const validation = await launcherApi.validate(instance.id, instance.defaultAccountId);
+        const issues = validation?.issues ?? [];
+        const warnings = validation?.warnings ?? [];
 
-      if (!validation?.valid) {
-        throw new Error(issues.join(". ") || t("instance_cannot_launch"));
-      }
-      if (warnings.length > 0) {
-        setLaunchWarnConfirm({
-          open: true,
-          title: t("launch_anyway"),
-          message: warnings.join("\n"),
-          onConfirm: async () => {
-            await launcherApi.launch(instance.id, instance.defaultAccountId);
-            notify(t("started_instance", { name: instance.name }));
-            await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
-          },
-        });
-        return;
-      }
+        if (!validation?.valid) {
+          throw new Error(issues.join(". ") || t("instance_cannot_launch"));
+        }
+        if (warnings.length > 0) {
+          setLaunchWarnConfirm({
+            open: true,
+            title: t("launch_anyway"),
+            message: warnings.join("\n"),
+            onConfirm: async () => {
+              await launcherApi.launch(instance.id, instance.defaultAccountId);
+              notify(t("started_instance", { name: instance.name }));
+              await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+            },
+          });
+          return;
+        }
 
-      await launcherApi.launch(instance.id, instance.defaultAccountId);
-      notify(t("started_instance", { name: instance.name }));
-      await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    }
-  }
+        await launcherApi.launch(instance.id, instance.defaultAccountId);
+        notify(t("started_instance", { name: instance.name }));
+        await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+      } catch (error) {
+        notify(errorMessage(error), "error");
+      }
+    },
+    [notify, queryClient, t],
+  );
+
+  const handleOpen = useCallback((instance: (typeof instances)[number]) => {
+    setSelectedInstance(instance);
+  }, []);
+
+  const handleLaunch = useCallback(
+    (instance: (typeof instances)[number]) => {
+      void launch(instance);
+    },
+    [launch],
+  );
+
+  const handleStop = useCallback(
+    async (instance: (typeof instances)[number]) => {
+      try {
+        await launcherApi.stop(instance.id);
+        notify(t("stop_signal_sent"));
+      } catch (error) {
+        notify(errorMessage(error), "error");
+      }
+    },
+    [notify, t],
+  );
 
   return (
     <>
@@ -194,18 +228,11 @@ export function LibraryPage() {
             <InstanceCard
               key={instance.id}
               instance={instance}
-              version={versions.find((version) => version.id === instance.gameVersionId)}
+              version={versionById.get(instance.gameVersionId)}
               updateCount={modUpdates[instance.id]?.summary.updatesAvailable ?? 0}
-              onOpen={() => setSelectedInstance(instance)}
-              onLaunch={() => void launch(instance)}
-              onStop={async () => {
-                try {
-                  await launcherApi.stop(instance.id);
-                  notify(t("stop_signal_sent"));
-                } catch (error) {
-                  notify(errorMessage(error), "error");
-                }
-              }}
+              onOpen={handleOpen}
+              onLaunch={handleLaunch}
+              onStop={handleStop}
             />
           ))}
         </div>

@@ -10,7 +10,9 @@ import type { AvailableGameVersion } from "../../entities/game-version/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { GAME_VERSIONS_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { formatBytes } from "../../shared/lib";
-import { Button, Empty, StatusPill } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Empty } from "../../shared/ui/empty";
+import { StatusPill } from "../../shared/ui/status-pill";
 
 interface AvailableVersionsProps {
   installedVersionIDs: string[];

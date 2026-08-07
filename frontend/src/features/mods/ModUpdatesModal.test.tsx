@@ -12,7 +12,7 @@ const api = vi.hoisted(() => ({
   download: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ modCatalogApi: api }));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",

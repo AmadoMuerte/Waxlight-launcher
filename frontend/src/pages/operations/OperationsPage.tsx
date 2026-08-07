@@ -1,18 +1,26 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
 import { operationsApi } from "../../entities/operation/api";
 import type { Operation } from "../../entities/operation/model";
 import { useOperationsQuery } from "../../entities/operation/queries";
-import { LogConsole } from "../../features/operations/LogConsole";
 import { errorMessage } from "../../shared/api/bridge";
 import { OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { formatBytes, formatDate } from "../../shared/lib";
-import { Button, Empty, PageHeader, StatusPill } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { PageHeader } from "../../shared/ui/page-header";
+import { StatusPill } from "../../shared/ui/status-pill";
+
+const LogConsole = lazy(() =>
+  import("../../features/operations/LogConsole").then((module) => ({
+    default: module.LogConsole,
+  })),
+);
 
 export function OperationsPage() {
   const { t } = useTranslation();
@@ -184,7 +192,9 @@ export function OperationsPage() {
           </Button>
         </div>
         <div className={`logConsoleSlot ${consoleOpen ? "" : "collapsed"}`.trim()}>
-          <LogConsole />
+          <Suspense fallback={<div className="logConsoleBody" />}>
+            <LogConsole />
+          </Suspense>
         </div>
       </div>
 

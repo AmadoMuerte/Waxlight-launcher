@@ -3,18 +3,21 @@ import { useTranslation } from "react-i18next";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-import {
-  modCatalogApi,
-  type DownloadedMod,
-  type GameVersion,
-  type Instance,
-  type ModDetails,
-  type ModInstallResult,
-  type ModTaskProgress,
-} from "../../shared/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Empty, Field, Modal } from "../../shared/ui";
+import { modCatalogApi } from "../../shared/api/mod-catalog";
+import type {
+  DownloadedMod,
+  GameVersion,
+  Instance,
+  ModDetails,
+  ModInstallResult,
+  ModTaskProgress,
+} from "../../shared/api/types";
+import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Empty } from "../../shared/ui/empty";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
   chooseRelease,

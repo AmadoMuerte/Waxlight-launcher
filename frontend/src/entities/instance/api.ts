@@ -1,1 +1,2 @@
-export { instancesApi, launcherApi } from "../../shared/api";
+export { instancesApi } from "../../shared/api/instances";
+export { launcherApi } from "../../shared/api/launcher";

@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   eventsOn: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({
+vi.mock("../../shared/api/logs", () => ({
   logsApi: {
     list: api.list,
     exportLogs: api.exportLogs,

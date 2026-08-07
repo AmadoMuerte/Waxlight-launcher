@@ -1,1 +1,1 @@
-export type { DataFolder, DataFolderProgress, Settings } from "../../shared/api";
+export type { DataFolder, DataFolderProgress, Settings } from "../../shared/api/types";

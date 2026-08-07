@@ -4,9 +4,10 @@ import { NavLink } from "react-router-dom";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useAccountsQuery } from "../../entities/account/queries";
-import { accountsApi, type Account } from "../../shared/api";
+import { accountsApi } from "../../shared/api/accounts";
 import { errorMessage } from "../../shared/api/bridge";
 import { ACCOUNTS_QUERY_KEY } from "../../shared/api/keys";
+import type { Account } from "../../shared/api/types";
 import {
   DropdownMenu,
   DropdownMenuContent,

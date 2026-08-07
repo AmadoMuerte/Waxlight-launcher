@@ -16,7 +16,10 @@ import { SETTINGS_QUERY_KEY } from "../../shared/api/keys";
 import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
-import { Button, Checkbox, Field, PageHeader } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
+import { Field } from "../../shared/ui/field";
+import { PageHeader } from "../../shared/ui/page-header";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const autosaveDelayMs = 400;

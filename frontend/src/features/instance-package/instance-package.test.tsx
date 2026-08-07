@@ -17,7 +17,7 @@ const api = vi.hoisted(() => ({
   selectPackageFile: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ instancePackageApi: api }));
+vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: api }));
 
 class ResizeObserverStub {
   observe() {}

@@ -13,7 +13,7 @@ const api = vi.hoisted(() => ({
   installAvailable: vi.fn(),
 }));
 
-vi.mock("../../shared/api", () => ({ versionsApi: api }));
+vi.mock("../../shared/api/game-versions", () => ({ versionsApi: api }));
 
 const releases = [
   {

@@ -7,7 +7,10 @@ import type { Account } from "../../entities/account/model";
 import type { GameVersion } from "../../entities/game-version/model";
 import { instancesApi } from "../../entities/instance/api";
 import { errorMessage } from "../../shared/api/bridge";
-import { Button, Field, Modal, SubmitForm } from "../../shared/ui";
+import { Button } from "../../shared/ui/button";
+import { Field } from "../../shared/ui/field";
+import { Modal } from "../../shared/ui/modal";
+import { SubmitForm } from "../../shared/ui/submit-form";
 
 interface CreateInstanceModalProps {
   versions: GameVersion[];

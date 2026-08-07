@@ -22,4 +22,4 @@ export type {
   ModUpdateSummary,
   ModVersion,
   UploadModsResult,
-} from "../../shared/api";
+} from "../../shared/api/types";

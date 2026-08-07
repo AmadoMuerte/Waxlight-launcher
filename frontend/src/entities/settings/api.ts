@@ -1,1 +1,1 @@
-export { settingsApi } from "../../shared/api";
+export { settingsApi } from "../../shared/api/settings";
