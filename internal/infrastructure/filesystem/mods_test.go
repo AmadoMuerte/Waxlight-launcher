@@ -37,6 +37,36 @@ func TestScanDiscoversModsAndReadsArchiveMetadata(t *testing.T) {
 	}
 }
 
+func TestScanReadsLenientModinfoMetadata(t *testing.T) {
+	root := t.TempDir()
+	manager := ModFileManager{}
+	if err := manager.EnsureLayout(root); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(root, modsDirectory, "bixo_0.4.1.zip")
+	writeModArchive(t, archivePath, `{
+  "type": "content",
+  "modid": "bixo",
+  "name": "Bixo",
+  "version": "0.4.1",
+  "dependencies": {
+    "playermodellib": "1.23.1",
+  },
+  "requiredOnServer": true,
+}`)
+
+	mods, err := manager.Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mods) != 1 {
+		t.Fatalf("expected one discovered mod, got %#v", mods)
+	}
+	if mods[0].Name != "Bixo" || mods[0].Version != "0.4.1" || mods[0].ModID != "bixo" {
+		t.Fatalf("unexpected archive metadata: %#v", mods[0])
+	}
+}
+
 func writeModArchive(t *testing.T, path, metadata string) {
 	t.Helper()
 	file, err := os.Create(path)

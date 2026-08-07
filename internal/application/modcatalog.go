@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tidwall/gjson"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"golang.org/x/mod/semver"
 )
@@ -699,24 +700,33 @@ func decodeModArchiveInfo(data []byte) (modArchiveInfo, error) {
 	// Some mod packs save modinfo.json with a UTF-8 byte order mark, which the
 	// standard library rejects even though the JSON itself is valid.
 	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
-	var info modArchiveInfo
-	if err := json.Unmarshal(data, &info); err == nil {
+	info := modArchiveInfo{}
+	strictErr := json.Unmarshal(data, &info)
+	if strictErr == nil {
 		if info.Dependencies == nil {
 			info.Dependencies = map[string]string{}
 		}
 		return info, nil
 	}
-	// A few mods publish a dependencies block that does not match the expected
-	// map-of-strings shape. Keep the core fields so the mod can still be
-	// matched and installed; its dependencies are then simply not resolved.
-	var core struct {
-		ModID   string `json:"modid"`
-		Version string `json:"version"`
+	// A few mods publish modinfo.json with lenient JSON, such as trailing
+	// commas, that the game accepts but the standard library rejects. Keep
+	// the core fields so the mod can still be matched and installed, and
+	// preserve the string dependencies that are parseable.
+	info = modArchiveInfo{Dependencies: map[string]string{}}
+	info.ModID = strings.TrimSpace(gjson.GetBytes(data, "modid").String())
+	info.Version = strings.TrimSpace(gjson.GetBytes(data, "version").String())
+	if info.ModID == "" {
+		return modArchiveInfo{}, strictErr
 	}
-	if coreErr := json.Unmarshal(data, &core); coreErr != nil {
-		return modArchiveInfo{}, coreErr
+	if dependencies := gjson.GetBytes(data, "dependencies"); dependencies.IsObject() {
+		dependencies.ForEach(func(key, value gjson.Result) bool {
+			if !value.IsObject() && !value.IsArray() {
+				info.Dependencies[key.String()] = value.String()
+			}
+			return true
+		})
 	}
-	return modArchiveInfo{ModID: core.ModID, Version: core.Version, Dependencies: map[string]string{}}, nil
+	return info, nil
 }
 
 func findDependencyVersion(

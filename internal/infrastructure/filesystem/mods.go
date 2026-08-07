@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tidwall/gjson"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
@@ -110,8 +111,22 @@ func readModInfo(path string) (modInfo, bool) {
 		return modInfo{}, false
 	}
 	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxModInfoBytes+1))
+	if err != nil || int64(len(data)) > maxModInfoBytes {
+		return modInfo{}, false
+	}
 	var metadata modInfo
-	if err := json.NewDecoder(io.LimitReader(file, maxModInfoBytes+1)).Decode(&metadata); err != nil {
+	if err := json.Unmarshal(data, &metadata); err == nil {
+		return metadata, true
+	}
+	// Some mods publish modinfo.json with lenient JSON, such as trailing
+	// commas, that the game accepts but the standard library rejects.
+	metadata = modInfo{
+		ModID:   strings.TrimSpace(gjson.GetBytes(data, "modid").String()),
+		Name:    strings.TrimSpace(gjson.GetBytes(data, "name").String()),
+		Version: strings.TrimSpace(gjson.GetBytes(data, "version").String()),
+	}
+	if metadata.ModID == "" && metadata.Name == "" && metadata.Version == "" {
 		return modInfo{}, false
 	}
 	return metadata, true
