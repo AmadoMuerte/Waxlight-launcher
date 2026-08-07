@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +29,14 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	if !strings.HasPrefix(in.URL, "https://") {
 		return fmt.Errorf("only HTTPS downloads are allowed")
 	}
+	// Some catalog entries (for example Vintage Story ModDB) embed file names
+	// with raw spaces in the query string. Written verbatim into the request
+	// line, such URLs are rejected by servers with HTTP 400.
+	normalizedURL, err := normalizeDownloadURL(in.URL)
+	if err != nil {
+		return fmt.Errorf("invalid download URL: %w", err)
+	}
+	in.URL = normalizedURL
 	fileName := filepath.Base(in.DestinationPath)
 	slog.Info("download started", "file", fileName, "resume", in.Resume)
 	if err := os.MkdirAll(filepath.Dir(in.DestinationPath), 0o755); err != nil {
@@ -131,6 +140,38 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 	}
 	slog.Info("download completed", "file", fileName, "bytes", downloaded)
 	return os.Rename(partial, in.DestinationPath)
+}
+
+func (d *HTTPDownloader) ContentLength(ctx context.Context, rawURL string) (int64, error) {
+	if !strings.HasPrefix(rawURL, "https://") {
+		return 0, fmt.Errorf("only HTTPS URLs are allowed")
+	}
+	normalizedURL, err := normalizeDownloadURL(rawURL)
+	if err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, normalizedURL, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("HEAD returned HTTP %d", resp.StatusCode)
+	}
+	return resp.ContentLength, nil
+}
+
+func normalizeDownloadURL(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	parsed.RawQuery = parsed.Query().Encode()
+	return parsed.String(), nil
 }
 
 func checksumFile(path string, algorithm string) (string, error) {

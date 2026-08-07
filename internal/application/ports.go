@@ -153,6 +153,7 @@ type DownloadProgress struct {
 
 type Downloader interface {
 	Download(context.Context, DownloadRequest, chan<- DownloadProgress) error
+	ContentLength(ctx context.Context, url string) (int64, error)
 }
 
 type LauncherUpdateSource interface {

@@ -1,0 +1,10 @@
+# Waxlight Launcher - gitleaks configuration
+# Allowlist: redact_test.go contains synthetic test fixtures (fake session keys)
+# used to verify Redact() function. These are NOT real credentials.
+
+[allowlist]
+  description = "redact_test.go contains synthetic test fixtures — fake session keys for testing Redact(), not real secrets"
+
+  paths = [
+    '''internal/infrastructure/logging/redact_test\.go''',
+  ]

@@ -34,6 +34,10 @@ func (downloader *blockingDownloader) Download(
 	return nil
 }
 
+func (downloader *blockingDownloader) ContentLength(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
 func TestManagerLimitsConcurrentDownloads(t *testing.T) {
 	underlying := &blockingDownloader{
 		started: make(chan struct{}, 3),

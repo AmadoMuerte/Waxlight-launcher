@@ -133,6 +133,10 @@ func (downloader modArchiveDownloader) Download(
 	return nil
 }
 
+func (downloader modArchiveDownloader) ContentLength(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
 func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
