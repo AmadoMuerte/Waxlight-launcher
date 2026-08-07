@@ -295,9 +295,11 @@ main {
 
 .buttonSpinner {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
 }
 
 .button.busy.button.primary,
@@ -375,6 +377,18 @@ main {
   to {
     transform: rotate(360deg);
   }
+}
+
+.appLoading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.appLoading .spinner {
+  width: 34px;
+  height: 34px;
+  border-width: 3px;
 }
 
 .toolbar,

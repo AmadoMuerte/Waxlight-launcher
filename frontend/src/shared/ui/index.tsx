@@ -12,6 +12,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   busy?: boolean;
 }
 
+export function Spinner({ className = "" }: { className?: string }) {
+  return <span className={`spinner ${className}`.trim()} />;
+}
+
 export function Button({
   children,
   variant = "primary",
@@ -29,7 +33,7 @@ export function Button({
       <span className="buttonLabel" aria-hidden={busy}>
         {children}
       </span>
-      {busy && <span className="spinner buttonSpinner" />}
+      {busy && <Spinner className="buttonSpinner" />}
     </button>
   );
 }
