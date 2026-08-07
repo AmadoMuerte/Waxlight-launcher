@@ -338,6 +338,13 @@ func (controller *ModManagerController) ListInstalledMods(
 	return result, err
 }
 
+func (controller *ModManagerController) LinkLocalMods(
+	instanceID string,
+) (LinkLocalModsResultDTO, error) {
+	result, err := controller.svc.LinkLocalMods(context.Background(), instanceID)
+	return linkLocalModsResultDTO(result), err
+}
+
 func (controller *ModManagerController) CheckInstanceModUpdates(
 	instanceID string,
 ) (InstanceModUpdateReportDTO, error) {

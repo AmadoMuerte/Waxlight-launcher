@@ -8,6 +8,8 @@ export function InstallModFile(arg1:presentation.InstallModFileRequest):Promise<
 
 export function InstallModFiles(arg1:presentation.InstallModFilesRequest):Promise<presentation.InstallModFilesResultDTO>;
 
+export function LinkLocalMods(arg1:string):Promise<presentation.LinkLocalModsResultDTO>;
+
 export function ListInstalledMods(arg1:string):Promise<Array<presentation.InstalledModDTO>>;
 
 export function RemoveMod(arg1:string):Promise<void>;

@@ -126,6 +126,13 @@ func (controller *ModCatalogController) RemoveDownloadedMod(
 	return controller.svc.RemoveDownloadedMod(context.Background(), modID, versionID)
 }
 
+func (controller *ModCatalogController) UploadMods(
+	sourcePaths []string,
+) (UploadModsResultDTO, error) {
+	result, err := controller.svc.UploadMods(context.Background(), sourcePaths)
+	return uploadModsResultDTO(result), err
+}
+
 func (controller *ModCatalogController) CancelModTask(taskID string) error {
 	return controller.svc.CancelModTask(taskID)
 }

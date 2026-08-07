@@ -21,6 +21,7 @@ type ModSummary struct {
 	Side            ModSide
 	LatestVersion   string
 	GameVersions    []string
+	ModIDStrings    []string
 	Downloads       int64
 	CreatedAt       *time.Time
 	UpdatedAt       *time.Time
@@ -141,4 +142,30 @@ type ModInstallationResult struct {
 	InstanceName string
 	Installed    bool
 	Message      string
+}
+
+type LocalModLink struct {
+	Path            string
+	Name            string
+	Version         string
+	FileName        string
+	ModID           string
+	VersionID       string
+	Slug            string
+	LatestVersion   string
+	UpdateAvailable bool
+	Reason          string
+}
+
+type LinkLocalModsResult struct {
+	Linked     []LocalModLink
+	NotMatched []LocalModLink
+	Failed     []LocalModLink
+}
+
+type UploadModsResult struct {
+	Linked     []LocalModLink
+	NotMatched []LocalModLink
+	Skipped    []string
+	Failed     []LocalModLink
 }

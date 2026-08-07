@@ -9,6 +9,7 @@ import { ModCard } from "../features/mods/ModCard";
 import { ModsFilters } from "../features/mods/ModsFilters";
 import {
   modCatalogApi,
+  settingsApi,
   type DownloadedMod,
   type GameVersion,
   type Instance,
@@ -266,10 +267,17 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
   async function openInstaller(modId: string, local?: DownloadedMod) {
     try {
       const details = await modCatalogApi.get(modId);
+      let localDownloaded = local;
+      if (!localDownloaded) {
+        const all = (await modCatalogApi.downloaded()) ?? [];
+        localDownloaded = all.find((item) => item.modId === modId);
+      }
       setInstalling({
         details,
-        downloaded: local,
-        preferredVersionId: local?.updateAvailable ? details.versions[0]?.id : local?.versionId,
+        downloaded: localDownloaded,
+        preferredVersionId: localDownloaded?.updateAvailable
+          ? details.versions[0]?.id
+          : localDownloaded?.versionId,
       });
     } catch (loadError) {
       notify(errorMessage(loadError), "error");
@@ -291,6 +299,41 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
     setCatalog((current) => synchronizeDownloadedState(current, items));
   }
 
+  async function uploadMods() {
+    let paths: string[];
+    try {
+      paths = (await settingsApi.selectModFiles()) ?? [];
+    } catch (pickError) {
+      notify(errorMessage(pickError), "error");
+      return;
+    }
+    if (paths.length === 0) return;
+    try {
+      const result = await modCatalogApi.uploadMods(paths);
+      const linked = result.linked ?? [];
+      const notMatched = result.notMatched ?? [];
+      const skipped = result.skipped ?? [];
+      const failed = result.failed ?? [];
+      await refreshDownloaded();
+      const counts: string[] = [];
+      if (linked.length > 0) {
+        counts.push(t("mods_linked_count", { count: linked.length }));
+      }
+      if (notMatched.length > 0) {
+        counts.push(t("mods_not_matched_count", { count: notMatched.length }));
+      }
+      if (skipped.length > 0) {
+        counts.push(t("mods_upload_skipped_count", { count: skipped.length }));
+      }
+      if (failed.length > 0) {
+        counts.push(t("mods_link_failed_count", { count: failed.length }));
+      }
+      notify(counts.join(" · ") || t("mod_uploaded_none"));
+    } catch (uploadError) {
+      notify(errorMessage(uploadError), "error");
+    }
+  }
+
   const displayed =
     view === "all" ? catalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
 
@@ -301,18 +344,25 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
         title={t("mods")}
         description={t("mods_description")}
         action={
-          <div className="modsSearch">
-            <span>⌕</span>
-            <input
-              aria-label={t("search_mods")}
-              placeholder={t("search_mods_placeholder")}
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
-            {searchText && (
-              <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>
-                ×
-              </button>
+          <div className="modsHeaderActions">
+            <div className="modsSearch">
+              <span>⌕</span>
+              <input
+                aria-label={t("search_mods")}
+                placeholder={t("search_mods_placeholder")}
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+              {searchText && (
+                <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>
+                  ×
+                </button>
+              )}
+            </div>
+            {view === "downloaded" && (
+              <Button variant="secondary" onClick={() => void uploadMods()}>
+                <span aria-hidden="true">＋</span> {t("upload_mods")}
+              </Button>
             )}
           </div>
         }
@@ -420,7 +470,12 @@ export function ModsPage({ instances, versions, notify }: ModsPageProps) {
           }
           action={
             view === "downloaded" ? (
-              <Button onClick={() => updateParams({ view: "all" })}>{t("browse_mods")}</Button>
+              <div className="row">
+                <Button onClick={() => updateParams({ view: "all" })}>{t("browse_mods")}</Button>
+                <Button variant="secondary" onClick={() => void uploadMods()}>
+                  <span aria-hidden="true">＋</span> {t("upload_mods")}
+                </Button>
+              </div>
             ) : (
               <Button onClick={clearFilters}>{t("clear_filters")}</Button>
             )

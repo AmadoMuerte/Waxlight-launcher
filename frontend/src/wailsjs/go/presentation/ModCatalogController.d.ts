@@ -19,3 +19,5 @@ export function ListModTags():Promise<Array<presentation.ModTagDTO>>;
 export function RemoveDownloadedMod(arg1:string,arg2:string):Promise<void>;
 
 export function SearchMods(arg1:presentation.ModSearchRequest):Promise<presentation.ModSearchResultDTO>;
+
+export function UploadMods(arg1:Array<string>):Promise<presentation.UploadModsResultDTO>;

@@ -98,6 +98,13 @@ export function InstancePickerDialog({
   }>({ open: false, title: "", onConfirm: () => {} });
 
   const release = mod.versions.find((item) => item.id === releaseId);
+  const installedById = useMemo(() => {
+    const map = new Map<string, { instanceName: string; version: string }>();
+    for (const item of downloaded?.installedInstances ?? []) {
+      map.set(item.instanceId, item);
+    }
+    return map;
+  }, [downloaded]);
   const visibleInstances = useMemo(() => {
     if (!release) return [];
     return instances.filter((instance) => {
@@ -106,6 +113,12 @@ export function InstancePickerDialog({
       return matches && (showIncompatible || compatibility !== "incompatible");
     });
   }, [gameVersions, instanceQuery, instances, release, showIncompatible]);
+
+  // Instances that already have this mod installed are shown as installed and
+  // cannot be selected again.
+  useEffect(() => {
+    setSelected((items) => items.filter((id) => !installedById.has(id)));
+  }, [installedById]);
 
   useEffect(() => {
     let unsubscribeProgress = () => {};
@@ -290,27 +303,46 @@ export function InstancePickerDialog({
                   const compatibility = release
                     ? compatibilityFor(instance, gameVersions, release)
                     : "unknown";
+                  const installed = installedById.get(instance.id);
                   return (
-                    <label key={instance.id} className="instanceChoice">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(instance.id)}
-                        disabled={compatibility === "incompatible" && !showIncompatible}
-                        onChange={(event) =>
-                          setSelected((items) =>
-                            event.target.checked
-                              ? [...items, instance.id]
-                              : items.filter((id) => id !== instance.id),
-                          )
-                        }
-                      />
+                    <label
+                      key={instance.id}
+                      className={`instanceChoice ${installed ? "installed" : ""}`}
+                    >
+                      {installed ? (
+                        <span className="installedCheck" aria-hidden="true">
+                          ✓
+                        </span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(instance.id)}
+                          disabled={compatibility === "incompatible" && !showIncompatible}
+                          onChange={(event) =>
+                            setSelected((items) =>
+                              event.target.checked
+                                ? [...items, instance.id]
+                                : items.filter((id) => id !== instance.id),
+                            )
+                          }
+                        />
+                      )}
                       <span>
                         <strong>{instance.name}</strong>
                         <small>Vintage Story {instanceGameVersion(instance, gameVersions)}</small>
+                        {installed && (
+                          <small className="installedHint">
+                            {t("installed_version_value", { version: installed.version })}
+                          </small>
+                        )}
                       </span>
-                      <span className={`compatibility compatibility-${compatibility}`}>
-                        {compatibilityLabel(compatibility)}
-                      </span>
+                      {installed ? (
+                        <span className="installedPill">{t("installed")}</span>
+                      ) : (
+                        <span className={`compatibility compatibility-${compatibility}`}>
+                          {compatibilityLabel(compatibility)}
+                        </span>
+                      )}
                     </label>
                   );
                 })}

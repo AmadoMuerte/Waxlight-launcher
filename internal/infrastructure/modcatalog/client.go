@@ -111,6 +111,14 @@ type apiRelease struct {
 	Changelog  string   `json:"changelog"`
 }
 
+func (client *Client) List(ctx context.Context) ([]domain.ModSummary, error) {
+	items, err := client.list(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return append([]domain.ModSummary(nil), items...), nil
+}
+
 func (client *Client) Search(
 	ctx context.Context,
 	query domain.ModSearchQuery,
@@ -242,6 +250,7 @@ func (client *Client) list(ctx context.Context) ([]domain.ModSummary, error) {
 			Downloads:    raw.Downloads,
 			UpdatedAt:    updated,
 			Tags:         nonEmpty(raw.Tags),
+			ModIDStrings: nonEmpty(raw.ModIDStrings),
 			GameVersions: []string{},
 		})
 	}

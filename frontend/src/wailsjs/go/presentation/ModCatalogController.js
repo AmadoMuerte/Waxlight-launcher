@@ -37,3 +37,7 @@ export function RemoveDownloadedMod(arg1, arg2) {
 export function SearchMods(arg1) {
   return window['go']['presentation']['ModCatalogController']['SearchMods'](arg1);
 }
+
+export function UploadMods(arg1) {
+  return window['go']['presentation']['ModCatalogController']['UploadMods'](arg1);
+}

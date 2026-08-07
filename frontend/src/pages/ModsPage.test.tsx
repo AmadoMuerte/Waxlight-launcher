@@ -14,12 +14,18 @@ const api = vi.hoisted(() => ({
   download: vi.fn(),
   installDownloaded: vi.fn(),
   removeDownloaded: vi.fn(),
+  uploadMods: vi.fn(),
+  uploadMod: vi.fn(),
   cancelTask: vi.fn(),
   checkUpdates: vi.fn(),
   tags: vi.fn(),
 }));
 
-vi.mock("../shared/api", () => ({ modCatalogApi: api }));
+const settings = vi.hoisted(() => ({
+  selectModFiles: vi.fn(),
+}));
+
+vi.mock("../shared/api", () => ({ modCatalogApi: api, settingsApi: settings }));
 
 const summary = {
   id: "51",
@@ -52,7 +58,7 @@ const details = {
   ],
 };
 
-function renderPage(path = "/mods?q=corpse") {
+function renderPage(path = "/mods?q=corpse", notify = vi.fn()) {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -89,7 +95,7 @@ function renderPage(path = "/mods?q=corpse") {
                   installedAt: "2026-01-01T00:00:00Z",
                 },
               ]}
-              notify={vi.fn()}
+              notify={notify}
             />
           }
         />
@@ -171,5 +177,45 @@ describe("mods browser", () => {
     await waitFor(() => expect(api.downloaded).toHaveBeenCalled());
     expect(await screen.findByText("Version 2.0.0 · 100 B")).toBeTruthy();
     expect(screen.getByText("Downloaded · Not installed")).toBeTruthy();
+  });
+
+  it("uploads local mods into the library and reports the link result", async () => {
+    const notify = vi.fn();
+    api.downloaded.mockResolvedValue([]);
+    settings.selectModFiles.mockResolvedValue(["/tmp/corpse.zip", "/tmp/mystery.zip"]);
+    api.uploadMods.mockResolvedValue({
+      linked: [
+        {
+          name: "Player Corpse",
+          version: "2.0.0",
+          fileName: "corpse.zip",
+          modId: "51",
+          versionId: "7",
+          updateAvailable: false,
+        },
+      ],
+      notMatched: [
+        {
+          name: "Mystery Mod",
+          version: "1.0.0",
+          fileName: "mystery.zip",
+          path: "/tmp/mystery.zip",
+          updateAvailable: false,
+          reason: "not_in_catalog",
+        },
+      ],
+      skipped: [],
+      failed: [],
+    });
+    renderPage("/mods?view=downloaded", notify);
+    await screen.findByRole("tab", { name: /Downloaded/ });
+
+    await userEvent.setup().click(screen.getAllByRole("button", { name: /Upload mods/ })[0]);
+
+    await waitFor(() =>
+      expect(api.uploadMods).toHaveBeenCalledWith(["/tmp/corpse.zip", "/tmp/mystery.zip"]),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("linked"));
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("not found"));
   });
 });

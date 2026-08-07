@@ -590,6 +590,7 @@ function InstanceModal({
   }>({ open: false, title: "", onConfirm: () => {} });
   const [updateReport, setUpdateReport] = useState<InstanceModUpdateReport>();
   const [updatesDialogOpen, setUpdatesDialogOpen] = useState(false);
+  const autoLinkedRef = useRef(false);
 
   const loadMods = useCallback(async () => {
     try {
@@ -607,10 +608,31 @@ function InstanceModal({
     }
   }, [instance.id, notify]);
 
+  const linkLocalMods = useCallback(async () => {
+    try {
+      const result = await modsApi.linkLocal(instance.id);
+      await loadMods();
+      await loadUpdates();
+      await refresh();
+      if (result.linked.length > 0) {
+        notify(t("mods_linked_count", { count: result.linked.length }));
+      }
+      if (result.notMatched.length > 0) {
+        notify(t("mods_not_matched_count", { count: result.notMatched.length }));
+      }
+    } catch {
+      // Recognition is best effort; the mods list still loads without it.
+    }
+  }, [instance.id, loadMods, loadUpdates, notify, refresh, t]);
+
   useEffect(() => {
     void loadMods();
     void loadUpdates();
-  }, [loadMods, loadUpdates]);
+    if (!autoLinkedRef.current) {
+      autoLinkedRef.current = true;
+      void linkLocalMods();
+    }
+  }, [loadMods, loadUpdates, linkLocalMods]);
 
   async function installMods() {
     try {
@@ -854,7 +876,14 @@ function InstanceModal({
                     ◇
                   </div>
                   <div className="modRowCopy">
-                    <strong>{mod.name}</strong>
+                    <strong>
+                      {mod.name}
+                      {mod.managed ? (
+                        <span className="modSourceBadge managed">{t("managed_mod")}</span>
+                      ) : (
+                        <span className="modSourceBadge local">{t("local_mod")}</span>
+                      )}
+                    </strong>
                     <small>{t("version_value", { version: mod.version })}</small>
                     <code title={mod.fileName}>{mod.fileName}</code>
                   </div>

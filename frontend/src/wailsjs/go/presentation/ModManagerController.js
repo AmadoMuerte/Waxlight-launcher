@@ -14,6 +14,10 @@ export function InstallModFiles(arg1) {
   return window['go']['presentation']['ModManagerController']['InstallModFiles'](arg1);
 }
 
+export function LinkLocalMods(arg1) {
+  return window['go']['presentation']['ModManagerController']['LinkLocalMods'](arg1);
+}
+
 export function ListInstalledMods(arg1) {
   return window['go']['presentation']['ModManagerController']['ListInstalledMods'](arg1);
 }

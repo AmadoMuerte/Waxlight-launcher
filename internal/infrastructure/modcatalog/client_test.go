@@ -30,8 +30,8 @@ func TestClientMapsFiltersAndSortsCatalog(t *testing.T) {
 			t.Fatalf("unexpected path %s", request.URL.Path)
 		}
 		return jsonResponse(`{"statuscode":"200","mods":[
-			{"modid":1,"downloads":20,"name":"Server Tools","summary":"Admin helpers","author":"Ada","side":"server","type":"mod","tags":["Utility"],"lastreleased":"2026-08-01 12:00:00"},
-			{"modid":2,"downloads":200,"name":"Warm Light","summary":"Soft lamps","author":"Bea","side":"client","type":"mod","tags":["Graphics"],"lastreleased":"2026-08-02 12:00:00"},
+			{"modid":1,"downloads":20,"name":"Server Tools","summary":"Admin helpers","author":"Ada","side":"server","type":"mod","tags":["Utility"],"modidstrs":["servertools"],"lastreleased":"2026-08-01 12:00:00"},
+			{"modid":2,"downloads":200,"name":"Warm Light","summary":"Soft lamps","author":"Bea","side":"client","type":"mod","tags":["Graphics"],"modidstrs":["warmlight"],"lastreleased":"2026-08-02 12:00:00"},
 			{"modid":3,"downloads":999,"name":"External","summary":"skip","author":"Cat","side":"both","type":"externaltool","tags":[],"lastreleased":"2026-08-03 12:00:00"}
 		]}`), nil
 	})
@@ -44,6 +44,26 @@ func TestClientMapsFiltersAndSortsCatalog(t *testing.T) {
 	}
 	if result.TotalItems != 1 || result.Items[0].ID != "1" {
 		t.Fatalf("unexpected search result: %#v", result)
+	}
+}
+
+func TestClientListsCatalogWithModIDStrings(t *testing.T) {
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return jsonResponse(`{"statuscode":"200","mods":[
+			{"modid":51,"downloads":42,"name":"Player Corpse","summary":"Corpse","author":"Ada","side":"both","type":"mod","modidstrs":["playercorpse","oldcorpse"],"lastreleased":"2026-08-01 10:00:00"},
+			{"modid":3,"downloads":999,"name":"External","summary":"skip","author":"Cat","side":"both","type":"externaltool","lastreleased":"2026-08-03 12:00:00"}
+		]}`), nil
+	})
+	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
+	items, err := client.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected catalog list: %#v", items)
+	}
+	if len(items[0].ModIDStrings) != 2 || items[0].ModIDStrings[0] != "playercorpse" || items[0].ModIDStrings[1] != "oldcorpse" {
+		t.Fatalf("modid strings were not mapped: %#v", items[0].ModIDStrings)
 	}
 }
 

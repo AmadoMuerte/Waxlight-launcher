@@ -3396,3 +3396,69 @@ main {
 .logConsoleBody .xterm {
   height: 100%;
 }
+
+.modsHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.modSourceBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modSourceBadge.managed {
+  color: #7fbf8f;
+  background: #16261b;
+  border: 1px solid #274033;
+}
+
+.modSourceBadge.local {
+  color: #d8a76a;
+  background: #261d13;
+  border: 1px solid #3f2f1c;
+}
+
+.instanceChoice.installed {
+  cursor: default;
+}
+.instanceChoice.installed:hover {
+  background: transparent;
+}
+
+.installedCheck {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #2a4a35;
+  border-radius: 5px;
+  color: #8fc49a;
+  background: #16261b;
+  font-size: 12px;
+}
+
+.installedPill {
+  padding: 3px 9px;
+  border: 1px solid #2a4a35;
+  border-radius: 999px;
+  color: #8fc49a;
+  background: #16261b;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.installedHint {
+  color: #8fc49a;
+}

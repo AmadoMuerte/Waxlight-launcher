@@ -52,6 +52,17 @@ type staticModCatalog struct {
 	detailsByID map[string]domain.ModDetails
 }
 
+func (catalog staticModCatalog) List(context.Context) ([]domain.ModSummary, error) {
+	if len(catalog.detailsByID) > 0 {
+		items := make([]domain.ModSummary, 0, len(catalog.detailsByID))
+		for _, details := range catalog.detailsByID {
+			items = append(items, details.ModSummary)
+		}
+		return items, nil
+	}
+	return []domain.ModSummary{catalog.details.ModSummary}, nil
+}
+
 func (catalog staticModCatalog) Search(
 	context.Context,
 	domain.ModSearchQuery,

@@ -48,12 +48,14 @@ func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, er
 			path := filepath.Join(root, entry.Name())
 			name := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 			version := "unknown"
+			modID := ""
 			if strings.EqualFold(filepath.Ext(entry.Name()), ".zip") {
 				if metadata, ok := readModInfo(path); ok {
+					modID = strings.TrimSpace(metadata.ModID)
 					if strings.TrimSpace(metadata.Name) != "" {
 						name = strings.TrimSpace(metadata.Name)
-					} else if strings.TrimSpace(metadata.ModID) != "" {
-						name = strings.TrimSpace(metadata.ModID)
+					} else if modID != "" {
+						name = modID
 					}
 					if strings.TrimSpace(metadata.Version) != "" {
 						version = strings.TrimSpace(metadata.Version)
@@ -63,6 +65,7 @@ func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, er
 			mods = append(mods, domain.DiscoveredMod{
 				Name:       name,
 				Version:    version,
+				ModID:      modID,
 				FileName:   entry.Name(),
 				FilePath:   path,
 				Enabled:    directory.enabled,

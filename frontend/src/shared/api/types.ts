@@ -244,6 +244,32 @@ export interface ModInstallResult {
   installations: ModInstallationResult[];
 }
 
+export interface LocalModLink {
+  path?: string;
+  name: string;
+  version: string;
+  fileName: string;
+  modId?: string;
+  versionId?: string;
+  slug?: string;
+  latestVersion?: string;
+  updateAvailable: boolean;
+  reason?: string;
+}
+
+export interface LinkLocalModsResult {
+  linked: LocalModLink[];
+  notMatched: LocalModLink[];
+  failed: LocalModLink[];
+}
+
+export interface UploadModsResult {
+  linked: LocalModLink[];
+  notMatched: LocalModLink[];
+  skipped: string[];
+  failed: LocalModLink[];
+}
+
 export interface ModTaskProgress {
   taskId: string;
   modId: string;

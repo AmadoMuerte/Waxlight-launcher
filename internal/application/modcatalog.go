@@ -877,6 +877,426 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	return s.modDownloads.Delete(ctx, modID, versionID)
 }
 
+type modVersionMatch struct {
+	details domain.ModDetails
+	version domain.ModVersion
+}
+
+var (
+	errLocalModNotMatched    = errors.New("local mod not matched to the catalog")
+	errLocalModAlreadyExists = errors.New("local mod already in the library")
+)
+
+// LinkLocalMods recognizes locally installed mods that are not yet managed by
+// the launcher and binds them to their catalog entries. Each bound mod gains a
+// DownloadedMod record and is marked as managed so updates and catalog state
+// apply exactly like for mods downloaded through the launcher.
+func (s *Service) LinkLocalMods(ctx context.Context, instanceID string) (domain.LinkLocalModsResult, error) {
+	result := domain.LinkLocalModsResult{}
+	if s.modCatalog == nil || s.modDownloads == nil {
+		return result, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
+	}
+	instance, err := s.store.GetInstance(ctx, instanceID)
+	if err != nil {
+		return result, err
+	}
+	mods, err := s.ListMods(ctx, instanceID)
+	if err != nil {
+		return result, err
+	}
+	for _, mod := range mods {
+		if mod.Managed || !isLocalModSource(mod.Source) {
+			continue
+		}
+		downloaded, link, err := s.linkLocalModFile(ctx, mod.FilePath, false, mod.Name)
+		if err != nil && !errors.Is(err, errLocalModAlreadyExists) {
+			switch {
+			case errors.Is(err, errLocalModNotMatched):
+				result.NotMatched = append(result.NotMatched, link)
+			default:
+				result.Failed = append(result.Failed, link)
+			}
+			continue
+		}
+		updated := mod
+		updated.Source = modDBSource(downloaded.ModID, downloaded.VersionID)
+		updated.Managed = true
+		updated.Version = downloaded.DownloadedVersion
+		updated.UpdatedAt = time.Now().UTC()
+		if err := s.store.SaveMod(ctx, updated); err != nil {
+			link.Reason = "Could not save the linked mod metadata"
+			result.Failed = append(result.Failed, link)
+			continue
+		}
+		s.emit("mod:linked", updated)
+		result.Linked = append(result.Linked, link)
+	}
+	slog.Info("local mods linked", "instance", instance.Name, "linked", len(result.Linked), "notMatched", len(result.NotMatched))
+	return result, nil
+}
+
+// UploadMods imports local mod files into the launcher library, binding each to
+// its catalog entry so it behaves like a mod downloaded through the launcher.
+func (s *Service) UploadMods(ctx context.Context, sourcePaths []string) (domain.UploadModsResult, error) {
+	result := domain.UploadModsResult{}
+	if s.modCatalog == nil || s.modDownloads == nil {
+		return result, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
+	}
+	if len(sourcePaths) == 0 {
+		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
+	}
+	for _, sourcePath := range sourcePaths {
+		downloaded, link, err := s.linkLocalModFile(ctx, sourcePath, true, "")
+		switch {
+		case err == nil:
+			result.Linked = append(result.Linked, link)
+			s.bindMatchingInstanceMods(ctx, downloaded)
+		case errors.Is(err, errLocalModNotMatched):
+			result.NotMatched = append(result.NotMatched, link)
+		case errors.Is(err, errLocalModAlreadyExists):
+			result.Skipped = append(result.Skipped, filepath.Base(sourcePath))
+		default:
+			result.Failed = append(result.Failed, link)
+		}
+	}
+	if len(result.Linked) == 0 && len(result.Failed) > 0 {
+		return result, domain.NewError(domain.ErrInvalidModFile, "No mods were added to the library")
+	}
+	return result, nil
+}
+
+// bindMatchingInstanceMods binds local installed mods in any instance that
+// correspond to the given catalog record, so the launcher recognizes that the
+// mod is already installed there.
+func (s *Service) bindMatchingInstanceMods(ctx context.Context, target domain.DownloadedMod) {
+	if s.modCatalog == nil {
+		return
+	}
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return
+	}
+	for _, instance := range instances {
+		mods, err := s.store.ListMods(ctx, instance.ID)
+		if err != nil {
+			continue
+		}
+		for _, mod := range mods {
+			if mod.Managed || !isLocalModSource(mod.Source) || mod.FilePath == "" {
+				continue
+			}
+			match, found := s.matchLocalModForFile(ctx, mod.FilePath)
+			if !found || match.details.ID != target.ModID || match.version.ID != target.VersionID {
+				continue
+			}
+			updated := mod
+			updated.Source = modDBSource(match.details.ID, match.version.ID)
+			updated.Managed = true
+			updated.Version = match.version.Version
+			updated.UpdatedAt = time.Now().UTC()
+			if err := s.store.SaveMod(ctx, updated); err == nil {
+				s.emit("mod:linked", updated)
+			}
+		}
+	}
+}
+
+// bindInstalledModToExistingCache binds a freshly installed local mod when a
+// matching catalog record already exists in the library.
+func (s *Service) bindInstalledModToExistingCache(ctx context.Context, mod domain.InstalledMod) {
+	if s.modCatalog == nil || s.modDownloads == nil || mod.FilePath == "" {
+		return
+	}
+	match, found := s.matchLocalModForFile(ctx, mod.FilePath)
+	if !found {
+		return
+	}
+	if _, err := s.modDownloads.Get(ctx, match.details.ID, match.version.ID); err != nil {
+		return
+	}
+	mod.Source = modDBSource(match.details.ID, match.version.ID)
+	mod.Managed = true
+	mod.Version = match.version.Version
+	mod.UpdatedAt = time.Now().UTC()
+	if err := s.store.SaveMod(ctx, mod); err == nil {
+		s.emit("mod:linked", mod)
+	}
+}
+
+func (s *Service) matchLocalModForFile(ctx context.Context, filePath string) (modVersionMatch, bool) {
+	info, err := readModArchiveInfo(filePath)
+	if err != nil {
+		return modVersionMatch{}, false
+	}
+	match, _, found := s.matchLocalMod(ctx, info.ModID, info.Version, filepath.Base(filePath))
+	return match, found
+}
+
+// linkLocalModFile matches a local mod file against the catalog and persists a
+// DownloadedMod record for it. When copyIntoCache is true the file is copied
+// into the mod cache; otherwise the record references the file in place.
+func (s *Service) linkLocalModFile(
+	ctx context.Context,
+	sourcePath string,
+	copyIntoCache bool,
+	discoveredName string,
+) (domain.DownloadedMod, domain.LocalModLink, error) {
+	link := domain.LocalModLink{Path: sourcePath, FileName: filepath.Base(sourcePath)}
+	if s.modCatalog == nil || s.modDownloads == nil {
+		return domain.DownloadedMod{}, link, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
+	}
+
+	extension := strings.ToLower(filepath.Ext(sourcePath))
+	if extension != ".zip" && extension != ".cs" && extension != ".dll" {
+		link.Reason = "Unsupported mod file type"
+		return domain.DownloadedMod{}, link, domain.NewError(domain.ErrInvalidModFile, "Unsupported mod file type")
+	}
+	info, err := readModArchiveInfo(sourcePath)
+	if err != nil {
+		return domain.DownloadedMod{}, link, err
+	}
+	link.Name = discoveredName
+	if link.Name == "" {
+		link.Name = strings.TrimSpace(info.ModID)
+	}
+	if link.Name == "" {
+		link.Name = strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+	}
+	link.Version = strings.TrimSpace(info.Version)
+
+	match, reason, found := s.matchLocalMod(ctx, info.ModID, info.Version, link.FileName)
+	if !found {
+		link.Reason = reason
+		return domain.DownloadedMod{}, link, errLocalModNotMatched
+	}
+	details := match.details
+	version := match.version
+	link.Name = details.Name
+	link.Version = version.Version
+
+	if existing, getErr := s.modDownloads.Get(ctx, details.ID, version.ID); getErr == nil {
+		if info, statErr := os.Stat(existing.FilePath); statErr == nil && !info.IsDir() {
+			link.ModID = existing.ModID
+			link.VersionID = existing.VersionID
+			link.Slug = existing.Slug
+			link.LatestVersion = existing.LatestVersion
+			link.UpdateAvailable = existing.UpdateAvailable
+			return existing, link, errLocalModAlreadyExists
+		}
+	}
+
+	destination := sourcePath
+	if copyIntoCache {
+		path, err := s.cacheModDestination(details, version, link.FileName)
+		if err != nil {
+			link.Reason = err.Error()
+			return domain.DownloadedMod{}, link, err
+		}
+		if info, statErr := os.Stat(path); statErr != nil || info.IsDir() {
+			if err := copyModFile(ctx, sourcePath, path); err != nil {
+				link.Reason = "Could not copy the mod into the library"
+				return domain.DownloadedMod{}, link, err
+			}
+		}
+		destination = path
+	}
+
+	size, err := os.Stat(destination)
+	if err != nil {
+		link.Reason = "Could not read the mod file"
+		return domain.DownloadedMod{}, link, err
+	}
+	downloaded := domain.DownloadedMod{
+		SchemaVersion:     1,
+		ModID:             details.ID,
+		Slug:              details.Slug,
+		Name:              details.Name,
+		AuthorName:        details.AuthorName,
+		ImageURL:          details.ImageURL,
+		Side:              details.Side,
+		VersionID:         version.ID,
+		DownloadedVersion: version.Version,
+		GameVersions:      append([]string(nil), version.GameVersions...),
+		FileName:          filepath.Base(destination),
+		FilePath:          destination,
+		FileSize:          size.Size(),
+		Checksum:          version.Checksum,
+		DownloadURL:       version.DownloadURL,
+		DownloadedAt:      time.Now().UTC(),
+		LatestVersion:     details.LatestVersion,
+		UpdateAvailable:   details.LatestVersion != "" && details.LatestVersion != version.Version,
+	}
+	if err := s.modDownloads.Save(ctx, downloaded); err != nil {
+		link.Reason = "Could not save the mod metadata"
+		return domain.DownloadedMod{}, link, err
+	}
+	link.ModID = downloaded.ModID
+	link.VersionID = downloaded.VersionID
+	link.Slug = downloaded.Slug
+	link.LatestVersion = downloaded.LatestVersion
+	link.UpdateAvailable = downloaded.UpdateAvailable
+	s.emit("mods:downloads-changed", map[string]any{
+		"taskId": "", "modId": downloaded.ModID, "downloadedDependencies": []modDownloadedDependencyEvent{},
+	})
+	return downloaded, link, nil
+}
+
+func (s *Service) matchLocalMod(
+	ctx context.Context,
+	modID string,
+	version string,
+	fileName string,
+) (modVersionMatch, string, bool) {
+	summaries, err := s.modCatalog.List(ctx)
+	if err != nil {
+		return modVersionMatch{}, "catalog_unavailable", false
+	}
+	candidates := matchCandidates(summaries, modID)
+	if len(candidates) == 0 {
+		return modVersionMatch{}, "not_in_catalog", false
+	}
+	matches := make([]modVersionMatch, 0, 2)
+	seen := make(map[string]struct{})
+	for _, summary := range candidates {
+		details, getErr := s.modCatalog.Get(ctx, summary.ID)
+		if getErr != nil {
+			continue
+		}
+		selected, ok := pickLocalModVersion(details.Versions, version, fileName)
+		if !ok {
+			continue
+		}
+		key := details.ID + ":" + selected.ID
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		matches = append(matches, modVersionMatch{details: details, version: selected})
+	}
+	switch len(matches) {
+	case 1:
+		return matches[0], "", true
+	case 0:
+		return modVersionMatch{}, "version_not_found", false
+	default:
+		return modVersionMatch{}, "ambiguous", false
+	}
+}
+
+func matchCandidates(summaries []domain.ModSummary, modID string) []domain.ModSummary {
+	if strings.TrimSpace(modID) == "" {
+		return nil
+	}
+	var byModID []domain.ModSummary
+	for _, summary := range summaries {
+		for _, candidate := range summary.ModIDStrings {
+			if strings.EqualFold(strings.TrimSpace(candidate), strings.TrimSpace(modID)) {
+				byModID = append(byModID, summary)
+				break
+			}
+		}
+	}
+	return byModID
+}
+
+func pickLocalModVersion(versions []domain.ModVersion, version, fileName string) (domain.ModVersion, bool) {
+	version = strings.TrimSpace(version)
+	if version != "" {
+		var matches []domain.ModVersion
+		for _, candidate := range versions {
+			if strings.EqualFold(strings.TrimSpace(candidate.Version), version) {
+				matches = append(matches, candidate)
+			}
+		}
+		if len(matches) == 1 {
+			return matches[0], true
+		}
+		if len(matches) > 1 {
+			if selected, ok := matchByFileName(matches, fileName); ok {
+				return selected, true
+			}
+			return matches[0], true
+		}
+	}
+	if selected, ok := matchByFileName(versions, fileName); ok {
+		return selected, true
+	}
+	if len(versions) == 1 {
+		return versions[0], true
+	}
+	return domain.ModVersion{}, false
+}
+
+func matchByFileName(versions []domain.ModVersion, fileName string) (domain.ModVersion, bool) {
+	if fileName == "" {
+		return domain.ModVersion{}, false
+	}
+	base := strings.ToLower(filepath.Base(fileName))
+	for _, version := range versions {
+		if version.FileName != "" && strings.EqualFold(strings.ToLower(filepath.Base(version.FileName)), base) {
+			return version, true
+		}
+	}
+	return domain.ModVersion{}, false
+}
+
+func (s *Service) cacheModDestination(
+	details domain.ModDetails,
+	version domain.ModVersion,
+	localBase string,
+) (string, error) {
+	for _, candidate := range []string{version.FileName, localBase} {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		path, err := s.modDownloads.FilePath(details.ID, version.ID, candidate)
+		if err == nil {
+			return path, nil
+		}
+	}
+	return "", domain.NewError(domain.ErrInvalidModFile, "Unsupported mod file type")
+}
+
+func copyModFile(ctx context.Context, sourcePath, destinationPath string) error {
+	if err := os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+		return err
+	}
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	destination, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(destination, &contextReaderMod{ctx: ctx, reader: source})
+	closeErr := destination.Close()
+	if copyErr != nil {
+		_ = os.Remove(destinationPath)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(destinationPath)
+		return closeErr
+	}
+	return nil
+}
+
+type contextReaderMod struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (reader *contextReaderMod) Read(buffer []byte) (int, error) {
+	if err := reader.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return reader.reader.Read(buffer)
+}
+
+func isLocalModSource(source string) bool { return source == "" || source == "local" }
+
 func (s *Service) CancelModTask(taskID string) error {
 	s.operationsMu.Lock()
 	cancel, ok := s.operationCancels[taskID]

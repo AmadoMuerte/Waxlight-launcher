@@ -92,6 +92,7 @@ type InstalledMod struct {
 type DiscoveredMod struct {
 	Name       string
 	Version    string
+	ModID      string
 	FileName   string
 	FilePath   string
 	Enabled    bool

@@ -740,6 +740,71 @@ export namespace presentation {
 	        this.installationMode = source["installationMode"];
 	    }
 	}
+	export class LocalModLinkDTO {
+	    path?: string;
+	    name: string;
+	    version: string;
+	    fileName: string;
+	    modId?: string;
+	    versionId?: string;
+	    slug?: string;
+	    latestVersion?: string;
+	    updateAvailable: boolean;
+	    reason?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LocalModLinkDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.fileName = source["fileName"];
+	        this.modId = source["modId"];
+	        this.versionId = source["versionId"];
+	        this.slug = source["slug"];
+	        this.latestVersion = source["latestVersion"];
+	        this.updateAvailable = source["updateAvailable"];
+	        this.reason = source["reason"];
+	    }
+	}
+	export class LinkLocalModsResultDTO {
+	    linked: LocalModLinkDTO[];
+	    notMatched: LocalModLinkDTO[];
+	    failed: LocalModLinkDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LinkLocalModsResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.linked = this.convertValues(source["linked"], LocalModLinkDTO);
+	        this.notMatched = this.convertValues(source["notMatched"], LocalModLinkDTO);
+	        this.failed = this.convertValues(source["failed"], LocalModLinkDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class LoginResultDTO {
 	    status: string;
 	    account?: AccountDTO;
@@ -1404,6 +1469,42 @@ export namespace presentation {
 	        this.defaultAccountId = source["defaultAccountId"];
 	        this.launchArguments = source["launchArguments"];
 	    }
+	}
+	export class UploadModsResultDTO {
+	    linked: LocalModLinkDTO[];
+	    notMatched: LocalModLinkDTO[];
+	    skipped: string[];
+	    failed: LocalModLinkDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UploadModsResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.linked = this.convertValues(source["linked"], LocalModLinkDTO);
+	        this.notMatched = this.convertValues(source["notMatched"], LocalModLinkDTO);
+	        this.skipped = source["skipped"];
+	        this.failed = this.convertValues(source["failed"], LocalModLinkDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

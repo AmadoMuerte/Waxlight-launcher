@@ -943,6 +943,7 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 	if e = s.store.SaveMod(ctx, mod); e != nil {
 		return operation, e
 	}
+	s.bindInstalledModToExistingCache(ctx, mod)
 
 	operation.Status = "completed"
 	operation.Progress = 1

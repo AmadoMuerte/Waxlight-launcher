@@ -21,6 +21,7 @@ import type {
   InstalledMod,
   Instance,
   LaunchValidation,
+  LinkLocalModsResult,
   LoginResult,
   LauncherUpdate,
   Operation,
@@ -35,6 +36,7 @@ import type {
   PackageManifest,
   Settings,
   Statistics,
+  UploadModsResult,
 } from "./types";
 
 export const accountsApi = {
@@ -99,6 +101,8 @@ export const modsApi = {
     call<Operation>("ModManagerController", "InstallModFile", request),
   installMany: (request: { instanceId: string; sourcePaths: string[] }) =>
     call<InstallModFilesResult>("ModManagerController", "InstallModFiles", request),
+  linkLocal: (instanceId: string) =>
+    call<LinkLocalModsResult>("ModManagerController", "LinkLocalMods", instanceId),
   toggle: (id: string, enabled: boolean) =>
     call<InstalledMod>("ModManagerController", "SetModEnabled", id, enabled),
   remove: (id: string) => call<void>("ModManagerController", "RemoveMod", id),
@@ -149,6 +153,8 @@ export const modCatalogApi = {
   }) => call<ModInstallResult>("ModCatalogController", "InstallDownloadedMod", request),
   removeDownloaded: (modId: string, versionId: string) =>
     call<void>("ModCatalogController", "RemoveDownloadedMod", modId, versionId),
+  uploadMods: (sourcePaths: string[]) =>
+    call<UploadModsResult>("ModCatalogController", "UploadMods", sourcePaths),
   cancelTask: (taskId: string) => call<void>("ModCatalogController", "CancelModTask", taskId),
   checkUpdates: (modId: string) =>
     call<DownloadedMod[]>("ModCatalogController", "CheckModUpdates", modId),

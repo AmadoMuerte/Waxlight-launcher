@@ -113,6 +113,72 @@ type ModSearchResultDTO struct {
 	HasNext    bool            `json:"hasNext"`
 }
 
+type LocalModLinkDTO struct {
+	Path            string `json:"path,omitempty"`
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	FileName        string `json:"fileName"`
+	ModID           string `json:"modId,omitempty"`
+	VersionID       string `json:"versionId,omitempty"`
+	Slug            string `json:"slug,omitempty"`
+	LatestVersion   string `json:"latestVersion,omitempty"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+	Reason          string `json:"reason,omitempty"`
+}
+
+func localModLinkDTO(link domain.LocalModLink) LocalModLinkDTO {
+	return LocalModLinkDTO{
+		Path:            link.Path,
+		Name:            link.Name,
+		Version:         link.Version,
+		FileName:        link.FileName,
+		ModID:           link.ModID,
+		VersionID:       link.VersionID,
+		Slug:            link.Slug,
+		LatestVersion:   link.LatestVersion,
+		UpdateAvailable: link.UpdateAvailable,
+		Reason:          link.Reason,
+	}
+}
+
+func localModLinksDTO(links []domain.LocalModLink) []LocalModLinkDTO {
+	dtos := make([]LocalModLinkDTO, 0, len(links))
+	for _, link := range links {
+		dtos = append(dtos, localModLinkDTO(link))
+	}
+	return dtos
+}
+
+type LinkLocalModsResultDTO struct {
+	Linked     []LocalModLinkDTO `json:"linked"`
+	NotMatched []LocalModLinkDTO `json:"notMatched"`
+	Failed     []LocalModLinkDTO `json:"failed"`
+}
+
+func linkLocalModsResultDTO(result domain.LinkLocalModsResult) LinkLocalModsResultDTO {
+	return LinkLocalModsResultDTO{
+		Linked:     localModLinksDTO(result.Linked),
+		NotMatched: localModLinksDTO(result.NotMatched),
+		Failed:     localModLinksDTO(result.Failed),
+	}
+}
+
+type UploadModsResultDTO struct {
+	Linked     []LocalModLinkDTO `json:"linked"`
+	NotMatched []LocalModLinkDTO `json:"notMatched"`
+	Skipped    []string          `json:"skipped"`
+	Failed     []LocalModLinkDTO `json:"failed"`
+}
+
+func uploadModsResultDTO(result domain.UploadModsResult) UploadModsResultDTO {
+	return UploadModsResultDTO{
+		Linked:     localModLinksDTO(result.Linked),
+		NotMatched: localModLinksDTO(result.NotMatched),
+		Skipped:    nonNilStrings(result.Skipped),
+		Failed:     localModLinksDTO(result.Failed),
+	}
+}
+
 type InstalledModInstanceDTO struct {
 	InstanceID   string `json:"instanceId"`
 	InstanceName string `json:"instanceName"`
