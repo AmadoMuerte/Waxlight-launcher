@@ -451,6 +451,7 @@
   "current_launcher_version": "Лаунчердің ағымдағы нұсқасы",
   "update_available": "Лаунчер жаңартуы қолжетімді",
   "downgrade_available": "Тұрақты нұсқаға ауысу",
+  "prerelease_available": "Тұрақсыз нұсқаға ауысу",
   "launcher_is_up_to_date": "Waxlight Launcher жаңартылған",
   "release_notes_unavailable": "Шығарылым жазбалары қолжетімсіз.",
   "download_and_install_update": "Жүктеп алып, орнату",

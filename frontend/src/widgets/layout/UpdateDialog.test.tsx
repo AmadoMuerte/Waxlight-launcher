@@ -109,6 +109,20 @@ it("renders version transition and markdown changelog", async () => {
   expect(screen.getByRole("button", { name: "GitHub Release" })).toBeTruthy();
 });
 
+it("labels the dialog as a prerelease switch when moving to a prerelease", async () => {
+  useAppShellStore.setState({ launcherUpdate: { ...update, prerelease: true, downgrade: false } });
+  renderDialog();
+
+  expect(await screen.findByRole("heading", { name: "Switch to prerelease" })).toBeTruthy();
+});
+
+it("labels the dialog as a switch back to stable", async () => {
+  useAppShellStore.setState({ launcherUpdate: { ...update, prerelease: false, downgrade: true } });
+  renderDialog();
+
+  expect(await screen.findByRole("heading", { name: "Switch to stable version" })).toBeTruthy();
+});
+
 it("closes the dialog and keeps notifications on remind me later", async () => {
   renderDialog();
   fireEvent.click(await screen.findByRole("button", { name: "Remind me later" }));

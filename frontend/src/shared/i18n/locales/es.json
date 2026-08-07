@@ -451,6 +451,7 @@
   "current_launcher_version": "Versión actual del lanzador",
   "update_available": "Actualización del lanzador disponible",
   "downgrade_available": "Cambiar a versión estable",
+  "prerelease_available": "Cambiar a versión preliminar",
   "launcher_is_up_to_date": "Waxlight Launcher está actualizado",
   "release_notes_unavailable": "Las notas de la versión no están disponibles.",
   "download_and_install_update": "Descargar e instalar",

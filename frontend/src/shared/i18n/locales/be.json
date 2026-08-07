@@ -451,6 +451,7 @@
   "current_launcher_version": "Бягучая версія лаўнчара",
   "update_available": "Даступна абнаўленне лаўнчара",
   "downgrade_available": "Вярнуцца на стабільную версію",
+  "prerelease_available": "Перайсці на нестабільную версію",
   "launcher_is_up_to_date": "Усталявана актуальная версія Waxlight Launcher",
   "release_notes_unavailable": "Апісанне рэлізу недаступнае.",
   "download_and_install_update": "Спампаваць і ўсталяваць",

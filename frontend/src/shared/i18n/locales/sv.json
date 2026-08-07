@@ -451,6 +451,7 @@
   "current_launcher_version": "Aktuell version av startprogrammet",
   "update_available": "Uppdatering för startprogrammet tillgänglig",
   "downgrade_available": "Byt till stabil version",
+  "prerelease_available": "Byt till förhandsversion",
   "launcher_is_up_to_date": "Waxlight Launcher är uppdaterad",
   "release_notes_unavailable": "Versionsinformationen är inte tillgänglig.",
   "download_and_install_update": "Hämta och installera",

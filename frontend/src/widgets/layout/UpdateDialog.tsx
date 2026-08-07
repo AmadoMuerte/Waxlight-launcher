@@ -224,7 +224,11 @@ export function UpdateDialog() {
             <DialogTitle className="updateDialogTitle">
               <Rocket className="size-5 shrink-0 text-[var(--amber)]" />
               <span>
-                {currentUpdate.downgrade ? t("downgrade_available") : t("update_available")}
+                {currentUpdate.prerelease
+                  ? t("prerelease_available")
+                  : currentUpdate.downgrade
+                    ? t("downgrade_available")
+                    : t("update_available")}
               </span>
             </DialogTitle>
 

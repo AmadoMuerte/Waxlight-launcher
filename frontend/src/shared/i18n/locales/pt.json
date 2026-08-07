@@ -451,6 +451,7 @@
   "current_launcher_version": "Versão atual do inicializador",
   "update_available": "Atualização do inicializador disponível",
   "downgrade_available": "Mudar para versão estável",
+  "prerelease_available": "Mudar para versão preliminar",
   "launcher_is_up_to_date": "O Waxlight Launcher está atualizado",
   "release_notes_unavailable": "As notas da versão não estão disponíveis.",
   "download_and_install_update": "Baixar e instalar",
