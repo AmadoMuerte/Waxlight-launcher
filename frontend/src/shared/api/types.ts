@@ -330,6 +330,7 @@ export interface Settings {
   checkForUpdates: boolean;
   updateChannel: "stable" | "prerelease";
   skippedUpdateVersion: string;
+  telemetryEnabled: boolean;
 }
 
 export interface DataFolder {

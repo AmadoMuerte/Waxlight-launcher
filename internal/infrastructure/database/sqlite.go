@@ -1015,6 +1015,7 @@ func (s *SQLiteStore) GetSettings(ctx context.Context) (domain.Settings, error) 
 		GlobalLaunchArguments: []string{},
 		CheckForUpdates:       true,
 		UpdateChannel:         "stable",
+		TelemetryEnabled:      true,
 	}
 	rows, e := s.db.QueryContext(ctx, `SELECT key,value FROM app_settings`)
 	if e != nil {
@@ -1053,6 +1054,34 @@ func (s *SQLiteStore) SaveSettings(ctx context.Context, settings domain.Settings
 	}
 	_, e = s.db.ExecContext(ctx, query, string(encodedSettings))
 	return e
+}
+
+// GetSettingValue reads an arbitrary setting value from the shared
+// app_settings storage. Telemetry uses it for its installation ID and
+// last-heartbeat state. A missing key returns ("", nil).
+func (s *SQLiteStore) GetSettingValue(ctx context.Context, key string) (string, error) {
+	const query = `SELECT value FROM app_settings WHERE key = ?`
+	var value string
+	err := s.db.QueryRowContext(ctx, query, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// SetSettingValue stores an arbitrary setting value in the shared app_settings
+// storage.
+func (s *SQLiteStore) SetSettingValue(ctx context.Context, key, value string) error {
+	const query = `
+		INSERT INTO app_settings(key, value)
+		VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value
+	`
+	_, err := s.db.ExecContext(ctx, query, key, value)
+	return err
 }
 
 type relocationStatement struct {

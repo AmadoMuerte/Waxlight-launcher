@@ -25,6 +25,7 @@ const settings: Settings = {
   checkForUpdates: true,
   updateChannel: "stable",
   skippedUpdateVersion: "",
+  telemetryEnabled: false,
 };
 
 afterEach(() => {

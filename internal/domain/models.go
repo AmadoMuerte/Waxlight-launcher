@@ -141,4 +141,5 @@ type Settings struct {
 	CheckForUpdates       bool
 	UpdateChannel         string
 	SkippedUpdateVersion  string
+	TelemetryEnabled      bool
 }

@@ -87,6 +87,9 @@ type Store interface {
 
 	GetSettings(context.Context) (domain.Settings, error)
 	SaveSettings(context.Context, domain.Settings) error
+
+	GetSettingValue(context.Context, string) (string, error)
+	SetSettingValue(context.Context, string, string) error
 }
 
 // AccountCommitter atomically persists account metadata and its default
