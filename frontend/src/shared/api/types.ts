@@ -81,6 +81,17 @@ export interface InstalledMod {
   installedAt: string;
 }
 
+export interface ModFileFailure {
+  path: string;
+  error: string;
+}
+
+export interface InstallModFilesResult {
+  installed: string[];
+  skipped: string[];
+  failed: ModFileFailure[];
+}
+
 export type ModUpdateStatus = "up_to_date" | "update_available" | "not_updatable" | "unknown";
 export type ModNotUpdatableReason = "local_mod" | "not_in_catalog" | "catalog_error" | "";
 

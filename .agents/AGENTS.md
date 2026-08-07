@@ -29,6 +29,10 @@
 - Features that copy, export, diagnose, archive, or back up an instance must remove `sessionkey`, `sessionsignature`, `playeruid`, and `playername` from its `clientsettings.json`.
 - All launcher logging goes through `internal/infrastructure/logging` (the `slog` default handler installed at startup). Never import stdlib `log` or print to stdout for diagnostics; `slog.Info/Warn/Error` is captured in the in-memory console and the exported support log. Log only the launcher's own events and errors — never game output, credentials, or account data. The logging package is framework-free and must stay independent of domain, application, and presentation.
 
+## GitHub Communication
+
+- Write all GitHub content exclusively in English: pull request titles and descriptions, commit messages, review comments, issue comments, replies, and labels. Never write GitHub content in Russian or any other language.
+
 ## Localization And Releases
 
 - `frontend/src/i18n/locales/en.json` is canonical. Translate values only; preserve keys, `{{interpolation}}`, and plural suffixes. Run `npm run check:i18n --prefix frontend`.

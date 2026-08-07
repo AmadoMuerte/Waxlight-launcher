@@ -403,6 +403,68 @@ export namespace presentation {
 	        this.version = source["version"];
 	    }
 	}
+	export class InstallModFilesRequest {
+	    instanceId: string;
+	    sourcePaths: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new InstallModFilesRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.sourcePaths = source["sourcePaths"];
+	    }
+	}
+	export class ModFileFailureDTO {
+	    path: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModFileFailureDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.error = source["error"];
+	    }
+	}
+	export class InstallModFilesResultDTO {
+	    installed: string[];
+	    skipped: string[];
+	    failed: ModFileFailureDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new InstallModFilesResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installed = source["installed"];
+	        this.skipped = source["skipped"];
+	        this.failed = this.convertValues(source["failed"], ModFileFailureDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class InstallVersionRequest {
 	    id: string;
 	    name: string;
@@ -827,6 +889,7 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	
 	export class ModInstallationResultDTO {
 	    instanceId: string;
 	    instanceName: string;

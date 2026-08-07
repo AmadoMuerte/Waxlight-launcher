@@ -34,6 +34,10 @@ export function SelectModFile() {
   return window['go']['presentation']['SettingsController']['SelectModFile']();
 }
 
+export function SelectModFiles() {
+  return window['go']['presentation']['SettingsController']['SelectModFiles']();
+}
+
 export function UpdateSettings(arg1) {
   return window['go']['presentation']['SettingsController']['UpdateSettings'](arg1);
 }

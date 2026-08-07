@@ -6,6 +6,8 @@ export function CheckInstanceModUpdates(arg1:string):Promise<presentation.Instan
 
 export function InstallModFile(arg1:presentation.InstallModFileRequest):Promise<presentation.OperationDTO>;
 
+export function InstallModFiles(arg1:presentation.InstallModFilesRequest):Promise<presentation.InstallModFilesResultDTO>;
+
 export function ListInstalledMods(arg1:string):Promise<Array<presentation.InstalledModDTO>>;
 
 export function RemoveMod(arg1:string):Promise<void>;

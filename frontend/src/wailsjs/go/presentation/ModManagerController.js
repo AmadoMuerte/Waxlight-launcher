@@ -10,6 +10,10 @@ export function InstallModFile(arg1) {
   return window['go']['presentation']['ModManagerController']['InstallModFile'](arg1);
 }
 
+export function InstallModFiles(arg1) {
+  return window['go']['presentation']['ModManagerController']['InstallModFiles'](arg1);
+}
+
 export function ListInstalledMods(arg1) {
   return window['go']['presentation']['ModManagerController']['ListInstalledMods'](arg1);
 }

@@ -179,7 +179,7 @@ func (ModFileManager) Install(
 
 	destinationPath := filepath.Join(modsPath, filepath.Base(sourcePath))
 	if _, err := os.Stat(destinationPath); err == nil {
-		return "", 0, fmt.Errorf("mod file already exists")
+		return "", 0, domain.ErrModFileExists
 	}
 
 	source, err := os.Open(sourcePath)

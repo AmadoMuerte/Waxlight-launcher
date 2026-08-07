@@ -311,6 +311,22 @@ type InstallModFileRequest struct {
 	Version    string `json:"version"`
 }
 
+type InstallModFilesRequest struct {
+	InstanceID  string   `json:"instanceId"`
+	SourcePaths []string `json:"sourcePaths"`
+}
+
+type InstallModFilesResultDTO struct {
+	Installed []string            `json:"installed"`
+	Skipped   []string            `json:"skipped"`
+	Failed    []ModFileFailureDTO `json:"failed"`
+}
+
+type ModFileFailureDTO struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
 func (controller *ModManagerController) ListInstalledMods(
 	instanceID string,
 ) ([]InstalledModDTO, error) {
@@ -343,6 +359,27 @@ func (controller *ModManagerController) InstallModFile(
 		request.Version,
 	)
 	return operationDTO(operation), err
+}
+
+func (controller *ModManagerController) InstallModFiles(
+	request InstallModFilesRequest,
+) (InstallModFilesResultDTO, error) {
+	result, err := controller.svc.InstallModFiles(
+		context.Background(),
+		request.InstanceID,
+		request.SourcePaths,
+	)
+	dto := InstallModFilesResultDTO{
+		Installed: result.Installed,
+		Skipped:   result.Skipped,
+	}
+	for _, failure := range result.Failed {
+		dto.Failed = append(dto.Failed, ModFileFailureDTO{
+			Path:  failure.Path,
+			Error: failure.Error,
+		})
+	}
+	return dto, err
 }
 
 func (controller *ModManagerController) SetModEnabled(
@@ -638,6 +675,25 @@ func (controller *SettingsController) SelectModFile() (string, error) {
 		controller.base.ctx,
 		wruntime.OpenDialogOptions{
 			Title: "Select a mod file",
+			Filters: []wruntime.FileFilter{
+				{
+					DisplayName: "Vintage Story mods",
+					Pattern:     "*.zip;*.cs;*.dll",
+				},
+			},
+		},
+	)
+}
+
+func (controller *SettingsController) SelectModFiles() ([]string, error) {
+	if controller.base.ctx == nil {
+		return nil, nil
+	}
+
+	return wruntime.OpenMultipleFilesDialog(
+		controller.base.ctx,
+		wruntime.OpenDialogOptions{
+			Title: "Select mod files",
 			Filters: []wruntime.FileFilter{
 				{
 					DisplayName: "Vintage Story mods",

@@ -886,12 +886,16 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	if e != nil {
 		return domain.Operation{}, e
 	}
+	return s.installModFile(ctx, i, sourcePath, name, version)
+}
+
+func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourcePath, name, version string) (domain.Operation, error) {
 	slog.Info("installing mod file", "instance", i.Name, "mod", name)
 	if sourcePath == "" {
 		return domain.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
 	}
 	now := time.Now().UTC()
-	resource := instanceID
+	resource := i.ID
 	operation := domain.Operation{
 		ID:         newID(),
 		Type:       "mod_install",
@@ -924,7 +928,7 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	}
 	mod := domain.InstalledMod{
 		ID:          newID(),
-		InstanceID:  instanceID,
+		InstanceID:  i.ID,
 		Name:        name,
 		Version:     version,
 		FileName:    filepath.Base(path),
@@ -947,6 +951,50 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	_ = s.store.SaveOperation(ctx, operation)
 	s.emit("mod:installed", mod)
 	return operation, nil
+}
+
+type InstallModFilesResult struct {
+	Installed []string
+	Skipped   []string
+	Failed    []ModFileFailure
+}
+
+type ModFileFailure struct {
+	Path  string
+	Error string
+}
+
+func (s *Service) InstallModFiles(ctx context.Context, instanceID string, sourcePaths []string) (InstallModFilesResult, error) {
+	result := InstallModFilesResult{}
+	if err := s.rejectIfRelocating(); err != nil {
+		return result, err
+	}
+	if len(sourcePaths) == 0 {
+		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
+	}
+	i, e := s.store.GetInstance(ctx, instanceID)
+	if e != nil {
+		return result, e
+	}
+	for _, sourcePath := range sourcePaths {
+		if sourcePath == "" {
+			result.Failed = append(result.Failed, ModFileFailure{Path: sourcePath, Error: "empty path"})
+			continue
+		}
+		_, err := s.installModFile(ctx, i, sourcePath, "", "")
+		switch {
+		case err == nil:
+			result.Installed = append(result.Installed, filepath.Base(sourcePath))
+		case errors.Is(err, domain.ErrModFileExists):
+			result.Skipped = append(result.Skipped, filepath.Base(sourcePath))
+		default:
+			result.Failed = append(result.Failed, ModFileFailure{Path: sourcePath, Error: err.Error()})
+		}
+	}
+	if len(result.Installed) == 0 && len(result.Failed) > 0 {
+		return result, domain.NewError(domain.ErrInvalidModFile, "no mods were installed")
+	}
+	return result, nil
 }
 func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (domain.InstalledMod, error) {
 	if err := s.rejectIfRelocating(); err != nil {
