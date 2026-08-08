@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./docs/waxlight.png" alt="Waxlight Launcher" width="180">
 
-# Waxlight Launcher
+# Waxlight Launcher 
 
 **A modern, lightweight launcher for Vintage Story.**
 
