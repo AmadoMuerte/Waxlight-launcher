@@ -88,6 +88,30 @@ describe("backups tab", () => {
     expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
   });
 
+  it("explains why an automatic snapshot was created", async () => {
+    const automatic: InstanceSnapshot = {
+      ...snapshot,
+      id: "snap-auto",
+      type: "automatic",
+      reason: "before_mod_update",
+      context: { affectedMods: "14" },
+    };
+    const versionChange: InstanceSnapshot = {
+      ...snapshot,
+      id: "snap-version",
+      type: "automatic",
+      reason: "before_game_version_change",
+      context: { fromGameVersion: "1.20", toGameVersion: "1.21.6" },
+    };
+    renderTab(vi.fn(), [automatic, versionChange]);
+
+    expect(await screen.findByText("Before updating mods")).toBeTruthy();
+    expect(screen.getAllByText("Automatic")).toHaveLength(2);
+    expect(screen.getByText("1.20 → 1.21.6")).toBeTruthy();
+    expect(screen.getByText("Before changing game version")).toBeTruthy();
+    expect(screen.getAllByText(/Vintage Story 1\.20/)).toHaveLength(2);
+  });
+
   it("requires confirmation before restoring a snapshot", async () => {
     const { onRestored } = renderTab(vi.fn(), [snapshot]);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Restore" }));

@@ -72,6 +72,8 @@ export interface InstanceSnapshot {
   instanceId: string;
   instanceName: string;
   type: string;
+  reason?: string;
+  context?: Record<string, string>;
   gameVersion: string;
   createdAt: string;
   sizeBytes: number;
@@ -262,6 +264,15 @@ export interface ModInstallResult {
   installations: ModInstallationResult[];
 }
 
+export interface ModUpdateTarget {
+  modId: string;
+  versionId: string;
+}
+
+export interface ModUpdateResult {
+  updated: number;
+}
+
 export interface LocalModLink {
   path?: string;
   name: string;
@@ -349,6 +360,7 @@ export interface Settings {
   updateChannel: "stable" | "prerelease";
   skippedUpdateVersion: string;
   telemetryEnabled: boolean;
+  automaticSafetySnapshots: boolean;
 }
 
 export interface DataFolder {

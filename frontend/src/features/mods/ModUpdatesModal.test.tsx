@@ -9,10 +9,10 @@ import type { InstanceModUpdateReport } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
 const api = vi.hoisted(() => ({
-  download: vi.fn(),
+  updateInstance: vi.fn(),
 }));
 
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
+vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",
@@ -79,7 +79,7 @@ afterEach(() => {
 
 describe("ModUpdatesModal", () => {
   it("applies compatible updates on confirm", async () => {
-    api.download.mockResolvedValue({});
+    api.updateInstance.mockResolvedValue({ updated: 1 });
     const user = userEvent.setup();
     const props = renderModal();
 
@@ -87,17 +87,36 @@ describe("ModUpdatesModal", () => {
     expect(screen.getByText("1.2.0 → 1.3.0")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
-    await waitFor(() => expect(api.download).toHaveBeenCalledTimes(1));
-    expect(api.download).toHaveBeenCalledWith({
-      modId: "stonequarry",
-      versionId: "v2",
-      instanceIds: ["instance-1"],
-      downloadOnly: false,
+    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
+    expect(api.updateInstance).toHaveBeenCalledWith({
+      instanceId: "instance-1",
+      mods: [{ modId: "stonequarry", versionId: "v2" }],
       allowIncompatible: false,
     });
     expect(props.onApplied).toHaveBeenCalledTimes(1);
     expect(props.onClose).toHaveBeenCalledTimes(1);
     expect(props.notify).toHaveBeenCalledWith("Mods updated");
+  });
+
+  it("sends every compatible update in one backend call", async () => {
+    const user = userEvent.setup();
+    const twoCompatible: InstanceModUpdateReport = {
+      ...report,
+      mods: [{ ...report.mods[0] }, { ...report.mods[0], modId: "secondmod", name: "Second Mod" }],
+      summary: { ...report.summary, updatesAvailable: 2, incompatible: 0 },
+    };
+    renderModal(twoCompatible);
+
+    await user.click(screen.getByRole("button", { name: "Update 2 mods" }));
+    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
+    expect(api.updateInstance).toHaveBeenCalledWith({
+      instanceId: "instance-1",
+      mods: [
+        { modId: "stonequarry", versionId: "v2" },
+        { modId: "secondmod", versionId: "v2" },
+      ],
+      allowIncompatible: false,
+    });
   });
 
   it("keeps the apply button disabled until incompatible updates are allowed", async () => {

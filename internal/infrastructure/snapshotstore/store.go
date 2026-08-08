@@ -141,6 +141,8 @@ func (store *Store) List(ctx context.Context, instanceID string) ([]domain.Insta
 			InstanceID:   manifest.InstanceID,
 			InstanceName: manifest.InstanceName,
 			Type:         manifest.Type,
+			Reason:       manifest.Reason,
+			Context:      manifest.Context,
 			GameVersion:  manifest.GameVersion,
 			CreatedAt:    manifest.CreatedAt,
 			SizeBytes:    manifest.SizeBytes,
@@ -171,8 +173,11 @@ func (store *Store) ReadManifest(snapshotDir string) (domain.SnapshotManifest, e
 	if strings.TrimSpace(manifest.ID) == "" || strings.TrimSpace(manifest.InstanceID) == "" {
 		return domain.SnapshotManifest{}, errors.New("snapshot manifest misses its identifiers")
 	}
-	if manifest.Type != domain.SnapshotTypeManual {
+	if manifest.Type != domain.SnapshotTypeManual && manifest.Type != domain.SnapshotTypeAutomatic {
 		return domain.SnapshotManifest{}, errors.New("unsupported snapshot type")
+	}
+	if manifest.Type == domain.SnapshotTypeAutomatic && manifest.Reason == "" {
+		return domain.SnapshotManifest{}, errors.New("automatic snapshot manifest misses its reason")
 	}
 	if manifest.CreatedAt.IsZero() {
 		return domain.SnapshotManifest{}, errors.New("snapshot manifest misses its creation time")

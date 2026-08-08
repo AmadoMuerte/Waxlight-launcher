@@ -17,8 +17,6 @@ import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
-import { Checkbox } from "../../shared/ui/checkbox-control";
-import { Field } from "../../shared/ui/field";
 import { PageHeader } from "../../shared/ui/page-header";
 import { Stepper } from "../../shared/ui/stepper";
 import { Switch } from "../../shared/ui/switch";
@@ -35,6 +33,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
     left.telemetryEnabled === right.telemetryEnabled &&
+    left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -217,40 +216,39 @@ export function SettingsPage() {
         <div className="settingsPageForm">
           <section className="settingsPageSection">
             <header>
-              <h2>{t("interface")}</h2>
-              <p>{t("language_and_appearance_preferences")}</p>
-            </header>
-            <div className="formFields">
-              <Field label={t("language")}>
-                <Select
-                  value={normalizeLanguage(value.language)}
-                  onValueChange={(language) => {
-                    const normalized = normalizeLanguage(language);
-                    setValue({ ...value, language: normalized });
-                    void changeAppLanguage(normalized);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supportedLanguages.map((language) => (
-                      <SelectItem key={language.code} value={language.code}>
-                        {language.nativeName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </section>
-
-          <section className="settingsPageSection">
-            <header>
               <h2>{t("downloads_and_game")}</h2>
               <p>{t("background_work_and_launch_configuration")}</p>
             </header>
             <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("language")}</span>
+                </div>
+                <div className="settingRowControl">
+                  <Select
+                    value={normalizeLanguage(value.language)}
+                    onValueChange={(language) => {
+                      const normalized = normalizeLanguage(language);
+                      setValue({ ...value, language: normalized });
+                      void changeAppLanguage(normalized);
+                    }}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supportedLanguages.map((language) => (
+                        <SelectItem key={language.code} value={language.code}>
+                          {language.nativeName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="settingRowDivider" />
+
               <div className="settingRow">
                 <div className="settingRowText">
                   <span className="settingRowTitle">{t("parallel_downloads")}</span>
@@ -319,23 +317,59 @@ export function SettingsPage() {
 
           <section className="settingsPageSection">
             <header>
+              <h2>{t("backups")}</h2>
+              <p>{t("backups_settings_description")}</p>
+            </header>
+            <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("automatic_safety_backups")}</span>
+                  <small className="settingRowDescription">
+                    {t("automatic_safety_backups_description")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Switch
+                    label={t("automatic_safety_backups")}
+                    checked={value.automaticSafetySnapshots}
+                    onCheckedChange={(automaticSafetySnapshots) =>
+                      setValue({ ...value, automaticSafetySnapshots })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="settingsPageSection">
+            <header>
               <h2>{t("launcher_updates")}</h2>
               <p>{t("launcher_updates_description")}</p>
             </header>
-            <div className="formFields">
-              <div className="checkboxSetting">
-                <Checkbox
-                  label={t("automatically_check_for_updates")}
-                  checked={value.checkForUpdates}
-                  onChange={(event) =>
-                    setValue({ ...value, checkForUpdates: event.target.checked })
-                  }
-                />
-                <small>{t("automatic_updates_consent_notice")}</small>
+            <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("automatically_check_for_updates")}</span>
+                  <small className="settingRowDescription">
+                    {t("automatic_updates_consent_notice")}
+                  </small>
+                </div>
+                <div className="settingRowControl">
+                  <Switch
+                    label={t("automatically_check_for_updates")}
+                    checked={value.checkForUpdates}
+                    onCheckedChange={(checkForUpdates) => setValue({ ...value, checkForUpdates })}
+                  />
+                </div>
               </div>
 
-              <div className="formRow">
-                <Field label={t("update_channel")}>
+              <div className="settingRowDivider" />
+
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("update_channel")}</span>
+                </div>
+                <div className="settingRowControl">
                   <Select
                     value={value.updateChannel}
                     onValueChange={(updateChannel) => {
@@ -349,7 +383,7 @@ export function SettingsPage() {
                       });
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-[220px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -357,31 +391,52 @@ export function SettingsPage() {
                       <SelectItem value="prerelease">{t("prerelease")}</SelectItem>
                     </SelectContent>
                   </Select>
-                </Field>
+                </div>
+              </div>
 
-                <Field label={t("current_launcher_version")}>
-                  <input value={currentVersion || "—"} readOnly />
-                </Field>
+              <div className="settingRowDivider" />
 
-                <Button
-                  type="button"
-                  variant="secondary"
-                  busy={checking}
-                  onClick={async () => {
-                    setChecking(true);
-                    try {
-                      await checkForUpdate(value.updateChannel, value.skippedUpdateVersion);
-                      // If no update found, launcherUpdate stays undefined.
-                      if (!useAppShellStore.getState().launcherUpdate) {
-                        notify(t("launcher_is_up_to_date"));
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("current_launcher_version")}</span>
+                </div>
+                <div className="settingRowControl">
+                  <input
+                    className="settingTileInput w-[220px]"
+                    value={currentVersion || "—"}
+                    readOnly
+                    aria-label={t("current_launcher_version")}
+                  />
+                </div>
+              </div>
+
+              <div className="settingRowDivider" />
+
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("check_for_updates")}</span>
+                </div>
+                <div className="settingRowControl">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    busy={checking}
+                    onClick={async () => {
+                      setChecking(true);
+                      try {
+                        await checkForUpdate(value.updateChannel, value.skippedUpdateVersion);
+                        // If no update found, launcherUpdate stays undefined.
+                        if (!useAppShellStore.getState().launcherUpdate) {
+                          notify(t("launcher_is_up_to_date"));
+                        }
+                      } finally {
+                        setChecking(false);
                       }
-                    } finally {
-                      setChecking(false);
-                    }
-                  }}
-                >
-                  {t("check_for_updates")}
-                </Button>
+                    }}
+                  >
+                    {t("check_for_updates")}
+                  </Button>
+                </div>
               </div>
             </div>
           </section>
@@ -391,13 +446,15 @@ export function SettingsPage() {
               <h2>{t("data_folder")}</h2>
               <p>{t("data_folder_description")}</p>
             </header>
-            <div className="formFields">
+            <div className="downloadsPanel">
               {moving ? (
-                <div className="launcherUpdateProgress">
+                <div className="settingRow settingRowColumn">
+                  <div className="settingRowText">
+                    <span className="settingRowTitle">{t("data_folder_moving")}</span>
+                  </div>
                   <Progress value={dataFolderProgress?.progress ?? 0} />
-                  <small>{t("data_folder_moving")}</small>
                   {dataFolderProgress?.totalBytes ? (
-                    <small>
+                    <small className="settingRowDescription">
                       {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
                       {formatBytes(dataFolderProgress.totalBytes)}
                     </small>
@@ -405,10 +462,16 @@ export function SettingsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="formRow">
-                    <Field label={t("data_folder_current_location")}>
-                      <input value={dataFolder?.currentPath ?? "—"} readOnly />
-                    </Field>
+                  <div className="settingRow settingRowColumn">
+                    <div className="settingRowText">
+                      <span className="settingRowTitle">{t("data_folder_current_location")}</span>
+                    </div>
+                    <input
+                      className="settingTileInput codeInput"
+                      value={dataFolder?.currentPath ?? "—"}
+                      readOnly
+                      aria-label={t("data_folder_current_location")}
+                    />
                   </div>
                   {moveError && <p className="updateHint">{moveError}</p>}
                   {dataFolder?.lastError && (
@@ -416,14 +479,17 @@ export function SettingsPage() {
                       {t("data_folder_previous_error", { message: dataFolder.lastError })}
                     </p>
                   )}
-                  <div className="formRow">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => void chooseDataFolder()}
-                    >
-                      {t("data_folder_change")}
-                    </Button>
+                  <div className="settingRowDivider" />
+                  <div className="settingRow">
+                    <div className="settingRowControl">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void chooseDataFolder()}
+                      >
+                        {t("data_folder_change")}
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
@@ -435,16 +501,19 @@ export function SettingsPage() {
               <h2>{t("privacy_and_telemetry")}</h2>
               <p>{t("privacy_and_telemetry_description")}</p>
             </header>
-            <div className="formFields">
-              <div className="checkboxSetting">
-                <Checkbox
-                  label={t("send_usage_analytics")}
-                  checked={value.telemetryEnabled}
-                  onChange={(event) =>
-                    setValue({ ...value, telemetryEnabled: event.target.checked })
-                  }
-                />
-                <small>{t("telemetry_consent_notice")}</small>
+            <div className="downloadsPanel">
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("send_usage_analytics")}</span>
+                  <small className="settingRowDescription">{t("telemetry_consent_notice")}</small>
+                </div>
+                <div className="settingRowControl">
+                  <Switch
+                    label={t("send_usage_analytics")}
+                    checked={value.telemetryEnabled}
+                    onCheckedChange={(telemetryEnabled) => setValue({ ...value, telemetryEnabled })}
+                  />
+                </div>
               </div>
             </div>
           </section>

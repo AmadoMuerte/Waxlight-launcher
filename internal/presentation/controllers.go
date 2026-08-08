@@ -363,6 +363,47 @@ func (controller *ModManagerController) CheckInstanceModUpdates(
 	return instanceModUpdateReportDTO(report), err
 }
 
+type UpdateInstanceModsRequest struct {
+	InstanceID        string               `json:"instanceId"`
+	Mods              []ModUpdateTargetDTO `json:"mods"`
+	AllowIncompatible bool                 `json:"allowIncompatible"`
+}
+
+type ModUpdateTargetDTO struct {
+	ModID     string `json:"modId"`
+	VersionID string `json:"versionId"`
+}
+
+type ModUpdateResultDTO struct {
+	Updated int `json:"updated"`
+}
+
+// UpdateInstanceMods updates several installed mods of one instance in a
+// single coordinated operation; the backend creates exactly one automatic
+// safety snapshot before the first update is applied.
+func (controller *ModManagerController) UpdateInstanceMods(
+	request UpdateInstanceModsRequest,
+) (ModUpdateResultDTO, error) {
+	targets := make([]application.ModUpdateTarget, 0, len(request.Mods))
+	for _, mod := range request.Mods {
+		targets = append(targets, application.ModUpdateTarget{
+			ModID:     mod.ModID,
+			VersionID: mod.VersionID,
+		})
+	}
+	result, err := controller.svc.UpdateInstanceMods(
+		context.Background(),
+		request.InstanceID,
+		targets,
+		request.AllowIncompatible,
+	)
+	if err != nil {
+		slog.Warn("instance mod update failed", "instanceId", request.InstanceID, "error", err)
+		return ModUpdateResultDTO{}, err
+	}
+	return ModUpdateResultDTO{Updated: result.Updated}, nil
+}
+
 func (controller *ModManagerController) InstallModFile(
 	request InstallModFileRequest,
 ) (OperationDTO, error) {
@@ -566,14 +607,15 @@ func (controller *SettingsController) UpdateSettings(
 	settings, err := controller.svc.SaveSettings(
 		context.Background(),
 		domain.Settings{
-			Language:              request.Language,
-			DownloadsParallel:     request.DownloadsParallel,
-			ConfirmDeletion:       request.ConfirmDeletion,
-			GlobalLaunchArguments: request.GlobalLaunchArguments,
-			CheckForUpdates:       request.CheckForUpdates,
-			UpdateChannel:         request.UpdateChannel,
-			SkippedUpdateVersion:  request.SkippedUpdateVersion,
-			TelemetryEnabled:      request.TelemetryEnabled,
+			Language:                 request.Language,
+			DownloadsParallel:        request.DownloadsParallel,
+			ConfirmDeletion:          request.ConfirmDeletion,
+			GlobalLaunchArguments:    request.GlobalLaunchArguments,
+			CheckForUpdates:          request.CheckForUpdates,
+			UpdateChannel:            request.UpdateChannel,
+			SkippedUpdateVersion:     request.SkippedUpdateVersion,
+			TelemetryEnabled:         request.TelemetryEnabled,
+			AutomaticSafetySnapshots: request.AutomaticSafetySnapshots,
 		},
 	)
 	if err != nil {

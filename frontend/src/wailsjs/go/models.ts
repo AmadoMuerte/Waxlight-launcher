@@ -685,6 +685,8 @@ export namespace presentation {
 	    instanceId: string;
 	    instanceName: string;
 	    type: string;
+	    reason?: string;
+	    context?: Record<string, string>;
 	    gameVersion: string;
 	    createdAt: string;
 	    sizeBytes: number;
@@ -701,6 +703,8 @@ export namespace presentation {
 	        this.instanceId = source["instanceId"];
 	        this.instanceName = source["instanceName"];
 	        this.type = source["type"];
+	        this.reason = source["reason"];
+	        this.context = source["context"];
 	        this.gameVersion = source["gameVersion"];
 	        this.createdAt = source["createdAt"];
 	        this.sizeBytes = source["sizeBytes"];
@@ -1199,7 +1203,33 @@ export namespace presentation {
 	    }
 	}
 	
+	export class ModUpdateResultDTO {
+	    updated: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new ModUpdateResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.updated = source["updated"];
+	    }
+	}
+	
+	export class ModUpdateTargetDTO {
+	    modId: string;
+	    versionId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModUpdateTargetDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.versionId = source["versionId"];
+	    }
+	}
 	
 	export class OperationDTO {
 	    id: string;
@@ -1457,6 +1487,7 @@ export namespace presentation {
 	    updateChannel: string;
 	    skippedUpdateVersion: string;
 	    telemetryEnabled: boolean;
+	    automaticSafetySnapshots: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -1472,6 +1503,7 @@ export namespace presentation {
 	        this.updateChannel = source["updateChannel"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.telemetryEnabled = source["telemetryEnabled"];
+	        this.automaticSafetySnapshots = source["automaticSafetySnapshots"];
 	    }
 	}
 	export class StatisticsDTO {
@@ -1492,6 +1524,40 @@ export namespace presentation {
 	        this.averageSessionSeconds = source["averageSessionSeconds"];
 	        this.mostPlayedInstanceId = source["mostPlayedInstanceId"];
 	        this.recentSessions = this.convertValues(source["recentSessions"], PlaySessionDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class UpdateInstanceModsRequest {
+	    instanceId: string;
+	    mods: ModUpdateTargetDTO[];
+	    allowIncompatible: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateInstanceModsRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.mods = this.convertValues(source["mods"], ModUpdateTargetDTO);
+	        this.allowIncompatible = source["allowIncompatible"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

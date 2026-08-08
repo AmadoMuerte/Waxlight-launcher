@@ -134,12 +134,13 @@ type Operation struct {
 }
 
 type Settings struct {
-	Language              string
-	DownloadsParallel     int
-	ConfirmDeletion       bool
-	GlobalLaunchArguments []string
-	CheckForUpdates       bool
-	UpdateChannel         string
-	SkippedUpdateVersion  string
-	TelemetryEnabled      bool
+	Language                 string
+	DownloadsParallel        int
+	ConfirmDeletion          bool
+	GlobalLaunchArguments    []string
+	CheckForUpdates          bool
+	UpdateChannel            string
+	SkippedUpdateVersion     string
+	TelemetryEnabled         bool
+	AutomaticSafetySnapshots bool
 }

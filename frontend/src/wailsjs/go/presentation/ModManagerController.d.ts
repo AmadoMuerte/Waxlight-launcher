@@ -17,3 +17,5 @@ export function ListInstalledMods(arg1:string):Promise<Array<presentation.Instal
 export function RemoveMod(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetModEnabled(arg1:string,arg2:boolean):Promise<presentation.InstalledModDTO>;
+
+export function UpdateInstanceMods(arg1:presentation.UpdateInstanceModsRequest):Promise<presentation.ModUpdateResultDTO>;

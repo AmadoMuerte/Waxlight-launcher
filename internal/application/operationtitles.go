@@ -8,6 +8,7 @@ const (
 	operationTitleDownloadingGameVersion = "operation_downloading_game_version"
 	operationTitleInstallingMod          = "operation_installing_mod"
 	operationTitleCreatingSnapshot       = "operation_creating_snapshot"
+	operationTitleCreatingSafetyBackup   = "operation_creating_safety_backup"
 	operationTitleRestoringSnapshot      = "operation_restoring_snapshot"
 	operationTitleRestoringFiles         = "operation_restoring_files"
 	operationTitleDownloadingMods        = "operation_downloading_mods"
