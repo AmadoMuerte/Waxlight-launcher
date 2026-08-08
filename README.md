@@ -10,7 +10,7 @@
 [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
-[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2)](https://hipolink.net/amadomuerte/tips)
+[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2)](https://hipolink.net/amadomuerte)
 
 [Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Guide](https://amadomuerte.github.io/Waxlight-launcher/) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte/tips)
 </div>
@@ -110,7 +110,7 @@ For security issues, follow [SECURITY.md](docs/SECURITY.md) instead of opening a
 
 Waxlight is free and open source. If you enjoy the project and want to support its continued development:
 
-[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2?style=for-the-badge)](https://hipolink.net/amadomuerte/tips)
+[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2?style=for-the-badge)](https://hipolink.net/amadomuerte)
 
 ## License
 
