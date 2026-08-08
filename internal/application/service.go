@@ -1605,8 +1605,12 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	s.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
-	go s.markLaunchEstablished(instance, session.ID)
-	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath))
+	// Snapshot the startup window once on the caller goroutine; the launch
+	// goroutines below read only this captured value (the package variable is
+	// mutable in tests).
+	startupWindow := gameStartupWindow
+	go s.markLaunchEstablished(instance, session.ID, startupWindow)
+	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath), startupWindow)
 	return session, nil
 }
 
@@ -1700,6 +1704,7 @@ func (s *Service) waitForGame(
 	logFile io.Closer,
 	cleanupCredentials func() error,
 	stopGameLog func(),
+	startupWindow time.Duration,
 ) {
 	exitCode, waitErr := process.Wait()
 	// Let the tailer pick up the lines the process flushed right before
@@ -1721,7 +1726,7 @@ func (s *Service) waitForGame(
 	// current configuration with the Last Known Good state and offer a safe
 	// recovery. A game that ran past the window (or exited normally) is not a
 	// configuration failure, no matter how it ended.
-	if crashed && time.Since(startedAt) < gameStartupWindow {
+	if crashed && time.Since(startedAt) < startupWindow {
 		s.handleFailedLaunch(instance)
 	}
 	if err := s.store.FinishSession(

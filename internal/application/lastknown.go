@@ -17,14 +17,17 @@ import (
 // be considered successful. Exits after this window are treated as a started
 // game (a long play session followed by a crash is not a failed startup); a
 // crashed exit inside the window is a failed startup. It is a variable so
-// tests can shorten it.
+// tests can shorten it. Launch snapshots the value once and hands it to the
+// goroutines, so tests may restore it without racing background readers.
 var gameStartupWindow = 60 * time.Second
 
 // markLaunchEstablished records the Last Known Good state once a game process
 // survives the startup window. The timer never fires for short-lived crashes
 // because waitForGame removes the running entry when the process exits.
-func (s *Service) markLaunchEstablished(instance domain.Instance, sessionID string) {
-	timer := time.NewTimer(gameStartupWindow)
+// startupWindow is the value captured by Launch so this goroutine never reads
+// the mutable package variable.
+func (s *Service) markLaunchEstablished(instance domain.Instance, sessionID string, startupWindow time.Duration) {
+	timer := time.NewTimer(startupWindow)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
@@ -37,7 +40,7 @@ func (s *Service) markLaunchEstablished(instance domain.Instance, sessionID stri
 	if !ok || running.sessionID != sessionID {
 		return
 	}
-	slog.Info("launch considered successful", "instance", instance.Name, "startupWindow", gameStartupWindow.String())
+	slog.Info("launch considered successful", "instance", instance.Name, "startupWindow", startupWindow.String())
 	s.recordLastKnownGood(context.Background(), instance)
 }
 
