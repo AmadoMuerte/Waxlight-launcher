@@ -12,6 +12,9 @@ export const MOD_DETAILS_QUERY_KEY = (modId: string) => ["mods", "details", modI
 
 export const SNAPSHOTS_QUERY_KEY = (instanceId: string) => ["snapshots", instanceId] as const;
 
+export const LAST_KNOWN_GOOD_QUERY_KEY = (instanceId: string) =>
+  ["last-known-good", instanceId] as const;
+
 export const WATCHED_QUERY_KEYS = [
   ACCOUNTS_QUERY_KEY,
   INSTANCES_QUERY_KEY,

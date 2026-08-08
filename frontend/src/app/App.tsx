@@ -5,9 +5,11 @@ import { Navigate, Route, Routes } from "react-router";
 import { useAccountsQuery } from "../entities/account/queries";
 import { useGameVersionsQuery } from "../entities/game-version/queries";
 import { useInstancesQuery } from "../entities/instance/queries";
+import type { RecoverySuggestion } from "../entities/last-known-good/model";
 import { useOperationsQuery } from "../entities/operation/queries";
 import { useSettingsQuery } from "../entities/settings/queries";
 import { useStatisticsQuery } from "../entities/statistics/queries";
+import { RecoveryDialog } from "../features/recovery/RecoveryDialog";
 import { AccountsPage } from "../pages/accounts/AccountsPage";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { ModDetailsPage } from "../pages/mod-details/ModDetailsPage";
@@ -29,6 +31,7 @@ import { ErrorBanner } from "../widgets/layout/ErrorBanner";
 import { Sidebar } from "../widgets/layout/Sidebar";
 import { UpdateDialog } from "../widgets/layout/UpdateDialog";
 import { useAppShellStore } from "./stores/app-shell";
+import { useRecoveryStore } from "./stores/recovery";
 
 const POLL_INTERVAL = 8_000;
 
@@ -166,6 +169,20 @@ export function App() {
         listeners.push(EventsOn(name, applyOperation));
       }
       listeners.push(EventsOn("operation:removed", removeOperation));
+      // The backend publishes a recovery suggestion after a failed startup.
+      // The dialog decides nothing itself; it renders the suggestion and asks
+      // the user whether to restore the last known working state.
+      listeners.push(
+        EventsOn("game:recovery-suggestion", (suggestion: RecoverySuggestion) => {
+          useRecoveryStore.getState().show(suggestion);
+        }),
+      );
+      // A Last Known Good marker was recorded or replaced.
+      listeners.push(
+        EventsOn("last-known-good:updated", () => {
+          void queryClient.invalidateQueries({ queryKey: ["last-known-good"] });
+        }),
+      );
     } catch (error) {
       log.warn(errorMessage(error), { source: "operation-events" });
     }
@@ -191,6 +208,7 @@ export function App() {
       <main>
         <ErrorBanner />
         <UpdateDialog />
+        <RecoveryDialog />
 
         <Routes>
           <Route path="/library" element={<LibraryPage />} />

@@ -343,6 +343,43 @@ export interface PlaySession {
   recovered: boolean;
 }
 
+export interface ModChange {
+  name: string;
+  from?: string;
+  to?: string;
+}
+
+export interface ConfigurationChanges {
+  gameVersionFrom?: string;
+  gameVersionTo?: string;
+  updated: ModChange[];
+  added: ModChange[];
+  removed: ModChange[];
+}
+
+export interface LastKnownGood {
+  recordedAt: string;
+  gameVersion: string;
+  modCount: number;
+  snapshotId?: string;
+  snapshotExists: boolean;
+  matchesCurrent: boolean;
+  changeCount: number;
+  changes: ConfigurationChanges;
+}
+
+// RecoverySuggestion is the backend event payload published after a failed
+// startup. The frontend only renders it; it never decides whether a launch
+// failed or which snapshot to restore.
+export interface RecoverySuggestion {
+  instanceId: string;
+  recordedAt: string;
+  snapshotId?: string;
+  snapshotExists: boolean;
+  changes: ConfigurationChanges;
+  stateSignature: string;
+}
+
 export interface Statistics {
   totalPlaytimeSeconds: number;
   launchCount: number;

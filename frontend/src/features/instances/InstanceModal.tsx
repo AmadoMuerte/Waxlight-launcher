@@ -26,6 +26,7 @@ import { Modal } from "../../shared/ui/modal";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { SubmitForm } from "../../shared/ui/submit-form";
 import { BackupsTab } from "../instance/BackupsTab";
+import { LastKnownGoodSection } from "../instance/LastKnownGoodSection";
 import { ModUpdatesModal } from "../mods/ModUpdatesModal";
 
 type InstanceTab = "overview" | "mods" | "settings" | "backups";
@@ -368,6 +369,8 @@ export function InstanceModal({
               <strong>{selectedAccount?.displayName ?? t("global_default")}</strong>
             </article>
           </section>
+
+          <LastKnownGoodSection instanceId={instance.id} />
 
           <section className="storageSection">
             <div className="storageToolbar">

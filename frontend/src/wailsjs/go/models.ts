@@ -66,6 +66,60 @@ export namespace presentation {
 	        this.name = source["name"];
 	    }
 	}
+	export class ModChangeDTO {
+	    name: string;
+	    from?: string;
+	    to?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModChangeDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.from = source["from"];
+	        this.to = source["to"];
+	    }
+	}
+	export class ConfigurationChangesDTO {
+	    gameVersionFrom?: string;
+	    gameVersionTo?: string;
+	    updated: ModChangeDTO[];
+	    added: ModChangeDTO[];
+	    removed: ModChangeDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigurationChangesDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.gameVersionFrom = source["gameVersionFrom"];
+	        this.gameVersionTo = source["gameVersionTo"];
+	        this.updated = this.convertValues(source["updated"], ModChangeDTO);
+	        this.added = this.convertValues(source["added"], ModChangeDTO);
+	        this.removed = this.convertValues(source["removed"], ModChangeDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class CreateInstanceRequest {
 	    name: string;
 	    description: string;
@@ -712,6 +766,50 @@ export namespace presentation {
 	        this.worldCount = source["worldCount"];
 	    }
 	}
+	export class LastKnownGoodDTO {
+	    recordedAt: string;
+	    gameVersion: string;
+	    modCount: number;
+	    snapshotId?: string;
+	    snapshotExists: boolean;
+	    matchesCurrent: boolean;
+	    changeCount: number;
+	    changes: ConfigurationChangesDTO;
+	
+	    static createFrom(source: any = {}) {
+	        return new LastKnownGoodDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.recordedAt = source["recordedAt"];
+	        this.gameVersion = source["gameVersion"];
+	        this.modCount = source["modCount"];
+	        this.snapshotId = source["snapshotId"];
+	        this.snapshotExists = source["snapshotExists"];
+	        this.matchesCurrent = source["matchesCurrent"];
+	        this.changeCount = source["changeCount"];
+	        this.changes = this.convertValues(source["changes"], ConfigurationChangesDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class LaunchRequest {
 	    instanceId: string;
 	    accountId?: string;
@@ -873,6 +971,7 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	
 	export class ModDeletePreviewDTO {
 	    modId: string;
 	    modName: string;

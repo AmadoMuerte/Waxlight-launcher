@@ -3,11 +3,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
+import { useLastKnownGoodQuery } from "../../entities/last-known-good/queries";
 import { snapshotsApi } from "../../entities/snapshot/api";
 import type { InstanceSnapshot } from "../../entities/snapshot/model";
 import { useInstanceSnapshotsQuery } from "../../entities/snapshot/queries";
 import { errorMessage } from "../../shared/api/bridge";
-import { INSTANCES_QUERY_KEY, SNAPSHOTS_QUERY_KEY } from "../../shared/api/keys";
+import {
+  INSTANCES_QUERY_KEY,
+  LAST_KNOWN_GOOD_QUERY_KEY,
+  SNAPSHOTS_QUERY_KEY,
+} from "../../shared/api/keys";
 import { formatBytes, formatDate } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
@@ -37,6 +42,7 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const { data: snapshots = [], isPending } = useInstanceSnapshotsQuery(instanceId);
+  const { data: lastKnownGood } = useLastKnownGoodQuery(instanceId);
   const [creating, setCreating] = useState(false);
   const [restoringId, setRestoringId] = useState<string>();
   const [deletingId, setDeletingId] = useState<string>();
@@ -47,6 +53,7 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: SNAPSHOTS_QUERY_KEY(instanceId) });
+    await queryClient.invalidateQueries({ queryKey: LAST_KNOWN_GOOD_QUERY_KEY(instanceId) });
     await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
   }
 
@@ -130,6 +137,8 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
         <div className="installedModList">
           {snapshots.map((snapshot) => {
             const automatic = snapshot.type === "automatic";
+            const recoveryPoint =
+              lastKnownGood?.snapshotExists && lastKnownGood.snapshotId === snapshot.id;
             return (
               <article className="installedModRow snapshotRow" key={snapshot.id}>
                 <div className="modRowIcon" aria-hidden="true">
@@ -149,6 +158,14 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
                       </>
                     ) : (
                       t("manual_snapshot")
+                    )}
+                    {recoveryPoint && (
+                      <>
+                        {" "}
+                        <span className="snapshotTypeBadge lastKnownGood">
+                          {t("last_known_good")}
+                        </span>
+                      </>
                     )}
                   </small>
                   {automatic &&
