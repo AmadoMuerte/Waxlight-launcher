@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 type ArchiveInstaller struct{}
@@ -30,6 +31,7 @@ func (ArchiveInstaller) Install(
 	targetPath string,
 	executableRelativePath string,
 	expectedSHA256 string,
+	progress func(copied, total int64),
 ) (string, int64, error) {
 	if expectedSHA256 != "" {
 		actual, err := fileSHA256(ctx, sourcePath)
@@ -62,7 +64,7 @@ func (ArchiveInstaller) Install(
 		}
 	}()
 
-	if err := unpackSource(ctx, sourcePath, partialPath); err != nil {
+	if err := unpackSource(ctx, sourcePath, partialPath, progress); err != nil {
 		return "", 0, err
 	}
 
@@ -99,21 +101,69 @@ func (ArchiveInstaller) Install(
 	return finalExecutable, size, nil
 }
 
-func unpackSource(ctx context.Context, sourcePath string, targetPath string) error {
+// unpackState accumulates extracted bytes and reports progress.
+type unpackState struct {
+	mu     sync.Mutex
+	copied int64
+	total  int64
+	report func(copied, total int64)
+}
+
+func (state *unpackState) add(n int64) {
+	state.mu.Lock()
+	state.copied += n
+	copied, total := state.copied, state.total
+	state.mu.Unlock()
+	if state.report != nil {
+		state.report(copied, total)
+	}
+}
+
+type countingUnpackReader struct {
+	reader io.Reader
+	state  *unpackState
+}
+
+func (reader *countingUnpackReader) Read(buffer []byte) (int, error) {
+	n, err := reader.reader.Read(buffer)
+	if n > 0 {
+		reader.state.add(int64(n))
+	}
+	return n, err
+}
+
+func unpackSource(
+	ctx context.Context,
+	sourcePath string,
+	targetPath string,
+	progress func(copied, total int64),
+) error {
 	info, err := os.Stat(sourcePath)
 	if err != nil {
 		return err
 	}
 	if info.IsDir() {
-		return copyTree(ctx, sourcePath, targetPath)
+		total, err := directorySize(ctx, sourcePath)
+		if err != nil {
+			return err
+		}
+		return copyTree(ctx, sourcePath, targetPath, progress, total)
 	}
 
 	lowerName := strings.ToLower(sourcePath)
 	switch {
 	case strings.HasSuffix(lowerName, ".zip"):
-		return extractZip(ctx, sourcePath, targetPath)
+		total, err := zipUncompressedSize(sourcePath)
+		if err != nil {
+			return err
+		}
+		return extractZip(ctx, sourcePath, targetPath, progress, total)
 	case strings.HasSuffix(lowerName, ".tar.gz"), strings.HasSuffix(lowerName, ".tgz"):
-		return extractTarGz(ctx, sourcePath, targetPath)
+		total, err := tarGzUncompressedSize(ctx, sourcePath)
+		if err != nil {
+			return err
+		}
+		return extractTarGz(ctx, sourcePath, targetPath, progress, total)
 	default:
 		return fmt.Errorf(
 			"unsupported game archive %q; use .zip, .tar.gz, .tgz, or a directory",
@@ -122,13 +172,69 @@ func unpackSource(ctx context.Context, sourcePath string, targetPath string) err
 	}
 }
 
-func extractZip(ctx context.Context, archivePath string, targetPath string) error {
+// zipUncompressedSize returns the total uncompressed size of a ZIP archive.
+func zipUncompressedSize(archivePath string) (int64, error) {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return 0, fmt.Errorf("invalid ZIP archive: %w", err)
+	}
+	defer reader.Close()
+	var total int64
+	for _, entry := range reader.File {
+		total += int64(entry.UncompressedSize64)
+	}
+	return total, nil
+}
+
+// tarGzUncompressedSize returns the total uncompressed size of a tar.gz
+// archive by reading it once.
+func tarGzUncompressedSize(ctx context.Context, archivePath string) (int64, error) {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return 0, fmt.Errorf("invalid gzip archive: %w", err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	var total int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, fmt.Errorf("invalid tar archive: %w", err)
+		}
+		if header.Typeflag == tar.TypeReg || header.Typeflag == tar.TypeRegA {
+			total += header.Size
+		}
+	}
+	return total, nil
+}
+
+func extractZip(
+	ctx context.Context,
+	archivePath string,
+	targetPath string,
+	progress func(copied, total int64),
+	total int64,
+) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return fmt.Errorf("invalid ZIP archive: %w", err)
 	}
 	defer reader.Close()
 
+	state := &unpackState{total: total, report: progress}
 	for _, entry := range reader.File {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -156,7 +262,12 @@ func extractZip(ctx context.Context, archivePath string, targetPath string) erro
 		if err != nil {
 			return err
 		}
-		copyErr := copyArchiveFile(source, destination, entry.Mode().Perm())
+		copyErr := copyArchiveFile(
+			state,
+			&countingUnpackReader{reader: source, state: state},
+			destination,
+			entry.Mode().Perm(),
+		)
 		closeErr := source.Close()
 		if copyErr != nil {
 			return copyErr
@@ -169,7 +280,13 @@ func extractZip(ctx context.Context, archivePath string, targetPath string) erro
 	return nil
 }
 
-func extractTarGz(ctx context.Context, archivePath string, targetPath string) error {
+func extractTarGz(
+	ctx context.Context,
+	archivePath string,
+	targetPath string,
+	progress func(copied, total int64),
+	total int64,
+) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -182,6 +299,7 @@ func extractTarGz(ctx context.Context, archivePath string, targetPath string) er
 	}
 	defer gzipReader.Close()
 
+	state := &unpackState{total: total, report: progress}
 	tarReader := tar.NewReader(gzipReader)
 	for {
 		if err := ctx.Err(); err != nil {
@@ -210,7 +328,12 @@ func extractTarGz(ctx context.Context, archivePath string, targetPath string) er
 			if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 				return err
 			}
-			if err := copyArchiveFile(tarReader, destination, os.FileMode(header.Mode).Perm()); err != nil {
+			if err := copyArchiveFile(
+				state,
+				&countingUnpackReader{reader: tarReader, state: state},
+				destination,
+				os.FileMode(header.Mode).Perm(),
+			); err != nil {
 				return err
 			}
 		case tar.TypeSymlink, tar.TypeLink:
@@ -238,7 +361,12 @@ func safeArchiveDestination(targetPath string, entryName string) (string, error)
 	return destination, nil
 }
 
-func copyArchiveFile(source io.Reader, destination string, mode os.FileMode) error {
+func copyArchiveFile(
+	state *unpackState,
+	source io.Reader,
+	destination string,
+	mode os.FileMode,
+) error {
 	if mode == 0 {
 		mode = 0o644
 	}
@@ -260,7 +388,14 @@ func copyArchiveFile(source io.Reader, destination string, mode os.FileMode) err
 	return closeErr
 }
 
-func copyTree(ctx context.Context, sourcePath string, targetPath string) error {
+func copyTree(
+	ctx context.Context,
+	sourcePath string,
+	targetPath string,
+	progress func(copied, total int64),
+	total int64,
+) error {
+	state := &unpackState{total: total, report: progress}
 	return filepath.Walk(
 		sourcePath,
 		func(path string, info os.FileInfo, walkErr error) error {
@@ -288,7 +423,12 @@ func copyTree(ctx context.Context, sourcePath string, targetPath string) error {
 			if err != nil {
 				return err
 			}
-			copyErr := copyArchiveFile(source, destination, info.Mode().Perm())
+			copyErr := copyArchiveFile(
+				state,
+				&countingUnpackReader{reader: source, state: state},
+				destination,
+				info.Mode().Perm(),
+			)
 			closeErr := source.Close()
 			if copyErr != nil {
 				return copyErr

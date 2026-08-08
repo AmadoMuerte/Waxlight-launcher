@@ -15,6 +15,7 @@ func (installer Installer) installPlatform(
 	ctx context.Context,
 	sourcePath string,
 	targetPath string,
+	progress func(copied, total int64),
 ) (string, int64, error) {
 	if !strings.EqualFold(filepath.Ext(sourcePath), ".exe") {
 		return "", 0, fmt.Errorf("the official Windows distribution must be an EXE installer")

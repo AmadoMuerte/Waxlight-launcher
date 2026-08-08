@@ -182,6 +182,7 @@ func New() (*Container, error) {
 		presentation.NewLaunchController(service),
 		presentation.NewStatisticsController(service),
 		presentation.NewOperationController(service),
+		presentation.NewSnapshotController(service),
 		presentation.NewLogController(service, base),
 		presentation.NewSettingsController(service, base, dataRootManager, downloadManager),
 		presentation.NewLauncherUpdateController(updateService, base),

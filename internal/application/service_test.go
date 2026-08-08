@@ -126,6 +126,7 @@ func (fakeGamePackageInstaller) Install(
 	_ context.Context,
 	_ string,
 	targetPath string,
+	_ func(copied, total int64),
 ) (string, int64, error) {
 	if err := os.MkdirAll(targetPath, 0o755); err != nil {
 		return "", 0, err

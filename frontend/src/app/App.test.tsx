@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -72,6 +72,22 @@ vi.mock("../shared/api/updates", () => ({
 vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
 vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi: {} }));
+
+vi.mock("@xterm/xterm", () => ({
+  Terminal: class {
+    write = vi.fn();
+    clear = vi.fn();
+    dispose = vi.fn();
+    loadAddon = vi.fn();
+    open = vi.fn();
+  },
+}));
+
+vi.mock("@xterm/addon-fit", () => ({
+  FitAddon: class {
+    fit = vi.fn();
+  },
+}));
 
 afterEach(() => {
   cleanup();
@@ -155,4 +171,65 @@ it("shows a non-intrusive startup update dialog that can be postponed", async ()
   expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Напомнить позже" }));
   await waitFor(() => expect(screen.queryByText(/0\.1\.4/)).toBeNull());
+});
+
+it("updates the operations list live from backend events", async () => {
+  const listeners = new Map<string, (payload: unknown) => void>();
+  vi.stubGlobal("runtime", {
+    EventsOnMultiple: (name: string, callback: (payload: unknown) => void) => {
+      listeners.set(name, callback);
+      return () => {
+        listeners.delete(name);
+      };
+    },
+  });
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+
+  renderApp(["/operations"]);
+  await screen.findByText("Операций пока нет");
+
+  const operation = {
+    id: "op-1",
+    type: "snapshot_create",
+    title: "Creating snapshot",
+    titleKey: "operation_creating_snapshot",
+    status: "running",
+    progress: 0.25,
+    currentBytes: 25,
+    totalBytes: 100,
+    bytesPerSecond: 0,
+    createdAt: "2026-08-08T00:00:00Z",
+  };
+
+  const created = listeners.get("operation:created");
+  expect(created).toBeTruthy();
+  act(() => created!(operation));
+  expect(await screen.findByText("Создание снимка")).toBeTruthy();
+
+  const progress = listeners.get("operation:progress");
+  expect(progress).toBeTruthy();
+  act(() =>
+    progress!({
+      ...operation,
+      progress: 0.75,
+      currentBytes: 75,
+    }),
+  );
+  await waitFor(() => {
+    const bar = document.querySelector(".progress i") as HTMLElement | null;
+    expect(bar?.style.width).toBe("75%");
+  });
+
+  const removed = listeners.get("operation:removed");
+  expect(removed).toBeTruthy();
+  act(() => removed!({ id: "op-1" }));
+  await waitFor(() => expect(screen.queryByText("Создание снимка")).toBeNull());
+  vi.unstubAllGlobals();
 });

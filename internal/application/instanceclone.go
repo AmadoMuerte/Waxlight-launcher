@@ -33,6 +33,9 @@ func (s *Service) CloneInstance(
 			"Stop the game before cloning this instance",
 		)
 	}
+	if err := s.ensureNoSnapshotOperation(sourceID); err != nil {
+		return domain.Instance{}, err
+	}
 
 	source, err := s.store.GetInstance(ctx, sourceID)
 	if err != nil {

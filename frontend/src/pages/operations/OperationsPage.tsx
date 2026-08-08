@@ -74,7 +74,7 @@ export function OperationsPage() {
       return;
     }
     askConfirm(
-      t("delete_operation_confirmation", { title: operation.title }),
+      t("delete_operation_confirmation", { title: operationTitle(operation, t) }),
       async () => {
         setPendingAction(operation.id);
         try {
@@ -159,7 +159,7 @@ export function OperationsPage() {
 
               <div className="operationDetails">
                 <div className="row between">
-                  <strong>{operation.title}</strong>
+                  <strong>{operationTitle(operation, t)}</strong>
                   <div className="row">
                     <StatusPill status={operation.status} />
                     {(operation.status === "queued" || operation.status === "running") && (
@@ -174,7 +174,9 @@ export function OperationsPage() {
                     {isFinishedOperation(operation) && (
                       <Button
                         variant="ghost"
-                        aria-label={t("delete_operation", { title: operation.title })}
+                        aria-label={t("delete_operation", {
+                          title: operationTitle(operation, t),
+                        })}
                         disabled={pendingAction !== undefined}
                         onClick={() => remove(operation)}
                       >
@@ -251,4 +253,20 @@ export function isFinishedOperation(operation: Operation): boolean {
     operation.status === "failed" ||
     operation.status === "cancelled"
   );
+}
+
+// operationTitle renders an operation title through the i18n system when the
+// backend provided a translation key, falling back to the stored English
+// title for legacy operations.
+function operationTitle(
+  operation: Operation,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (!operation.titleKey) {
+    return operation.title;
+  }
+  return t(operation.titleKey, {
+    defaultValue: operation.title,
+    ...operation.titleParams,
+  });
 }

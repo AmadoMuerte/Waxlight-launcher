@@ -105,6 +105,7 @@ type ArchiveInstaller interface {
 		targetPath string,
 		executableRelativePath string,
 		expectedSHA256 string,
+		progress func(copied, total int64),
 	) (executablePath string, size int64, err error)
 	FindExecutable(rootPath string, relativePath string) (string, error)
 }
@@ -180,6 +181,7 @@ type GamePackageInstaller interface {
 		ctx context.Context,
 		sourcePath string,
 		targetPath string,
+		progress func(copied, total int64),
 	) (executablePath string, size int64, err error)
 }
 

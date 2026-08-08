@@ -19,7 +19,7 @@
 - Go layers: `internal/domain` models/errors, `internal/application` use cases and ports, `internal/infrastructure` adapters, `internal/presentation` Wails controllers and DTOs.
 - Frontend backend access belongs in `frontend/src/shared/api`; Wails bindings are generated under `frontend/src/wailsjs`.
 - Runtime SQLite schema changes belong in `internal/infrastructure/database/sqlite.go`; files in `migrations/` are not canonical runtime migrations.
-- Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/infrastructure/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/infrastructure/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, and `logs`.
+- Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/infrastructure/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/infrastructure/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, `logs`, and `backups`.
 
 ## Safety And Data
 

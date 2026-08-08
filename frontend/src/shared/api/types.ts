@@ -67,6 +67,18 @@ export interface Instance {
   playtimeSeconds: number;
 }
 
+export interface InstanceSnapshot {
+  id: string;
+  instanceId: string;
+  instanceName: string;
+  type: string;
+  gameVersion: string;
+  createdAt: string;
+  sizeBytes: number;
+  modCount: number;
+  worldCount: number;
+}
+
 export interface InstalledMod {
   id: string;
   instanceId: string;
@@ -293,6 +305,8 @@ export interface Operation {
   type: string;
   resourceId?: string;
   title: string;
+  titleKey?: string;
+  titleParams?: Record<string, string>;
   status: OperationStatus;
   progress: number;
   currentBytes: number;

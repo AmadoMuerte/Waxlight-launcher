@@ -680,6 +680,34 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	export class InstanceSnapshotDTO {
+	    id: string;
+	    instanceId: string;
+	    instanceName: string;
+	    type: string;
+	    gameVersion: string;
+	    createdAt: string;
+	    sizeBytes: number;
+	    modCount: number;
+	    worldCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new InstanceSnapshotDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.instanceId = source["instanceId"];
+	        this.instanceName = source["instanceName"];
+	        this.type = source["type"];
+	        this.gameVersion = source["gameVersion"];
+	        this.createdAt = source["createdAt"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.modCount = source["modCount"];
+	        this.worldCount = source["worldCount"];
+	    }
+	}
 	export class LaunchRequest {
 	    instanceId: string;
 	    accountId?: string;
@@ -1178,6 +1206,8 @@ export namespace presentation {
 	    type: string;
 	    resourceId?: string;
 	    title: string;
+	    titleKey?: string;
+	    titleParams?: Record<string, string>;
 	    status: string;
 	    progress: number;
 	    currentBytes: number;
@@ -1199,6 +1229,8 @@ export namespace presentation {
 	        this.type = source["type"];
 	        this.resourceId = source["resourceId"];
 	        this.title = source["title"];
+	        this.titleKey = source["titleKey"];
+	        this.titleParams = source["titleParams"];
 	        this.status = source["status"];
 	        this.progress = source["progress"];
 	        this.currentBytes = source["currentBytes"];

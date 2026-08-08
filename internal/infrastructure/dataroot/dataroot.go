@@ -374,7 +374,7 @@ func (m *Manager) finishPending(marker *Marker) error {
 func (m *Manager) removeOldRoot(previous string) error {
 	if filepath.Clean(previous) == filepath.Clean(m.home) {
 		for _, name := range []string{
-			"versions", "instances", "downloads", "cache", "security", "updates", "logs",
+			"versions", "instances", "downloads", "cache", "security", "updates", "logs", "backups",
 		} {
 			if err := os.RemoveAll(filepath.Join(m.home, name)); err != nil {
 				return err

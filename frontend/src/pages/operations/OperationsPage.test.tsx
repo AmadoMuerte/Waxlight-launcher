@@ -95,6 +95,66 @@ async function renderPageLoaded(operations: Operation[]) {
   return result;
 }
 
+describe("operation title localization", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("runtime", {
+      EventsOn: () => () => undefined,
+      EventsOnMultiple: () => () => undefined,
+      EventsEmit: () => undefined,
+    });
+    api.cancel.mockResolvedValue(undefined);
+    api.remove.mockResolvedValue(undefined);
+    api.clearHistory.mockResolvedValue(3);
+    api.logsList.mockResolvedValue([]);
+    api.logsExport.mockResolvedValue("");
+    api.logsOpenDirectory.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("translates operation titles through the i18n system when a key is present", async () => {
+    const localized = {
+      ...operation("localized", "Creating snapshot", "running"),
+      titleKey: "operation_creating_snapshot",
+    };
+    renderPage([localized]);
+    expect(await screen.findByText("Creating snapshot")).toBeTruthy();
+  });
+
+  it("interpolates title parameters", async () => {
+    const localized = {
+      ...operation("params", "Restoring mods 3 / 5", "running"),
+      titleKey: "operation_restoring_mods_progress",
+      titleParams: { done: "3", total: "5" },
+    };
+    renderPage([localized]);
+    expect(await screen.findByText("Restoring mods 3 / 5")).toBeTruthy();
+  });
+
+  it("falls back to the stored title for legacy operations", async () => {
+    const legacy = operation("legacy", "Legacy English title", "completed");
+    renderPage([legacy]);
+    expect(await screen.findByText("Legacy English title")).toBeTruthy();
+  });
+});
+
 describe("operations history controls", () => {
   afterEach(() => {
     cleanup();

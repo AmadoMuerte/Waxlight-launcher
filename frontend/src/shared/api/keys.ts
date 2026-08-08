@@ -10,6 +10,8 @@ export const DOWNLOADED_MODS_QUERY_KEY = ["mods", "downloaded"] as const;
 export const MOD_TAGS_QUERY_KEY = ["mods", "tags"] as const;
 export const MOD_DETAILS_QUERY_KEY = (modId: string) => ["mods", "details", modId] as const;
 
+export const SNAPSHOTS_QUERY_KEY = (instanceId: string) => ["snapshots", instanceId] as const;
+
 export const WATCHED_QUERY_KEYS = [
   ACCOUNTS_QUERY_KEY,
   INSTANCES_QUERY_KEY,

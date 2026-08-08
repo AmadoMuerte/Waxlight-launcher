@@ -190,20 +190,22 @@ func modDTO(mod domain.InstalledMod) InstalledModDTO {
 }
 
 type OperationDTO struct {
-	ID             string  `json:"id"`
-	Type           string  `json:"type"`
-	ResourceID     *string `json:"resourceId,omitempty"`
-	Title          string  `json:"title"`
-	Status         string  `json:"status"`
-	Progress       float64 `json:"progress"`
-	CurrentBytes   int64   `json:"currentBytes"`
-	TotalBytes     int64   `json:"totalBytes"`
-	BytesPerSecond int64   `json:"bytesPerSecond"`
-	ErrorCode      *string `json:"errorCode,omitempty"`
-	ErrorMessage   *string `json:"errorMessage,omitempty"`
-	CreatedAt      string  `json:"createdAt"`
-	StartedAt      *string `json:"startedAt,omitempty"`
-	FinishedAt     *string `json:"finishedAt,omitempty"`
+	ID             string            `json:"id"`
+	Type           string            `json:"type"`
+	ResourceID     *string           `json:"resourceId,omitempty"`
+	Title          string            `json:"title"`
+	TitleKey       string            `json:"titleKey,omitempty"`
+	TitleParams    map[string]string `json:"titleParams,omitempty"`
+	Status         string            `json:"status"`
+	Progress       float64           `json:"progress"`
+	CurrentBytes   int64             `json:"currentBytes"`
+	TotalBytes     int64             `json:"totalBytes"`
+	BytesPerSecond int64             `json:"bytesPerSecond"`
+	ErrorCode      *string           `json:"errorCode,omitempty"`
+	ErrorMessage   *string           `json:"errorMessage,omitempty"`
+	CreatedAt      string            `json:"createdAt"`
+	StartedAt      *string           `json:"startedAt,omitempty"`
+	FinishedAt     *string           `json:"finishedAt,omitempty"`
 }
 
 func operationDTO(operation domain.Operation) OperationDTO {
@@ -212,6 +214,8 @@ func operationDTO(operation domain.Operation) OperationDTO {
 		Type:           operation.Type,
 		ResourceID:     operation.ResourceID,
 		Title:          operation.Title,
+		TitleKey:       operation.TitleKey,
+		TitleParams:    operation.TitleParams,
 		Status:         operation.Status,
 		Progress:       operation.Progress,
 		CurrentBytes:   operation.CurrentBytes,
