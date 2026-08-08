@@ -19,7 +19,7 @@ Waxlight is an independent, open-source launcher that brings Vintage Story accou
 
 It is maintained by [AmadoMuerte](https://github.com/AmadoMuerte) with help from contributors. Waxlight is not affiliated with or endorsed by the developers of Vintage Story and does not distribute the game or bypass its licensing.
 
-## Features
+## Features 
 
 - Multiple Vintage Story accounts with TOTP/2FA support.
 - Multiple game versions installed side by side.
