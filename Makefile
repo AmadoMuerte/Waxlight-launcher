@@ -10,6 +10,7 @@ VERSION ?=
 RELEASE_DIR ?= release
 BRANCH ?= main
 REMOTE ?= origin
+AUTO ?=
 
 WAILS_VERSION ?= v2.11.0
 GOVULNCHECK_VERSION ?= v1.6.0
@@ -52,6 +53,7 @@ RELEASE_TAG = v$(VERSION)
 	check-branch \
 	check-tag \
 	check-synced \
+	release-notes \
 	set-version \
 	release \
 	clean
@@ -92,9 +94,16 @@ help:
 	@echo "  make release-check VERSION=X.Y.Z"
 	@echo "      Run all checks for a release."
 	@echo
-	@echo "  make release VERSION=X.Y.Z"
-	@echo "      Update versions, commit, push main, create a tag and start"
-	@echo "      the automatic GitHub release workflow."
+	@echo "  make release VERSION=X.Y.Z [AUTO=1]"
+	@echo "      Prepare releases/vX.Y.Z.md, wait for you to write the"
+	@echo "      release notes (or generate them from commit history with"
+	@echo "      AUTO=1), then update versions, commit, push main,"
+	@echo "      create a tag and start the automatic GitHub release workflow."
+	@echo
+	@echo "  make release-notes VERSION=X.Y.Z [AUTO=1]"
+	@echo "      Prepare or reuse releases/vX.Y.Z.md and wait for you to"
+	@echo "      write the release notes without starting a release."
+	@echo "      With AUTO=1 the notes are generated automatically."
 	@echo
 	@echo "Example:"
 	@echo "  make release VERSION=0.1.3"
@@ -262,13 +271,17 @@ set-version: check-version-argument
 	@VERSION="$(VERSION)" node -e 'const fs = require("fs"); const version = process.env.VERSION; const files = ["wails.json", "cmd/waxlight/wails.json", "internal/version/wails.json"]; for (const file of files) { const value = JSON.parse(fs.readFileSync(file, "utf8")); value.info = value.info || {}; value.info.productVersion = version; fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); console.log("Updated " + file + " to " + version); }'
 	@./scripts/check-version.sh "$(VERSION)"
 
+release-notes: check-version-argument
+	./scripts/prepare-release-notes.sh "$(VERSION)" "$(AUTO)"
+
 release: \
 	check-version-argument \
 	check-tools \
 	check-clean \
 	check-branch \
 	check-tag \
-	check-synced
+	check-synced \
+	release-notes
 	@echo
 	@echo "Preparing Waxlight Launcher $(RELEASE_TAG)..."
 	@echo
@@ -278,7 +291,7 @@ release: \
 
 	@echo
 	@echo "Creating release commit..."
-	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json
+	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json releases/v$(VERSION).md
 	$(GIT) commit -m "chore(release): $(RELEASE_TAG)"
 
 	@echo

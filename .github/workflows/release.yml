@@ -43,6 +43,16 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
 
+      - name: Verify release notes file
+        shell: bash
+        run: |
+          if [[ ! -s "releases/${RELEASE_TAG}.md" ]]; then
+            echo "Release notes file is missing: releases/${RELEASE_TAG}.md" >&2
+            echo "Commit the release notes as part of the release preparation." >&2
+            exit 1
+          fi
+          echo "Release notes file found: releases/${RELEASE_TAG}.md"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -472,6 +482,11 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
       - name: Download release packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -572,6 +587,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          notes_file="releases/${RELEASE_TAG}.md"
+
+          if [[ ! -s "$notes_file" ]]; then
+            echo "Release notes file is missing: $notes_file" >&2
+            echo "Commit the release notes as part of the release preparation." >&2
+            exit 1
+          fi
+
           prerelease_args=()
 
           if [[ "$RELEASE_TAG" == *-* ]]; then
@@ -597,6 +620,7 @@ jobs:
               "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Waxlight Launcher ${RELEASE_TAG#v}" \
+              --notes-file "$notes_file" \
               "${prerelease_args[@]}"
           else
             gh release create \
@@ -604,7 +628,7 @@ jobs:
               release/* \
               --repo "$GITHUB_REPOSITORY" \
               --title "Waxlight Launcher ${RELEASE_TAG#v}" \
-              --generate-notes \
+              --notes-file "$notes_file" \
               --verify-tag \
               "${prerelease_args[@]}"
           fi
