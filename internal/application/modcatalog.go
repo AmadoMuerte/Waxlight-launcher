@@ -559,7 +559,9 @@ func (s *Service) downloadCatalogVersion(
 	close(progress)
 	<-progressDone
 	if err != nil {
-		_ = os.Remove(destination + ".partial")
+		if removeErr := os.Remove(destination + ".partial"); removeErr != nil {
+			slog.Debug("could not remove the partial download", "path", destination, "error", removeErr)
+		}
 		message := "Could not download the mod"
 		if errors.Is(err, context.Canceled) {
 			message = "Download cancelled"
@@ -974,11 +976,13 @@ func (s *Service) removeSupersededCacheVersion(ctx context.Context, modID, versi
 	source := modDBSource(modID, versionID)
 	instances, err := s.store.ListInstances(ctx)
 	if err != nil {
+		slog.Warn("could not check superseded cache version", "modId", modID, "versionId", versionID, "error", err)
 		return
 	}
 	for _, instance := range instances {
 		mods, err := s.store.ListMods(ctx, instance.ID)
 		if err != nil {
+			slog.Warn("could not check superseded cache version", "instance", instance.Name, "error", err)
 			return
 		}
 		for _, mod := range mods {
@@ -988,7 +992,9 @@ func (s *Service) removeSupersededCacheVersion(ctx context.Context, modID, versi
 		}
 	}
 	slog.Info("superseded cached mod version removed", "modId", modID, "versionId", versionID)
-	_ = s.modDownloads.Delete(ctx, modID, versionID)
+	if err := s.modDownloads.Delete(ctx, modID, versionID); err != nil {
+		slog.Warn("could not delete the superseded cached mod version", "modId", modID, "versionId", versionID, "error", err)
+	}
 }
 
 type modVersionMatch struct {
@@ -1088,11 +1094,13 @@ func (s *Service) bindMatchingInstanceMods(ctx context.Context, target domain.Do
 	}
 	instances, err := s.store.ListInstances(ctx)
 	if err != nil {
+		slog.Warn("could not bind local mods to catalog entries", "error", err)
 		return
 	}
 	for _, instance := range instances {
 		mods, err := s.store.ListMods(ctx, instance.ID)
 		if err != nil {
+			slog.Warn("could not list mods while binding catalog entries", "instance", instance.Name, "error", err)
 			continue
 		}
 		for _, mod := range mods {
@@ -1388,11 +1396,15 @@ func copyModFile(ctx context.Context, sourcePath, destinationPath string) error 
 	_, copyErr := io.Copy(destination, &contextReaderMod{ctx: ctx, reader: source})
 	closeErr := destination.Close()
 	if copyErr != nil {
-		_ = os.Remove(destinationPath)
+		if err := os.Remove(destinationPath); err != nil {
+			slog.Debug("could not remove the incomplete mod copy", "path", destinationPath, "error", err)
+		}
 		return copyErr
 	}
 	if closeErr != nil {
-		_ = os.Remove(destinationPath)
+		if err := os.Remove(destinationPath); err != nil {
+			slog.Debug("could not remove the incomplete mod copy", "path", destinationPath, "error", err)
+		}
 		return closeErr
 	}
 	return nil

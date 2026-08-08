@@ -83,11 +83,13 @@ func New() (*Container, error) {
 	if err := dataRootManager.FinalizePrevious(func(oldRoot, newRoot string) error {
 		return store.RelocatePaths(context.Background(), oldRoot, newRoot)
 	}); err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, fmt.Errorf("finish data folder relocation: %w", err)
 	}
 
-	_ = store.RecoverOpenSessions(context.Background(), time.Now().UTC())
+	if err := store.RecoverOpenSessions(context.Background(), time.Now().UTC()); err != nil {
+		slog.Warn("bootstrap: could not recover interrupted game sessions", "error", err)
+	}
 	service := application.NewService(
 		store,
 		filesystem.ArchiveInstaller{},
@@ -97,13 +99,13 @@ func New() (*Container, error) {
 	)
 	secretStore := credentials.NewStore(dataRoot)
 	if err := secretStore.Probe(context.Background()); err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, fmt.Errorf("native credential store is unavailable or locked; unlock it and retry: %w", err)
 	}
 	slog.Info("bootstrap: native credential store ready")
 	accounts, err := store.ListAccounts(context.Background())
 	if err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, fmt.Errorf("list accounts for credential migration: %w", err)
 	}
 	accountIDs := make([]string, 0, len(accounts))
@@ -111,11 +113,11 @@ func New() (*Container, error) {
 		accountIDs = append(accountIDs, account.ID)
 	}
 	if err := secretStore.ReconcilePending(context.Background(), accountIDs); err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, fmt.Errorf("reconcile interrupted credential commit: %w", err)
 	}
 	if err := credentials.NewMigrator(dataRoot, secretStore).Run(context.Background(), accountIDs); err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, err
 	}
 	slog.Info("bootstrap: credential reconciliation complete")
@@ -135,12 +137,12 @@ func New() (*Container, error) {
 	)
 	accountService.ConfigureTelemetry(telemetryService)
 	if err := service.ReconcileInjectedCredentials(context.Background()); err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, err
 	}
 	settings, err := store.GetSettings(context.Background())
 	if err != nil {
-		_ = store.Close()
+		closeStoreOnError(store)
 		return nil, fmt.Errorf("load settings: %w", err)
 	}
 	downloadManager := downloader.NewManager(
@@ -215,5 +217,16 @@ func (container *Container) telemetryHeartbeat() {
 }
 
 func (container *Container) Shutdown(context.Context) {
-	_ = container.Service.Close()
+	if err := container.Service.Close(); err != nil {
+		slog.Warn("bootstrap: could not close the application service cleanly", "error", err)
+	}
+}
+
+// closeStoreOnError best-effort closes the database after a bootstrap failure.
+// The original error is already returned to the caller; a close failure is
+// logged so a flushed-but-failed shutdown is not silently lost.
+func closeStoreOnError(store *database.SQLiteStore) {
+	if err := store.Close(); err != nil {
+		slog.Warn("bootstrap: could not close the database after a failure", "error", err)
+	}
 }

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -27,13 +28,19 @@ type LanguageConfig struct {
 }
 
 var (
-	languageConfigOnce sync.Once
-	languageConfig     LanguageConfig
-	languageConfigErr  error
+	languageConfigOnce  sync.Once
+	languageErrorLogged sync.Once
+	languageConfig      LanguageConfig
+	languageConfigErr   error
 )
 
 func Languages() (LanguageConfig, error) {
 	languageConfigOnce.Do(loadLanguages)
+	languageErrorLogged.Do(func() {
+		if languageConfigErr != nil {
+			slog.Error("language configuration is broken", "error", languageConfigErr)
+		}
+	})
 	return languageConfig, languageConfigErr
 }
 

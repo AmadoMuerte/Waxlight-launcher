@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -213,9 +214,7 @@ func (m *Manager) StartRelocation(
 	}
 	go func() {
 		if err := CopyData(current, target, progress); err != nil {
-			_ = m.clearPending()
-			_ = os.RemoveAll(target)
-			_ = m.writeError(fmt.Sprintf("could not copy the data folder: %v", err))
+			cleanupFailedRelocation(m, target, err)
 			if onDone != nil {
 				onDone(err)
 			}
@@ -427,7 +426,11 @@ func (m *Manager) writePending(marker Marker) error {
 }
 
 func (m *Manager) clearPending() error {
-	return m.clearMarker(pendingFile)
+	if err := m.clearMarker(pendingFile); err != nil {
+		slog.Warn("could not clear the relocation marker", "error", err)
+		return err
+	}
+	return nil
 }
 
 func (m *Manager) clearError() error {
@@ -435,7 +438,26 @@ func (m *Manager) clearError() error {
 }
 
 func (m *Manager) writeError(message string) error {
-	return m.writeMarker(errorFile, message)
+	if err := m.writeMarker(errorFile, message); err != nil {
+		slog.Warn("could not persist the data folder relocation error", "error", err)
+		return err
+	}
+	return nil
+}
+
+// cleanupFailedRelocation undoes the partial relocation state after a failed
+// copy. The copy error itself is delivered through the relocation error file
+// and the completion callback, so failures here are logged only.
+func cleanupFailedRelocation(m *Manager, target string, cause error) {
+	if err := m.clearPending(); err != nil {
+		slog.Warn("could not clear the pending relocation marker", "error", err)
+	}
+	if err := os.RemoveAll(target); err != nil {
+		slog.Warn("could not remove the partial relocation target", "target", target, "error", err)
+	}
+	if err := m.writeError(fmt.Sprintf("could not copy the data folder: %v", cause)); err != nil {
+		slog.Warn("could not record the data folder copy error", "error", err)
+	}
 }
 
 // RelaunchApplication spawns a fresh copy of the current executable so the old

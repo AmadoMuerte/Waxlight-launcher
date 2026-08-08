@@ -430,7 +430,9 @@ func (s *Service) InstallVersion(
 		CreatedAt:  now,
 		StartedAt:  &now,
 	}
-	_ = s.store.SaveOperation(ctx, operation)
+	if err := s.store.SaveOperation(ctx, operation); err != nil {
+		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
+	}
 	s.emit("operation:created", operation)
 
 	target := filepath.Join(s.dataRoot, "versions", safeSegment(id))
@@ -452,7 +454,9 @@ func (s *Service) InstallVersion(
 		operation.ErrorCode = &code
 		message := e.Error()
 		operation.ErrorMessage = &message
-		_ = s.store.SaveOperation(context.Background(), operation)
+		if err := s.store.SaveOperation(context.Background(), operation); err != nil {
+			slog.Warn("could not persist the failed operation", "operationId", operation.ID, "error", err)
+		}
 		s.emit("operation:failed", operation)
 		return operation, &domain.AppError{
 			Code:    code,
@@ -485,7 +489,9 @@ func (s *Service) InstallVersion(
 	operation.Progress = 1
 	operation.TotalBytes = size
 	operation.CurrentBytes = size
-	_ = s.store.SaveOperation(ctx, operation)
+	if err := s.store.SaveOperation(ctx, operation); err != nil {
+		slog.Warn("could not persist the completed operation", "operationId", operation.ID, "error", err)
+	}
 	s.emit("operation:completed", operation)
 	return operation, nil
 }
@@ -542,7 +548,9 @@ func (s *Service) DeleteVersion(ctx context.Context, id string, deleteFiles bool
 	if deleteFiles && samePath(filepath.Dir(v.InstallationDir), versionsRoot) {
 		// Keep shared roots while they contain other versions, but do not leave
 		// an empty `versions` directory after the final version is removed.
-		_ = os.Remove(versionsRoot)
+		if err := os.Remove(versionsRoot); err != nil {
+			slog.Debug("could not remove the empty versions root", "error", err)
+		}
 	}
 	s.emit("version:removed", map[string]string{"id": id})
 	return nil
@@ -788,10 +796,16 @@ func removeAllReliably(path string) error {
 			// Extracted installers may leave read-only attributes behind. Go's
 			// chmod implementation clears that attribute on Windows.
 			_ = filepath.Walk(path, func(currentPath string, info os.FileInfo, walkErr error) error {
-				if walkErr != nil || info == nil {
+				if walkErr != nil {
+					slog.Debug("walk failed while clearing read-only attributes", "path", currentPath, "error", walkErr)
 					return nil
 				}
-				_ = os.Chmod(currentPath, info.Mode()|0o200)
+				if info == nil {
+					return nil
+				}
+				if chmodErr := os.Chmod(currentPath, info.Mode()|0o200); chmodErr != nil {
+					slog.Debug("could not clear the read-only attribute", "path", currentPath, "error", chmodErr)
+				}
 				return nil
 			})
 		}
@@ -933,7 +947,9 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 		CreatedAt:  now,
 		StartedAt:  &now,
 	}
-	_ = s.store.SaveOperation(ctx, operation)
+	if err := s.store.SaveOperation(ctx, operation); err != nil {
+		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
+	}
 
 	path, size, e := s.modFiles.Install(ctx, sourcePath, i.Directory)
 	finished := time.Now().UTC()
@@ -944,7 +960,9 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 		code := "MOD_INSTALL_FAILED"
 		operation.ErrorCode = &code
 		operation.ErrorMessage = &msg
-		_ = s.store.SaveOperation(ctx, operation)
+		if err := s.store.SaveOperation(ctx, operation); err != nil {
+			slog.Warn("could not persist the failed operation", "operationId", operation.ID, "error", err)
+		}
 		return operation, e
 	}
 	if name == "" {
@@ -976,7 +994,9 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 	operation.Progress = 1
 	operation.CurrentBytes = size
 	operation.TotalBytes = size
-	_ = s.store.SaveOperation(ctx, operation)
+	if err := s.store.SaveOperation(ctx, operation); err != nil {
+		slog.Warn("could not persist the completed operation", "operationId", operation.ID, "error", err)
+	}
 	s.emit("mod:installed", mod)
 	return operation, nil
 }
@@ -1325,18 +1345,18 @@ func (s *Service) Launch(
 	}
 
 	if err := s.modFiles.EnsureLayout(instance.Directory); err != nil {
-		_ = cleanupCredentials()
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
 	}
 	logsDirectory := filepath.Join(instance.Directory, "Logs")
 	if err := hardenLogs(logsDirectory); err != nil {
-		_ = cleanupCredentials()
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
 	}
 
 	settings, err := s.store.GetSettings(ctx)
 	if err != nil {
-		_ = cleanupCredentials()
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
 	}
 	arguments := append([]string{}, settings.GlobalLaunchArguments...)
@@ -1353,12 +1373,12 @@ func (s *Service) Launch(
 		0o600,
 	)
 	if err != nil {
-		_ = cleanupCredentials()
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
 	}
 	if err := securefs.Apply(logPath, 0o600, false); err != nil {
-		_ = logFile.Close()
-		_ = cleanupCredentials()
+		closeLaunchLog(logFile, instance.Name)
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
 	}
 
@@ -1370,8 +1390,8 @@ func (s *Service) Launch(
 		version.ExecutablePath,
 		strings.Join(quoteLaunchArguments(arguments), " "),
 	); writeErr != nil {
-		_ = logFile.Close()
-		_ = cleanupCredentials()
+		closeLaunchLog(logFile, instance.Name)
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, &domain.AppError{
 			Code:    domain.ErrFilePermission,
 			Message: "Could not write the launch command to the instance log",
@@ -1389,8 +1409,8 @@ func (s *Service) Launch(
 		logFile,
 	)
 	if err != nil {
-		_ = logFile.Close()
-		_ = cleanupCredentials()
+		closeLaunchLog(logFile, instance.Name)
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		s.reportEvent(ctx, telemetry.EventGameLaunchFailed)
 		s.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
 		return domain.PlaySession{}, &domain.AppError{
@@ -1411,16 +1431,20 @@ func (s *Service) Launch(
 		StartedAt:  now,
 	}
 	if err := s.store.SaveSession(ctx, session); err != nil {
-		_ = process.Kill()
-		_ = logFile.Close()
-		_ = cleanupCredentials()
+		if killErr := process.Kill(); killErr != nil {
+			slog.Debug("could not kill the game process after a failed session save", "error", killErr)
+		}
+		closeLaunchLog(logFile, instance.Name)
+		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return session, err
 	}
 
 	instance.Status = "running"
 	instance.LastPlayedAt = &now
 	instance.UpdatedAt = now
-	_ = s.store.SaveInstance(ctx, instance)
+	if err := s.store.SaveInstance(ctx, instance); err != nil {
+		slog.Warn("could not persist the running instance", "instance", instance.Name, "error", err)
+	}
 
 	s.runningMu.Lock()
 	s.running[instance.ID] = runningGame{
@@ -1504,6 +1528,23 @@ func (s *Service) resolveAccountID(
 	return nil, nil
 }
 
+// closeLaunchLog best-effort closes the instance log file opened for a launch.
+// Failures only affect cleanup, so they are logged at debug level.
+func closeLaunchLog(logFile io.Closer, instanceName string) {
+	if err := logFile.Close(); err != nil {
+		slog.Debug("could not close the instance log file", "instance", instanceName, "error", err)
+	}
+}
+
+// clearInjectedCredentials removes the session credentials injected into the
+// instance client settings. A failure leaves credentials on disk, so it is
+// logged as an error.
+func (s *Service) clearInjectedCredentials(cleanup func() error, instance domain.Instance) {
+	if err := cleanup(); err != nil {
+		slog.Error("could not remove injected credentials", "instance", instance.Name, "error", err)
+	}
+}
+
 func (s *Service) waitForGame(
 	instance domain.Instance,
 	process RunningProcess,
@@ -1529,17 +1570,21 @@ func (s *Service) waitForGame(
 	} else {
 		slog.Info("game exited", "instance", instance.Name, "exitCode", exitCode, "seconds", durationSeconds)
 	}
-	_ = s.store.FinishSession(
+	if err := s.store.FinishSession(
 		context.Background(),
 		sessionID,
 		exitCode,
 		crashed,
 		durationSeconds,
-	)
+	); err != nil {
+		slog.Warn("could not persist the finished session", "instance", instance.Name, "sessionId", sessionID, "error", err)
+	}
 
 	instance.Status = "ready"
 	instance.UpdatedAt = time.Now().UTC()
-	_ = s.store.SaveInstance(context.Background(), instance)
+	if err := s.store.SaveInstance(context.Background(), instance); err != nil {
+		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
+	}
 
 	s.runningMu.Lock()
 	delete(s.running, instance.ID)

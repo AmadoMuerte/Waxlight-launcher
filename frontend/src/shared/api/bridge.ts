@@ -1,3 +1,5 @@
+import { log } from "../lib/logger";
+
 export class BackendUnavailableError extends Error {
   constructor() {
     super(
@@ -11,10 +13,27 @@ export async function call<T>(controller: string, method: string, ...args: unkno
   const callable = namespaces?.presentation?.[controller]?.[method];
 
   if (typeof callable !== "function") {
+    log.error("Backend call failed: backend unavailable", { controller, method });
     throw new BackendUnavailableError();
   }
 
-  return callable(...args) as Promise<T>;
+  try {
+    return (await callable(...args)) as T;
+  } catch (error) {
+    // A failing WriteLog would recurse through call() into log.error() and
+    // back into WriteLog. Its own availability error is only reported when
+    // the backend is gone entirely; the logger's console fallback covers it.
+    if (
+      !(
+        error instanceof BackendUnavailableError &&
+        controller === "LogController" &&
+        method === "WriteLog"
+      )
+    ) {
+      log.error(errorMessage(error), { controller, method });
+    }
+    throw error;
+  }
 }
 
 export function errorMessage(error: unknown): string {

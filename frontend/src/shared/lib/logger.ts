@@ -7,6 +7,7 @@ const FLUSH_DELAY_MS = 500;
 const MAX_QUEUE_LINES = 50;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_ATTR_LENGTH = 1000;
+const DEDUP_WINDOW_MS = 30_000;
 
 interface PendingLine {
   level: LogLevel;
@@ -18,10 +19,32 @@ let minLevel: LogLevel = "info";
 let queue: PendingLine[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+// lastLine tracks the most recent emitted line so identical repeats within
+// DEDUP_WINDOW_MS are suppressed instead of flooding the launcher console.
+// Polling watchers and unavailable backend calls would otherwise repeat the
+// same error every few seconds.
+let lastLine: { key: string; level: LogLevel; count: number; windowStart: number } | null = null;
+
 // setMinLevel adjusts the forwarding threshold. Lines below it never reach
 // the backend.
 export function setMinLevel(level: LogLevel) {
   minLevel = level;
+}
+
+// resetDedupState clears the repeat-suppression state. It exists for tests so
+// bursts do not leak across cases.
+export function resetDedupState() {
+  lastLine = null;
+}
+
+function dedupKey(level: LogLevel, message: string, attrs?: Record<string, string>): string {
+  if (!attrs) {
+    return `${level}|${message}`;
+  }
+  const pairs = Object.entries(attrs)
+    .toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, value]) => `${key}=${value}`);
+  return `${level}|${message}|${pairs.join("&")}`;
 }
 
 function enqueue(line: PendingLine) {
@@ -86,6 +109,20 @@ function write(level: LogLevel, message: string, attrs?: Record<string, string>)
   if (levelOrder[level] < levelOrder[minLevel]) {
     return;
   }
+  const key = dedupKey(level, message, attrs);
+  const now = Date.now();
+  if (lastLine !== null && lastLine.key === key && now - lastLine.windowStart < DEDUP_WINDOW_MS) {
+    lastLine.count++;
+    return;
+  }
+  if (lastLine !== null && lastLine.count > 1) {
+    const suppressed = lastLine.count - 1;
+    enqueue({
+      level: lastLine.level,
+      message: `Suppressed ${suppressed} repeated log line${suppressed === 1 ? "" : "s"}`,
+    });
+  }
+  lastLine = { key, level, count: 1, windowStart: now };
   enqueue({ level, message, attrs });
 }
 

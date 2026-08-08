@@ -222,17 +222,24 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 
 	for _, instance := range instances {
 		dto := instanceDTO(instance)
-		mods, _ := controller.svc.ListMods(context.Background(), instance.ID)
+		mods, modsErr := controller.svc.ListMods(context.Background(), instance.ID)
+		if modsErr != nil {
+			slog.Warn("could not count mods for the instance list", "instance", instance.ID, "error", modsErr)
+		}
 		for _, mod := range mods {
 			dto.TotalModCount++
 			if mod.Enabled {
 				dto.EnabledModCount++
 			}
 		}
-		dto.PlaytimeSeconds, _ = controller.svc.GetInstancePlaytime(
+		playtime, playtimeErr := controller.svc.GetInstancePlaytime(
 			context.Background(),
 			instance.ID,
 		)
+		if playtimeErr != nil {
+			slog.Warn("could not read the playtime for the instance list", "instance", instance.ID, "error", playtimeErr)
+		}
+		dto.PlaytimeSeconds = playtime
 		result = append(result, dto)
 	}
 

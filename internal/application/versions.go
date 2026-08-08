@@ -324,7 +324,9 @@ func (s *Service) runAvailableVersionInstall(
 	operation.FinishedAt = &installedAt
 	s.saveOperation(operation, "operation:completed")
 	s.emit("version:installed", version)
-	_ = os.Remove(downloadPath)
+	if err := os.Remove(downloadPath); err != nil {
+		slog.Debug("could not remove the downloaded archive", "path", downloadPath, "error", err)
+	}
 	return nil
 }
 
@@ -377,7 +379,9 @@ func (s *Service) finishVersionOperation(
 }
 
 func (s *Service) saveOperation(operation domain.Operation, event string) {
-	_ = s.store.SaveOperation(context.Background(), operation)
+	if err := s.store.SaveOperation(context.Background(), operation); err != nil {
+		slog.Warn("could not persist the operation", "operationId", operation.ID, "error", err)
+	}
 	s.emit(event, operation)
 	switch event {
 	case "operation:created":

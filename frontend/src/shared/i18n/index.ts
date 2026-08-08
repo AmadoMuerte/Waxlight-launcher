@@ -23,6 +23,17 @@ const resources = Object.fromEntries(
   }),
 );
 
+type MissingKeyReporter = (languages: readonly string[], namespace: string, key: string) => void;
+
+// missingKeyReporter is late-bound so this module never depends on the
+// logging pipeline at import time. The app entry wires it; the launcher log
+// then receives missing-translation warnings instead of the browser console.
+let missingKeyReporter: MissingKeyReporter = () => {};
+
+export function setMissingKeyReporter(reporter: MissingKeyReporter) {
+  missingKeyReporter = reporter;
+}
+
 void i18nModule.use(initReactI18next).init({
   resources,
 
@@ -49,7 +60,7 @@ void i18nModule.use(initReactI18next).init({
   saveMissing: import.meta.env.DEV,
   missingKeyHandler: (languages, namespace, key) => {
     if (import.meta.env.DEV) {
-      console.warn(`[i18n] Missing translation: ${namespace}:${key}`, languages);
+      missingKeyReporter(languages, namespace, key);
     }
   },
 });

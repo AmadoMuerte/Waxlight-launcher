@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,65 +51,47 @@ func Write(ctx context.Context, targetPath string, source WriteSource) error {
 
 	encoded, err := json.MarshalIndent(source.Manifest, "", "  ")
 	if err != nil {
-		_ = archive.Close()
-		_ = output.Close()
-		_ = os.Remove(targetPath + ".partial")
+		abortPackageWrite(archive, output, targetPath)
 		return err
 	}
 	encoded = append(encoded, '\n')
 	if err := writeEntry(ManifestFileName, encoded); err != nil {
-		_ = archive.Close()
-		_ = output.Close()
-		_ = os.Remove(targetPath + ".partial")
+		abortPackageWrite(archive, output, targetPath)
 		return err
 	}
 
 	for _, relative := range source.Manifest.ConfigFiles {
 		if err := ctx.Err(); err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 		contents, err := readConfigFile(source.InstanceDir, relative)
 		if err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 		if err := writeEntry(ConfigsPrefix+filepath.ToSlash(relative), contents); err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 	}
 
 	for fileName, sourcePath := range source.EmbeddedMods {
 		if err := ctx.Err(); err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 		if filepath.Base(fileName) != fileName {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return domain.NewError(domain.ErrValidation, "Embedded mod name is not a plain file name")
 		}
 		contents, err := readEmbeddedMod(sourcePath)
 		if err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 		if err := writeEntry(ModsPrefix+fileName, contents); err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 	}
@@ -116,29 +99,41 @@ func Write(ctx context.Context, targetPath string, source WriteSource) error {
 	if source.Manifest.HasIcon && source.IconPath != "" {
 		contents, err := readIcon(source.IconPath)
 		if err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 		if err := writeEntry(IconFileName, contents); err != nil {
-			_ = archive.Close()
-			_ = output.Close()
-			_ = os.Remove(targetPath + ".partial")
+			abortPackageWrite(archive, output, targetPath)
 			return err
 		}
 	}
 
 	if err := archive.Close(); err != nil {
-		_ = output.Close()
-		_ = os.Remove(targetPath + ".partial")
+		abortPackageWrite(archive, output, targetPath)
 		return err
 	}
 	if err := output.Close(); err != nil {
-		_ = os.Remove(targetPath + ".partial")
+		if removeErr := os.Remove(targetPath + ".partial"); removeErr != nil {
+			slog.Debug("could not remove the partial package", "target", targetPath, "error", removeErr)
+		}
 		return err
 	}
 	return os.Rename(targetPath+".partial", targetPath)
+}
+
+// abortPackageWrite best-effort closes the archive and removes the partial
+// package after a write failure. The primary error is already returned by the
+// caller, so cleanup failures are logged at debug level only.
+func abortPackageWrite(archive *zip.Writer, output *os.File, targetPath string) {
+	if err := archive.Close(); err != nil {
+		slog.Debug("could not close the failed package archive", "target", targetPath, "error", err)
+	}
+	if err := output.Close(); err != nil {
+		slog.Debug("could not close the failed package file", "target", targetPath, "error", err)
+	}
+	if err := os.Remove(targetPath + ".partial"); err != nil {
+		slog.Debug("could not remove the partial package", "target", targetPath, "error", err)
+	}
 }
 
 func readConfigFile(instanceDir string, relative string) ([]byte, error) {
