@@ -26,6 +26,11 @@ func NewError(code, message string) error {
 // exists in the target Mods directory.
 var ErrModFileExists = errors.New("mod file already exists")
 
+// ErrNotFound is returned when a stored record does not exist and its absence
+// is a regular state (for example a Last Known Good marker that was never
+// recorded), not an error.
+var ErrNotFound = errors.New("not found")
+
 const (
 	ErrValidation          = "VALIDATION_ERROR"
 	ErrAccountNotFound     = "ACCOUNT_NOT_FOUND"

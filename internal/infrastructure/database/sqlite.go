@@ -121,6 +121,11 @@ CREATE TABLE IF NOT EXISTS operations (
  progress REAL NOT NULL, current_bytes INTEGER NOT NULL, total_bytes INTEGER NOT NULL, bytes_per_second INTEGER NOT NULL,
  error_code TEXT, error_message TEXT, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT
 );
+CREATE TABLE IF NOT EXISTS last_known_good (
+ instance_id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, game_version TEXT NOT NULL,
+ snapshot_id TEXT, mods TEXT NOT NULL,
+ FOREIGN KEY(instance_id) REFERENCES instances(id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime('now'));
@@ -162,6 +167,10 @@ INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime
 		return err
 	}
 	_, err = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (3, datetime('now'))`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (4, datetime('now'))`)
 	return err
 }
 
@@ -649,6 +658,66 @@ func (s *SQLiteStore) IsDirectoryUsed(ctx context.Context, path, except string) 
 	var n int
 	e := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instances WHERE directory=? AND id<>?`, path, except).Scan(&n)
 	return n > 0, e
+}
+
+// GetLastKnownGood loads the Last Known Good marker of an instance. The
+// sentinel error domain.ErrNotFound is returned when no marker exists yet.
+func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (domain.LastKnownGood, error) {
+	var lkg domain.LastKnownGood
+	var recorded, mods string
+	var snapshot sql.NullString
+	e := s.db.QueryRowContext(
+		ctx,
+		`SELECT recorded_at, game_version, snapshot_id, mods FROM last_known_good WHERE instance_id = ?`,
+		instanceID,
+	).Scan(&recorded, &lkg.GameVersion, &snapshot, &mods)
+	if errors.Is(e, sql.ErrNoRows) {
+		return lkg, domain.ErrNotFound
+	}
+	if e != nil {
+		return lkg, e
+	}
+	lkg.InstanceID = instanceID
+	lkg.RecordedAt, _ = time.Parse(time.RFC3339Nano, recorded)
+	if snapshot.Valid {
+		lkg.SnapshotID = snapshot.String
+	}
+	if err := json.Unmarshal([]byte(mods), &lkg.Mods); err != nil {
+		return lkg, err
+	}
+	return lkg, nil
+}
+
+// SaveLastKnownGood upserts the Last Known Good marker of an instance. A
+// newer successful launch replaces the previous marker.
+func (s *SQLiteStore) SaveLastKnownGood(ctx context.Context, lkg domain.LastKnownGood) error {
+	mods, err := json.Marshal(lkg.Mods)
+	if err != nil {
+		return err
+	}
+	_, e := s.db.ExecContext(
+		ctx,
+		`INSERT INTO last_known_good(instance_id, recorded_at, game_version, snapshot_id, mods)
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(instance_id) DO UPDATE SET
+			recorded_at = excluded.recorded_at,
+			game_version = excluded.game_version,
+			snapshot_id = excluded.snapshot_id,
+			mods = excluded.mods`,
+		lkg.InstanceID,
+		ts(lkg.RecordedAt),
+		lkg.GameVersion,
+		nullableString(lkg.SnapshotID),
+		string(mods),
+	)
+	return e
+}
+
+// DeleteLastKnownGood removes the Last Known Good marker of an instance. A
+// missing marker is not an error so instance deletion stays idempotent.
+func (s *SQLiteStore) DeleteLastKnownGood(ctx context.Context, instanceID string) error {
+	_, e := s.db.ExecContext(ctx, `DELETE FROM last_known_good WHERE instance_id = ?`, instanceID)
+	return e
 }
 
 func (s *SQLiteStore) ListMods(ctx context.Context, instanceID string) ([]domain.InstalledMod, error) {

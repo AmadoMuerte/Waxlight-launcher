@@ -74,13 +74,20 @@ func (s *Service) createSafetySnapshot(
 
 // enforceAutomaticSnapshotRetention keeps only the newest automatic snapshots
 // of an instance and deletes older ones. Manual snapshots are never removed.
-// Retention is best-effort: a cleanup failure is logged and never invalidates
-// the freshly created snapshot or the operation it protects.
+// The snapshot currently referenced by the Last Known Good marker is protected
+// from retention while it is the active recovery snapshot; the next eligible
+// automatic snapshot is removed instead. Retention is best-effort: a cleanup
+// failure is logged and never invalidates the freshly created snapshot or the
+// operation it protects.
 func (s *Service) enforceAutomaticSnapshotRetention(ctx context.Context, instanceID string) {
 	snapshots, err := s.snapshots.List(ctx, instanceID)
 	if err != nil {
 		slog.Warn("could not list snapshots for automatic retention", "instanceId", instanceID, "error", err)
 		return
+	}
+	protected := ""
+	if lkg, lkgErr := s.store.GetLastKnownGood(ctx, instanceID); lkgErr == nil {
+		protected = lkg.SnapshotID
 	}
 	var automatic []domain.InstanceSnapshot
 	for _, snapshot := range snapshots {
@@ -93,6 +100,10 @@ func (s *Service) enforceAutomaticSnapshotRetention(ctx context.Context, instanc
 		return
 	}
 	for _, old := range automatic[automaticSnapshotRetentionCount:] {
+		if old.ID == protected {
+			slog.Info("automatic retention kept the last known good recovery snapshot", "instanceId", instanceID, "snapshot", old.ID)
+			continue
+		}
 		if removeErr := s.snapshots.Remove(instanceID, old.ID); removeErr != nil {
 			slog.Warn("automatic retention could not remove an old snapshot", "instanceId", instanceID, "snapshot", old.ID, "error", removeErr)
 			continue

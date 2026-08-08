@@ -915,6 +915,7 @@ func (s *Service) DeleteInstanceSnapshot(
 	if err := s.snapshots.Remove(instanceID, snapshotID); err != nil {
 		return err
 	}
+	s.ClearLastKnownGoodSnapshotReference(ctx, instanceID, snapshotID)
 	slog.Info("instance snapshot deleted", "instance", instance.Name, "snapshot", snapshotID)
 	return nil
 }

@@ -71,6 +71,10 @@ type Store interface {
 	DeleteInstance(context.Context, string) error
 	IsDirectoryUsed(context.Context, string, string) (bool, error)
 
+	GetLastKnownGood(context.Context, string) (domain.LastKnownGood, error)
+	SaveLastKnownGood(context.Context, domain.LastKnownGood) error
+	DeleteLastKnownGood(context.Context, string) error
+
 	ListMods(context.Context, string) ([]domain.InstalledMod, error)
 	GetMod(context.Context, string) (domain.InstalledMod, error)
 	SaveMod(context.Context, domain.InstalledMod) error

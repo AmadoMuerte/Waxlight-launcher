@@ -16,7 +16,12 @@ const api = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 
+const lastKnownGoodApi = vi.hoisted(() => ({
+  get: vi.fn(),
+}));
+
 vi.mock("../../shared/api/snapshots", () => ({ snapshotsApi: api }));
+vi.mock("../../shared/api/last-known-good", () => ({ lastKnownGoodApi }));
 
 const snapshot: InstanceSnapshot = {
   id: "snap-1",
@@ -57,6 +62,36 @@ describe("backups tab", () => {
     api.create.mockResolvedValue({});
     api.restore.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
+    lastKnownGoodApi.get.mockResolvedValue({
+      recordedAt: "",
+      gameVersion: "",
+      modCount: 0,
+      snapshotExists: false,
+      matchesCurrent: true,
+      changeCount: 0,
+      changes: { updated: [], added: [], removed: [] },
+    });
+  });
+
+  it("marks the snapshot that is the current last known good recovery point", async () => {
+    lastKnownGoodApi.get.mockResolvedValue({
+      recordedAt: "2026-08-08T15:42:00Z",
+      gameVersion: "1.20",
+      modCount: 84,
+      snapshotId: "snap-1",
+      snapshotExists: true,
+      matchesCurrent: true,
+      changeCount: 0,
+      changes: { updated: [], added: [], removed: [] },
+    });
+    renderTab(vi.fn(), [snapshot]);
+    expect(await screen.findByText("Last known good")).toBeTruthy();
+  });
+
+  it("does not mark snapshots when no recovery point is available", async () => {
+    renderTab(vi.fn(), [snapshot]);
+    expect(await screen.findByText("Manual snapshot")).toBeTruthy();
+    expect(screen.queryByText("Last known good")).toBeNull();
   });
 
   it("shows the empty state when there are no snapshots", async () => {
