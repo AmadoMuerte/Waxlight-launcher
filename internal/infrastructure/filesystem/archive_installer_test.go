@@ -29,6 +29,7 @@ func TestArchiveInstallerInstallsDirectoryAtomically(t *testing.T) {
 		targetDirectory,
 		"",
 		"",
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +85,7 @@ func TestArchiveInstallerSupportsTarGzip(t *testing.T) {
 		targetDirectory,
 		"",
 		"",
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -134,6 +136,7 @@ func TestArchiveInstallerRejectsPathTraversal(t *testing.T) {
 		filepath.Join(t.TempDir(), "version"),
 		"",
 		"",
+		nil,
 	)
 	if err == nil || !strings.Contains(err.Error(), "unsafe archive path") {
 		t.Fatalf("expected a path traversal error, got %v", err)
@@ -152,6 +155,7 @@ func TestArchiveInstallerRejectsChecksumMismatch(t *testing.T) {
 		filepath.Join(t.TempDir(), "version"),
 		"",
 		strings.Repeat("0", 64),
+		nil,
 	)
 	if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("expected a checksum error, got %v", err)

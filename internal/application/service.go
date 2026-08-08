@@ -18,6 +18,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/language"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
@@ -36,6 +37,7 @@ type Service struct {
 	modDownloads       DownloadedModStore
 	launcher           ProcessLauncher
 	dataRoot           string
+	snapshots          *snapshotstore.Store
 	events             EventPublisher
 	telemetry          *telemetry.Service
 	runningMu          sync.Mutex
@@ -43,6 +45,8 @@ type Service struct {
 	modsMu             sync.Mutex
 	versionInstallMu   sync.Mutex
 	operationsMu       sync.Mutex
+	snapshotMu         sync.Mutex
+	snapshotBusy       map[string]string
 	relocatingMu       sync.Mutex
 	relocating         bool
 	operationCancels   map[string]context.CancelFunc
@@ -77,6 +81,7 @@ func NewService(
 		modFiles:           modFiles,
 		launcher:           launcher,
 		dataRoot:           dataRoot,
+		snapshots:          snapshotstore.New(dataRoot),
 		operationCancels:   make(map[string]context.CancelFunc),
 		operationDone:      make(map[string]<-chan error),
 		versionOperations:  make(map[string]string),
@@ -84,6 +89,7 @@ func NewService(
 		shutdownCtx:        shutdownCtx,
 		shutdownCancel:     shutdownCancel,
 		running:            make(map[string]runningGame),
+		snapshotBusy:       make(map[string]string),
 	}
 }
 
@@ -425,10 +431,14 @@ func (s *Service) InstallVersion(
 		Type:       "game_version_install",
 		ResourceID: &resource,
 		Title:      "Installing Vintage Story " + name,
-		Status:     "running",
-		Progress:   0.05,
-		CreatedAt:  now,
-		StartedAt:  &now,
+		TitleKey:   operationTitleInstallingGameVersion,
+		TitleParams: titleParams(
+			"name", name,
+		),
+		Status:    "running",
+		Progress:  0.05,
+		CreatedAt: now,
+		StartedAt: &now,
 	}
 	if err := s.store.SaveOperation(ctx, operation); err != nil {
 		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
@@ -436,12 +446,26 @@ func (s *Service) InstallVersion(
 	s.emit("operation:created", operation)
 
 	target := filepath.Join(s.dataRoot, "versions", safeSegment(id))
+	lastSaved := time.Now()
 	executable, size, e := s.installer.Install(
 		ctx,
 		sourcePath,
 		target,
 		executableRelativePath,
 		checksum,
+		func(copied, total int64) {
+			if total > 0 {
+				operation.Progress = 0.05 + 0.85*float64(copied)/float64(total)
+			}
+			operation.CurrentBytes = copied
+			operation.TotalBytes = total
+			operation.BytesPerSecond = 0
+			s.emit("operation:progress", operation)
+			if time.Since(lastSaved) >= snapshotProgressInterval {
+				lastSaved = time.Now()
+				s.persistOperation(operation)
+			}
+		},
 	)
 	finished := time.Now().UTC()
 	operation.FinishedAt = &finished
@@ -731,6 +755,9 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 	if running {
 		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before deleting this instance")
 	}
+	if err := s.ensureNoSnapshotOperation(id); err != nil {
+		return err
+	}
 	i, e := s.store.GetInstance(ctx, id)
 	if e != nil {
 		return e
@@ -942,6 +969,7 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 		Type:       "mod_install",
 		ResourceID: &resource,
 		Title:      "Installing mod",
+		TitleKey:   operationTitleInstallingMod,
 		Status:     "running",
 		Progress:   0.1,
 		CreatedAt:  now,
@@ -1282,6 +1310,9 @@ func (s *Service) Launch(
 	}
 	s.launchMu.Lock()
 	defer s.launchMu.Unlock()
+	if err := s.ensureNoSnapshotOperation(instanceID); err != nil {
+		return domain.PlaySession{}, err
+	}
 	validation, err := s.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
 		return domain.PlaySession{}, err

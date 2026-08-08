@@ -140,6 +140,17 @@ INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime
 			return err
 		}
 	}
+	for _, column := range []struct {
+		name       string
+		definition string
+	}{
+		{name: "title_key", definition: "TEXT"},
+		{name: "title_params", definition: "TEXT"},
+	} {
+		if err := s.ensureColumn(ctx, "operations", column.name, column.definition); err != nil {
+			return err
+		}
+	}
 	_, err := s.db.ExecContext(
 		ctx,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (2, datetime('now'))`,
@@ -193,6 +204,12 @@ func optTS(t *time.Time) any {
 		return nil
 	}
 	return ts(*t)
+}
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 func parseTS(v sql.NullString) *time.Time {
 	if !v.Valid {
@@ -878,7 +895,7 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 		SELECT
 			id, type, resource_id, title, status, progress, current_bytes,
 			total_bytes, bytes_per_second, error_code, error_message,
-			created_at, started_at, finished_at
+			created_at, started_at, finished_at, title_key, title_params
 		FROM operations
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -892,7 +909,7 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 	var out []domain.Operation
 	for rows.Next() {
 		var o domain.Operation
-		var res, ec, em, st, fin sql.NullString
+		var res, ec, em, st, fin, tk, tp sql.NullString
 		var c string
 		if e = rows.Scan(
 			&o.ID,
@@ -909,6 +926,8 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 			&c,
 			&st,
 			&fin,
+			&tk,
+			&tp,
 		); e != nil {
 			return nil, e
 		}
@@ -921,6 +940,15 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 		if em.Valid {
 			o.ErrorMessage = &em.String
 		}
+		if tk.Valid {
+			o.TitleKey = tk.String
+		}
+		if tp.Valid && tp.String != "" {
+			params := map[string]string{}
+			if err := json.Unmarshal([]byte(tp.String), &params); err == nil && len(params) > 0 {
+				o.TitleParams = params
+			}
+		}
 		o.CreatedAt, _ = time.Parse(time.RFC3339Nano, c)
 		o.StartedAt = parseTS(st)
 		o.FinishedAt = parseTS(fin)
@@ -929,12 +957,16 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 	return out, rows.Err()
 }
 func (s *SQLiteStore) SaveOperation(ctx context.Context, o domain.Operation) error {
+	params, err := json.Marshal(o.TitleParams)
+	if err != nil {
+		return err
+	}
 	const query = `
 		INSERT INTO operations(
 			id, type, resource_id, title, status, progress, current_bytes,
 			total_bytes, bytes_per_second, error_code, error_message,
-			created_at, started_at, finished_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			created_at, started_at, finished_at, title_key, title_params
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			type = excluded.type,
 			title = excluded.title,
@@ -946,7 +978,9 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, o domain.Operation) err
 			error_code = excluded.error_code,
 			error_message = excluded.error_message,
 			started_at = excluded.started_at,
-			finished_at = excluded.finished_at
+			finished_at = excluded.finished_at,
+			title_key = excluded.title_key,
+			title_params = excluded.title_params
 	`
 
 	_, e := s.db.ExecContext(
@@ -966,6 +1000,8 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, o domain.Operation) err
 		ts(o.CreatedAt),
 		optTS(o.StartedAt),
 		optTS(o.FinishedAt),
+		nullableString(o.TitleKey),
+		nullableString(string(params)),
 	)
 	return e
 }

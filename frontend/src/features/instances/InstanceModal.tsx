@@ -25,9 +25,10 @@ import { Field } from "../../shared/ui/field";
 import { Modal } from "../../shared/ui/modal";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { SubmitForm } from "../../shared/ui/submit-form";
+import { BackupsTab } from "../instance/BackupsTab";
 import { ModUpdatesModal } from "../mods/ModUpdatesModal";
 
-type InstanceTab = "overview" | "mods" | "settings";
+type InstanceTab = "overview" | "mods" | "settings" | "backups";
 
 interface InstanceModalProps {
   instance: Instance;
@@ -318,6 +319,15 @@ export function InstanceModal({
         >
           {t("settings")}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "backups"}
+          className={tab === "backups" ? "active" : ""}
+          onClick={() => setTab("backups")}
+        >
+          {t("backups")}
+        </button>
       </div>
 
       {tab === "overview" && (
@@ -599,6 +609,20 @@ export function InstanceModal({
             </div>
           </div>
         </SubmitForm>
+      )}
+
+      {tab === "backups" && (
+        <BackupsTab
+          instanceId={instance.id}
+          onCreated={() => {
+            onClose();
+            void navigate("/operations");
+          }}
+          onRestored={() => {
+            void loadMods();
+            void loadUpdates();
+          }}
+        />
       )}
 
       <ConfirmDialog

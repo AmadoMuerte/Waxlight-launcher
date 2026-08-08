@@ -606,6 +606,47 @@ func (s *Service) downloadCatalogVersion(
 	return downloaded, true, nil
 }
 
+// downloadModRelease fetches the exact catalog release identified by versionID
+// for the given mod. An already cached artifact of that release is reused when
+// present — including offline — otherwise the shared downloader fetches it and
+// verifies its checksum. The release identity (versionID) is authoritative: a
+// newer release is never substituted.
+func (s *Service) downloadModRelease(
+	ctx context.Context,
+	modID string,
+	versionID string,
+) (domain.DownloadedMod, error) {
+	if s.modDownloads != nil {
+		if cached, cacheErr := s.modDownloads.Get(ctx, modID, versionID); cacheErr == nil {
+			if info, statErr := os.Stat(cached.FilePath); statErr == nil && !info.IsDir() {
+				return cached, nil
+			}
+		}
+	}
+	if s.modCatalog == nil || s.modDownloads == nil || s.downloader == nil {
+		return domain.DownloadedMod{}, domain.NewError(domain.ErrModCatalog, "Mod downloads are not configured")
+	}
+	details, err := s.modCatalog.Get(ctx, modID)
+	if err != nil {
+		return domain.DownloadedMod{}, err
+	}
+	selected, ok := findModVersion(details.Versions, versionID)
+	if !ok {
+		return domain.DownloadedMod{}, domain.NewError(
+			domain.ErrModVersionNotFound,
+			"The exact mod release is no longer available",
+		)
+	}
+	downloaded, _, err := s.downloadCatalogVersion(
+		ctx,
+		newID(),
+		details,
+		selected,
+		map[string]struct{}{},
+	)
+	return downloaded, err
+}
+
 // reportModDownloadError classifies a mod download failure into a structured
 // telemetry error. The downloader reports HTTP statuses as
 // "download returned HTTP <code>"; only the category is transmitted.

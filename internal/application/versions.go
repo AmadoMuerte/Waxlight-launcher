@@ -130,6 +130,10 @@ func (s *Service) InstallAvailableVersion(
 		Type:       "game_version_download",
 		ResourceID: &resourceID,
 		Title:      "Downloading Vintage Story " + selected.Name,
+		TitleKey:   operationTitleDownloadingGameVersion,
+		TitleParams: titleParams(
+			"name", selected.Name,
+		),
 		Status:     "queued",
 		TotalBytes: selected.DownloadSize,
 		CreatedAt:  now,
@@ -245,8 +249,10 @@ func (s *Service) runAvailableVersionInstall(
 				operation.Progress = 0.85 * float64(update.DownloadedBytes) /
 					float64(update.TotalBytes)
 			}
+			// Publish every update to the UI; persist at most every 250 ms.
+			s.emit("operation:progress", operation)
 			if time.Since(lastSaved) >= 250*time.Millisecond {
-				s.saveOperation(operation, "operation:progress")
+				s.persistOperation(operation)
 				lastSaved = time.Now()
 			}
 		case err := <-downloadResult:
@@ -267,6 +273,8 @@ func (s *Service) runAvailableVersionInstall(
 
 	operation.Type = "game_version_install"
 	operation.Title = "Installing Vintage Story " + release.Name
+	operation.TitleKey = operationTitleInstallingGameVersion
+	operation.TitleParams = titleParams("name", release.Name)
 	operation.Progress = 0.9
 	operation.BytesPerSecond = 0
 	s.saveOperation(operation, "operation:updated")
@@ -276,6 +284,19 @@ func (s *Service) runAvailableVersionInstall(
 		ctx,
 		downloadPath,
 		targetPath,
+		func(copied, total int64) {
+			if total > 0 {
+				operation.Progress = 0.9 + 0.1*float64(copied)/float64(total)
+			}
+			operation.CurrentBytes = copied
+			operation.TotalBytes = total
+			operation.BytesPerSecond = 0
+			s.emit("operation:progress", operation)
+			if time.Since(lastSaved) >= 250*time.Millisecond {
+				s.persistOperation(operation)
+				lastSaved = time.Now()
+			}
+		},
 	)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -394,6 +415,15 @@ func (s *Service) saveOperation(operation domain.Operation, event string) {
 			message = *operation.ErrorMessage
 		}
 		slog.Error("operation failed", "type", operation.Type, "title", operation.Title, "error", message)
+	}
+}
+
+// persistOperation writes the operation to the store without publishing an
+// event. It is used for high-frequency progress updates; the UI receives
+// progress through the operation:progress event instead.
+func (s *Service) persistOperation(operation domain.Operation) {
+	if err := s.store.SaveOperation(context.Background(), operation); err != nil {
+		slog.Warn("could not persist the operation", "operationId", operation.ID, "error", err)
 	}
 }
 

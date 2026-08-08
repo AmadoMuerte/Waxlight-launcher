@@ -18,6 +18,7 @@ func (installer Installer) Install(
 	ctx context.Context,
 	sourcePath string,
 	targetPath string,
+	progress func(copied, total int64),
 ) (string, int64, error) {
-	return installer.installPlatform(ctx, sourcePath, targetPath)
+	return installer.installPlatform(ctx, sourcePath, targetPath, progress)
 }

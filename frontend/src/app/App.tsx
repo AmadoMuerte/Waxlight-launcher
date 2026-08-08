@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
@@ -16,7 +17,8 @@ import { SettingsPage } from "../pages/settings/SettingsPage";
 import { StatisticsPage } from "../pages/statistics/StatisticsPage";
 import { VersionsPage } from "../pages/versions/VersionsPage";
 import { errorMessage } from "../shared/api/bridge";
-import type { LauncherUpdateProgress, Settings } from "../shared/api/types";
+import { OPERATIONS_QUERY_KEY } from "../shared/api/keys";
+import type { LauncherUpdateProgress, Operation, Settings } from "../shared/api/types";
 import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
 import { log } from "../shared/lib/logger";
@@ -55,6 +57,7 @@ export function App() {
   const setLauncherVersion = useAppShellStore((state) => state.setLauncherVersion);
   const setUpdateProgress = useAppShellStore((state) => state.setUpdateProgress);
   const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
+  const queryClient = useQueryClient();
 
   const settings = settingsQuery.data;
   const updateCheckedOnceRef = useRef(false);
@@ -126,6 +129,52 @@ export function App() {
       return undefined;
     }
   }, [setLauncherVersion, setPlatform, setUpdateProgress]);
+
+  // Live operation updates: the backend publishes every progress change as an
+  // event, so the Operations page and the sidebar badge react immediately
+  // instead of waiting for the 8-second polling cycle.
+  useEffect(() => {
+    const applyOperation = (operation: Operation) => {
+      queryClient.setQueryData<Operation[]>(OPERATIONS_QUERY_KEY, (current) => {
+        const list = current ?? [];
+        const index = list.findIndex((item) => item.id === operation.id);
+        if (index >= 0) {
+          const next = [...list];
+          next[index] = { ...next[index], ...operation };
+          return next;
+        }
+        return [operation, ...list];
+      });
+    };
+    const removeOperation = (payload: { id?: string }) => {
+      if (!payload?.id) {
+        return;
+      }
+      queryClient.setQueryData<Operation[]>(OPERATIONS_QUERY_KEY, (current) =>
+        (current ?? []).filter((item) => item.id !== payload.id),
+      );
+    };
+    const listeners: Array<() => void> = [];
+    try {
+      for (const name of [
+        "operation:created",
+        "operation:updated",
+        "operation:progress",
+        "operation:completed",
+        "operation:failed",
+      ]) {
+        listeners.push(EventsOn(name, applyOperation));
+      }
+      listeners.push(EventsOn("operation:removed", removeOperation));
+    } catch (error) {
+      log.warn(errorMessage(error), { source: "operation-events" });
+    }
+    return () => {
+      for (const unsubscribe of listeners) {
+        unsubscribe();
+      }
+    };
+  }, [queryClient]);
 
   if (loading) {
     return (

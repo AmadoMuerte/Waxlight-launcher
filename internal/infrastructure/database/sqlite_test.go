@@ -91,6 +91,49 @@ func TestDatabaseRejectsSymlinkAndUsesOwnerOnlyPermissions(t *testing.T) {
 	}
 }
 
+func TestOperationTitleLocalizationSurvivesPersistence(t *testing.T) {
+	store, err := database.Open(filepath.Join(t.TempDir(), "operations.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Now().UTC()
+	operation := domain.Operation{
+		ID:          "snapshot-1",
+		Type:        "snapshot_create",
+		Title:       "Creating snapshot",
+		TitleKey:    "operation_creating_snapshot",
+		TitleParams: map[string]string{"done": "3", "total": "5"},
+		Status:      "running",
+		Progress:    0.4,
+		CreatedAt:   now,
+	}
+	if err := store.SaveOperation(context.Background(), operation); err != nil {
+		t.Fatal(err)
+	}
+
+	// A fresh read must preserve the translation key and its parameters so the
+	// UI never falls back to the English title after a reload.
+	listed, err := store.ListOperations(context.Background(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("expected one operation, got %d", len(listed))
+	}
+	loaded := listed[0]
+	if loaded.TitleKey != "operation_creating_snapshot" {
+		t.Fatalf("title key was lost: %q", loaded.TitleKey)
+	}
+	if loaded.TitleParams["done"] != "3" || loaded.TitleParams["total"] != "5" {
+		t.Fatalf("title params were lost: %#v", loaded.TitleParams)
+	}
+	if loaded.Progress != 0.4 {
+		t.Fatalf("progress was lost: %f", loaded.Progress)
+	}
+}
+
 func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
 	store, err := database.Open(filepath.Join(t.TempDir(), "operations.db"))
 	if err != nil {
