@@ -200,6 +200,7 @@ func (service *LauncherUpdateService) Install(
 	<-done
 	if err != nil {
 		service.cleanupSession(updateRoot)
+		slog.Error("launcher update download failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateDownloadFailed, telemetry.OperationDownloadUpdate)
 		return &domain.AppError{
@@ -214,6 +215,7 @@ func (service *LauncherUpdateService) Install(
 	if err := service.signatureVerifier.Verify(ctx, destination); err != nil {
 		os.Remove(destination)
 		service.cleanupSession(updateRoot)
+		slog.Error("launcher update signature verification failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateSignatureInvalid, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
@@ -226,6 +228,7 @@ func (service *LauncherUpdateService) Install(
 	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "installing", Progress: 1})
 	if err := service.installer.Apply(ctx, destination, os.Getpid()); err != nil {
 		service.cleanupSession(updateRoot)
+		slog.Error("launcher update install failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateInstallFailed, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
@@ -242,12 +245,17 @@ func (service *LauncherUpdateService) Install(
 func (service *LauncherUpdateService) cleanupSession(sessionDir string) {
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
+		slog.Warn("could not clean up the update session directory", "dir", sessionDir, "error", err)
 		return
 	}
 	for _, entry := range entries {
-		os.Remove(filepath.Join(sessionDir, entry.Name()))
+		if removeErr := os.Remove(filepath.Join(sessionDir, entry.Name())); removeErr != nil {
+			slog.Debug("could not remove a leftover update session file", "dir", sessionDir, "file", entry.Name(), "error", removeErr)
+		}
 	}
-	os.Remove(sessionDir)
+	if removeErr := os.Remove(sessionDir); removeErr != nil {
+		slog.Debug("could not remove the update session directory", "dir", sessionDir, "error", removeErr)
+	}
 }
 
 // PurgeStaleUpdateSessions removes every leftover update session directory under

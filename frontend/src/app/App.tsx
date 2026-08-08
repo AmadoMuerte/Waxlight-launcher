@@ -19,6 +19,7 @@ import { errorMessage } from "../shared/api/bridge";
 import type { LauncherUpdateProgress, Settings } from "../shared/api/types";
 import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
+import { log } from "../shared/lib/logger";
 import { Spinner } from "../shared/ui/spinner";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 import { AppToast } from "../widgets/layout/AppToast";
@@ -61,6 +62,9 @@ export function App() {
 
   useEffect(() => {
     setFatalError(fatalError);
+    if (fatalError) {
+      log.warn(fatalError, { source: "watcher" });
+    }
   }, [fatalError, setFatalError]);
 
   useEffect(() => {
@@ -103,12 +107,13 @@ export function App() {
     void updatesApi
       .currentVersion()
       .then(setLauncherVersion)
-      .catch(() => undefined);
+      .catch((error) => log.warn(errorMessage(error), { source: "currentVersion" }));
     void (async () => {
       try {
         const environment = await Environment();
         setPlatform(environment.platform);
-      } catch {
+      } catch (error) {
+        log.warn(errorMessage(error), { source: "environment" });
         setPlatform("");
       }
     })();
@@ -116,7 +121,8 @@ export function App() {
       return EventsOn("updates:progress", (progress: LauncherUpdateProgress) => {
         setUpdateProgress(progress);
       });
-    } catch {
+    } catch (error) {
+      log.warn(errorMessage(error), { source: "events" });
       return undefined;
     }
   }, [setLauncherVersion, setPlatform, setUpdateProgress]);

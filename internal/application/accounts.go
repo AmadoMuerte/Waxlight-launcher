@@ -287,41 +287,54 @@ func (service *AccountService) persistSession(
 	}
 	if err := service.secrets.Set(ctx, account.ID, secret); err != nil {
 		if supportsCrashRecovery {
-			_ = pendingStore.ClearPending(context.Background(), account.ID)
+			service.clearPendingSecret(pendingStore, account.ID)
 		}
 		return LoginResult{}, secretStoreError("Could not save the account session", err)
 	}
 	committer, ok := service.store.(AccountCommitter)
 	if !ok {
-		if hadPreviousSecret {
-			_ = service.secrets.Set(context.Background(), account.ID, previousSecret)
-		} else {
-			_ = service.secrets.Delete(context.Background(), account.ID)
-		}
+		service.rollbackSecret(account.ID, previousSecret, hadPreviousSecret)
 		if supportsCrashRecovery {
-			_ = pendingStore.ClearPending(context.Background(), account.ID)
+			service.clearPendingSecret(pendingStore, account.ID)
 		}
 		return LoginResult{}, errors.New("account metadata store does not support transactional commits")
 	}
 	if err := committer.SaveAccountAndSelect(ctx, account, account.IsDefault); err != nil {
-		if hadPreviousSecret {
-			_ = service.secrets.Set(context.Background(), account.ID, previousSecret)
-		} else {
-			_ = service.secrets.Delete(context.Background(), account.ID)
-		}
+		service.rollbackSecret(account.ID, previousSecret, hadPreviousSecret)
 		if supportsCrashRecovery {
-			_ = pendingStore.ClearPending(context.Background(), account.ID)
+			service.clearPendingSecret(pendingStore, account.ID)
 		}
 		return LoginResult{}, err
 	}
 	if supportsCrashRecovery {
-		_ = pendingStore.ClearPending(context.Background(), account.ID)
+		service.clearPendingSecret(pendingStore, account.ID)
 	}
 
 	safeAccount := account
 	safeAccount.SessionKey = ""
 	safeAccount.SessionSignature = ""
 	return LoginResult{Status: LoginStatusSuccess, Account: &safeAccount}, nil
+}
+
+// rollbackSecret restores the previous credential state after a failed
+// transactional login commit. A rollback failure leaves the account session in
+// an unknown state, so it is logged as an error.
+func (service *AccountService) rollbackSecret(accountID string, previousSecret Secret, hadPreviousSecret bool) {
+	var err error
+	if hadPreviousSecret {
+		err = service.secrets.Set(context.Background(), accountID, previousSecret)
+	} else {
+		err = service.secrets.Delete(context.Background(), accountID)
+	}
+	if err != nil {
+		slog.Error("could not roll back the account session", "account", accountID, "error", err)
+	}
+}
+
+func (service *AccountService) clearPendingSecret(pendingStore PendingSecretStore, accountID string) {
+	if err := pendingStore.ClearPending(context.Background(), accountID); err != nil {
+		slog.Warn("could not clear the pending account session marker", "account", accountID, "error", err)
+	}
 }
 
 func (service *AccountService) ListAccounts(ctx context.Context) ([]domain.Account, error) {
@@ -350,7 +363,9 @@ func (service *AccountService) ValidateStaleAccounts(
 			continue
 		}
 		stale++
-		_, _ = service.ValidateAccount(ctx, account.ID)
+		if _, err := service.ValidateAccount(ctx, account.ID); err != nil {
+			slog.Warn("stale account validation failed", "account", account.ID, "error", err)
+		}
 	}
 	if stale > 0 {
 		slog.Info("validated stale accounts", "count", stale)
@@ -383,7 +398,7 @@ func (service *AccountService) RemoveAccount(ctx context.Context, accountID stri
 	}
 	if err := service.store.DeleteAccount(ctx, accountID); err != nil {
 		if secretErr == nil {
-			_ = service.secrets.Set(context.Background(), accountID, secret)
+			service.rollbackSecret(accountID, secret, true)
 		}
 		return err
 	}
@@ -471,7 +486,9 @@ func (service *AccountService) authorizedAccount(
 	if errors.Is(err, ErrSecretNotFound) {
 		account.Status = domain.AccountStatusNeedsReauth
 		account.UpdatedAt = service.now()
-		_ = service.store.SaveAccount(ctx, account)
+		if saveErr := service.store.SaveAccount(ctx, account); saveErr != nil {
+			slog.Warn("could not persist the reauthentication flag", "account", accountID, "error", saveErr)
+		}
 		return safeAccount(account), domain.NewError(domain.ErrSessionExpired, "The account needs to be authenticated again")
 	}
 	if err != nil {

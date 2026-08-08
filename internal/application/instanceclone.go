@@ -52,8 +52,12 @@ func (s *Service) CloneInstance(
 	}
 
 	cleanup := func(cause error) (domain.Instance, error) {
-		_ = safeRemoveAll(clone.Directory, s.dataRoot, ".waxlight-instance")
-		_ = s.store.DeleteInstance(ctx, clone.ID)
+		if err := safeRemoveAll(clone.Directory, s.dataRoot, ".waxlight-instance"); err != nil {
+			slog.Warn("could not remove the failed clone directory", "instance", clone.Name, "error", err)
+		}
+		if err := s.store.DeleteInstance(ctx, clone.ID); err != nil {
+			slog.Warn("could not delete the failed clone record", "instance", clone.Name, "error", err)
+		}
 		return domain.Instance{}, cause
 	}
 
@@ -173,6 +177,7 @@ func copyCloneFile(source string, target string, mode os.FileMode) error {
 	}
 	if _, err := io.Copy(output, input); err != nil {
 		_ = output.Close()
+		slog.Debug("could not copy the clone file", "target", target, "error", err)
 		return err
 	}
 	return output.Close()

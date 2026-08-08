@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BackendUnavailableError } from "../api/bridge";
 import { logsApi } from "../api/logs";
-import { flushLogs, installGlobalErrorLogging, log, setMinLevel } from "./logger";
+import { flushLogs, installGlobalErrorLogging, log, resetDedupState, setMinLevel } from "./logger";
 
 vi.mock("../api/bridge", () => ({
   BackendUnavailableError: class MockBackendUnavailableError extends Error {},
@@ -30,6 +30,7 @@ describe("log", () => {
 
   afterEach(() => {
     flushLogs();
+    resetDedupState();
     vi.clearAllMocks();
     vi.useRealTimers();
     setMinLevel("info");
@@ -82,6 +83,42 @@ describe("log", () => {
     expect(write).toHaveBeenCalledTimes(1);
     expect(consoleSpy).toHaveBeenCalledWith("[launcher] no backend", {});
   });
+
+  it("suppresses identical lines within the dedup window", async () => {
+    log.error("boom", { where: "watcher" });
+    log.error("boom", { where: "watcher" });
+    log.error("boom", { where: "watcher" });
+    await flushAndSettle();
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenNthCalledWith(1, "error", "boom", { where: "watcher" });
+  });
+
+  it("reports the suppressed count when a distinct line follows", async () => {
+    log.error("boom");
+    log.error("boom");
+    log.error("boom");
+    log.info("other");
+    await flushAndSettle();
+
+    expect(write).toHaveBeenCalledTimes(3);
+    expect(write).toHaveBeenNthCalledWith(1, "error", "boom", undefined);
+    expect(write).toHaveBeenNthCalledWith(2, "error", "Suppressed 2 repeated log lines", undefined);
+    expect(write).toHaveBeenNthCalledWith(3, "info", "other", undefined);
+  });
+
+  it("does not suppress the same line again after the dedup window expires", async () => {
+    log.error("boom");
+    await flushAndSettle();
+    expect(write).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(30_001);
+    log.error("boom");
+    await flushAndSettle();
+
+    const messages = write.mock.calls.map((call) => call[1]);
+    expect(messages.filter((message) => message === "boom")).toHaveLength(2);
+  });
 });
 
 describe("installGlobalErrorLogging", () => {
@@ -93,6 +130,7 @@ describe("installGlobalErrorLogging", () => {
 
   afterEach(() => {
     flushLogs();
+    resetDedupState();
     vi.clearAllMocks();
     vi.useRealTimers();
     setMinLevel("info");

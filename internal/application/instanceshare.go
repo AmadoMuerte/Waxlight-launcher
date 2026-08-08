@@ -468,9 +468,14 @@ func (s *Service) ImportPackage(
 
 func (s *Service) cleanupFailedImport(ctx context.Context, instance domain.Instance) error {
 	if err := safeRemoveAll(instance.Directory, s.dataRoot, ".waxlight-instance"); err != nil {
+		slog.Warn("could not remove the failed import directory", "instance", instance.Name, "error", err)
 		return err
 	}
-	return s.store.DeleteInstance(ctx, instance.ID)
+	if err := s.store.DeleteInstance(ctx, instance.ID); err != nil {
+		slog.Warn("could not delete the failed import record", "instance", instance.Name, "error", err)
+		return err
+	}
+	return nil
 }
 
 func (s *Service) installPackageMod(

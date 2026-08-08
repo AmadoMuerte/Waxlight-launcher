@@ -132,6 +132,7 @@ func (catalog *VersionCatalog) List(
 			architecture,
 		)
 		if err != nil {
+			slog.Debug("game version catalog entry skipped", "versionId", versionID, "error", err)
 			continue
 		}
 		result = append(result, release)

@@ -5,12 +5,17 @@ import { HashRouter } from "react-router";
 
 import "@xterm/xterm/css/xterm.css";
 import "../shared/i18n";
-import { installGlobalErrorLogging } from "../shared/lib/logger";
+import { setMissingKeyReporter } from "../shared/i18n";
+import { installGlobalErrorLogging, log } from "../shared/lib/logger";
 import { App } from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { queryClient } from "./providers/queryClient";
 
 import "./styles.css";
+
+setMissingKeyReporter((languages, namespace, key) => {
+  log.warn(`Missing translation: ${namespace}:${key}`, { languages: languages.join(",") });
+});
 
 installGlobalErrorLogging();
 

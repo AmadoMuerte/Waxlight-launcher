@@ -179,7 +179,10 @@ func (controller *LogController) gatherSupportLogData(ctx context.Context) (supp
 		return data, err
 	}
 	for _, instance := range instances {
-		mods, _ := controller.svc.ListMods(ctx, instance.ID)
+		mods, modsErr := controller.svc.ListMods(ctx, instance.ID)
+		if modsErr != nil {
+			slog.Warn("could not count mods for the support log", "instance", instance.Name, "error", modsErr)
+		}
 		enabled := 0
 		for _, mod := range mods {
 			if mod.Enabled {
