@@ -261,6 +261,11 @@ func (s *Service) emit(name string, payload any) {
 }
 func (s *Service) Close() error {
 	s.shutdownCancel()
+	// A game still running past the startup window when the launcher shuts
+	// down is evidence its configuration works; record it before the database
+	// closes. waitForGame never observes this exit because the launcher is
+	// already gone.
+	s.recordEstablishedLaunches()
 	s.operationWG.Wait()
 	return s.store.Close()
 }
@@ -792,6 +797,9 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 	}
 	if e = s.store.DeleteInstance(ctx, id); e != nil {
 		return e
+	}
+	if e = s.store.DeleteLastKnownGood(ctx, id); e != nil {
+		slog.Warn("could not clean up the last known good state of the deleted instance", "instanceId", id, "error", e)
 	}
 	s.emit("instance:deleted", map[string]string{"id": id})
 	s.reportEvent(ctx, telemetry.EventInstanceDeleted)
@@ -1597,6 +1605,7 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	s.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
+	go s.markLaunchEstablished(instance, session.ID)
 	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath))
 	return session, nil
 }
@@ -1707,6 +1716,13 @@ func (s *Service) waitForGame(
 		slog.Warn("game exited with an error", "instance", instance.Name, "exitCode", exitCode, "error", waitErr)
 	} else {
 		slog.Info("game exited", "instance", instance.Name, "exitCode", exitCode, "seconds", durationSeconds)
+	}
+	// A crash inside the startup window is a failed startup: compare the
+	// current configuration with the Last Known Good state and offer a safe
+	// recovery. A game that ran past the window (or exited normally) is not a
+	// configuration failure, no matter how it ended.
+	if crashed && time.Since(startedAt) < gameStartupWindow {
+		s.handleFailedLaunch(instance)
 	}
 	if err := s.store.FinishSession(
 		context.Background(),
