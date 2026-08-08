@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -729,6 +730,23 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
 		return in, e
 	}
+	if old.GameVersionID != in.GameVersionID {
+		release, err := s.lockInstanceMutations(in.ID)
+		if err != nil {
+			return in, err
+		}
+		defer release()
+		toVersion := in.GameVersionID
+		if version, versionErr := s.store.GetVersion(ctx, in.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
+			toVersion = version.Name
+		}
+		if _, err := s.createSafetySnapshot(ctx, in.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
+			"fromGameVersion": s.instanceGameVersionName(ctx, old),
+			"toGameVersion":   toVersion,
+		}); err != nil {
+			return in, err
+		}
+	}
 	in.Directory = old.Directory
 	in.CreatedAt = old.CreatedAt
 	in.LastPlayedAt = old.LastPlayedAt
@@ -1116,17 +1134,106 @@ func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies b
 			return e
 		}
 	}
-	for _, mod := range toDelete {
-		if e = os.Remove(mod.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
-			return e
-		}
-		if e = s.store.DeleteMod(ctx, mod.ID); e != nil {
-			return e
-		}
-		s.emit("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
-		s.reportEvent(ctx, telemetry.EventModRemoved)
-		slog.Info("mod removed", "mod", mod.Name)
+	release, err := s.lockInstanceMutations(m.InstanceID)
+	if err != nil {
+		return err
 	}
+	defer release()
+	if _, err := s.createSafetySnapshot(ctx, m.InstanceID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
+		"affectedMods": strconv.Itoa(len(toDelete)),
+	}); err != nil {
+		return err
+	}
+	for _, mod := range toDelete {
+		if err := s.removeInstalledMod(ctx, mod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RemoveMods removes several installed mods of one instance in a single
+// destructive transaction. Exactly one automatic safety snapshot is created
+// before the first mod is removed; a failed snapshot aborts the removal.
+func (s *Service) RemoveMods(
+	ctx context.Context,
+	instanceID string,
+	modIDs []string,
+	deleteDependencies bool,
+) error {
+	if err := s.rejectIfRelocating(); err != nil {
+		return err
+	}
+	if len(modIDs) == 0 {
+		return domain.NewError(domain.ErrValidation, "Select at least one mod to remove")
+	}
+	instance, err := s.store.GetInstance(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	seen := make(map[string]struct{}, len(modIDs))
+	var toDelete []domain.InstalledMod
+	for _, id := range modIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, duplicate := seen[id]; duplicate {
+			continue
+		}
+		seen[id] = struct{}{}
+		mod, getErr := s.store.GetMod(ctx, id)
+		if getErr != nil {
+			return getErr
+		}
+		if mod.InstanceID != instance.ID {
+			return domain.NewError(domain.ErrValidation, "The selected mod does not belong to this instance")
+		}
+		if deleteDependencies {
+			set, setErr := s.modDeletionSet(ctx, mod)
+			if setErr != nil {
+				return setErr
+			}
+			toDelete = append(toDelete, set...)
+		} else {
+			toDelete = append(toDelete, mod)
+		}
+	}
+	if len(toDelete) == 0 {
+		return nil
+	}
+
+	release, err := s.lockInstanceMutations(instance.ID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if _, err := s.createSafetySnapshot(ctx, instance.ID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
+		"affectedMods": strconv.Itoa(len(toDelete)),
+	}); err != nil {
+		return err
+	}
+	for _, mod := range toDelete {
+		if err := s.removeInstalledMod(ctx, mod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// removeInstalledMod deletes a single installed mod file and its record.
+// Snapshot creation is the caller's responsibility; this method never
+// creates one so nested removal flows cannot produce duplicate backups.
+func (s *Service) removeInstalledMod(ctx context.Context, mod domain.InstalledMod) error {
+	if e := os.Remove(mod.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
+		return e
+	}
+	if e := s.store.DeleteMod(ctx, mod.ID); e != nil {
+		return e
+	}
+	s.emit("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
+	s.reportEvent(ctx, telemetry.EventModRemoved)
+	slog.Info("mod removed", "mod", mod.Name)
 	return nil
 }
 

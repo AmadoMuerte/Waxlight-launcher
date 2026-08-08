@@ -995,6 +995,114 @@ func (s *Service) InstallDownloadedMod(
 	})
 }
 
+// ModUpdateTarget identifies the exact catalog release an installed mod
+// should be updated to.
+type ModUpdateTarget struct {
+	ModID     string
+	VersionID string
+}
+
+// ModUpdateResult summarizes a bulk mod update of one instance.
+type ModUpdateResult struct {
+	Updated int
+}
+
+// UpdateInstanceMods updates several installed mods of one instance in a
+// single destructive transaction. It first determines which requested releases
+// would actually change the instance and, when at least one update applies,
+// creates exactly one automatic safety snapshot before any mod is replaced.
+// The snapshot is created and completed before the first update starts; a
+// failed snapshot aborts the whole operation without touching the instance.
+func (s *Service) UpdateInstanceMods(
+	ctx context.Context,
+	instanceID string,
+	targets []ModUpdateTarget,
+	allowIncompatible bool,
+) (ModUpdateResult, error) {
+	result := ModUpdateResult{}
+	if err := s.rejectIfRelocating(); err != nil {
+		return result, err
+	}
+	if len(targets) == 0 {
+		return result, nil
+	}
+	if s.modCatalog == nil || s.modDownloads == nil || s.downloader == nil {
+		return result, domain.NewError(domain.ErrModCatalog, "Mod downloads are not configured")
+	}
+	instance, err := s.store.GetInstance(ctx, instanceID)
+	if err != nil {
+		return result, err
+	}
+	installed, err := s.store.ListMods(ctx, instanceID)
+	if err != nil {
+		return result, err
+	}
+	pending := pendingModUpdates(installed, targets)
+	if len(pending) == 0 {
+		return result, nil
+	}
+
+	release, err := s.lockInstanceMutations(instanceID)
+	if err != nil {
+		return result, err
+	}
+	defer release()
+
+	if _, err := s.createSafetySnapshot(ctx, instanceID, domain.SnapshotReasonBeforeModUpdate, map[string]string{
+		"affectedMods": strconv.Itoa(len(pending)),
+	}); err != nil {
+		return result, err
+	}
+
+	for _, target := range pending {
+		downloadResult, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+			ModID:             target.ModID,
+			VersionID:         target.VersionID,
+			InstanceIDs:       []string{instance.ID},
+			AllowIncompatible: allowIncompatible,
+		})
+		if err != nil {
+			return result, err
+		}
+		if len(downloadResult.Installations) > 0 && downloadResult.Installations[0].Installed {
+			result.Updated++
+		}
+	}
+	slog.Info("instance mods updated", "instance", instance.Name, "updated", result.Updated)
+	return result, nil
+}
+
+// pendingModUpdates filters the requested targets to the ones that would
+// actually change the instance: releases that are not installed yet or whose
+// installed record points at another release. Duplicate targets are collapsed.
+func pendingModUpdates(installed []domain.InstalledMod, targets []ModUpdateTarget) []ModUpdateTarget {
+	installedSource := make(map[string]string, len(installed))
+	for _, mod := range installed {
+		if modID, _, ok := parseModDBSource(mod.Source); ok {
+			installedSource[modID] = mod.Source
+		}
+	}
+	pending := make([]ModUpdateTarget, 0, len(targets))
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		modID := strings.TrimSpace(target.ModID)
+		versionID := strings.TrimSpace(target.VersionID)
+		if modID == "" || versionID == "" {
+			continue
+		}
+		key := modID + ":" + versionID
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		if installedSource[modID] == modDBSource(modID, versionID) {
+			continue
+		}
+		pending = append(pending, ModUpdateTarget{ModID: modID, VersionID: versionID})
+	}
+	return pending
+}
+
 func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID string) error {
 	if s.modDownloads == nil {
 		return domain.NewError(domain.ErrModVersionNotFound, "Downloaded mod version not found")

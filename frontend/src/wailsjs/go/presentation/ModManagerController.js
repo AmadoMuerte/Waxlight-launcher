@@ -33,3 +33,7 @@ export function RemoveMod(arg1, arg2) {
 export function SetModEnabled(arg1, arg2) {
   return window['go']['presentation']['ModManagerController']['SetModEnabled'](arg1, arg2);
 }
+
+export function UpdateInstanceMods(arg1) {
+  return window['go']['presentation']['ModManagerController']['UpdateInstanceMods'](arg1);
+}

@@ -13,6 +13,19 @@ import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
 
+// SNAPSHOT_REASON_KEYS maps the backend snapshot reasons to i18n keys so the
+// Backups UI can explain why an automatic snapshot was created.
+const SNAPSHOT_REASON_KEYS: Record<string, string> = {
+  before_mod_update: "snapshot_reason_before_mod_update",
+  before_mod_removal: "snapshot_reason_before_mod_removal",
+  before_game_version_change: "snapshot_reason_before_game_version_change",
+};
+
+function snapshotReasonTitle(snapshot: InstanceSnapshot, t: (key: string) => string): string {
+  const key = SNAPSHOT_REASON_KEYS[snapshot.reason ?? ""];
+  return key ? t(key) : t("snapshot_type_automatic");
+}
+
 interface BackupsTabProps {
   instanceId: string;
   onCreated: () => void;
@@ -115,41 +128,64 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
         />
       ) : (
         <div className="installedModList">
-          {snapshots.map((snapshot) => (
-            <article className="installedModRow snapshotRow" key={snapshot.id}>
-              <div className="modRowIcon" aria-hidden="true">
-                ◈
-              </div>
-              <div className="modRowCopy">
-                <strong>{formatDate(snapshot.createdAt)}</strong>
-                <small>{t("manual_snapshot")}</small>
-                <small>
-                  {t("snapshot_game_version", { version: snapshot.gameVersion })}
-                  {snapshot.modCount > 0
-                    ? ` · ${t("mods_count", { count: snapshot.modCount })}`
-                    : ""}
-                  {` · ${formatBytes(snapshot.sizeBytes)}`}
-                </small>
-              </div>
-              <div className="modRowActions">
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => setRestoreConfirm(snapshot)}
-                >
-                  {t("restore")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="dangerGhost"
-                  disabled={busy}
-                  onClick={() => setDeleteConfirm(snapshot)}
-                >
-                  {t("delete")}
-                </Button>
-              </div>
-            </article>
-          ))}
+          {snapshots.map((snapshot) => {
+            const automatic = snapshot.type === "automatic";
+            return (
+              <article className="installedModRow snapshotRow" key={snapshot.id}>
+                <div className="modRowIcon" aria-hidden="true">
+                  ◈
+                </div>
+                <div className="modRowCopy">
+                  <strong>
+                    {automatic ? snapshotReasonTitle(snapshot, t) : formatDate(snapshot.createdAt)}
+                  </strong>
+                  <small>
+                    {automatic ? (
+                      <>
+                        <span className={`snapshotTypeBadge ${snapshot.type}`}>
+                          {t("snapshot_type_automatic")}
+                        </span>{" "}
+                        {formatDate(snapshot.createdAt)}
+                      </>
+                    ) : (
+                      t("manual_snapshot")
+                    )}
+                  </small>
+                  {automatic &&
+                    snapshot.context?.fromGameVersion &&
+                    snapshot.context?.toGameVersion && (
+                      <small>
+                        {snapshot.context.fromGameVersion} → {snapshot.context.toGameVersion}
+                      </small>
+                    )}
+                  <small>
+                    {t("snapshot_game_version", { version: snapshot.gameVersion })}
+                    {snapshot.modCount > 0
+                      ? ` · ${t("mods_count", { count: snapshot.modCount })}`
+                      : ""}
+                    {` · ${formatBytes(snapshot.sizeBytes)}`}
+                  </small>
+                </div>
+                <div className="modRowActions">
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => setRestoreConfirm(snapshot)}
+                  >
+                    {t("restore")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="dangerGhost"
+                    disabled={busy}
+                    onClick={() => setDeleteConfirm(snapshot)}
+                  >
+                    {t("delete")}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 

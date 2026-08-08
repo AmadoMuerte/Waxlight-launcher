@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
-import { modCatalogApi } from "../../entities/mod/api";
+import { modsApi } from "../../entities/mod/api";
 import type { InstanceModUpdateReport, ModUpdate } from "../../entities/mod/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
@@ -40,17 +40,13 @@ export function ModUpdatesModal({
     setBusy(true);
     setError("");
     try {
-      await Promise.all(
-        pending.map((mod) =>
-          modCatalogApi.download({
-            modId: mod.modId,
-            versionId: mod.targetVersionId,
-            instanceIds: [instanceId],
-            downloadOnly: false,
-            allowIncompatible,
-          }),
-        ),
-      );
+      // One coordinated backend operation: the backend creates a single
+      // safety snapshot first and then applies every update.
+      await modsApi.updateInstance({
+        instanceId,
+        mods: pending.map((mod) => ({ modId: mod.modId, versionId: mod.targetVersionId })),
+        allowIncompatible,
+      });
       await onApplied();
       notify(t("mod_updates_applied"));
       onClose();

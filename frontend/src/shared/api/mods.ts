@@ -5,6 +5,8 @@ import type {
   InstalledMod,
   LinkLocalModsResult,
   ModDeletePreview,
+  ModUpdateResult,
+  ModUpdateTarget,
   Operation,
 } from "./types";
 
@@ -13,6 +15,11 @@ export const modsApi = {
     call<InstalledMod[]>("ModManagerController", "ListInstalledMods", instanceId),
   checkInstanceUpdates: (instanceId: string) =>
     call<InstanceModUpdateReport>("ModManagerController", "CheckInstanceModUpdates", instanceId),
+  updateInstance: (request: {
+    instanceId: string;
+    mods: ModUpdateTarget[];
+    allowIncompatible: boolean;
+  }) => call<ModUpdateResult>("ModManagerController", "UpdateInstanceMods", request),
   install: (request: { instanceId: string; sourcePath: string; name: string; version: string }) =>
     call<Operation>("ModManagerController", "InstallModFile", request),
   installMany: (request: { instanceId: string; sourcePaths: string[] }) =>

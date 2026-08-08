@@ -27,33 +27,81 @@ const (
 	restoreDownloadPhaseStart = 0.4
 )
 
+// createSnapshotInput carries the metadata of a snapshot being created. The
+// type, reason and context distinguish manual snapshots from automatic safety
+// snapshots in the manifest; manual creation leaves them at their zero values.
+type createSnapshotInput struct {
+	instanceID   string
+	snapshotType domain.SnapshotType
+	reason       domain.SnapshotReason
+	context      map[string]string
+}
+
 // CreateInstanceSnapshot captures the current user data of an instance into a
-// new snapshot. Waxlight-managed ModDB mod binaries are not copied; the
+// new manual snapshot.
+func (s *Service) CreateInstanceSnapshot(
+	ctx context.Context,
+	instanceID string,
+) (domain.Operation, error) {
+	return s.createInstanceSnapshot(ctx, createSnapshotInput{
+		instanceID:   instanceID,
+		snapshotType: domain.SnapshotTypeManual,
+	})
+}
+
+// createInstanceSnapshotLocked creates a snapshot while the caller already
+// holds the per-instance mutation lock, so only the game-running rule still
+// applies. Automatic safety snapshots use this path.
+func (s *Service) createInstanceSnapshotLocked(
+	ctx context.Context,
+	input createSnapshotInput,
+) (domain.Operation, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Operation{}, err
+	}
+	if err := s.ensureInstanceNotRunning(input.instanceID); err != nil {
+		return domain.Operation{}, err
+	}
+	return s.createInstanceSnapshotCore(ctx, input)
+}
+
+// createInstanceSnapshot guards a manual snapshot creation against running
+// games and concurrent snapshot operations before delegating to the shared
+// creation core.
+func (s *Service) createInstanceSnapshot(
+	ctx context.Context,
+	input createSnapshotInput,
+) (domain.Operation, error) {
+	if err := s.rejectIfRelocating(); err != nil {
+		return domain.Operation{}, err
+	}
+	if err := s.ensureInstanceSnapshotSafe(input.instanceID); err != nil {
+		return domain.Operation{}, err
+	}
+	return s.createInstanceSnapshotCore(ctx, input)
+}
+
+// createInstanceSnapshotCore captures the current user data of an instance
+// into a new snapshot. Waxlight-managed ModDB mod binaries are not copied; the
 // manifest records their exact releases so restore can download the same
 // versions again. The copy is staged in a temporary directory first, the
 // manifest is written and validated, and only then the staging directory is
 // atomically renamed into place. A snapshot is therefore never visible
 // half-written, and the source instance is never modified.
-func (s *Service) CreateInstanceSnapshot(
+func (s *Service) createInstanceSnapshotCore(
 	ctx context.Context,
-	instanceID string,
+	input createSnapshotInput,
 ) (domain.Operation, error) {
-	if err := s.rejectIfRelocating(); err != nil {
-		return domain.Operation{}, err
-	}
-	instance, err := s.store.GetInstance(ctx, instanceID)
+	instance, err := s.store.GetInstance(ctx, input.instanceID)
 	if err != nil {
-		return domain.Operation{}, err
-	}
-	if err := s.ensureInstanceSnapshotSafe(instanceID); err != nil {
 		return domain.Operation{}, err
 	}
 
-	installedMods, err := s.ListMods(ctx, instanceID)
+	installedMods, err := s.ListMods(ctx, input.instanceID)
 	if err != nil {
 		return domain.Operation{}, err
 	}
-	manifestMods, skipPaths := s.snapshotModManifest(ctx, instanceID, installedMods)
+	manifestMods, skipPaths := s.snapshotModManifest(ctx, input.instanceID, installedMods)
 
 	estimated, err := dataroot.TotalSize(instance.Directory)
 	if err != nil {
@@ -88,15 +136,26 @@ func (s *Service) CreateInstanceSnapshot(
 		CreatedAt:  now,
 		StartedAt:  &now,
 	}
+	if input.snapshotType == domain.SnapshotTypeAutomatic {
+		operation.Title = "Creating safety backup..."
+		operation.TitleKey = operationTitleCreatingSafetyBackup
+	}
 	if err := s.store.SaveOperation(ctx, operation); err != nil {
 		slog.Warn("could not persist the snapshot operation", "operationId", operation.ID, "error", err)
 	}
 	s.emit("operation:created", operation)
 
 	s.snapshotMu.Lock()
-	s.snapshotBusy[instanceID] = operation.ID
+	_, busy := s.snapshotBusy[instance.ID]
+	if !busy {
+		s.snapshotBusy[instance.ID] = operation.ID
+	}
 	s.snapshotMu.Unlock()
-	defer s.releaseSnapshotBusy(instanceID, operation.ID)
+	defer func() {
+		if !busy {
+			s.releaseSnapshotBusy(instance.ID, operation.ID)
+		}
+	}()
 
 	var staging string
 	defer func() {
@@ -110,22 +169,26 @@ func (s *Service) CreateInstanceSnapshot(
 	fail := func(cause error, code string) (domain.Operation, error) {
 		if staging != "" {
 			if cleanupErr := os.RemoveAll(staging); cleanupErr != nil {
-				slog.Warn("could not remove the failed snapshot staging directory", "instanceId", instanceID, "error", cleanupErr)
+				slog.Warn("could not remove the failed snapshot staging directory", "instanceId", instance.ID, "error", cleanupErr)
 			}
 		}
 		s.finishSnapshotOperation(operation, cause, code)
+		message := "Could not create snapshot"
+		if input.snapshotType == domain.SnapshotTypeAutomatic {
+			message = "Could not create a safety backup. The instance was not modified"
+		}
 		return operation, &domain.AppError{
 			Code:    code,
-			Message: "Could not create snapshot",
+			Message: message,
 			Cause:   cause,
 		}
 	}
 
-	staging, err = s.snapshots.TempDir(instanceID)
+	staging, err = s.snapshots.TempDir(instance.ID)
 	if err != nil {
 		return fail(err, domain.ErrFilePermission)
 	}
-	final, err := s.snapshots.SnapshotDir(instanceID, operation.ID)
+	final, err := s.snapshots.SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		return fail(err, domain.ErrValidation)
 	}
@@ -148,7 +211,9 @@ func (s *Service) CreateInstanceSnapshot(
 		InstanceID:    instance.ID,
 		InstanceName:  instance.Name,
 		CreatedAt:     now,
-		Type:          domain.SnapshotTypeManual,
+		Type:          input.snapshotType,
+		Reason:        input.reason,
+		Context:       input.context,
 		GameVersion:   s.instanceGameVersionName(ctx, instance),
 		SizeBytes:     stats.sizeBytes,
 		ModCount:      len(installedMods),
@@ -172,7 +237,11 @@ func (s *Service) CreateInstanceSnapshot(
 	operation.Progress = 1
 	operation.CurrentBytes = stats.sizeBytes
 	s.saveSnapshotOperation(operation, "operation:completed")
-	slog.Info("instance snapshot created", "instance", instance.Name, "snapshot", snapshotID, "size", stats.sizeBytes, "mods", len(installedMods))
+	if input.snapshotType == domain.SnapshotTypeAutomatic {
+		slog.Info("automatic safety snapshot created", "instance", instance.Name, "snapshot", snapshotID, "reason", input.reason, "size", stats.sizeBytes, "mods", len(installedMods))
+	} else {
+		slog.Info("instance snapshot created", "instance", instance.Name, "snapshot", snapshotID, "size", stats.sizeBytes, "mods", len(installedMods))
+	}
 	return operation, nil
 }
 
@@ -859,11 +928,17 @@ func (s *Service) ensureInstanceSnapshotSafe(instanceID string) error {
 	if busy != "" {
 		return domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
+	return s.ensureInstanceNotRunning(instanceID)
+}
+
+// ensureInstanceNotRunning rejects operations that must not touch an instance
+// while the game is running.
+func (s *Service) ensureInstanceNotRunning(instanceID string) error {
 	s.runningMu.Lock()
 	_, running := s.running[instanceID]
 	s.runningMu.Unlock()
 	if running {
-		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before managing snapshots")
+		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before modifying this instance")
 	}
 	return nil
 }
