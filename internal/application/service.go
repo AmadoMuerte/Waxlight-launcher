@@ -1435,7 +1435,7 @@ func (s *Service) Launch(
 	s.emit("game:started", session)
 	s.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
-	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials)
+	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath))
 	return session, nil
 }
 
@@ -1511,10 +1511,16 @@ func (s *Service) waitForGame(
 	startedAt time.Time,
 	logFile io.Closer,
 	cleanupCredentials func() error,
+	stopGameLog func(),
 ) {
 	exitCode, waitErr := process.Wait()
-	_ = logFile.Close()
-	_ = cleanupCredentials()
+	// Let the tailer pick up the lines the process flushed right before
+	// exiting, then stop it before the log file is closed.
+	stopGameLog()
+	if err := logFile.Close(); err != nil {
+		slog.Debug("could not close the instance log file", "instance", instance.Name, "error", err)
+	}
+	s.clearInjectedCredentials(cleanupCredentials, instance)
 
 	durationSeconds := int64(time.Since(startedAt).Seconds())
 	crashed := waitErr != nil || exitCode != 0
