@@ -1,365 +1,117 @@
 <div align="center">
-  <img src="./docs/waxlight.png" alt="Waxlight Launcher icon" width="300" height="300">
+  <img src="./docs/waxlight.png" alt="Waxlight Launcher" width="180">
 
 # Waxlight Launcher
 
-**A warm, focused launcher for Vintage Story.**
+**A modern, lightweight launcher for Vintage Story.**
 
-**English** | [Русский](docs/README.ru.md)
+**English** · [Русский](docs/README.ru.md)
 
 [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2)](https://hipolink.net/amadomuerte/tips)
 
+[Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Guide](https://amadomuerte.github.io/Waxlight-launcher/) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte/tips)
 </div>
 
-Waxlight Launcher is an independent, community-driven project maintained by
-[AmadoMuerte](https://github.com/AmadoMuerte) and improved with the help of its
-contributors. The project is not affiliated with, endorsed by, or developed in
-collaboration with the developers of Vintage Story.
+Waxlight is an independent, open-source launcher that brings Vintage Story accounts, game versions, isolated instances, mods, updates, and playtime into one desktop app for **Windows and Linux**.
 
-Waxlight puts accounts, game versions, isolated game setups, mods, launches,
-and playtime in one desktop application. It is built with Go, Wails, React,
-TypeScript, and SQLite, and supports Windows and Linux.
+It is maintained by [AmadoMuerte](https://github.com/AmadoMuerte) with help from contributors. Waxlight is not affiliated with or endorsed by the developers of Vintage Story and does not distribute the game or bypass its licensing.
 
-Waxlight does not distribute the game or bypass its licensing. A valid Vintage
-Story account and the right to download the game are required.
+## Features
 
-## What Waxlight does
-
-* Manages multiple Vintage Story accounts, including TOTP/2FA login.
-* Discovers releases from the Vintage Story version feed and installs several
-  game versions side by side.
-* Creates isolated game setups so mods and settings do not leak between them.
-* Browses Vintage Story ModDB with search, filters, sorting, and mod details.
-* Downloads, installs, updates, enables, disables, and removes mods per setup.
-* Validates the selected account and game version before launch.
-* Starts and stops the game, records logs, and prevents conflicting launches.
-* Tracks individual play sessions and total or per-setup playtime.
-* Shows current and completed downloads and other long-running operations.
-* Supports multiple interface languages with a persistent language preference.
-* Checks official GitHub Releases for verified launcher updates with explicit
-  user consent before download or installation.
+- Multiple Vintage Story accounts with TOTP/2FA support.
+- Multiple game versions installed side by side.
+- Isolated instances with separate mods and settings.
+- Built-in Vintage Story ModDB browser with search, filters, and mod management.
+- Mod installation, updates, enable/disable, and removal per instance.
+- Playtime tracking, launch logs, downloads, and background operations.
+- Stable and prerelease launcher updates with checksum verification.
+- English and Russian interface languages.
+- Custom data folder for versions, instances, mods, downloads, and the database.
 
 ## Download
 
-Download the newest build from
-[GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest).
+Get the latest version from [GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest).
 
-| Platform            | File                            | Recommended for                                         |
-| ------------------- | ------------------------------- | ------------------------------------------------------- |
-| Windows x64         | `*-windows-amd64-installer.exe` | Normal installation with shortcuts and an uninstaller   |
-| Windows x64         | `*-windows-amd64-portable.zip`  | Portable use without installation                       |
-| Debian / Ubuntu x64 | `*-linux-amd64.deb`             | Debian, Ubuntu, Mint, and compatible distributions      |
-| Fedora / RPM x64    | `*-linux-amd64.rpm`             | Fedora and compatible RPM distributions                 |
-| Linux x64           | `*-linux-amd64.tar.gz`          | Other distributions with the required runtime libraries |
+| Platform | Package |
+| --- | --- |
+| Windows x64 | Installer `.exe` or portable `.zip` |
+| Debian / Ubuntu x64 | `.deb` |
+| Fedora / RPM x64 | `.rpm` |
+| Other Linux x64 | Portable `.tar.gz` |
 
-Every release also contains `SHA256SUMS`. Verify a download on Linux with:
+Each release includes `SHA256SUMS` for integrity checks.
 
-```bash
-sha256sum --check SHA256SUMS --ignore-missing
-```
+> On Windows, early unsigned builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
 
-## Launcher updates
+## Getting started
 
-Waxlight checks for launcher updates on startup by default. This can be disabled
-in **Settings**, where the Stable or Prerelease channel can be selected and a
-manual check can be started. Available updates show installed and latest
-versions, release notes, and a link to the full GitHub Release. An update can be
-installed, postponed, or skipped. Nothing is downloaded or installed without an
-explicit click.
+1. Sign in under **Accounts**.
+2. Install a game version under **Game Versions**.
+3. Create an instance in **Library** and select its account and game version.
+4. Install mods from **Mods** if needed.
+5. Press **Play**.
 
-Update metadata and packages are accepted only from this repository's official
-HTTPS GitHub Releases URLs. Waxlight selects the package for the current OS and
-architecture, downloads `SHA256SUMS`, and verifies the package before starting
-installation. Linux portable builds are backed up as `waxlight.previous`,
-replaced atomically, and restarted. Packaged Linux installations open a verified
-`.deb` or `.rpm` in the system package installer. On Windows, the verified NSIS
-installer is launched. Application data under the Waxlight configuration
-directory is never replaced.
+A valid Vintage Story account with access to the game is required.
 
-### Windows installation
+## Data & privacy
 
-Download and run the installer. Alternatively, extract the portable ZIP and
-start `waxlight.exe`. Waxlight needs the Microsoft Edge WebView2 Runtime, which
-is included with current Windows installations and can be installed by the
-Waxlight installer when missing.
+Default data locations:
 
-Early unsigned builds may trigger a Microsoft Defender SmartScreen warning.
-Check that the file came from this repository's Releases page and verify its
-checksum before choosing to run it.
+- Linux: `~/.config/waxlight/`
+- Windows: `%AppData%\waxlight\`
 
-### Debian and Ubuntu installation
+The main data folder can be moved from **Settings → Data folder**. Account credentials remain in the operating system credential store.
 
-```bash
-sudo apt install ./Waxlight-Launcher-v0.1.2-linux-amd64.deb
-```
+Waxlight sends minimal usage statistics such as launcher version, OS, and numeric counters. Telemetry can be disabled in **Settings → Privacy & telemetry**. Passwords, tokens, and personal files are never sent.
 
-### Fedora installation
-
-```bash
-sudo dnf install ./Waxlight-Launcher-v0.1.2-linux-amd64.rpm
-```
-
-### Portable Linux installation
-
-The portable build requires GTK 3 and WebKitGTK 4.1 at runtime. Install those
-packages using your distribution's package manager, then extract and run it:
-
-```bash
-tar -xzf Waxlight-Launcher-v0.1.2-linux-amd64.tar.gz
-cd Waxlight-Launcher-v0.1.2-linux-amd64
-./waxlight
-```
-
-An AppImage is not published yet. The portable archive is the distribution-
-neutral option for the first release.
-
-## First launch
-
-1. Open **Accounts** and sign in with a Vintage Story account.
-2. Open **Game Versions** and install a supported version.
-3. Create a setup from **Library** and select its game version and account.
-4. Optionally install mods from **Mods**.
-5. Select the setup and press **Play**.
-
-Waxlight stores its local database, downloaded files, and settings in the
-operating system's user configuration directory:
-
-* Linux: `~/.config/waxlight/`
-* Windows: `%AppData%\waxlight\`
-
-The data folder (game versions, instances, mods, downloads, and the database)
-can be moved to any drive from **Settings → Data folder**. Waxlight copies the
-data with progress, restarts, and removes the old copy only after the new
-location works; account credentials always stay in the operating-system
-credential store.
-
-Stop all games before backing up or moving this directory. Never attach the
-entire data directory, instance `clientsettings.json` files, or logs to a public
-issue. Persistent session credentials are held by the operating-system
-credential store and are not transferred with the Waxlight data directory.
-
-## Interface languages
-
-Waxlight currently includes:
-
-* English;
-* Russian.
-
-The selected language is stored in the application settings and restored the
-next time Waxlight starts.
-
-Translation resources are located in:
-
-```text
-frontend/src/i18n/locales/
-```
-
-Each language uses one JSON file with stable `snake_case` keys:
-
-```text
-en.json
-ru.json
-```
-
-English is the canonical source and fallback language. Contributors are welcome
-to improve existing translations or add new ones.
-
-When editing translations:
-
-* translate values only;
-* do not rename existing keys;
-* preserve interpolation expressions such as `{{name}}`;
-* preserve plural key suffixes such as `_one`, `_few`, `_many`, and `_other`;
-* keep technical names, paths, URLs and version identifiers unchanged.
-
-Validate translation files with:
-
-```bash
-npm run check:i18n --prefix frontend
-```
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for the complete contribution process.
-
-## Project status
-
-Waxlight is under active development. Version `0.1.x` should be treated as an
-early release: back up important saves, review compatibility before installing
-mods, and expect the UI and local data model to evolve.
-
-Authentication is isolated behind a Go backend client. Passwords and TOTP codes
-are never persisted. Persistent session keys and signatures use Secret Service
-on Linux and Windows Credential Manager on Windows; production has no plaintext
-fallback. React receives allow-listed account DTOs and cannot retrieve raw
-session credentials through the Wails API.
-
-For a game launch, the four fields required by Vintage Story are written to that
-instance's `clientsettings.json` only after session validation. Waxlight removes
-them after normal exit and launch failure, and reconciles stale fields at the
-next startup after a crash. Removing an account clears affected instance
-settings, but local deletion cannot be claimed to revoke an already issued
-server session. See [the authentication notes](docs/authentication.md) and
-[security policy](docs/SECURITY.md) for the precise model and limitations.
-
-Game downloads support progress, cancellation, resume where possible, and
-checksum validation. See [the game-version notes](docs/game-versions.md) for
-implementation details.
+See [SECURITY.md](docs/SECURITY.md) and [authentication notes](docs/authentication.md) for details.
 
 ## Build from source
 
-### Requirements
-
-* Go 1.24 or newer;
-* Node.js 22 and npm;
-* Wails CLI 2.11;
-* a C compiler;
-* the [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/)
-  for your operating system;
-* on Linux, GTK 3 and WebKitGTK 4.1 development packages.
-
-Clone and verify the project:
+Requirements: **Go 1.24+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
 npm ci --include=dev --prefix frontend
-go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
-make release-check
-```
-
-Run the desktop application with live reload:
-
-```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 cd cmd/waxlight
 wails dev
 ```
 
-Build a production desktop binary:
+Production build from the repository root:
 
 ```bash
 make wails-build
 ```
 
-The Wails command must run from `cmd/waxlight`; the root `Makefile` provides
-shortcuts for common tasks. A plain `go build` without Waxlight's desktop tags
-does not produce the supported GUI build.
-
-Useful commands:
-
-```bash
-make test                 # Go and frontend tests
-make vet                  # Go static analysis
-make frontend             # TypeScript and Vite production build
-make package-linux        # Local .deb, .rpm, and portable archive
-make release-check        # Full pre-release validation
-make security             # Prohibited-pattern and vulnerability checks
-```
-
-## Architecture
-
-The Go application follows a layered structure:
-
-```text
-Presentation (Wails) -> Application -> Domain
-Infrastructure -------> Application / Domain
-```
-
-The React frontend talks to generated Wails bindings through a shared API
-layer. Business rules, downloads, filesystem changes, authentication, process
-management, and playtime calculation remain in Go rather than UI components.
-
-Important directories:
-
-```text
-cmd/waxlight/             Desktop entry point and Wails configuration
-internal/domain/          Core models and domain errors
-internal/application/     Use cases and service interfaces
-internal/infrastructure/  SQLite, HTTP, filesystem, credentials, processes
-internal/presentation/    Wails controllers and DTOs
-frontend/src/             React and TypeScript interface
-frontend/src/i18n/        Interface localization
-packaging/                Linux desktop and package metadata
-scripts/                  Reproducible release scripts
-.github/workflows/        CI and release automation
-```
-
 ## Contributing
 
-Waxlight is shaped by everyone who contributes code, translations, testing,
-documentation, bug reports, and thoughtful feature proposals. Contributions of
-all sizes are welcome.
+Code, translations, testing, documentation, bug reports, and focused feature proposals are welcome.
 
-Before opening a pull request:
+Before opening a pull request, read [CONTRIBUTING.md](docs/CONTRIBUTING.md) and run:
 
-1. Read [CONTRIBUTING.md](docs/CONTRIBUTING.md).
-2. Create a focused branch from `main`.
-3. Keep business logic outside React components and Wails controllers.
-4. Add or update tests for behavior changes.
-5. Run `make release-check`.
-6. Explain the user-facing change and testing performed in the pull request.
+```bash
+make release-check
+```
 
-Use the issue templates for reproducible bugs and focused feature proposals.
-For vulnerabilities or accidental credential exposure, follow
-[SECURITY.md](docs/SECURITY.md) instead of opening a public issue.
-
-Translation contributions are also welcome. Keep translation keys synchronized
-with `frontend/src/i18n/locales/en.json` and run the i18n validation command
-before submitting a pull request.
-
-## Releases
-
-Every push and pull request to `main` runs tests, static analysis, the frontend
-build, native credential-store integration tests on Linux and Windows,
-vulnerability and secret scans, and a Linux Wails build.
-
-Pushing a semantic version tag such as `v0.1.0` starts the release workflow,
-which:
-
-1. validates the tag against the application version;
-2. builds Windows and Linux artifacts on native GitHub runners;
-3. validates the generated packages;
-4. creates `SHA256SUMS`;
-5. publishes a GitHub Release with generated release notes.
-
-Workflow actions are pinned to immutable commits and release assets receive
-SHA-256 checksums. Release signing is not currently configured; published
-checksums provide integrity verification after obtaining `SHA256SUMS`, but do
-not replace an authenticated signing chain.
-
-Before tagging, update the version in both Wails configuration files. Existing
-release tags must never be moved.
-
-## Maintainer
-
-Waxlight Launcher is currently maintained by
-[AmadoMuerte](https://github.com/AmadoMuerte), who coordinates the project,
-reviews contributions, and prepares releases.
+For security issues, follow [SECURITY.md](docs/SECURITY.md) instead of opening a public issue.
 
 ## Contributors
-
-Thank you to everyone who has helped improve Waxlight through code,
-translations, testing, documentation, bug reports, and ideas.
 
 <a href="https://github.com/AmadoMuerte/Waxlight-launcher/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=AmadoMuerte/Waxlight-launcher" alt="Waxlight Launcher contributors">
 </a>
 
-Contributors are listed automatically from the repository's GitHub contribution
-history. See the [contributors page](https://github.com/AmadoMuerte/Waxlight-launcher/graphs/contributors)
-for the complete list.
+## Support development
+
+Waxlight is free and open source. If you enjoy the project and want to support its continued development:
+
+[![Support development](https://img.shields.io/badge/Support-Development-8A2BE2?style=for-the-badge)](https://hipolink.net/amadomuerte/tips)
 
 ## License
 
-Waxlight Launcher is free software licensed under the
-[GNU General Public License v3.0](LICENSE). See [NOTICE](NOTICE) for third-party
-and project notices.
-
-## Telemetry
-
-Waxlight sends minimal usage statistics (launcher version, OS, numeric counters)
-to improve the project. Telemetry is on by default and can be disabled in
-**Settings → Privacy & telemetry**. Logins, passwords, tokens, and personal
-files are never sent. The installation ID is a random value, stored on the
-server in pseudonymized form.
+Waxlight Launcher is licensed under the [GNU General Public License v3.0](LICENSE). See [NOTICE](NOTICE) for third-party and project notices.
