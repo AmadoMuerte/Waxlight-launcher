@@ -17,6 +17,7 @@ const settings: Settings = {
   updateChannel: "stable",
   skippedUpdateVersion: "0.2.0",
   telemetryEnabled: true,
+  automaticSafetySnapshots: true,
 };
 
 const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
@@ -110,6 +111,20 @@ it("calls checkForUpdate with the update channel and skipped version", async () 
     expect(appShell.state.checkForUpdate).toHaveBeenCalledWith(
       settings.updateChannel,
       settings.skippedUpdateVersion,
+    ),
+  );
+});
+
+it("persists the automatic safety backups switch", async () => {
+  renderPage();
+
+  const toggle = await screen.findByRole("switch", { name: "Automatic safety backups" });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+
+  await waitFor(() =>
+    expect(settingsApi.update).toHaveBeenCalledWith(
+      expect.objectContaining({ automaticSafetySnapshots: false }),
     ),
   );
 });

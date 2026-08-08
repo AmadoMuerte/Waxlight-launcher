@@ -915,7 +915,7 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 24px 28px;
+  padding: 16px 18px;
 }
 
 .settingRowColumn {
@@ -924,7 +924,7 @@ main {
 }
 
 .settingRowDivider {
-  margin: 0 28px;
+  margin: 0 18px;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -942,7 +942,7 @@ main {
 
 .settingRowDescription {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 400;
@@ -956,7 +956,7 @@ main {
 }
 
 .settingRowColumn .settingTileInput {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .settingTileInput {
@@ -1947,8 +1947,8 @@ main {
 .settingsPageSection {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px;
+  gap: 14px;
+  padding: 16px;
 }
 
 .settingsPageSection + .settingsPageSection {
@@ -1958,35 +1958,15 @@ main {
 .settingsPageSection header h2 {
   margin: 0;
   font-family: Newsreader, Georgia, serif;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .settingsPageSection header p {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.5;
-}
-
-.checkboxSetting {
-  padding: 14px 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: #141316;
-}
-
-.checkboxSetting .checkboxControl {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.checkboxSetting > small {
-  display: block;
-  margin: 5px 0 0 26px;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .settingsPageFooter {
@@ -2021,7 +2001,7 @@ main {
 }
 
 .legal {
-  margin: 28px 4px;
+  margin: 16px 4px;
   color: #77716d;
   font-size: 12px;
   line-height: 1.5;
@@ -2364,23 +2344,6 @@ main {
 
 .markdownBody input[type="checkbox"] {
   accent-color: var(--amber);
-}
-
-.launcherUpdateProgress {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.launcherUpdateProgress progress {
-  width: 100%;
-  accent-color: var(--amber);
-}
-
-.launcherUpdateProgress small {
-  color: var(--text-muted);
 }
 
 @media (max-width: 1100px) {
@@ -3894,6 +3857,30 @@ main {
   color: #d8a76a;
   background: #261d13;
   border: 1px solid #3f2f1c;
+}
+
+.snapshotTypeBadge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.snapshotTypeBadge.automatic {
+  color: #7fbf8f;
+  background: #16261b;
+  border: 1px solid #274033;
+}
+
+.snapshotTypeBadge.manual {
+  color: #9aa4b2;
+  background: #1c212b;
+  border: 1px solid #2c333f;
 }
 
 .instanceChoice.installed {

@@ -26,6 +26,7 @@ const settings: Settings = {
   updateChannel: "stable",
   skippedUpdateVersion: "",
   telemetryEnabled: false,
+  automaticSafetySnapshots: true,
 };
 
 async function renderPage() {
@@ -107,7 +108,7 @@ describe("i18n", () => {
     fireEvent.change(screen.getByPlaceholderText("--debug"), {
       target: { value: "--debug --safe" },
     });
-    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("switch", { name: "Confirm deletion" }));
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update).toHaveBeenLastCalledWith(
