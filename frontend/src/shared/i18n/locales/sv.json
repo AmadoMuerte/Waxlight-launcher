@@ -619,6 +619,8 @@
   "last_supported_game_version": "Stöds till Vintage Story {{version}}",
   "mod_version_mismatch": "Moddversionen matchar inte instansen",
   "mod_installed": "Hämtad och installerad",
+  "mod_install_failed": "Installationen misslyckades",
+  "batch_mods_partially_installed": "Installerade {{count}} av {{total}} moddar",
   "downloading_mods": "Hämtar moddar",
   "remove_unused_downloaded_mods": "Ta bort oinstallerade moddar",
   "no_unused_downloaded_mods": "Alla hämtade moddar är installerade.",

@@ -221,6 +221,38 @@ describe("mods browser", () => {
     );
   });
 
+  it("marks an instance as already installed in the batch dialog", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [
+          { instanceId: "instance-1", instanceName: "Survival", version: "2.0.0", enabled: true },
+        ],
+        updateAvailable: false,
+      },
+    ]);
+    renderPage("/mods");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("checkbox", { name: "Select Player Corpse" }));
+    await user.click(screen.getByRole("button", { name: "Add to an instance or create one" }));
+    expect(await screen.findByRole("dialog", { name: "Add mods to an instance" })).toBeTruthy();
+
+    const survival = screen.getByText("Survival").closest("label");
+    expect(survival?.className).toContain("installed");
+    expect(screen.queryAllByRole("radio", { name: /Survival/ })).toHaveLength(0);
+    expect(screen.getAllByText("Installed")).toHaveLength(1);
+  });
+
   it("confirms before removing downloaded mods unused by instances", async () => {
     api.previewUnusedDownloaded.mockResolvedValue({ removedCount: 2, freedBytes: 100 });
     api.removeUnusedDownloaded.mockResolvedValue({ removedCount: 2, freedBytes: 100 });
