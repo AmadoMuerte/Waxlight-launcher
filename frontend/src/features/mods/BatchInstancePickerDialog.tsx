@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Account } from "../../entities/account/model";
@@ -6,7 +6,13 @@ import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { modCatalogApi } from "../../shared/api/mod-catalog";
-import type { ModBatchInstallResult, ModDetails, ModVersion } from "../../shared/api/types";
+import type {
+  DownloadedMod,
+  InstalledModInstance,
+  ModBatchInstallResult,
+  ModDetails,
+  ModVersion,
+} from "../../shared/api/types";
 import { Button } from "../../shared/ui/button";
 import { Empty } from "../../shared/ui/empty";
 import { Modal } from "../../shared/ui/modal";
@@ -16,6 +22,7 @@ import { instanceGameVersion } from "./lib";
 interface SelectedMod {
   details: ModDetails;
   release: ModVersion;
+  downloaded?: DownloadedMod;
 }
 
 interface BatchInstancePickerDialogProps {
@@ -43,8 +50,27 @@ export function BatchInstancePickerDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<ModBatchInstallResult[]>();
+  const [modsList, setModsList] = useState(mods);
   const instance = instances.find((item) => item.id === instanceID);
   const modNameByID = new Map(mods.map(({ details }) => [details.id, details.name]));
+  const installedCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of instances) {
+      let count = 0;
+      for (const mod of modsList) {
+        const local = mod.downloaded;
+        if (
+          local &&
+          local.versionId === mod.release.id &&
+          local.installedInstances.some((entry) => entry.instanceId === item.id)
+        ) {
+          count += 1;
+        }
+      }
+      if (count > 0) counts.set(item.id, count);
+    }
+    return counts;
+  }, [instances, modsList]);
 
   async function install() {
     if (!instance) return;
@@ -53,9 +79,41 @@ export function BatchInstancePickerDialog({
     try {
       const response = await modCatalogApi.downloadBatch({
         instanceId: instance.id,
-        targets: mods.map(({ details, release }) => ({ modId: details.id, versionId: release.id })),
+        targets: modsList.map(({ details, release }) => ({
+          modId: details.id,
+          versionId: release.id,
+        })),
       });
       setResults(response);
+      setModsList((current) =>
+        current.map((mod) => {
+          const item = response.find(
+            (entry) => entry.modId === mod.details.id && entry.versionId === mod.release.id,
+          );
+          const fresh = item?.error ? undefined : item?.result.downloaded;
+          if (!fresh) return mod;
+          const instancesById = new Map<string, InstalledModInstance>();
+          for (const entry of mod.downloaded?.installedInstances ?? []) {
+            instancesById.set(entry.instanceId, entry);
+          }
+          for (const entry of fresh.installedInstances ?? []) {
+            instancesById.set(entry.instanceId, entry);
+          }
+          for (const installation of item?.result.installations ?? []) {
+            if (!installation.installed) continue;
+            instancesById.set(installation.instanceId, {
+              instanceId: installation.instanceId,
+              instanceName: installation.instanceName,
+              version: fresh.downloadedVersion,
+              enabled: true,
+            });
+          }
+          return {
+            ...mod,
+            downloaded: { ...fresh, installedInstances: [...instancesById.values()] },
+          };
+        }),
+      );
       await onDone();
     } catch (installError) {
       setError(errorMessage(installError));
@@ -92,24 +150,56 @@ export function BatchInstancePickerDialog({
             />
           ) : (
             <div className="instanceChoices">
-              {instances.map((item) => (
-                <label
-                  key={item.id}
-                  className={`instanceChoice ${item.id === instanceID ? "selected" : ""}`}
-                  aria-label={item.name}
-                >
-                  <input
-                    type="radio"
-                    name="batch-instance"
-                    checked={item.id === instanceID}
-                    onChange={() => setInstanceID(item.id)}
-                  />
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>Vintage Story {instanceGameVersion(item, gameVersions)}</small>
-                  </span>
-                </label>
-              ))}
+              {instances.map((item) => {
+                const installedCount = installedCounts.get(item.id) ?? 0;
+                const fullyInstalled = installedCount === modsList.length;
+                const partiallyInstalled = installedCount > 0 && !fullyInstalled;
+                const installedVersion = modsList[0]?.downloaded?.installedInstances.find(
+                  (entry) => entry.instanceId === item.id,
+                )?.version;
+                return (
+                  <label
+                    key={item.id}
+                    className={`instanceChoice ${item.id === instanceID ? "selected" : ""} ${
+                      fullyInstalled ? "installed" : ""
+                    }`}
+                    aria-label={item.name}
+                  >
+                    {fullyInstalled ? (
+                      <span className="installedCheck" aria-hidden="true">
+                        ✓
+                      </span>
+                    ) : (
+                      <input
+                        type="radio"
+                        name="batch-instance"
+                        checked={item.id === instanceID}
+                        onChange={() => setInstanceID(item.id)}
+                      />
+                    )}
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>Vintage Story {instanceGameVersion(item, gameVersions)}</small>
+                      {fullyInstalled && modsList.length === 1 && installedVersion && (
+                        <small className="installedHint">
+                          {t("installed_version_value", { version: installedVersion })}
+                        </small>
+                      )}
+                      {partiallyInstalled && (
+                        <small className="installedHint">
+                          {t("batch_mods_partially_installed", {
+                            count: installedCount,
+                            total: modsList.length,
+                          })}
+                        </small>
+                      )}
+                    </span>
+                    {fullyInstalled ? (
+                      <span className="installedPill">{t("installed")}</span>
+                    ) : null}
+                  </label>
+                );
+              })}
             </div>
           )}
           {error && (
@@ -120,15 +210,27 @@ export function BatchInstancePickerDialog({
           {busy && <p className="batchDownloading">{t("downloading_mods")}</p>}
           {results && (
             <div className="batchInstallResults">
-              {results.map((result) => (
-                <p
-                  key={`${result.modId}:${result.versionId}`}
-                  className={result.error ? "resultError" : "resultOk"}
-                >
-                  <strong>{modNameByID.get(result.modId) ?? result.modId}</strong>:{" "}
-                  {result.error || t("mod_installed")}
-                </p>
-              ))}
+              {results.map((result) => {
+                const failedInstallations = (result.result?.installations ?? []).filter(
+                  (item) => !item.installed,
+                );
+                const failed = Boolean(result.error) || failedInstallations.length > 0;
+                const message =
+                  result.error ||
+                  failedInstallations
+                    .map((item) => item.message)
+                    .filter(Boolean)
+                    .join("; ") ||
+                  (failed ? t("mod_install_failed") : t("mod_installed"));
+                return (
+                  <p
+                    key={`${result.modId}:${result.versionId}`}
+                    className={failed ? "resultError" : "resultOk"}
+                  >
+                    <strong>{modNameByID.get(result.modId) ?? result.modId}</strong>: {message}
+                  </p>
+                );
+              })}
             </div>
           )}
           <div className="modalActions">

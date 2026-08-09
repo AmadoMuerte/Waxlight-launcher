@@ -74,7 +74,9 @@ export function ModsPage() {
   const setSelectedMod = useModSelectionStore((state) => state.setSelected);
   const clearSelectedMods = useModSelectionStore((state) => state.clear);
   const [batchMods, setBatchMods] =
-    useState<{ details: ModDetails; release: ModDetails["versions"][number] }[]>();
+    useState<
+      { details: ModDetails; release: ModDetails["versions"][number]; downloaded?: DownloadedMod }[]
+    >();
   const [openingBatch, setOpeningBatch] = useState(false);
   const [layout, setLayout] = useState<"grid" | "list">(() =>
     readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
@@ -266,13 +268,20 @@ export function ModsPage() {
     [setSelectedMod],
   );
 
+  const downloadedByModId = useMemo(
+    () => new Map(downloaded.map((item) => [item.modId, item])),
+    [downloaded],
+  );
+
   const openBatchInstaller = useCallback(async () => {
     setOpeningBatch(true);
     try {
       const details = await Promise.all(selectedModIds.map((modId) => modCatalogApi.get(modId)));
       const selected = details.flatMap((item) => {
         const release = chooseRelease(item.versions);
-        return release ? [{ details: item, release }] : [];
+        return release
+          ? [{ details: item, release, downloaded: downloadedByModId.get(item.id) }]
+          : [];
       });
       if (selected.length === 0) {
         notify(t("no_downloadable_mod_version"), "error");
@@ -284,7 +293,7 @@ export function ModsPage() {
     } finally {
       setOpeningBatch(false);
     }
-  }, [notify, selectedModIds, t]);
+  }, [downloadedByModId, notify, selectedModIds, t]);
 
   async function previewUnusedDownloadedMods() {
     try {

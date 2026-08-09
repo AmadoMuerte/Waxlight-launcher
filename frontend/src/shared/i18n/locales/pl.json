@@ -619,6 +619,8 @@
   "last_supported_game_version": "Obsługiwane do Vintage Story {{version}}",
   "mod_version_mismatch": "Wersja moda nie pasuje do instancji",
   "mod_installed": "Pobrano i zainstalowano",
+  "mod_install_failed": "Instalacja nie powiodła się",
+  "batch_mods_partially_installed": "Zainstalowano {{count}} z {{total}} modów",
   "downloading_mods": "Pobieranie modów",
   "remove_unused_downloaded_mods": "Usuń nieużywane mody",
   "no_unused_downloaded_mods": "Wszystkie pobrane mody są zainstalowane.",
