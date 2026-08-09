@@ -12,7 +12,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Support development](https://img.shields.io/badge/Support-Development-8A2BE2)](https://hipolink.net/amadomuerte)
 
-[Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Guide](https://amadomuerte.github.io/Waxlight-launcher/) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte/tips)
+[Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Guide](https://amadomuerte.github.io/Waxlight-launcher/) · [Privacy policy](docs/PRIVACY.md) · [Code signing policy](docs/CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte/tips)
 </div>
  
 Waxlight is an independent, open-source launcher that brings Vintage Story accounts, game versions, isolated instances, mods, updates, and playtime into one desktop app for **Windows and Linux**.
@@ -65,13 +65,13 @@ Default data locations:
 
 The main data folder can be moved from **Settings → Data folder**. Account credentials remain in the operating system credential store.
 
-Waxlight sends minimal usage statistics such as launcher version, OS, and numeric counters. Telemetry can be disabled in **Settings → Privacy & telemetry**. Passwords, tokens, and personal files are never sent.
+Optional telemetry is disabled by default for new installations. When enabled, it sends a pseudonymous installation ID, launcher version, OS, architecture, and limited numeric or allowlisted operational data. It can be changed in **Settings → Privacy & telemetry**. See the [Privacy Policy](docs/PRIVACY.md) for the complete, current list of network transfers.
 
 See [SECURITY.md](docs/SECURITY.md) and [authentication notes](docs/authentication.md) for details.
 
 ## Build from source
 
-Requirements: **Go 1.24+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
+Requirements: **Go 1.25+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git

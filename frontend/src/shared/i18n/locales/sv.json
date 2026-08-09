@@ -554,7 +554,7 @@
   "mods_link_failed_count_many": "{{count}} moddar kunde inte länkas",
   "mods_link_failed_count_other": "{{count}} moddar kunde inte länkas",
   "privacy_and_telemetry": "Integritet och telemetri",
-  "privacy_and_telemetry_description": "Styr vad Waxlight får dela. Telemetrin är på som standard och kan stängas av här.",
+  "privacy_and_telemetry_description": "Styr vad Waxlight får dela. Telemetrin är avstängd som standard och kan aktiveras här.",
   "send_usage_analytics": "Skicka användningsstatistik",
   "telemetry_consent_notice": "Waxlight skickar bara ett slumpmässigt installations-ID, launcher-version, operativsystem, arkitektur och numeriska räknare (instanser, moddar). Aldrig: kontouppgifter, autentiseringstokens, personliga filer, instansnamn, moddlistor eller råa fel.",
   "backups": "Säkerhetskopior",

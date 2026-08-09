@@ -554,7 +554,7 @@
   "mods_link_failed_count_many": "{{count}} modów nie zostało powiązanych",
   "mods_link_failed_count_other": "{{count}} mody nie zostały powiązane",
   "privacy_and_telemetry": "Prywatność i telemetria",
-  "privacy_and_telemetry_description": "Zarządzaj tym, czym Waxlight może się dzielić. Telemetria jest domyślnie włączona i można ją tutaj wyłączyć.",
+  "privacy_and_telemetry_description": "Zarządzaj tym, czym Waxlight może się dzielić. Telemetria jest domyślnie wyłączona i można ją tutaj włączyć.",
   "send_usage_analytics": "Wysyłaj statystyki użycia",
   "telemetry_consent_notice": "Waxlight wysyła tylko losowy identyfikator instalacji, wersję launchera, system operacyjny, architekturę i liczniki numeryczne (instancje, mody). Nigdy: dane logowania, tokeny uwierzytelniania, pliki osobiste, nazwy instancji, listy modów ani surowe błędy.",
   "backups": "Kopie zapasowe",

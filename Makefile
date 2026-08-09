@@ -114,7 +114,7 @@ check-version-argument:
 		echo "usage: make release VERSION=0.1.3"; \
 		exit 1; \
 	fi
-	@if [[ ! "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$$ ]]; then \
+	@if [[ ! "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$ ]]; then \
 		echo "error: invalid semantic version: $(VERSION)"; \
 		exit 1; \
 	fi

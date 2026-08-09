@@ -111,11 +111,8 @@ func NewSignatureVerifier(trustedPublishers []string) *WindowsSignatureVerifier 
 }
 
 func (v *WindowsSignatureVerifier) Verify(ctx context.Context, executablePath string) error {
-	// The public Waxlight releases are currently unsigned. Their package hash is
-	// still verified before this method is called. Once a publisher subject or
-	// thumbprint is embedded at build time, Authenticode becomes mandatory.
 	if len(v.TrustedPublishers) == 0 {
-		return nil
+		return ErrNoTrustedPublisher
 	}
 
 	result, err := v.getSignature(ctx, executablePath)
@@ -251,5 +248,6 @@ var (
 	ErrSignatureNotTrusted   = fmt.Errorf("signature is not trusted by Windows")
 	ErrSignatureUnsupported  = fmt.Errorf("file format does not support Authenticode verification")
 	ErrSignatureIncompatible = fmt.Errorf("signature is incompatible with this Windows system")
+	ErrNoTrustedPublisher    = fmt.Errorf("no trusted Windows publisher is configured")
 	ErrPublisherMismatch     = fmt.Errorf("publisher does not match trusted list")
 )

@@ -3,9 +3,18 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 )
+
+func TestSignatureVerifierRejectsUpdatesWithoutTrustedPublisher(t *testing.T) {
+	verifier := NewSignatureVerifier(nil)
+	if err := verifier.Verify(context.Background(), `C:\update.exe`); !errors.Is(err, ErrNoTrustedPublisher) {
+		t.Fatalf("error = %v, want ErrNoTrustedPublisher", err)
+	}
+}
 
 func TestPowerShellSignatureStatusAcceptsNumericEnum(t *testing.T) {
 	var result powershellSignatureResult

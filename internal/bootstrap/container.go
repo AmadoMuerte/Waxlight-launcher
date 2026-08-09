@@ -86,6 +86,11 @@ func New() (*Container, error) {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("finish data folder relocation: %w", err)
 	}
+	if err := applyInstallerTelemetryConsent(context.Background(), store, dataRootManager.Home()); err != nil {
+		// Consent handling fails closed: an unreadable or malformed installer
+		// marker must never enable telemetry or prevent the launcher from starting.
+		slog.Warn("bootstrap: could not apply installer telemetry choice", "error", err)
+	}
 
 	if err := store.RecoverOpenSessions(context.Background(), time.Now().UTC()); err != nil {
 		slog.Warn("bootstrap: could not recover interrupted game sessions", "error", err)

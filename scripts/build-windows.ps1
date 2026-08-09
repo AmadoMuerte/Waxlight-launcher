@@ -68,13 +68,22 @@ function Get-WindowsFileVersion {
 
     if ($ReleaseVersion -match "-") {
         $Prerelease = ($ReleaseVersion -split "-", 2)[1]
-        $PrereleaseParts = $Prerelease -split "\."
+        $PrereleaseMatch = [regex]::Match($Prerelease, '^(alpha|beta|rc)\.([1-9][0-9]{0,3})$')
+        if (-not $PrereleaseMatch.Success) {
+            throw "Windows prereleases must use alpha.N, beta.N, or rc.N: $ReleaseVersion"
+        }
 
-        for ($i = $PrereleaseParts.Count - 1; $i -ge 0; $i--) {
-            if ($PrereleaseParts[$i] -match '^\d+$') {
-                $BuildNumber = [int]$PrereleaseParts[$i]
-                break
-            }
+        $Sequence = [int]$PrereleaseMatch.Groups[2].Value
+        if ($Sequence -gt 19999) {
+            throw "Windows prerelease sequence must not exceed 19999: $ReleaseVersion"
+        }
+
+        # Windows has one 16-bit revision field. Reserve disjoint ranges so
+        # alpha.1, beta.1, and rc.1 cannot collapse to the same file version.
+        $BuildNumber = switch ($PrereleaseMatch.Groups[1].Value) {
+            "alpha" { $Sequence }
+            "beta" { 20000 + $Sequence }
+            "rc" { 40000 + $Sequence }
         }
     }
 
@@ -216,7 +225,10 @@ function Test-WindowsMetadata {
         [string]$ExecutablePath,
 
         [Parameter(Mandatory = $true)]
-        [string]$ExpectedFileVersion
+        [string]$ExpectedFileVersion,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ExpectedFileDescription = "Waxlight Launcher"
     )
 
     if (-not (Test-Path -LiteralPath $ExecutablePath)) {
@@ -241,8 +253,8 @@ function Test-WindowsMetadata {
 
     $Errors = @()
 
-    if ($VersionInfo.FileDescription -ne "Waxlight Launcher") {
-        $Errors += "FileDescription must be 'Waxlight Launcher', got '$($VersionInfo.FileDescription)'"
+    if ($VersionInfo.FileDescription -ne $ExpectedFileDescription) {
+        $Errors += "FileDescription must be '$ExpectedFileDescription', got '$($VersionInfo.FileDescription)'"
     }
 
     if ($VersionInfo.ProductName -ne "Waxlight Launcher") {
@@ -325,6 +337,8 @@ $WailsWindowsInfo = Join-Path $WailsWindowsDirectory "info.json"
 $InstallerTemplateSource = Join-Path $RepositoryRoot "packaging\windows\project.nsi"
 $InstallerTemplateDirectory = Join-Path $WailsWindowsDirectory "installer"
 $InstallerTemplateDestination = Join-Path $InstallerTemplateDirectory "project.nsi"
+$PrivacyPolicySource = Join-Path $RepositoryRoot "docs\PRIVACY.md"
+$PrivacyPolicyDestination = Join-Path $InstallerTemplateDirectory "PRIVACY.md"
 $LicenseFile = Join-Path $RepositoryRoot "LICENSE"
 $NoticeFile = Join-Path $RepositoryRoot "NOTICE"
 
@@ -349,7 +363,7 @@ New-Item `
     -Path $ResolvedOutputDirectory `
     -Force | Out-Null
 
-foreach ($RequiredAsset in @($ApplicationIconPng, $ApplicationIconIco, $LicenseFile, $NoticeFile, $InstallerTemplateSource)) {
+foreach ($RequiredAsset in @($ApplicationIconPng, $ApplicationIconIco, $LicenseFile, $NoticeFile, $InstallerTemplateSource, $PrivacyPolicySource)) {
     if (-not (Test-Path -LiteralPath $RequiredAsset -PathType Leaf)) {
         throw "Required asset is missing: $RequiredAsset"
     }
@@ -403,6 +417,11 @@ New-Item `
 Copy-Item `
     -LiteralPath $InstallerTemplateSource `
     -Destination $InstallerTemplateDestination `
+    -Force
+
+Copy-Item `
+    -LiteralPath $PrivacyPolicySource `
+    -Destination $PrivacyPolicyDestination `
     -Force
 
 foreach ($ConfigPath in @($RootWailsConfig, $ProjectWailsConfig)) {
@@ -499,6 +518,11 @@ try {
         -ExecutablePath $ApplicationExecutable `
         -ExpectedFileVersion $WindowsFileVersion
 
+    Test-WindowsMetadata `
+        -ExecutablePath $InstallerExecutable `
+        -ExpectedFileVersion $WindowsFileVersion `
+        -ExpectedFileDescription "Waxlight Launcher Installer"
+
     $StandaloneName =
         "Waxlight-Launcher-v$ReleaseVersion-windows-amd64.exe"
 
@@ -553,6 +577,15 @@ try {
             -Path (Join-Path $PortableStagingDirectory "*") `
             -DestinationPath $PortablePath `
             -CompressionLevel Optimal
+
+        $PortableVerificationDirectory = Join-Path $PortableStagingDirectory "verify"
+        Expand-Archive `
+            -LiteralPath $PortablePath `
+            -DestinationPath $PortableVerificationDirectory `
+            -Force
+        Test-WindowsMetadata `
+            -ExecutablePath (Join-Path $PortableVerificationDirectory "waxlight.exe") `
+            -ExpectedFileVersion $WindowsFileVersion
     }
     finally {
         if (Test-Path -LiteralPath $PortableStagingDirectory) {

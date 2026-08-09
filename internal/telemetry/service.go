@@ -48,8 +48,17 @@ type Service struct {
 	store            Store
 	identity         *identity
 	now              func() time.Time
+	deliveryMu       sync.RWMutex
 	heartbeatMu      sync.Mutex
 	heartbeatPending bool
+}
+
+// SynchronizeConsent makes a persisted preference change atomic with respect to
+// starting a telemetry request. Callers must use it for writes to settings.
+func (s *Service) SynchronizeConsent(change func() error) error {
+	s.deliveryMu.Lock()
+	defer s.deliveryMu.Unlock()
+	return change()
 }
 
 func NewService(sender Sender, store Store) *Service {
@@ -95,6 +104,11 @@ func (s *Service) sendEvent(ctx context.Context, name string) {
 	if installationID == "" {
 		return
 	}
+	s.deliveryMu.RLock()
+	defer s.deliveryMu.RUnlock()
+	if !s.Enabled(ctx) {
+		return
+	}
 	err := s.sender.SendEvent(ctx, Event{
 		InstallationID: installationID,
 		AppVersion:     version.Version(),
@@ -135,6 +149,11 @@ func (s *Service) sendError(ctx context.Context, code, component, operation stri
 	}
 	installationID := s.identity.ID(ctx)
 	if installationID == "" {
+		return
+	}
+	s.deliveryMu.RLock()
+	defer s.deliveryMu.RUnlock()
+	if !s.Enabled(ctx) {
 		return
 	}
 	err := s.sender.SendError(ctx, ErrorEvent{
@@ -209,6 +228,11 @@ func (s *Service) sendHeartbeat(ctx context.Context) {
 			continue
 		}
 		modsCount += len(mods)
+	}
+	s.deliveryMu.RLock()
+	defer s.deliveryMu.RUnlock()
+	if !s.Enabled(ctx) {
+		return
 	}
 	err = s.sender.SendHeartbeat(ctx, Heartbeat{
 		InstallationID: installationID,
