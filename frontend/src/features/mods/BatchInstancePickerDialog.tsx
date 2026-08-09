@@ -16,8 +16,15 @@ import type {
 import { Button } from "../../shared/ui/button";
 import { Empty } from "../../shared/ui/empty";
 import { Modal } from "../../shared/ui/modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../shared/ui/select";
 import { CreateInstanceModal } from "../instances/CreateInstanceModal";
-import { instanceGameVersion } from "./lib";
+import { instanceGameVersion, releaseTypeLabel } from "./lib";
 
 interface SelectedMod {
   details: ModDetails;
@@ -247,18 +254,41 @@ export function BatchInstancePickerDialog({
         </section>
         <aside className="batchModList" aria-label={t("selected_mods")}>
           <h3>{t("selected_mods")}</h3>
-          {mods.map(({ details, release }) => {
+          {modsList.map(({ details, release }) => {
             const incompatible =
               instance &&
               !release.gameVersions.includes(instanceGameVersion(instance, gameVersions));
-            const supportedVersion = release.gameVersions.at(-1) || t("compatibility_unknown");
             return (
               <div
                 key={details.id}
                 className={`batchModItem ${incompatible ? "incompatible" : ""}`}
               >
                 <strong>{details.name}</strong>
-                <small>{t("last_supported_game_version", { version: supportedVersion })}</small>
+                <Select
+                  value={release.id}
+                  onValueChange={(releaseId) => {
+                    const nextRelease = details.versions.find(
+                      (version) => version.id === releaseId,
+                    );
+                    if (!nextRelease) return;
+                    setModsList((current) =>
+                      current.map((mod) =>
+                        mod.details.id === details.id ? { ...mod, release: nextRelease } : mod,
+                      ),
+                    );
+                  }}
+                >
+                  <SelectTrigger aria-label={t("update_to_version", { version: details.name })}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {details.versions.map((version) => (
+                      <SelectItem key={version.id} value={version.id}>
+                        {version.version} · {releaseTypeLabel(version.releaseType)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {incompatible && <span>{t("mod_version_mismatch")}</span>}
               </div>
             );
