@@ -1,0 +1,30 @@
+name: Auto assign PR author
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  assign-author:
+    name: Assign PR author
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Assign pull request author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/$GH_REPO/issues/$PR_NUMBER/assignees" \
+            -f "assignees[]=$PR_AUTHOR"
