@@ -467,7 +467,6 @@ main {
   background: linear-gradient(145deg, #19181b, #141416);
   box-shadow: 0 12px 32px #0002;
   cursor: pointer;
-  user-select: none;
   transition: 0.2s;
 }
 
@@ -492,6 +491,7 @@ main {
   font-family: Newsreader, Georgia, serif;
   font-size: 64px;
   text-shadow: 0 0 35px #e49237;
+  pointer-events: none;
 }
 
 .coverGlow {
