@@ -123,9 +123,13 @@ deterministic.
 
 Vintage Story requires these fields in plaintext while running. Malware with
 the same user privileges can read them then, and a backup or filesystem snapshot
-taken during play can capture them. Stop games before backup. There are
-currently no export, diagnostics, or support-bundle operations; future ones are
-required by CI/contributor policy to strip these properties.
+taken during play can capture them. Stop games before backup. Waxlight packages
+sanitize `clientsettings.json` before export, removing the four injected
+properties as well as other sensitive account and machine-specific settings.
+The redacted support-log export does not include credentials, account data, or
+private paths. Support exports and ordinary instance exports must never contain
+session keys, session signatures, MP tokens, passwords, credential-store
+secrets, or authentication tokens.
 
 ## Frontend and error boundary
 

@@ -34,9 +34,8 @@ Var TelemetryCheckbox
 Var TelemetryOptIn
 
 !insertmacro MUI_PAGE_WELCOME
-# SignPath Foundation requires software that transfers user data to display its
-# privacy policy during installation. build-windows.ps1 stages this file beside
-# project.nsi before Wails invokes NSIS.
+# Display the privacy policy during installation. build-windows.ps1 stages
+# this file beside project.nsi before Wails invokes NSIS.
 !insertmacro MUI_PAGE_LICENSE "PRIVACY.md"
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom TelemetryPageCreate TelemetryPageLeave

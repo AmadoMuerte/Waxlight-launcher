@@ -12,7 +12,7 @@
 [![Лицензия: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../LICENSE)
 [![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://hipolink.net/amadomuerte/tips)
 
-[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Гайд](https://amadomuerte.github.io/Waxlight-launcher/ru.html) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
+[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Гайд](https://amadomuerte.github.io/Waxlight-launcher/ru.html) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
 </div>
 
 Waxlight — независимый open-source лаунчер, который объединяет аккаунты Vintage Story, версии игры, изолированные сборки, моды, обновления и игровую статистику в одном приложении для **Windows и Linux**.
@@ -28,7 +28,7 @@ Waxlight — независимый open-source лаунчер, который �
 - Установка, обновление, включение, отключение и удаление модов для каждой сборки.
 - Учёт игрового времени, логи запуска, загрузки и фоновые операции.
 - Обновления лаунчера через Stable и Prerelease каналы с проверкой контрольных сумм.
-- Английский и русский интерфейс.
+- Языки интерфейса: English, Русский, Беларуская, Español, Français, Deutsch, Қазақша, Polski, Svenska и Português.
 - Выбор собственной папки для версий игры, сборок, модов, загрузок и базы данных.
 
 ## Скачивание
@@ -65,13 +65,13 @@ Waxlight — независимый open-source лаунчер, который �
 
 Основную папку данных можно перенести через **Настройки → Папка данных**. Учётные данные аккаунтов остаются в системном хранилище учётных данных ОС.
 
-Waxlight отправляет минимальную статистику использования: версию лаунчера, ОС и числовые счётчики. Телеметрию можно отключить в **Настройки → Конфиденциальность и телеметрия**. Пароли, токены и личные файлы не отправляются.
+Телеметрия необязательна и по умолчанию отключена для новых установок. Она включается только с явного согласия пользователя; при включении отправляет псевдонимный идентификатор установки, версию лаунчера, ОС, архитектуру и ограниченные числовые или разрешённые операционные данные. Её можно изменить или отключить в **Настройки → Конфиденциальность и телеметрия**. Полный актуальный список сетевых передач приведён в [Политике конфиденциальности](PRIVACY.md).
 
 Подробнее: [SECURITY.md](SECURITY.md) и [документация по авторизации](authentication.md).
 
 ## Сборка из исходного кода
 
-Требования: **Go 1.24+**, **Node.js 22+**, **Wails 2.11**, C-компилятор и необходимые [системные зависимости Wails](https://wails.io/docs/gettingstarted/installation/).
+Требования: **Go 1.25+**, **Node.js 22+**, **Wails 2.11**, C-компилятор и необходимые [системные зависимости Wails](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git

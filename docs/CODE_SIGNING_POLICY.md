@@ -1,6 +1,10 @@
 # Code signing policy
 
-**Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)**
+**Free code signing provided by SignPath.io, certificate by SignPath Foundation**
+
+SignPath.io: https://about.signpath.io
+
+SignPath Foundation: https://signpath.org
 
 This policy applies to Windows release artifacts produced by the Waxlight Launcher project. Legacy releases published before SignPath Foundation signing is activated may be unsigned.
 
@@ -29,6 +33,12 @@ The current one-person arrangement does not provide independent review or approv
 - Release build scripts, GitHub Actions workflows, packaging definitions, dependency changes, and signing configuration receive the same review attention as application code.
 - Every SignPath signing request requires manual approval by an Approver.
 - Signing must be tied to a verifiable automated build from this public source repository. Locally produced or manually substituted binaries are not eligible for signing.
+
+## Build provenance
+
+Windows release builds originate from a tagged commit in this public repository. GitHub Actions checks out that tag on a GitHub-hosted Windows runner, builds the Windows artifacts, validates their metadata, and uploads them as GitHub Actions artifacts. The publish job downloads those CI artifacts, generates `SHA256SUMS`, and attaches the final artifacts to the GitHub release.
+
+The public source, pinned release tag, build scripts, GitHub Actions workflow, CI logs, artifact names, metadata validation, and checksums allow the build process to be independently reproduced and the published artifacts to be verified. After SignPath approval, only the eligible GitHub Actions artifacts from this process may be submitted in a signing request; SignPath will not receive locally built or manually replaced binaries.
 
 ## Artifact rules
 
