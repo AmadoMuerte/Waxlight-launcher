@@ -446,6 +446,7 @@ func TestFailedLaunchDoesNotReplaceLastKnownGood(t *testing.T) {
 
 	// The new configuration crashes during startup.
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
+	setStartupWindow(t, time.Hour)
 	fixture.launch(t, instance.ID)
 	fixture.launcher.crash()
 	fixture.waitForGameExit(t)
@@ -525,6 +526,7 @@ func TestFailedLaunchWithoutChangesEmitsNoSuggestion(t *testing.T) {
 	fixture.waitForGameExit(t)
 
 	// The same configuration crashes during startup: no changes to report.
+	setStartupWindow(t, time.Hour)
 	fixture.launch(t, instance.ID)
 	fixture.launcher.crash()
 	fixture.waitForGameExit(t)
@@ -656,7 +658,7 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 }
 
 func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
-	setStartupWindow(t, 50*time.Millisecond)
+	setStartupWindow(t, time.Hour)
 	fixture := newLKGFixture(t)
 	ctx := context.Background()
 	fixture.service.ConfigureMods(nil, modstorage.New(fixture.root))
