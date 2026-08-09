@@ -14,6 +14,10 @@ export function DownloadMod(arg1) {
   return window['go']['presentation']['ModCatalogController']['DownloadMod'](arg1);
 }
 
+export function DownloadModsBatch(arg1) {
+  return window['go']['presentation']['ModCatalogController']['DownloadModsBatch'](arg1);
+}
+
 export function GetMod(arg1) {
   return window['go']['presentation']['ModCatalogController']['GetMod'](arg1);
 }

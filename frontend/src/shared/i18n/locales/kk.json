@@ -607,5 +607,17 @@
   "recovery_changes_since_title": "Соңғы сәтті іске қосудан бері өзгерістер:",
   "no_recovery_snapshot": "Қалпына келтіру нүктесі жоқ",
   "no_recovery_snapshot_hint": "Өзгерістерді қарап, жинақты қолмен реттеңіз.",
-  "vintage_story": "Vintage Story"
+  "vintage_story": "Vintage Story",
+  "select_mod": "{{name}} таңдау",
+  "selected_mods": "Таңдалған модтар",
+  "selected_mods_count": "Таңдалды: {{count}} мод",
+  "add_mods_or_create_instance": "Жинаққа қосу немесе жаңасын жасау",
+  "add_mods_to_instance": "Модтарды жинаққа қосу",
+  "choose_instance_for_mods": "{{count}} мод үшін жинақты таңдаңыз.",
+  "create_new_instance": "Жаңа жинақ жасау",
+  "add_to_instance": "Жинаққа қосу",
+  "last_supported_game_version": "Vintage Story {{version}} дейін қолдайды",
+  "mod_version_mismatch": "Мод нұсқасы таңдалған жинаққа сәйкес емес",
+  "mod_installed": "Жүктелді және орнатылды",
+  "downloading_mods": "Модтар жүктелуде"
 }

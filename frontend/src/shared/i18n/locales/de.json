@@ -607,5 +607,17 @@
   "recovery_changes_since_title": "Änderungen seit dem letzten erfolgreichen Start:",
   "no_recovery_snapshot": "Kein Wiederherstellungspunkt verfügbar",
   "no_recovery_snapshot_hint": "Prüfen Sie die Änderungen und passen Sie die Instanz manuell an.",
-  "vintage_story": "Vintage Story"
+  "vintage_story": "Vintage Story",
+  "select_mod": "{{name}} auswählen",
+  "selected_mods": "Ausgewählte Mods",
+  "selected_mods_count": "Ausgewählt: {{count}} Mods",
+  "add_mods_or_create_instance": "Zu Instanz hinzufügen oder neue erstellen",
+  "add_mods_to_instance": "Mods zu Instanz hinzufügen",
+  "choose_instance_for_mods": "Wähle eine Instanz für {{count}} Mods.",
+  "create_new_instance": "Neue Instanz erstellen",
+  "add_to_instance": "Zu Instanz hinzufügen",
+  "last_supported_game_version": "Unterstützt bis Vintage Story {{version}}",
+  "mod_version_mismatch": "Mod-Version stimmt nicht mit Instanz überein",
+  "mod_installed": "Heruntergeladen und installiert",
+  "downloading_mods": "Mods werden heruntergeladen"
 }

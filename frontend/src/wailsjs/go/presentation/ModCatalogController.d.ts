@@ -8,6 +8,8 @@ export function CheckModUpdates(arg1:string):Promise<Array<presentation.Download
 
 export function DownloadMod(arg1:presentation.DownloadCatalogModRequest):Promise<presentation.ModInstallResultDTO>;
 
+export function DownloadModsBatch(arg1:presentation.DownloadModsBatchRequest):Promise<Array<presentation.BatchModInstallResultDTO>>;
+
 export function GetMod(arg1:string):Promise<presentation.ModDetailsDTO>;
 
 export function InstallDownloadedMod(arg1:presentation.InstallDownloadedModRequest):Promise<presentation.ModInstallResultDTO>;

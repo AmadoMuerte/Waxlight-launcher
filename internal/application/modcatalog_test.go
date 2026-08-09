@@ -195,6 +195,46 @@ func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 	}
 }
 
+func TestDownloadCatalogModsBatchContinuesAfterTargetFailure(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Batch", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := domain.ModDetails{ModSummary: domain.ModSummary{ID: "first", Name: "First"}, Versions: []domain.ModVersion{{
+		ID: "1", Version: "1.0.0", GameVersions: []string{"1.19"}, FileName: "first.zip", DownloadURL: "https://cdn.test/first.zip",
+	}}}
+	second := domain.ModDetails{ModSummary: domain.ModSummary{ID: "second", Name: "Second"}, Versions: []domain.ModVersion{{
+		ID: "2", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "second.zip", DownloadURL: "https://cdn.test/second.zip",
+	}}}
+	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
+		"first": first, "second": second,
+	}}, modstorage.New(fixture.root))
+
+	results := fixture.service.DownloadCatalogModsBatch(ctx, domain.BatchDownloadModsRequest{
+		InstanceID: instance.ID,
+		Targets: []domain.DownloadModTarget{
+			{ModID: "first", VersionID: "1"},
+			{ModID: "missing", VersionID: "1"},
+			{ModID: "second", VersionID: "2"},
+		},
+	})
+	if len(results) != 3 || results[1].Error == "" {
+		t.Fatalf("unexpected batch results: %#v", results)
+	}
+	if !results[0].Result.Installations[0].Installed || !results[2].Result.Installations[0].Installed {
+		t.Fatalf("successful targets were not installed: %#v", results)
+	}
+	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	if err != nil || len(installed) != 2 {
+		t.Fatalf("unexpected installed mods: %#v, %v", installed, err)
+	}
+}
+
 func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()

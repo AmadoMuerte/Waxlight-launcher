@@ -1,6 +1,7 @@
 import { call } from "./bridge";
 import type {
   DownloadedMod,
+  ModBatchInstallResult,
   ModDetails,
   ModInstallResult,
   ModSearchQuery,
@@ -21,6 +22,10 @@ export const modCatalogApi = {
     downloadOnly: boolean;
     allowIncompatible: boolean;
   }) => call<ModInstallResult>("ModCatalogController", "DownloadMod", request),
+  downloadBatch: (request: {
+    instanceId: string;
+    targets: { modId: string; versionId: string }[];
+  }) => call<ModBatchInstallResult[]>("ModCatalogController", "DownloadModsBatch", request),
   installDownloaded: (request: {
     modId: string;
     versionId: string;

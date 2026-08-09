@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Account } from "../../entities/account/model";
 import type { GameVersion } from "../../entities/game-version/model";
 import { instancesApi } from "../../entities/instance/api";
+import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
 import { Field } from "../../shared/ui/field";
@@ -16,7 +17,7 @@ interface CreateInstanceModalProps {
   versions: GameVersion[];
   accounts: Account[];
   onClose: () => void;
-  onDone: () => Promise<void>;
+  onDone: (instance: Instance) => Promise<void>;
 }
 
 export function CreateInstanceModal({
@@ -37,7 +38,7 @@ export function CreateInstanceModal({
     setBusy(true);
     setError("");
     try {
-      await instancesApi.create({
+      const instance = await instancesApi.create({
         name: name.trim(),
         description,
         gameVersionId: versionID,
@@ -45,7 +46,7 @@ export function CreateInstanceModal({
         directory: "",
         launchArguments: [],
       });
-      await onDone();
+      await onDone(instance);
     } catch (createError) {
       setError(errorMessage(createError));
     } finally {

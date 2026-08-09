@@ -52,6 +52,170 @@ export namespace presentation {
 	        this.installStatus = source["installStatus"];
 	    }
 	}
+	export class ModInstallationResultDTO {
+	    instanceId: string;
+	    instanceName: string;
+	    installed: boolean;
+	    message: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ModInstallationResultDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.instanceName = source["instanceName"];
+	        this.installed = source["installed"];
+	        this.message = source["message"];
+	    }
+	}
+	export class InstalledModInstanceDTO {
+	    instanceId: string;
+	    instanceName: string;
+	    version: string;
+	    enabled: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new InstalledModInstanceDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.instanceName = source["instanceName"];
+	        this.version = source["version"];
+	        this.enabled = source["enabled"];
+	    }
+	}
+	export class DownloadedModDTO {
+	    modId: string;
+	    slug?: string;
+	    name: string;
+	    authorName: string;
+	    imageUrl?: string;
+	    side: string;
+	    versionId: string;
+	    downloadedVersion: string;
+	    gameVersions: string[];
+	    fileName: string;
+	    fileSize: number;
+	    downloadedAt: string;
+	    installedInstances: InstalledModInstanceDTO[];
+	    latestVersion?: string;
+	    updateAvailable: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new DownloadedModDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.slug = source["slug"];
+	        this.name = source["name"];
+	        this.authorName = source["authorName"];
+	        this.imageUrl = source["imageUrl"];
+	        this.side = source["side"];
+	        this.versionId = source["versionId"];
+	        this.downloadedVersion = source["downloadedVersion"];
+	        this.gameVersions = source["gameVersions"];
+	        this.fileName = source["fileName"];
+	        this.fileSize = source["fileSize"];
+	        this.downloadedAt = source["downloadedAt"];
+	        this.installedInstances = this.convertValues(source["installedInstances"], InstalledModInstanceDTO);
+	        this.latestVersion = source["latestVersion"];
+	        this.updateAvailable = source["updateAvailable"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ModInstallResultDTO {
+	    taskId: string;
+	    downloaded: DownloadedModDTO;
+	    installations: ModInstallationResultDTO[];
+
+	    static createFrom(source: any = {}) {
+	        return new ModInstallResultDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.taskId = source["taskId"];
+	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
+	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class BatchModInstallResultDTO {
+	    modId: string;
+	    versionId: string;
+	    result: ModInstallResultDTO;
+	    error?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new BatchModInstallResultDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modId = source["modId"];
+	        this.versionId = source["versionId"];
+	        this.result = this.convertValues(source["result"], ModInstallResultDTO);
+	        this.error = source["error"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class CloneInstanceRequest {
 	    sourceId: string;
 	    name: string;
@@ -178,62 +342,32 @@ export namespace presentation {
 	        this.allowIncompatible = source["allowIncompatible"];
 	    }
 	}
-	export class InstalledModInstanceDTO {
-	    instanceId: string;
-	    instanceName: string;
-	    version: string;
-	    enabled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new InstalledModInstanceDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.instanceName = source["instanceName"];
-	        this.version = source["version"];
-	        this.enabled = source["enabled"];
-	    }
-	}
-	export class DownloadedModDTO {
+	export class DownloadModTargetRequest {
 	    modId: string;
-	    slug?: string;
-	    name: string;
-	    authorName: string;
-	    imageUrl?: string;
-	    side: string;
 	    versionId: string;
-	    downloadedVersion: string;
-	    gameVersions: string[];
-	    fileName: string;
-	    fileSize: number;
-	    downloadedAt: string;
-	    installedInstances: InstalledModInstanceDTO[];
-	    latestVersion?: string;
-	    updateAvailable: boolean;
 	
 	    static createFrom(source: any = {}) {
-	        return new DownloadedModDTO(source);
+	        return new DownloadModTargetRequest(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
-	        this.slug = source["slug"];
-	        this.name = source["name"];
-	        this.authorName = source["authorName"];
-	        this.imageUrl = source["imageUrl"];
-	        this.side = source["side"];
 	        this.versionId = source["versionId"];
-	        this.downloadedVersion = source["downloadedVersion"];
-	        this.gameVersions = source["gameVersions"];
-	        this.fileName = source["fileName"];
-	        this.fileSize = source["fileSize"];
-	        this.downloadedAt = source["downloadedAt"];
-	        this.installedInstances = this.convertValues(source["installedInstances"], InstalledModInstanceDTO);
-	        this.latestVersion = source["latestVersion"];
-	        this.updateAvailable = source["updateAvailable"];
+	    }
+	}
+	export class DownloadModsBatchRequest {
+	    instanceId: string;
+	    targets: DownloadModTargetRequest[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DownloadModsBatchRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.targets = this.convertValues(source["targets"], DownloadModTargetRequest);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -254,6 +388,7 @@ export namespace presentation {
 		    return a;
 		}
 	}
+
 	export class PackageAuthorDTO {
 	    name?: string;
 	    homepage?: string;
@@ -1120,58 +1255,7 @@ export namespace presentation {
 		}
 	}
 	
-	export class ModInstallationResultDTO {
-	    instanceId: string;
-	    instanceName: string;
-	    installed: boolean;
-	    message: string;
 	
-	    static createFrom(source: any = {}) {
-	        return new ModInstallationResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.instanceId = source["instanceId"];
-	        this.instanceName = source["instanceName"];
-	        this.installed = source["installed"];
-	        this.message = source["message"];
-	    }
-	}
-	export class ModInstallResultDTO {
-	    taskId: string;
-	    downloaded: DownloadedModDTO;
-	    installations: ModInstallationResultDTO[];
-	
-	    static createFrom(source: any = {}) {
-	        return new ModInstallResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.taskId = source["taskId"];
-	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
-	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	
 	
 	export class ModSearchRequest {
@@ -1737,4 +1821,3 @@ export namespace presentation {
 	}
 
 }
-

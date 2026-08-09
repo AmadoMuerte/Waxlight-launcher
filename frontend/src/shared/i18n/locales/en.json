@@ -607,5 +607,17 @@
   "recovery_changes_since_title": "Changes since the last successful launch:",
   "no_recovery_snapshot": "No recovery snapshot is available",
   "no_recovery_snapshot_hint": "Review the changes and adjust the instance manually.",
-  "vintage_story": "Vintage Story"
+  "vintage_story": "Vintage Story",
+  "select_mod": "Select {{name}}",
+  "selected_mods": "Selected mods",
+  "selected_mods_count": "Selected: {{count}} mods",
+  "add_mods_or_create_instance": "Add to an instance or create one",
+  "add_mods_to_instance": "Add mods to an instance",
+  "choose_instance_for_mods": "Choose an instance for {{count}} selected mods.",
+  "create_new_instance": "Create new instance",
+  "add_to_instance": "Add to instance",
+  "last_supported_game_version": "Supported through Vintage Story {{version}}",
+  "mod_version_mismatch": "Mod version does not match selected instance",
+  "mod_installed": "Downloaded and installed",
+  "downloading_mods": "Downloading mods"
 }

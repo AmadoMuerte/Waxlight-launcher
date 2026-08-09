@@ -347,6 +347,33 @@ func (s *Service) DownloadCatalogMod(
 	return result, nil
 }
 
+// DownloadCatalogModsBatch continues after individual target failures so users
+// receive an outcome for every catalog mod selected for one instance.
+func (s *Service) DownloadCatalogModsBatch(
+	ctx context.Context,
+	request domain.BatchDownloadModsRequest,
+) []domain.BatchModInstallResult {
+	results := make([]domain.BatchModInstallResult, 0, len(request.Targets))
+	for _, target := range request.Targets {
+		result, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+			ModID:             target.ModID,
+			VersionID:         target.VersionID,
+			InstanceIDs:       []string{request.InstanceID},
+			AllowIncompatible: true,
+		})
+		item := domain.BatchModInstallResult{
+			ModID:     target.ModID,
+			VersionID: target.VersionID,
+			Result:    result,
+		}
+		if err != nil {
+			item.Error = err.Error()
+		}
+		results = append(results, item)
+	}
+	return results
+}
+
 func (s *Service) resolveAndDownloadCatalogMod(
 	ctx context.Context,
 	taskID string,
