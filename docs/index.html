@@ -1,22 +1,120 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Accounts, game versions, isolated setups, mods, launches, and playtime — together in one desktop application for Windows and Linux."><meta name="theme-color" content="#0b0d10">
-<title>Waxlight Launcher — a warm launcher for Vintage Story</title><link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Waxlight Launcher brings Vintage Story accounts, game versions, isolated instances, mods, backups, and playtime together for Windows and Linux.">
+  <meta name="theme-color" content="#12100d">
+  <title>Waxlight Launcher | A warm light for your worlds</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="site-header"><div class="container nav"><a class="brand" href="#top"><img src="https://raw.githubusercontent.com/AmadoMuerte/Waxlight-launcher/main/packaging/linux/com.waxlight.launcher.svg" alt="Waxlight"><span>Waxlight Launcher</span></a><nav class="nav-links"><a href="#features">Features</a><a href="#download">Download</a><a href="#security">Security</a><a href="#development">Development</a><a class="keep" href="https://github.com/AmadoMuerte/Waxlight-launcher">GitHub</a><span class="lang-switch"><a class="active" href="index.html">EN</a><a href="ru.html">RU</a></span></nav></div></header>
-<main id="top">
-<section class="hero"><div class="container hero-grid"><div><div class="eyebrow">A warm light for your worlds</div><h1>Waxlight<br>Launcher</h1><p>Accounts, game versions, isolated setups, mods, launches, and playtime — together in one desktop application for Windows and Linux.</p><div class="actions"><a class="btn primary" href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">Download latest release</a><a class="btn" href="https://github.com/AmadoMuerte/Waxlight-launcher">View on GitHub</a></div></div><aside class="hero-card"><img src="https://raw.githubusercontent.com/AmadoMuerte/Waxlight-launcher/main/packaging/linux/com.waxlight.launcher.svg" alt="Waxlight Launcher"><div class="badges"><span class="badge">Go</span><span class="badge">Wails</span><span class="badge">React</span><span class="badge">TypeScript</span><span class="badge">SQLite</span><span class="badge">Windows + Linux</span></div></aside></div></section>
-<section id="features" class="section"><div class="container"><div class="section-head"><div class="eyebrow">Waxlight</div><h2>A focused launcher for Vintage Story</h2></div><div class="grid features"><article class="card"><div class="icon">◫</div><h3>Isolated setups</h3><p>Create independent game environments so mods and settings never leak between setups.</p></article><article class="card"><div class="icon">♙</div><h3>Multiple accounts</h3><p>Manage several Vintage Story accounts, including TOTP/2FA authentication.</p></article><article class="card"><div class="icon">⬡</div><h3>Game versions</h3><p>Install multiple official game versions side by side and select one for each setup.</p></article><article class="card"><div class="icon">◇</div><h3>Mod browser</h3><p>Browse Vintage Story ModDB with search, filters, sorting, and detailed mod pages.</p></article><article class="card"><div class="icon">⇣</div><h3>Downloads and operations</h3><p>Track progress, cancel operations, resume where possible, and validate checksums.</p></article><article class="card"><div class="icon">◷</div><h3>Playtime statistics</h3><p>Track individual sessions, total playtime, and statistics for each setup.</p></article></div></div></section>
-<section id="download" class="section"><div class="container"><div class="section-head"><div class="eyebrow">GitHub Releases</div><h2>Download Waxlight</h2><p>Choose the package that fits your system. Official builds are published only through GitHub Releases.</p></div><div class="grid downloads"><article class="card download-card"><div class="platform">Windows x64</div><p>Installer with shortcuts and an uninstaller.</p><code>*-windows-amd64-installer.exe</code></article><article class="card download-card"><div class="platform">Windows Portable</div><p>Run without installing.</p><code>*-windows-amd64-portable.zip</code></article><article class="card download-card"><div class="platform">Debian / Ubuntu</div><p>Package for Debian, Ubuntu, Mint, and compatible systems.</p><code>*-linux-amd64.deb</code></article><article class="card download-card"><div class="platform">Fedora / RPM</div><p>Package for Fedora and RPM-compatible systems.</p><code>*-linux-amd64.rpm</code></article><article class="card download-card"><div class="platform">Linux Portable</div><p>Archive for other distributions with GTK 3 and WebKitGTK 4.1.</p><code>*-linux-amd64.tar.gz</code></article></div><div class="actions"><a class="btn primary" href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">GitHub Releases</a></div></div></section>
-<section class="section"><div class="container two-col"><div><div class="section-head"><h2>First launch</h2></div><div class="steps"><div class="step"><div><strong>Open Accounts and sign in with a Vintage Story account.</strong></div></div><div class="step"><div><strong>Install a supported version from Game Versions.</strong></div></div><div class="step"><div><strong>Create a setup in Library and select its account and game version.</strong></div></div><div class="step"><div><strong>Optionally install mods.</strong></div></div><div class="step"><div><strong>Select the setup and press Play.</strong></div></div></div></div><div id="security" class="callout"><div class="eyebrow">Security</div><h2>Security and privacy</h2><p>Passwords and TOTP codes are never persisted. Persistent session credentials use Secret Service on Linux and Windows Credential Manager on Windows. React receives allow-listed DTOs and cannot access raw session credentials.</p><div class="actions"><a class="btn" href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/SECURITY.md">SECURITY.md</a></div></div></div></section>
-<section id="development" class="section"><div class="container two-col"><div><div class="section-head"><div class="eyebrow">Open source</div><h2>Build from source</h2><p>GPL-3.0 · Contributions and translations are welcome.</p></div><pre class="code"><code>git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
-cd Waxlight-launcher
-npm ci --include=dev --prefix frontend
-go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
-make release-check</code></pre></div><div class="card"><h3>Architecture</h3><p>Presentation (Wails) → Application → Domain<br>Infrastructure → Application / Domain</p><br><h3>Project links</h3><p><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CONTRIBUTING.md">CONTRIBUTING.md ↗</a><br><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/authentication.md">Authentication notes ↗</a><br><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/LICENSE">GPL-3.0 license ↗</a></p></div></div></section>
-</main>
-<footer class="footer"><div class="container footer-row"><span>Waxlight Launcher is an independent project by AmadoMuerte and is not affiliated with the developers of Vintage Story.</span><span>© 2026 AmadoMuerte</span></div></footer>
-</body></html>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top"><img src="https://raw.githubusercontent.com/AmadoMuerte/Waxlight-launcher/main/packaging/linux/com.waxlight.launcher.svg" alt="Waxlight"><span>Waxlight Launcher</span></a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="#security">Security</a>
+        <a href="#community">Community</a>
+        <a class="nav-discord" href="https://discord.gg/CrRHvg9UVw">Discord</a>
+        <a class="keep" href="https://github.com/AmadoMuerte/Waxlight-launcher">GitHub</a>
+        <span class="lang-switch"><a class="active" href="index.html">EN</a><a href="ru.html">RU</a></span>
+      </nav>
+    </div>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow">Independent launcher for Vintage Story</div>
+          <h1>A warm light<br>for your <span>worlds.</span></h1>
+          <p class="hero-copy">Keep every adventure in its place. Waxlight brings accounts, game versions, isolated instances, mods, backups, and playtime into one considered desktop launcher for Windows and Linux.</p>
+          <div class="actions">
+            <a class="btn primary" href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">Download Waxlight</a>
+            <a class="btn" href="https://discord.gg/CrRHvg9UVw">Join Discord</a>
+            <a class="btn" href="https://hipolink.net/amadomuerte">Support the project</a>
+          </div>
+          <p class="hero-note">Free and open source. Not affiliated with Vintage Story or its developers.</p>
+        </div>
+        <aside class="lantern-card" aria-label="Waxlight Launcher">
+          <img src="https://raw.githubusercontent.com/AmadoMuerte/Waxlight-launcher/main/packaging/linux/com.waxlight.launcher.svg" alt="Waxlight Launcher icon">
+          <div class="lantern-caption">One launcher. Many worlds.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Built for a long journey</div>
+          <h2>Everything around the game, kept together.</h2>
+          <p>Waxlight helps you create a calm, repeatable space for every version, mod setup, and world you return to.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-mark">01</div><h3>Accounts and 2FA</h3><p>Manage multiple Vintage Story accounts with TOTP/2FA support and protected native credential storage.</p></article>
+          <article class="feature-card"><div class="feature-mark">02</div><h3>Game versions</h3><p>Install supported game versions side by side and choose the right one for every instance.</p></article>
+          <article class="feature-card"><div class="feature-mark">03</div><h3>Isolated instances</h3><p>Give each playthrough its own settings, mods, game version, launch arguments, and identity.</p></article>
+          <article class="feature-card"><div class="feature-mark">04</div><h3>ModDB in the launcher</h3><p>Browse Vintage Story ModDB, search and filter mods, then manage them directly per instance.</p></article>
+          <article class="feature-card"><div class="feature-mark">05</div><h3>Mod management</h3><p>Install, update, enable, disable, remove, and batch-install mods without leaving your library.</p></article>
+          <article class="feature-card"><div class="feature-mark">06</div><h3>Backups and recovery</h3><p>Create snapshots, receive safety backups before changes, and restore a known-good instance after trouble.</p></article>
+          <article class="feature-card"><div class="feature-mark">07</div><h3>Shareable packages</h3><p>Export and import Waxlight packages for instances while sanitizing authentication and private machine data.</p></article>
+          <article class="feature-card"><div class="feature-mark">08</div><h3>Downloads and operations</h3><p>Follow long-running work, inspect progress, cancel operations, and validate downloaded files.</p></article>
+          <article class="feature-card"><div class="feature-mark">09</div><h3>Playtime and logs</h3><p>Keep track of sessions and playtime, with launcher logs and a redacted support-log export when needed.</p></article>
+          <article class="feature-card"><div class="feature-mark">10</div><h3>Updates you control</h3><p>Choose stable or prerelease channels and verify release downloads with published SHA-256 checksums.</p></article>
+          <article class="feature-card"><div class="feature-mark">11</div><h3>Your data folder</h3><p>Move Waxlight data to a location you choose without mixing it with the game itself.</p></article>
+          <article class="feature-card"><div class="feature-mark">12</div><h3>Ten interface languages</h3><p>Use English, Русский, Беларуская, Español, Français, Deutsch, Қазақша, Polski, Svenska, or Português.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="section section-dark">
+      <div class="container download-layout">
+        <div class="download-intro">
+          <div><div class="eyebrow">GitHub Releases</div><h2>Bring a lantern.</h2><p>Official Waxlight builds are published only through GitHub Releases. Every release includes `SHA256SUMS` for integrity checks.</p></div>
+          <div class="actions"><a class="btn primary" href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">Get the latest release</a></div>
+        </div>
+        <div class="download-panel" aria-label="Available packages">
+          <div class="package"><strong>Windows x64</strong><span>Installer with shortcuts and uninstaller.</span><code>*-windows-amd64-installer.exe</code></div>
+          <div class="package"><strong>Windows Portable</strong><span>Run it without installation.</span><code>*-windows-amd64-portable.zip</code></div>
+          <div class="package"><strong>Debian / Ubuntu</strong><span>For Debian, Ubuntu, Mint, and compatible systems.</span><code>*-linux-amd64.deb</code></div>
+          <div class="package"><strong>Fedora / RPM</strong><span>For Fedora and RPM-compatible systems.</span><code>*-linux-amd64.rpm</code></div>
+          <div class="package"><strong>Linux Portable</strong><span>For other distributions with GTK 3 and WebKitGTK 4.1.</span><code>*-linux-amd64.tar.gz</code></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="section">
+      <div class="container trust-grid">
+        <article class="security-card">
+          <div class="eyebrow">Security and privacy</div>
+          <h2>Your credentials stay yours.</h2>
+          <p>Passwords and TOTP codes are never persisted. Persistent session credentials use Secret Service on Linux and Windows Credential Manager on Windows. Optional telemetry is disabled by default and can be changed later in Settings.</p>
+          <div class="policy-links"><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/SECURITY.md">Security documentation</a><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/PRIVACY.md">Privacy Policy</a><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md">Code Signing Policy</a></div>
+        </article>
+        <article id="community" class="community-card">
+          <div class="eyebrow">Community</div>
+          <h2>Come by the fire.</h2>
+          <p>Share feedback, ask for help, show your instances, and follow Waxlight development with the community on Discord.</p>
+          <div class="actions"><a class="btn primary" href="https://discord.gg/CrRHvg9UVw">Join the Discord</a><a class="btn" href="https://hipolink.net/amadomuerte">Support Waxlight</a></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-dark">
+      <div class="container start-grid">
+        <div><div class="eyebrow">First light</div><h2>Ready in a few steps.</h2><div class="steps"><div class="step"><span>1</span><strong>Open Accounts and sign in with a Vintage Story account.</strong></div><div class="step"><span>2</span><strong>Install a game version from Game Versions.</strong></div><div class="step"><span>3</span><strong>Create an instance in Library and choose its account and version.</strong></div><div class="step"><span>4</span><strong>Install mods if you need them, then press Play.</strong></div></div></div>
+        <aside class="source-card"><div class="eyebrow">Open source</div><h2>Build it yourself.</h2><p>Waxlight is GPL-3.0 licensed. Explore the source, open an issue, contribute a translation, or help shape the next release.</p><code>git clone https://github.com/AmadoMuerte/Waxlight-launcher.git<br>cd Waxlight-launcher<br>npm ci --include=dev --prefix frontend<br>make release-check</code><div class="actions"><a class="btn" href="https://github.com/AmadoMuerte/Waxlight-launcher">View on GitHub</a></div></aside>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div><h3>Waxlight Launcher</h3><p>An independent open-source project by AmadoMuerte for the Vintage Story community.</p></div>
+      <div><h3>Project</h3><a href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">Download</a><a href="https://github.com/AmadoMuerte/Waxlight-launcher">GitHub</a><a href="https://discord.gg/CrRHvg9UVw">Discord</a><a href="https://hipolink.net/amadomuerte">Support the project</a></div>
+      <div><h3>Policies</h3><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/PRIVACY.md">Privacy Policy</a><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/SECURITY.md">Security</a><a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md">Code Signing Policy</a></div>
+    </div>
+    <div class="container footer-bottom"><span>Waxlight is not affiliated with or endorsed by Vintage Story or its developers.</span><span>Copyright 2026 AmadoMuerte</span></div>
+  </footer>
+</body>
+</html>
