@@ -264,6 +264,18 @@ export interface ModInstallResult {
   installations: ModInstallationResult[];
 }
 
+export interface ModBatchInstallResult {
+  modId: string;
+  versionId: string;
+  result: ModInstallResult;
+  error?: string;
+}
+
+export interface DownloadedModCleanupResult {
+  removedCount: number;
+  freedBytes: number;
+}
+
 export interface ModUpdateTarget {
   modId: string;
   versionId: string;

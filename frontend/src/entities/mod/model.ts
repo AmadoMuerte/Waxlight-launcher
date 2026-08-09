@@ -1,5 +1,6 @@
 export type {
   DownloadedMod,
+  DownloadedModCleanupResult,
   InstanceModUpdateReport,
   InstallModFilesResult,
   InstalledMod,

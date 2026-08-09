@@ -14,8 +14,11 @@ const api = vi.hoisted(() => ({
   get: vi.fn(),
   downloaded: vi.fn(),
   download: vi.fn(),
+  downloadBatch: vi.fn(),
   installDownloaded: vi.fn(),
   removeDownloaded: vi.fn(),
+  previewUnusedDownloaded: vi.fn(),
+  removeUnusedDownloaded: vi.fn(),
   uploadMods: vi.fn(),
   uploadMod: vi.fn(),
   cancelTask: vi.fn(),
@@ -180,6 +183,8 @@ describe("mods browser", () => {
     api.downloaded.mockResolvedValue([]);
     api.checkUpdates.mockResolvedValue([]);
     api.tags.mockResolvedValue([]);
+    api.previewUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
+    api.removeUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
   });
 
   it("loads a URL-backed search and opens the instance picker", async () => {
@@ -192,6 +197,44 @@ describe("mods browser", () => {
     expect(await screen.findByRole("dialog", { name: "Download “Player Corpse”" })).toBeTruthy();
     expect(screen.getByText("Survival")).toBeTruthy();
     expect(screen.getByText("Compatible")).toBeTruthy();
+  });
+
+  it("adds selected mods to an instance as a batch", async () => {
+    api.downloadBatch.mockResolvedValue([
+      { modId: "51", versionId: "7", result: { installations: [] } },
+    ]);
+    renderPage("/mods");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("checkbox", { name: "Select Player Corpse" }));
+    await user.click(screen.getByRole("button", { name: "Add to an instance or create one" }));
+    expect(await screen.findByRole("dialog", { name: "Add mods to an instance" })).toBeTruthy();
+
+    await user.click(screen.getByRole("radio", { name: /Survival/ }));
+    await user.click(screen.getByRole("button", { name: "Add to instance" }));
+
+    await waitFor(() =>
+      expect(api.downloadBatch).toHaveBeenCalledWith({
+        instanceId: "instance-1",
+        targets: [{ modId: "51", versionId: "7" }],
+      }),
+    );
+  });
+
+  it("confirms before removing downloaded mods unused by instances", async () => {
+    api.previewUnusedDownloaded.mockResolvedValue({ removedCount: 2, freedBytes: 100 });
+    api.removeUnusedDownloaded.mockResolvedValue({ removedCount: 2, freedBytes: 100 });
+    renderPage("/mods?view=downloaded");
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Remove mods not installed in instances" }),
+    );
+    expect(await screen.findByText("2 mods will be removed.")).toBeTruthy();
+    expect(api.removeUnusedDownloaded).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(api.removeUnusedDownloaded).toHaveBeenCalled());
   });
 
   it("filters the catalog by tags from the tag dropdown", async () => {

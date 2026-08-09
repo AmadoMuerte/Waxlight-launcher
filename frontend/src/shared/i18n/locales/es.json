@@ -607,5 +607,22 @@
   "recovery_changes_since_title": "Cambios desde el último inicio correcto:",
   "no_recovery_snapshot": "No hay ninguna instantánea de recuperación disponible",
   "no_recovery_snapshot_hint": "Revisa los cambios y ajusta la instancia manualmente.",
-  "vintage_story": "Vintage Story"
+  "vintage_story": "Vintage Story",
+  "select_mod": "Seleccionar {{name}}",
+  "selected_mods": "Mods seleccionados",
+  "selected_mods_count": "Seleccionados: {{count}} mods",
+  "add_mods_or_create_instance": "Añadir a instancia o crear una",
+  "add_mods_to_instance": "Añadir mods a una instancia",
+  "choose_instance_for_mods": "Elige una instancia para {{count}} mods.",
+  "create_new_instance": "Crear nueva instancia",
+  "add_to_instance": "Añadir a instancia",
+  "last_supported_game_version": "Compatible hasta Vintage Story {{version}}",
+  "mod_version_mismatch": "La versión del mod no coincide con la instancia",
+  "mod_installed": "Descargado e instalado",
+  "downloading_mods": "Descargando mods",
+  "remove_unused_downloaded_mods": "Eliminar mods no instalados",
+  "no_unused_downloaded_mods": "Todos los mods descargados están instalados.",
+  "unused_downloaded_mods_confirm": "Se eliminarán {{count}} mods.",
+  "unused_downloaded_mods_warning": "No se eliminarán mods instalados ni dependencias.",
+  "unused_downloaded_mods_removed": "Se eliminaron {{count}} mods sin usar."
 }

@@ -6,17 +6,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Account } from "../../entities/account/model";
 import type { GameVersion } from "../../entities/game-version/model";
 import { instancesApi } from "../../entities/instance/api";
+import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
 import { Field } from "../../shared/ui/field";
 import { Modal } from "../../shared/ui/modal";
 import { SubmitForm } from "../../shared/ui/submit-form";
 
+function latestInstalledVersion(versions: GameVersion[]): GameVersion | undefined {
+  return versions.reduce<GameVersion | undefined>((latest, version) => {
+    if (!latest) return version;
+    if (latest.channel !== version.channel) {
+      return version.channel === "stable" ? version : latest;
+    }
+    const latestParts = latest.name.match(/\d+/g)?.map(Number) ?? [];
+    const versionParts = version.name.match(/\d+/g)?.map(Number) ?? [];
+    const length = Math.max(latestParts.length, versionParts.length);
+    for (let index = 0; index < length; index += 1) {
+      const difference = (versionParts[index] ?? 0) - (latestParts[index] ?? 0);
+      if (difference !== 0) return difference > 0 ? version : latest;
+    }
+    return latest;
+  }, undefined);
+}
+
 interface CreateInstanceModalProps {
   versions: GameVersion[];
   accounts: Account[];
   onClose: () => void;
-  onDone: () => Promise<void>;
+  onDone: (instance: Instance) => Promise<void>;
 }
 
 export function CreateInstanceModal({
@@ -28,7 +46,7 @@ export function CreateInstanceModal({
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [versionID, setVersionID] = useState(versions[0]?.id ?? "");
+  const [versionID, setVersionID] = useState(() => latestInstalledVersion(versions)?.id ?? "");
   const [accountID, setAccountID] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -37,7 +55,7 @@ export function CreateInstanceModal({
     setBusy(true);
     setError("");
     try {
-      await instancesApi.create({
+      const instance = await instancesApi.create({
         name: name.trim(),
         description,
         gameVersionId: versionID,
@@ -45,7 +63,7 @@ export function CreateInstanceModal({
         directory: "",
         launchArguments: [],
       });
-      await onDone();
+      await onDone(instance);
     } catch (createError) {
       setError(errorMessage(createError));
     } finally {

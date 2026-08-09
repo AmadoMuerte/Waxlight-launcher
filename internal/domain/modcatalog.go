@@ -131,10 +131,32 @@ type DownloadModRequest struct {
 	AllowIncompatible bool
 }
 
+type DownloadModTarget struct {
+	ModID     string
+	VersionID string
+}
+
+type BatchDownloadModsRequest struct {
+	InstanceID string
+	Targets    []DownloadModTarget
+}
+
 type ModInstallResult struct {
 	TaskID        string
 	Downloaded    DownloadedMod
 	Installations []ModInstallationResult
+}
+
+type BatchModInstallResult struct {
+	ModID     string
+	VersionID string
+	Result    ModInstallResult
+	Error     string
+}
+
+type DownloadedModCleanupResult struct {
+	RemovedCount int
+	FreedBytes   int64
 }
 
 type ModInstallationResult struct {

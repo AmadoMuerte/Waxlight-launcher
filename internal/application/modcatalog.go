@@ -347,6 +347,33 @@ func (s *Service) DownloadCatalogMod(
 	return result, nil
 }
 
+// DownloadCatalogModsBatch continues after individual target failures so users
+// receive an outcome for every catalog mod selected for one instance.
+func (s *Service) DownloadCatalogModsBatch(
+	ctx context.Context,
+	request domain.BatchDownloadModsRequest,
+) []domain.BatchModInstallResult {
+	results := make([]domain.BatchModInstallResult, 0, len(request.Targets))
+	for _, target := range request.Targets {
+		result, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+			ModID:             target.ModID,
+			VersionID:         target.VersionID,
+			InstanceIDs:       []string{request.InstanceID},
+			AllowIncompatible: true,
+		})
+		item := domain.BatchModInstallResult{
+			ModID:     target.ModID,
+			VersionID: target.VersionID,
+			Result:    result,
+		}
+		if err != nil {
+			item.Error = err.Error()
+		}
+		results = append(results, item)
+	}
+	return results
+}
+
 func (s *Service) resolveAndDownloadCatalogMod(
 	ctx context.Context,
 	taskID string,
@@ -437,18 +464,13 @@ func (s *Service) resolveAndDownloadCatalogMod(
 
 		dependencyCanonicalID := canonicalCatalogModID(dependencyDetails)
 		if alreadyResolved, ok := resolved[dependencyCanonicalID]; ok {
-			if !modVersionSatisfies(alreadyResolved.Version, requirement) {
-				return domain.DownloadedMod{}, domain.NewError(
-					domain.ErrModVersionNotFound,
-					fmt.Sprintf(
-						"Dependency %s requires %s, but the resolved version is %s",
-						dependencyDetails.Name,
-						requirement,
-						alreadyResolved.Version,
-					),
-				)
+			if modVersionSatisfies(alreadyResolved.Version, requirement) {
+				continue
 			}
-			continue
+			// A later branch can require a newer version of a shared library.
+			// Replace the earlier plan item with the version satisfying this branch.
+			delete(resolved, dependencyCanonicalID)
+			removeCatalogModFromInstallPlan(plan, dependencyDetails.ID)
 		}
 
 		if _, resolveErr := s.resolveAndDownloadCatalogMod(
@@ -475,6 +497,17 @@ func (s *Service) resolveAndDownloadCatalogMod(
 		DownloadedNow: downloadedNow,
 	})
 	return downloaded, nil
+}
+
+func removeCatalogModFromInstallPlan(plan *[]modInstallPlanItem, modID string) {
+	items := (*plan)[:0]
+	for _, item := range *plan {
+		if strings.EqualFold(item.Downloaded.ModID, modID) {
+			continue
+		}
+		items = append(items, item)
+	}
+	*plan = items
 }
 
 func (s *Service) downloadCatalogVersion(
@@ -1115,6 +1148,81 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	return nil
 }
 
+func (s *Service) PreviewUnusedDownloadedMods(
+	ctx context.Context,
+) (domain.DownloadedModCleanupResult, error) {
+	items, err := s.unusedDownloadedMods(ctx)
+	if err != nil {
+		return domain.DownloadedModCleanupResult{}, err
+	}
+	return downloadedModCleanupResult(items), nil
+}
+
+func (s *Service) RemoveUnusedDownloadedMods(
+	ctx context.Context,
+) (domain.DownloadedModCleanupResult, error) {
+	items, err := s.unusedDownloadedMods(ctx)
+	if err != nil {
+		return domain.DownloadedModCleanupResult{}, err
+	}
+	for _, item := range items {
+		if err := s.modDownloads.Delete(ctx, item.ModID, item.VersionID); err != nil {
+			return domain.DownloadedModCleanupResult{}, err
+		}
+		s.reportEvent(ctx, telemetry.EventModRemoved)
+	}
+	return downloadedModCleanupResult(items), nil
+}
+
+func (s *Service) unusedDownloadedMods(ctx context.Context) ([]domain.DownloadedMod, error) {
+	if s.modDownloads == nil {
+		return []domain.DownloadedMod{}, nil
+	}
+	items, err := s.modDownloads.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	installed := make(map[string]struct{})
+	for _, instance := range instances {
+		mods, listErr := s.store.ListMods(ctx, instance.ID)
+		if listErr != nil {
+			return nil, listErr
+		}
+		for _, mod := range mods {
+			modID, versionID, ok := parseModDBSource(mod.Source)
+			if ok {
+				installed[modDownloadKey(modID, versionID)] = struct{}{}
+			}
+		}
+	}
+	unused := make([]domain.DownloadedMod, 0, len(items))
+	for _, item := range items {
+		if _, used := installed[modDownloadKey(item.ModID, item.VersionID)]; used {
+			continue
+		}
+		key := modDownloadKey(item.ModID, item.VersionID)
+		s.operationsMu.Lock()
+		_, downloading := s.activeModDownloads[key]
+		s.operationsMu.Unlock()
+		if !downloading {
+			unused = append(unused, item)
+		}
+	}
+	return unused, nil
+}
+
+func downloadedModCleanupResult(items []domain.DownloadedMod) domain.DownloadedModCleanupResult {
+	result := domain.DownloadedModCleanupResult{RemovedCount: len(items)}
+	for _, item := range items {
+		result.FreedBytes += item.FileSize
+	}
+	return result
+}
+
 // removeSupersededCacheVersion deletes a cached mod version that was replaced by
 // an update, unless another instance still has that version installed. This
 // keeps the downloaded mods list free of duplicate entries for the same mod.
@@ -1736,6 +1844,21 @@ func parseModDBSource(source string) (string, string, bool) {
 func friendlyInstallError(err error) string {
 	if errors.Is(err, os.ErrPermission) {
 		return "Waxlight does not have permission to write to this instance"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "Mod installation was cancelled"
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return "The downloaded mod file is missing. Download it again and retry."
+	}
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "mod source must be a file"):
+		return "The downloaded mod is not a file"
+	case strings.Contains(message, "unsupported mod file extension"):
+		return "The downloaded file is not a supported mod archive"
+	case strings.Contains(message, "mod file already exists"):
+		return "A different mod file with this name already exists in the instance"
 	}
 	return "Could not install the mod in this instance"
 }

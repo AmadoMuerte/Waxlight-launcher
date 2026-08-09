@@ -13,6 +13,8 @@ interface ModCardProps {
   layout: "grid" | "list";
   onOpen: (modId: string) => void;
   onInstall: (modId: string, downloaded?: DownloadedMod) => void;
+  selected?: boolean;
+  onSelectedChange?: (modId: string, selected: boolean) => void;
   onDelete?: (downloaded: DownloadedMod) => void;
   installBusy?: boolean;
 }
@@ -28,6 +30,8 @@ export const ModCard = memo(function ModCard({
   layout,
   onOpen,
   onInstall,
+  selected = false,
+  onSelectedChange,
   onDelete,
   installBusy = false,
 }: ModCardProps) {
@@ -70,6 +74,17 @@ export const ModCard = memo(function ModCard({
         src={downloaded?.imageUrl ?? mod.imageUrl}
         alt={t("cover_alt", { name: mod.name })}
       />
+      {onSelectedChange && (
+        <label className="modSelectCheck">
+          <input
+            type="checkbox"
+            aria-label={t("select_mod", { name: mod.name })}
+            checked={selected}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSelectedChange(mod.id, event.target.checked)}
+          />
+        </label>
+      )}
       <div className="modCardBody">
         <div className="modCardTitle">
           <div>

@@ -607,5 +607,22 @@
   "recovery_changes_since_title": "Змяненні з апошняга паспяховага запуску:",
   "no_recovery_snapshot": "Няма даступнай кропкі аднаўлення",
   "no_recovery_snapshot_hint": "Вывучыце змяненні і наладзьце зборку ўручную.",
-  "vintage_story": "Vintage Story"
+  "vintage_story": "Vintage Story",
+  "select_mod": "Выбраць {{name}}",
+  "selected_mods": "Выбраныя моды",
+  "selected_mods_count": "Выбрана: {{count}} модаў",
+  "add_mods_or_create_instance": "Дадаць у зборку або стварыць новую",
+  "add_mods_to_instance": "Дадаць моды ў зборку",
+  "choose_instance_for_mods": "Выберыце зборку для {{count}} модаў.",
+  "create_new_instance": "Стварыць новую зборку",
+  "add_to_instance": "Дадаць у зборку",
+  "last_supported_game_version": "Падтрымка да Vintage Story {{version}}",
+  "mod_version_mismatch": "Версія мода не супадае з абранай у зборцы",
+  "mod_installed": "Спампаваны і ўсталяваны",
+  "downloading_mods": "Спампоўванне модаў",
+  "remove_unused_downloaded_mods": "Выдаліць моды па-за зборкамі",
+  "no_unused_downloaded_mods": "Усе спампаваныя моды ёсць у зборках.",
+  "unused_downloaded_mods_confirm": "Будзе выдалена модаў: {{count}}.",
+  "unused_downloaded_mods_warning": "Усталяваныя моды і залежнасці не будуць выдалены.",
+  "unused_downloaded_mods_removed": "Выдалена невыкарыстаных модаў: {{count}}."
 }

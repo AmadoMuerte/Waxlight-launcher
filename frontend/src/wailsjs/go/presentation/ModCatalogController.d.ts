@@ -8,6 +8,8 @@ export function CheckModUpdates(arg1:string):Promise<Array<presentation.Download
 
 export function DownloadMod(arg1:presentation.DownloadCatalogModRequest):Promise<presentation.ModInstallResultDTO>;
 
+export function DownloadModsBatch(arg1:presentation.DownloadModsBatchRequest):Promise<Array<presentation.BatchModInstallResultDTO>>;
+
 export function GetMod(arg1:string):Promise<presentation.ModDetailsDTO>;
 
 export function InstallDownloadedMod(arg1:presentation.InstallDownloadedModRequest):Promise<presentation.ModInstallResultDTO>;
@@ -16,7 +18,11 @@ export function ListDownloadedMods():Promise<Array<presentation.DownloadedModDTO
 
 export function ListModTags():Promise<Array<presentation.ModTagDTO>>;
 
+export function PreviewUnusedDownloadedMods():Promise<presentation.DownloadedModCleanupResultDTO>;
+
 export function RemoveDownloadedMod(arg1:string,arg2:string):Promise<void>;
+
+export function RemoveUnusedDownloadedMods():Promise<presentation.DownloadedModCleanupResultDTO>;
 
 export function SearchMods(arg1:presentation.ModSearchRequest):Promise<presentation.ModSearchResultDTO>;
 
