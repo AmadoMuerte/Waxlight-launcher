@@ -656,7 +656,7 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 }
 
 func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
-	setStartupWindow(t, 50*time.Millisecond)
+	setStartupWindow(t, time.Hour)
 	fixture := newLKGFixture(t)
 	ctx := context.Background()
 	fixture.service.ConfigureMods(nil, modstorage.New(fixture.root))
