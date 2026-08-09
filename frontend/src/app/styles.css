@@ -194,22 +194,58 @@ button {
 
 .sidebarFoot {
   margin-top: auto;
-  padding: 20px 12px 0;
-  color: #8e8984;
-  font-size: 12px;
-  line-height: 1.7;
+  padding: 20px 0 0;
+  border-top: 1px solid #242225;
 }
 
-.sidebarFoot small {
-  display: block;
-  color: #5f5c5a;
+.discordLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid #3b373c;
+  border-radius: 10px;
+  color: #ded8d1;
+  background: linear-gradient(100deg, #ffffff08, #ffffff03);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
 }
 
-.warmLine {
-  width: 32px;
-  height: 1px;
-  margin-bottom: 12px;
-  background: linear-gradient(90deg, var(--amber), transparent);
+.discordLink:hover {
+  border-color: #826a4f;
+  background: linear-gradient(100deg, #e5a84b16, #ffffff08);
+  transform: translateY(-1px);
+}
+
+.discordLink:focus-visible {
+  outline: 2px solid var(--amber-light);
+  outline-offset: 2px;
+}
+
+.discordLinkIcon {
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #fff;
+  background: #5865f2;
+  box-shadow: 0 0 14px #5865f250;
+}
+
+.discordLinkIcon svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
 }
 
 main {
