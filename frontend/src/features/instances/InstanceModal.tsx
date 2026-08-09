@@ -10,8 +10,8 @@ import type { Account } from "../../entities/account/model";
 import type { GameVersion } from "../../entities/game-version/model";
 import { instancesApi } from "../../entities/instance/api";
 import type { Instance } from "../../entities/instance/model";
-import { modsApi } from "../../entities/mod/api";
-import type { InstalledMod, InstanceModUpdateReport } from "../../entities/mod/model";
+import { modCatalogApi, modsApi } from "../../entities/mod/api";
+import type { InstalledMod, InstanceModUpdateReport, ModVersion } from "../../entities/mod/model";
 import { settingsApi } from "../../entities/settings/api";
 import { useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
@@ -55,6 +55,13 @@ export function InstanceModal({
   const { data: settings } = useSettingsQuery();
   const [tab, setTab] = useState<InstanceTab>("overview");
   const [mods, setMods] = useState<InstalledMod[]>([]);
+  const [versionsByModID, setVersionsByModID] = useState<Record<string, ModVersion[]>>({});
+  const [loadingVersionModIDs, setLoadingVersionModIDs] = useState<Set<string>>(new Set());
+  const [updatingModID, setUpdatingModID] = useState("");
+  const [versionChangeError, setVersionChangeError] = useState<{
+    modID: string;
+    message: string;
+  }>();
   const [name, setName] = useState(instance.name);
   const [description, setDescription] = useState(instance.description);
   const [versionID, setVersionID] = useState(instance.gameVersionId);
@@ -196,6 +203,52 @@ export function InstanceModal({
       void linkLocalMods();
     }
   }, [loadMods, loadUpdates, linkLocalMods]);
+
+  async function loadModVersions(mod: InstalledMod) {
+    const [source, modID] = mod.source.split(":");
+    if (
+      source !== "moddb" ||
+      !modID ||
+      Object.hasOwn(versionsByModID, mod.id) ||
+      loadingVersionModIDs.has(mod.id)
+    ) {
+      return;
+    }
+    setLoadingVersionModIDs((current) => new Set(current).add(mod.id));
+    try {
+      const details = await modCatalogApi.get(modID);
+      setVersionsByModID((current) => ({ ...current, [mod.id]: details.versions }));
+    } catch {
+      setVersionsByModID((current) => ({ ...current, [mod.id]: [] }));
+    } finally {
+      setLoadingVersionModIDs((current) => {
+        const next = new Set(current);
+        next.delete(mod.id);
+        return next;
+      });
+    }
+  }
+
+  async function changeModVersion(mod: InstalledMod, targetVersionID: string) {
+    const [source, modID] = mod.source.split(":");
+    if (source !== "moddb" || !modID) return;
+    setUpdatingModID(mod.id);
+    setVersionChangeError(undefined);
+    try {
+      await modsApi.updateInstance({
+        instanceId: instance.id,
+        mods: [{ modId: modID, versionId: targetVersionID }],
+        allowIncompatible: false,
+      });
+      await loadMods();
+      await loadUpdates();
+      await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+    } catch (error) {
+      setVersionChangeError({ modID: mod.id, message: errorMessage(error) });
+    } finally {
+      setUpdatingModID("");
+    }
+  }
 
   async function installMods() {
     try {
@@ -455,47 +508,98 @@ export function InstanceModal({
             />
           ) : (
             <div className="installedModList">
-              {mods.map((mod) => (
-                <article className="installedModRow" key={mod.id}>
-                  <div className="modRowIcon" aria-hidden="true">
-                    ◇
-                  </div>
-                  <div className="modRowCopy">
-                    <strong>
-                      {mod.name}
-                      {mod.managed ? (
-                        <span className="modSourceBadge managed">{t("managed_mod")}</span>
+              {mods.map((mod) => {
+                const modVersions = (versionsByModID[mod.id] ?? []).filter(
+                  (version) => version.version !== mod.version,
+                );
+                const catalogManaged = mod.source.startsWith("moddb:");
+                const loadingVersions = loadingVersionModIDs.has(mod.id);
+                return (
+                  <article className="installedModRow" key={mod.id}>
+                    <div className="modRowIcon" aria-hidden="true">
+                      ◇
+                    </div>
+                    <div className="modRowCopy">
+                      <strong>
+                        {mod.name}
+                        {mod.managed ? (
+                          <span className="modSourceBadge managed">{t("managed_mod")}</span>
+                        ) : (
+                          <span className="modSourceBadge local">{t("local_mod")}</span>
+                        )}
+                      </strong>
+                      {catalogManaged ? (
+                        <Select
+                          value=""
+                          disabled={updatingModID === mod.id}
+                          onValueChange={(targetVersionID) =>
+                            void changeModVersion(mod, targetVersionID)
+                          }
+                          onOpenChange={(open) => {
+                            if (open) void loadModVersions(mod);
+                          }}
+                        >
+                          <SelectTrigger
+                            className="installedModVersion"
+                            aria-label={t("update_to_version", { version: mod.name })}
+                          >
+                            <SelectValue
+                              placeholder={t("version_value", { version: mod.version })}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {loadingVersions ? (
+                              <SelectItem value="loading" disabled>
+                                {t("loading_mods")}
+                              </SelectItem>
+                            ) : modVersions.length > 0 ? (
+                              modVersions.map((version) => (
+                                <SelectItem key={version.id} value={version.id}>
+                                  {t("version_value", { version: version.version })}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="unavailable" disabled>
+                                {t("no_downloadable_mod_version")}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       ) : (
-                        <span className="modSourceBadge local">{t("local_mod")}</span>
+                        <small>{t("version_value", { version: mod.version })}</small>
                       )}
-                    </strong>
-                    <small>{t("version_value", { version: mod.version })}</small>
-                    <code title={mod.fileName}>{mod.fileName}</code>
-                  </div>
-                  <div className="modRowActions">
-                    <Checkbox
-                      label={t("enabled")}
-                      checked={mod.enabled}
-                      onChange={async (event) => {
-                        try {
-                          await modsApi.toggle(mod.id, event.target.checked);
-                          await loadMods();
-                          await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
-                        } catch (error) {
-                          notify(errorMessage(error), "error");
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="ghost"
-                      className="dangerGhost"
-                      onClick={() => void requestModRemoval(mod)}
-                    >
-                      {t("remove")}
-                    </Button>
-                  </div>
-                </article>
-              ))}
+                      {versionChangeError?.modID === mod.id && (
+                        <p className="installedModVersionError" role="alert">
+                          {versionChangeError.message}
+                        </p>
+                      )}
+                      <code title={mod.fileName}>{mod.fileName}</code>
+                    </div>
+                    <div className="modRowActions">
+                      <Checkbox
+                        label={t("enabled")}
+                        checked={mod.enabled}
+                        onChange={async (event) => {
+                          try {
+                            await modsApi.toggle(mod.id, event.target.checked);
+                            await loadMods();
+                            await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+                          } catch (error) {
+                            notify(errorMessage(error), "error");
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        className="dangerGhost"
+                        onClick={() => void requestModRemoval(mod)}
+                      >
+                        {t("remove")}
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>

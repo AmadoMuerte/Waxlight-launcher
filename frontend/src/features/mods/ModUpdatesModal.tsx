@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
-import { modsApi } from "../../entities/mod/api";
-import type { InstanceModUpdateReport, ModUpdate } from "../../entities/mod/model";
+import { modCatalogApi, modsApi } from "../../entities/mod/api";
+import type { InstanceModUpdateReport, ModUpdate, ModVersion } from "../../entities/mod/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { Modal } from "../../shared/ui/modal";
-import { plainText } from "./lib";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../shared/ui/select";
+import { plainText, releaseTypeLabel } from "./lib";
 
 interface ModUpdatesModalProps {
   instanceId: string;
@@ -28,12 +35,53 @@ export function ModUpdatesModal({
   const { t } = useTranslation();
   const notify = useToastStore((state) => state.notify);
   const [allowIncompatible, setAllowIncompatible] = useState(false);
+  const updates = report.mods.filter((mod) => mod.status === "update_available");
+  const [selectedModIds, setSelectedModIds] = useState(
+    () => new Set(updates.filter((mod) => mod.compatible).map((mod) => mod.modId)),
+  );
+  const [versionIds, setVersionIds] = useState<Record<string, string>>(() =>
+    Object.fromEntries(updates.map((mod) => [mod.modId, mod.targetVersionId])),
+  );
+  const [versionsByModId, setVersionsByModId] = useState<Record<string, ModVersion[]>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const updates = report.mods.filter((mod) => mod.status === "update_available");
-  const pending = updates.filter((mod) => mod.compatible || allowIncompatible);
-  const skipped = updates.filter((mod) => !mod.compatible && !allowIncompatible);
+  useEffect(() => {
+    let active = true;
+    const updateable = report.mods.filter((mod) => mod.status === "update_available");
+    void (async () => {
+      const entries = await Promise.all(
+        updateable.map(async (mod) => {
+          try {
+            const details = await modCatalogApi.get(mod.modId);
+            return [mod.modId, details.versions] as const;
+          } catch {
+            return [mod.modId, []] as const;
+          }
+        }),
+      );
+      if (active) setVersionsByModId(Object.fromEntries(entries));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [report]);
+
+  function selectedVersionIsCompatible(mod: ModUpdate) {
+    const version = versionsByModId[mod.modId]?.find(
+      (item) => item.id === (versionIds[mod.modId] ?? mod.targetVersionId),
+    );
+    return version ? version.gameVersions.includes(report.gameVersion) : mod.compatible;
+  }
+
+  const pending = updates.filter(
+    (mod) =>
+      selectedModIds.has(mod.modId) && (selectedVersionIsCompatible(mod) || allowIncompatible),
+  );
+  const skipped = updates.filter(
+    (mod) =>
+      selectedModIds.has(mod.modId) && !selectedVersionIsCompatible(mod) && !allowIncompatible,
+  );
   const notUpdatable = report.summary.notUpdatableLocal + report.summary.notUpdatableAbsent;
 
   async function applyUpdates() {
@@ -44,7 +92,10 @@ export function ModUpdatesModal({
       // safety snapshot first and then applies every update.
       await modsApi.updateInstance({
         instanceId,
-        mods: pending.map((mod) => ({ modId: mod.modId, versionId: mod.targetVersionId })),
+        mods: pending.map((mod) => ({
+          modId: mod.modId,
+          versionId: versionIds[mod.modId] ?? mod.targetVersionId,
+        })),
         allowIncompatible,
       });
       await onApplied();
@@ -62,18 +113,41 @@ export function ModUpdatesModal({
       <div className="modalBody formFields">
         <p className="muted">
           {t("mod_updates_for", { name: instanceName })}
-          {report.gameVersion
-            ? ` · ${t("update_incompatible_with", { version: report.gameVersion })}`
-            : ""}
+          {report.gameVersion ? ` · ${t("vintage_story")} ${report.gameVersion}` : ""}
         </p>
 
         {updates.length === 0 ? (
           <div className="inlineNotice">{t("no_mod_updates")}</div>
         ) : (
           <ul className="modUpdateList">
-            {updates.map((mod) => (
-              <ModUpdateRow key={mod.modId} mod={mod} gameVersion={report.gameVersion} />
-            ))}
+            {updates.map((mod) => {
+              const selectedVersionId = versionIds[mod.modId] ?? mod.targetVersionId;
+              const versions = (versionsByModId[mod.modId] ?? []).filter(
+                (version) => version.version !== mod.installedVersion,
+              );
+              return (
+                <ModUpdateRow
+                  key={mod.modId}
+                  mod={mod}
+                  gameVersion={report.gameVersion}
+                  versions={versions}
+                  selected={selectedModIds.has(mod.modId)}
+                  selectedVersionId={selectedVersionId}
+                  compatible={selectedVersionIsCompatible(mod)}
+                  onSelectedChange={(selected) => {
+                    setSelectedModIds((current) => {
+                      const next = new Set(current);
+                      if (selected) next.add(mod.modId);
+                      else next.delete(mod.modId);
+                      return next;
+                    });
+                  }}
+                  onVersionChange={(versionId) =>
+                    setVersionIds((current) => ({ ...current, [mod.modId]: versionId }))
+                  }
+                />
+              );
+            })}
           </ul>
         )}
 
@@ -89,13 +163,11 @@ export function ModUpdatesModal({
           </div>
         )}
 
-        {updates.some((mod) => !mod.compatible) && (
-          <Checkbox
-            label={t("allow_incompatible_mod_updates")}
-            checked={allowIncompatible}
-            onChange={(event) => setAllowIncompatible(event.target.checked)}
-          />
-        )}
+        <Checkbox
+          label={t("allow_incompatible_mod_updates")}
+          checked={allowIncompatible}
+          onChange={(event) => setAllowIncompatible(event.target.checked)}
+        />
 
         {error && (
           <div className="inlineError" role="alert">
@@ -121,23 +193,67 @@ export function ModUpdatesModal({
   );
 }
 
-function ModUpdateRow({ mod, gameVersion }: { mod: ModUpdate; gameVersion: string }) {
+function ModUpdateRow({
+  mod,
+  gameVersion,
+  versions,
+  selected,
+  selectedVersionId,
+  compatible,
+  onSelectedChange,
+  onVersionChange,
+}: {
+  mod: ModUpdate;
+  gameVersion: string;
+  versions: ModVersion[];
+  selected: boolean;
+  selectedVersionId: string;
+  compatible: boolean;
+  onSelectedChange: (selected: boolean) => void;
+  onVersionChange: (versionId: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <li className="modUpdateRow">
       <div className="modUpdateHeader">
-        <strong>{mod.name}</strong>
-        <span className="modUpdateVersions">
-          {t("mod_update_versions", {
-            installed: mod.installedVersion,
-            latest: mod.targetVersion,
-          })}
-        </span>
+        <Checkbox
+          label={mod.name}
+          checked={selected}
+          onChange={(event) => onSelectedChange(event.target.checked)}
+        />
+        {versions.length > 0 ? (
+          <Select value={selectedVersionId} onValueChange={onVersionChange}>
+            <SelectTrigger
+              className="modUpdateVersions"
+              aria-label={t("update_to_version", { version: mod.name })}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {versions.map((version) => (
+                <SelectItem key={version.id} value={version.id}>
+                  {t("mod_update_versions", {
+                    installed: mod.installedVersion,
+                    latest: version.version,
+                  })}{" "}
+                  · {releaseTypeLabel(version.releaseType)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="modUpdateVersions">
+            {t("mod_update_versions", {
+              installed: mod.installedVersion,
+              latest: mod.targetVersion,
+            })}
+          </span>
+        )}
       </div>
 
-      {(!mod.compatible || mod.prerelease) && (
+      {(!compatible || mod.prerelease) && (
         <div className="modUpdateTags">
-          {!mod.compatible && (
+          {!compatible && (
             <span className="tag tagDanger">
               {t("update_incompatible_with", { version: gameVersion })}
             </span>
