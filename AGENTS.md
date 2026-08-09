@@ -9,9 +9,99 @@
 - Run `make lint` for Linux-targeted Go static analysis and frontend `oxlint`; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
 - Pre-commit runs `make format-check lint` and blocks commits on failure. Use `git commit --no-verify` only for an emergency bypass.
 - Full release validation requires a version: `make release-check VERSION=X.Y.Z`.
-- `make release VERSION=X.Y.Z` requires clean, synchronized `main` and then commits version files, pushes `main`, and creates and pushes a release tag.
+- `make release VERSION=X.Y.Z` is a release-only command and must be run from a clean, synchronized `main` branch. It commits version files, pushes `main`, and creates and pushes a release tag.
+- Never run release commands from `dev`, feature branches, fix branches, or pull request branches.
 - Run `wails dev` only from `cmd/waxlight`. Build supported desktop artifacts with `make wails-build`; plain `go build` without Wails desktop tags is not a supported GUI build.
 - Native credential-store integration tests are tagged and require Linux Secret Service or Windows Credential Manager; CI provides those platform services.
+
+## Git Branching And Pull Requests
+
+### Branch roles
+
+- `main` is the stable production branch. It contains only code that has already passed CI and integration testing and is ready for release.
+- `dev` is the integration and testing branch. Normal development work is merged into `dev` first.
+- Never use `main` as the base branch for normal feature, fix, refactor, documentation, dependency, or maintenance work.
+- Never commit or push directly to `main`.
+- Never commit or push directly to `dev` unless the task explicitly requires an administrative branch-maintenance change that cannot reasonably go through a pull request.
+- Never force-push `main` or `dev`.
+- Never delete `main` or `dev`.
+- Never create a release tag from `dev` or any working branch.
+
+### Working branches
+
+- Start normal work from the latest `dev`:
+  ```bash
+  git switch dev
+  git pull --ff-only origin dev
+  git switch -c <type>/<short-description>
+  ```
+- Use descriptive branch prefixes such as:
+  - `feat/` for features
+  - `fix/` for bug fixes
+  - `refactor/` for refactors
+  - `chore/` for maintenance
+  - `docs/` for documentation
+  - `test/` for test-only changes
+  - `ci/` for CI changes
+- Keep working branches focused on one logical change. Do not mix unrelated cleanup into the same pull request.
+
+### Pull request targets
+
+- All normal pull requests must target `dev`.
+- When using GitHub CLI for normal development, explicitly set the base branch:
+  ```bash
+  gh pr create --base dev
+  ```
+- A pull request from a feature/fix/refactor/chore/docs/test/ci branch directly into `main` is forbidden.
+- The only normal pull request allowed to target `main` is:
+  ```text
+  dev -> main
+  ```
+- `dev -> main` is the release/integration promotion pull request and must only be opened after the current `dev` state has been tested and is considered release-ready.
+- Do not change the base branch from `dev` to `main` merely to make a pull request mergeable.
+- If a task or agent session started from `main` by mistake and the work is not a release promotion, move the work onto a branch based on `dev` before opening the pull request.
+
+### Required validation
+
+- CI must run for pull requests targeting both `dev` and `main`.
+- Do not merge a pull request while required checks are failing, cancelled, pending indefinitely, or missing.
+- The protected branches are expected to require the repository's configured checks, including tests/static checks, security checks, native credential-store integration checks, and Linux/Windows production builds.
+- Do not bypass branch protection, required checks, or pull-request requirements just to merge faster.
+- Do not modify repository branch protection, rulesets, required checks, or merge policies unless the task explicitly asks for repository-administration changes.
+- Resolve review conversations before merging when branch protection requires it.
+
+### Promotion and release flow
+
+Normal development:
+
+```text
+feat/* / fix/* / refactor/* / chore/* / docs/* / test/* / ci/*
+                              |
+                              v
+                             dev
+                              |
+                    integration testing
+                              |
+                              v
+                         dev -> main
+                              |
+                              v
+                             main
+                              |
+                              v
+                           release
+```
+
+Before promoting `dev` to `main`:
+
+1. Ensure `dev` is up to date and CI is green.
+2. Run the relevant local validation for the accumulated changes.
+3. Test the launcher behavior that cannot be fully covered by automated CI.
+4. Open a pull request from `dev` to `main`.
+5. Merge only after all required checks pass.
+6. Update local `main` with `git pull --ff-only origin main`.
+7. Run release validation from `main`.
+8. Run `make release VERSION=X.Y.Z` only when the release is intentionally being published.
 
 ## Structure
 
@@ -90,8 +180,13 @@
 ## GitHub Communication
 
 - Write all GitHub content exclusively in English: pull request titles and descriptions, commit messages, review comments, issue comments, replies, and labels. Never write GitHub content in Russian or any other language.
+- Normal development pull requests must target `dev`.
+- Pull requests targeting `main` are reserved for `dev -> main` promotion only.
+- When an agent creates a normal pull request with GitHub CLI, use `gh pr create --base dev`.
+- Never bypass required CI checks or branch protection to merge a pull request.
 
 ## Localization And Releases
 
 - Frontend localization rules live in the Frontend section above.
 - Release versions must match both `wails.json` and `cmd/waxlight/wails.json`; use `make set-version VERSION=X.Y.Z` rather than changing one file.
+- Releases are produced only from `main`, after `dev` has been promoted through a successful `dev -> main` pull request.
