@@ -243,4 +243,24 @@ describe("batch instance picker installed indicator", () => {
     const survival = screen.getByText("Survival").closest("label");
     expect(survival?.className).not.toContain("installed");
   });
+
+  it("installs version selected in the batch dialog", async () => {
+    api.downloadBatch.mockResolvedValue([]);
+    const user = userEvent.setup();
+    const selectedMod = mod("51", "Player Corpse");
+    selectedMod.versions = [release("7", "2.0.0"), release("8", "2.1.0")];
+    renderDialog([{ details: selectedMod, release: selectedMod.versions[0] }]);
+
+    await user.click(screen.getByRole("combobox", { name: "Update to Player Corpse" }));
+    await user.click(screen.getByText("2.1.0 · Stable"));
+    await user.click(screen.getByRole("radio", { name: /Survival/ }));
+    await user.click(screen.getByRole("button", { name: "Add to instance" }));
+
+    await waitFor(() =>
+      expect(api.downloadBatch).toHaveBeenCalledWith({
+        instanceId: "inst-1",
+        targets: [{ modId: "51", versionId: "8" }],
+      }),
+    );
+  });
 });

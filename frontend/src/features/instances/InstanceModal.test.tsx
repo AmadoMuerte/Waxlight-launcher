@@ -24,6 +24,11 @@ const modsApi = vi.hoisted(() => ({
   previewDelete: vi.fn(),
   installMany: vi.fn(),
   toggle: vi.fn(),
+  updateInstance: vi.fn(),
+}));
+
+const modCatalogApi = vi.hoisted(() => ({
+  get: vi.fn(),
 }));
 
 const settingsApi = vi.hoisted(() => ({
@@ -35,6 +40,7 @@ const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
 
 vi.mock("../../shared/api/instances", () => ({ instancesApi }));
 vi.mock("../../shared/api/mods", () => ({ modsApi }));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi }));
 vi.mock("../../entities/settings/queries", () => settingsQuery);
 
@@ -81,10 +87,12 @@ const installedMod = {
   fileName: "playercorpse.zip",
   enabled: true,
   managed: true,
+  source: "moddb:playercorpse:7",
 };
 
 function renderModal() {
   const notify = vi.fn();
+  const onModUpdatesChanged = vi.fn();
   useToastStore.setState({ notify });
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -102,11 +110,12 @@ function renderModal() {
           onClose={vi.fn()}
           onExport={vi.fn()}
           onClone={vi.fn()}
+          onModUpdatesChanged={onModUpdatesChanged}
         />
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { notify };
+  return { notify, onModUpdatesChanged };
 }
 
 async function openSettingsTab() {
@@ -154,6 +163,27 @@ describe("confirmDeletion gate", () => {
     modsApi.linkLocal.mockResolvedValue({ linked: [], notMatched: [] });
     modsApi.remove.mockResolvedValue(undefined);
     modsApi.previewDelete.mockResolvedValue({ dependencies: [] });
+    modsApi.updateInstance.mockResolvedValue({ updated: 1 });
+    modCatalogApi.get.mockResolvedValue({
+      versions: [
+        {
+          id: "7",
+          version: "2.0.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "playercorpse.zip",
+          fileSize: 1,
+        },
+        {
+          id: "8",
+          version: "2.1.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "playercorpse.zip",
+          fileSize: 1,
+        },
+      ],
+    });
     settingsApi.selectModFiles.mockResolvedValue([]);
     settingsApi.openDirectory.mockResolvedValue(undefined);
   });
@@ -206,6 +236,41 @@ describe("confirmDeletion gate", () => {
 
     await waitFor(() => expect(modsApi.remove).toHaveBeenCalledWith("mod-1", false));
     expect(screen.queryByText(/Remove mod “Player Corpse”/)).toBeNull();
+  });
+
+  it("installs a selected catalog version from the instance mods tab", async () => {
+    const { onModUpdatesChanged } = renderModal();
+    const user = await openModsTab();
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
+    await user.click(await screen.findByText("Version 2.1.0"));
+
+    await waitFor(() =>
+      expect(modsApi.updateInstance).toHaveBeenCalledWith({
+        instanceId: "instance-1",
+        mods: [{ modId: "playercorpse", versionId: "8" }],
+        allowIncompatible: false,
+      }),
+    );
+    await waitFor(() =>
+      expect(onModUpdatesChanged).toHaveBeenCalledWith(
+        "instance-1",
+        expect.objectContaining({ gameVersion: "1.20" }),
+      ),
+    );
+  });
+
+  it("shows version installation errors beside the mod selector", async () => {
+    modsApi.updateInstance.mockRejectedValue(new Error("Selected version is incompatible"));
+    renderModal();
+    const user = await openModsTab();
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
+    await user.click(await screen.findByText("Version 2.1.0"));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Selected version is incompatible",
+    );
   });
 
   it("shows a confirm dialog before removing a mod when confirmDeletion is true", async () => {

@@ -5,14 +5,37 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
-import type { InstanceModUpdateReport } from "../../entities/mod/model";
+import type { InstanceModUpdateReport, ModDetails } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
 const api = vi.hoisted(() => ({
   updateInstance: vi.fn(),
 }));
+const catalogApi = vi.hoisted(() => ({
+  get: vi.fn(),
+}));
 
 vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
+vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: catalogApi }));
+
+function details(modId: string, versions: ModDetails["versions"]): ModDetails {
+  return {
+    id: modId,
+    name: modId,
+    authorName: "Ada",
+    summary: "",
+    side: "both",
+    gameVersions: ["1.20"],
+    downloads: 0,
+    tags: [],
+    isDownloaded: true,
+    isInstalled: true,
+    updateAvailable: true,
+    description: "",
+    screenshots: [],
+    versions,
+  };
+}
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",
@@ -75,6 +98,7 @@ function renderModal(reportValue: InstanceModUpdateReport = report) {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  catalogApi.get.mockResolvedValue(details("fallback", []));
 });
 
 describe("ModUpdatesModal", () => {
@@ -131,8 +155,90 @@ describe("ModUpdatesModal", () => {
     const apply = screen.getByRole("button", { name: /update/i }) as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
 
+    await user.click(screen.getByLabelText("Old Mod"));
+    expect(apply.disabled).toBe(true);
     await user.click(screen.getByLabelText(/allow updates/i));
     expect(apply.disabled).toBe(false);
+  });
+
+  it("sends only checked mods at their selected versions", async () => {
+    api.updateInstance.mockResolvedValue({ updated: 1 });
+    catalogApi.get.mockImplementation((modId: string) =>
+      Promise.resolve(
+        details(modId, [
+          {
+            id: "v2",
+            version: "1.3.0",
+            gameVersions: modId === "oldmod" ? [] : ["1.20"],
+            releaseType: "stable",
+            fileName: "v2.zip",
+            fileSize: 1,
+          },
+          {
+            id: "v3",
+            version: "1.4.0",
+            gameVersions: modId === "oldmod" ? [] : ["1.20"],
+            releaseType: "stable",
+            fileName: "v3.zip",
+            fileSize: 1,
+          },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Stone Quarry" }));
+    await user.click(screen.getByText("1.2.0 → 1.4.0 · Stable"));
+    await user.click(screen.getByLabelText("Stone Quarry"));
+    await user.click(screen.getByLabelText("Old Mod"));
+    await user.click(screen.getByLabelText(/allow updates/i));
+
+    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
+    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
+    expect(api.updateInstance).toHaveBeenCalledWith({
+      instanceId: "instance-1",
+      mods: [{ modId: "oldmod", versionId: "v2" }],
+      allowIncompatible: true,
+    });
+  });
+
+  it("uses a selected target version in the update request", async () => {
+    api.updateInstance.mockResolvedValue({ updated: 1 });
+    catalogApi.get.mockResolvedValue(
+      details("stonequarry", [
+        {
+          id: "v2",
+          version: "1.3.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "v2.zip",
+          fileSize: 1,
+        },
+        {
+          id: "v3",
+          version: "1.4.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "v3.zip",
+          fileSize: 1,
+        },
+      ]),
+    );
+    const user = userEvent.setup();
+    renderModal({ ...report, mods: [report.mods[0]] });
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Stone Quarry" }));
+    await user.click(screen.getByText("1.2.0 → 1.4.0 · Stable"));
+    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
+
+    await waitFor(() =>
+      expect(api.updateInstance).toHaveBeenCalledWith({
+        instanceId: "instance-1",
+        mods: [{ modId: "stonequarry", versionId: "v3" }],
+        allowIncompatible: false,
+      }),
+    );
   });
 
   it("strips HTML tags from the changelog description", async () => {

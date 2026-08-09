@@ -92,6 +92,7 @@ FunctionEnd
 
 Section
     !insertmacro wails.setShellContext
+    SetShellVarContext current
     !insertmacro wails.webview2runtime
 
     SetOutPath $INSTDIR
@@ -121,6 +122,7 @@ SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
+    SetShellVarContext current
 
     RMDir /r $INSTDIR
 

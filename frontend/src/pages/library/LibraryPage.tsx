@@ -73,6 +73,12 @@ export function LibraryPage() {
     setModUpdates(collected);
   }, []);
 
+  const handleModUpdatesChanged = useCallback(
+    (instanceID: string, report: InstanceModUpdateReport) =>
+      setModUpdates((current) => ({ ...current, [instanceID]: report })),
+    [],
+  );
+
   useEffect(() => {
     if (checkedOnceRef.current) {
       return;
@@ -259,6 +265,7 @@ export function LibraryPage() {
           onClose={() => setSelectedInstance(undefined)}
           onExport={() => setExportingInstance(selectedInstance)}
           onClone={() => setCloningInstance(selectedInstance)}
+          onModUpdatesChanged={handleModUpdatesChanged}
         />
       )}
 
