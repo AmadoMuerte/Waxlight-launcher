@@ -445,6 +445,58 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	}
 }
 
+func TestDownloadCatalogModUpgradesSharedDependencyVersion(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Shared dependency", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	root := domain.ModDetails{ModSummary: domain.ModSummary{ID: "root", Name: "Root"}, Versions: []domain.ModVersion{{
+		ID: "root-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "root.zip", DownloadURL: "https://cdn.test/root.zip",
+	}}}
+	first := domain.ModDetails{ModSummary: domain.ModSummary{ID: "first", Name: "First"}, Versions: []domain.ModVersion{{
+		ID: "first-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "first.zip", DownloadURL: "https://cdn.test/first.zip",
+	}}}
+	second := domain.ModDetails{ModSummary: domain.ModSummary{ID: "second", Name: "Second"}, Versions: []domain.ModVersion{{
+		ID: "second-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "second.zip", DownloadURL: "https://cdn.test/second.zip",
+	}}}
+	library := domain.ModDetails{ModSummary: domain.ModSummary{ID: "library", Name: "Library"}, Versions: []domain.ModVersion{
+		{ID: "library-9", Version: "2.0.9", GameVersions: []string{"1.20"}, FileName: "library-9.zip", DownloadURL: "https://cdn.test/library-9.zip"},
+		{ID: "library-10", Version: "2.0.10", GameVersions: []string{"1.20"}, FileName: "library-10.zip", DownloadURL: "https://cdn.test/library-10.zip"},
+	}}
+	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{manifests: map[string]map[string]any{
+		"https://cdn.test/root.zip":       {"modid": "root", "version": "1.0.0", "dependencies": map[string]string{"first": "1.0.0", "second": "1.0.0"}},
+		"https://cdn.test/first.zip":      {"modid": "first", "version": "1.0.0", "dependencies": map[string]string{"library": "2.0.9"}},
+		"https://cdn.test/second.zip":     {"modid": "second", "version": "1.0.0", "dependencies": map[string]string{"library": "2.0.10"}},
+		"https://cdn.test/library-9.zip":  {"modid": "library", "version": "2.0.9", "dependencies": map[string]string{}},
+		"https://cdn.test/library-10.zip": {"modid": "library", "version": "2.0.10", "dependencies": map[string]string{}},
+	}}, nil)
+	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
+		"root": root, "first": first, "second": second, "library": library,
+	}}, modstorage.New(fixture.root))
+
+	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		ModID: "root", VersionID: "root-1", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources := make(map[string]bool, len(installed))
+	for _, mod := range installed {
+		sources[mod.Source] = true
+	}
+	if !sources["moddb:library:library-10"] || sources["moddb:library:library-9"] {
+		t.Fatalf("expected only upgraded library version to be installed: %#v", sources)
+	}
+}
+
 func twoVersionCorpseCatalog() staticModCatalog {
 	details := domain.ModDetails{
 		ModSummary: domain.ModSummary{

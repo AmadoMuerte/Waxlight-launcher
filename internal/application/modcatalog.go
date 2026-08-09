@@ -464,18 +464,13 @@ func (s *Service) resolveAndDownloadCatalogMod(
 
 		dependencyCanonicalID := canonicalCatalogModID(dependencyDetails)
 		if alreadyResolved, ok := resolved[dependencyCanonicalID]; ok {
-			if !modVersionSatisfies(alreadyResolved.Version, requirement) {
-				return domain.DownloadedMod{}, domain.NewError(
-					domain.ErrModVersionNotFound,
-					fmt.Sprintf(
-						"Dependency %s requires %s, but the resolved version is %s",
-						dependencyDetails.Name,
-						requirement,
-						alreadyResolved.Version,
-					),
-				)
+			if modVersionSatisfies(alreadyResolved.Version, requirement) {
+				continue
 			}
-			continue
+			// A later branch can require a newer version of a shared library.
+			// Replace the earlier plan item with the version satisfying this branch.
+			delete(resolved, dependencyCanonicalID)
+			removeCatalogModFromInstallPlan(plan, dependencyDetails.ID)
 		}
 
 		if _, resolveErr := s.resolveAndDownloadCatalogMod(
@@ -502,6 +497,17 @@ func (s *Service) resolveAndDownloadCatalogMod(
 		DownloadedNow: downloadedNow,
 	})
 	return downloaded, nil
+}
+
+func removeCatalogModFromInstallPlan(plan *[]modInstallPlanItem, modID string) {
+	items := (*plan)[:0]
+	for _, item := range *plan {
+		if strings.EqualFold(item.Downloaded.ModID, modID) {
+			continue
+		}
+		items = append(items, item)
+	}
+	*plan = items
 }
 
 func (s *Service) downloadCatalogVersion(
