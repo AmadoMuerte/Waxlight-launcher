@@ -102,6 +102,31 @@ func (controller *ModCatalogController) DownloadMod(
 	return modInstallResultDTO(result), err
 }
 
+type DownloadModTargetRequest struct {
+	ModID     string `json:"modId"`
+	VersionID string `json:"versionId"`
+}
+
+type DownloadModsBatchRequest struct {
+	InstanceID string                     `json:"instanceId"`
+	Targets    []DownloadModTargetRequest `json:"targets"`
+}
+
+func (controller *ModCatalogController) DownloadModsBatch(
+	request DownloadModsBatchRequest,
+) []BatchModInstallResultDTO {
+	targets := make([]domain.DownloadModTarget, 0, len(request.Targets))
+	for _, target := range request.Targets {
+		targets = append(targets, domain.DownloadModTarget{
+			ModID: target.ModID, VersionID: target.VersionID,
+		})
+	}
+	return batchModInstallResultsDTO(controller.svc.DownloadCatalogModsBatch(
+		context.Background(),
+		domain.BatchDownloadModsRequest{InstanceID: request.InstanceID, Targets: targets},
+	))
+}
+
 type InstallDownloadedModRequest struct {
 	ModID             string   `json:"modId"`
 	VersionID         string   `json:"versionId"`
@@ -124,6 +149,16 @@ func (controller *ModCatalogController) RemoveDownloadedMod(
 	versionID string,
 ) error {
 	return controller.svc.RemoveDownloadedMod(context.Background(), modID, versionID)
+}
+
+func (controller *ModCatalogController) PreviewUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
+	result, err := controller.svc.PreviewUnusedDownloadedMods(context.Background())
+	return downloadedModCleanupResultDTO(result), err
+}
+
+func (controller *ModCatalogController) RemoveUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
+	result, err := controller.svc.RemoveUnusedDownloadedMods(context.Background())
+	return downloadedModCleanupResultDTO(result), err
 }
 
 func (controller *ModCatalogController) UploadMods(

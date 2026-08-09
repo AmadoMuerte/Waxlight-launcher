@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 
+import { useModSelectionStore } from "../../app/stores/mod-selection";
 import { useToastStore } from "../../app/stores/toast";
+import { useAccountsQuery } from "../../entities/account/queries";
 import {
   useAvailableGameVersionsQuery,
   useGameVersionsQuery,
@@ -12,6 +14,7 @@ import {
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { modCatalogApi } from "../../entities/mod/api";
 import type {
+  DownloadedModCleanupResult,
   DownloadedMod,
   ModDetails,
   ModSearchQuery,
@@ -24,16 +27,22 @@ import {
 } from "../../entities/mod/queries";
 import { settingsApi } from "../../entities/settings/api";
 import { useSettingsQuery } from "../../entities/settings/queries";
+import { BatchInstancePickerDialog } from "../../features/mods/BatchInstancePickerDialog";
 import { InstancePickerDialog } from "../../features/mods/InstancePickerDialog";
 import {
   gameVersionSeries,
   gameVersionSeriesOf,
   matchesGameVersionSeries,
+  chooseRelease,
 } from "../../features/mods/lib";
 import { ModCard } from "../../features/mods/ModCard";
 import { ModsFilters } from "../../features/mods/ModsFilters";
 import { errorMessage } from "../../shared/api/bridge";
-import { DOWNLOADED_MODS_QUERY_KEY, MOD_TAGS_QUERY_KEY } from "../../shared/api/keys";
+import {
+  DOWNLOADED_MODS_QUERY_KEY,
+  INSTANCES_QUERY_KEY,
+  MOD_TAGS_QUERY_KEY,
+} from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
@@ -47,6 +56,7 @@ export function ModsPage() {
   const notify = useToastStore((state) => state.notify);
   const { data: settings } = useSettingsQuery();
   const { data: instances = [] } = useInstancesQuery();
+  const { data: accounts = [] } = useAccountsQuery();
   const { data: versions = [] } = useGameVersionsQuery();
   const { data: availableVersions = [] } = useAvailableGameVersionsQuery();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,6 +70,14 @@ export function ModsPage() {
     preferredVersionId?: string;
   }>();
   const [openingModId, setOpeningModId] = useState("");
+  const selectedModIds = useModSelectionStore((state) => state.selectedModIds);
+  const setSelectedMod = useModSelectionStore((state) => state.setSelected);
+  const clearSelectedMods = useModSelectionStore((state) => state.clear);
+  const [batchMods, setBatchMods] =
+    useState<
+      { details: ModDetails; release: ModDetails["versions"][number]; downloaded?: DownloadedMod }[]
+    >();
+  const [openingBatch, setOpeningBatch] = useState(false);
   const [layout, setLayout] = useState<"grid" | "list">(() =>
     readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
   );
@@ -70,6 +88,8 @@ export function ModsPage() {
     message?: string;
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
+  const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
+  const [cleaning, setCleaning] = useState(false);
 
   const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
   const instanceId = searchParams.get("instanceId") ?? "";
@@ -241,6 +261,67 @@ export function ModsPage() {
     }
   }
 
+  const toggleSelectedMod = useCallback(
+    (modId: string, selected: boolean) => {
+      setSelectedMod(modId, selected);
+    },
+    [setSelectedMod],
+  );
+
+  const downloadedByModId = useMemo(
+    () => new Map(downloaded.map((item) => [item.modId, item])),
+    [downloaded],
+  );
+
+  const openBatchInstaller = useCallback(async () => {
+    setOpeningBatch(true);
+    try {
+      const details = await Promise.all(selectedModIds.map((modId) => modCatalogApi.get(modId)));
+      const selected = details.flatMap((item) => {
+        const release = chooseRelease(item.versions);
+        return release
+          ? [{ details: item, release, downloaded: downloadedByModId.get(item.id) }]
+          : [];
+      });
+      if (selected.length === 0) {
+        notify(t("no_downloadable_mod_version"), "error");
+        return;
+      }
+      setBatchMods(selected);
+    } catch (loadError) {
+      notify(errorMessage(loadError), "error");
+    } finally {
+      setOpeningBatch(false);
+    }
+  }, [downloadedByModId, notify, selectedModIds, t]);
+
+  async function previewUnusedDownloadedMods() {
+    try {
+      const preview = await modCatalogApi.previewUnusedDownloaded();
+      if (preview.removedCount === 0) {
+        notify(t("no_unused_downloaded_mods"));
+        return;
+      }
+      setCleanupPreview(preview);
+    } catch (previewError) {
+      notify(errorMessage(previewError), "error");
+    }
+  }
+
+  async function removeUnusedDownloadedMods() {
+    setCleaning(true);
+    try {
+      const result = await modCatalogApi.removeUnusedDownloaded();
+      setCleanupPreview(undefined);
+      await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+      notify(t("unused_downloaded_mods_removed", { count: result.removedCount }));
+    } catch (cleanupError) {
+      notify(errorMessage(cleanupError), "error");
+    } finally {
+      setCleaning(false);
+    }
+  }
+
   const localByModId = useMemo(
     () => new Map(filteredDownloaded.map((item) => [item.modId, item])),
     [filteredDownloaded],
@@ -372,6 +453,11 @@ export function ModsPage() {
         description={t("mods_description")}
         action={
           <div className="modsHeaderActions">
+            {view === "downloaded" && (
+              <Button variant="danger" onClick={() => void previewUnusedDownloadedMods()}>
+                {t("remove_unused_downloaded_mods")}
+              </Button>
+            )}
             <div className="modsSearch">
               <span>⌕</span>
               <input
@@ -403,6 +489,18 @@ export function ModsPage() {
           <button onClick={() => updateParams({ instanceId: undefined, compatible: undefined })}>
             {t("clear_instance_context")}
           </button>
+        </div>
+      )}
+
+      {selectedModIds.length > 0 && (
+        <div className="selectedModsBar">
+          <strong>{t("selected_mods_count", { count: selectedModIds.length })}</strong>
+          <Button variant="ghost" onClick={clearSelectedMods}>
+            {t("cancel")}
+          </Button>
+          <Button busy={openingBatch} onClick={() => void openBatchInstaller()}>
+            {t("add_mods_or_create_instance")}
+          </Button>
         </div>
       )}
 
@@ -512,6 +610,8 @@ export function ModsPage() {
                 layout={layout}
                 onOpen={handleOpen}
                 onInstall={handleInstall}
+                selected={selectedModIds.includes(mod.id)}
+                onSelectedChange={toggleSelectedMod}
                 installBusy={openingModId === mod.id}
                 onDelete={local ? handleDelete : undefined}
               />
@@ -548,6 +648,28 @@ export function ModsPage() {
         />
       )}
 
+      {batchMods && (
+        <BatchInstancePickerDialog
+          mods={batchMods}
+          instances={instances}
+          gameVersions={versions}
+          accounts={accounts}
+          onClose={() => setBatchMods(undefined)}
+          onCreated={async () => {
+            await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
+            notify(t("instance_created"));
+          }}
+          onDone={async () => {
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY }),
+              queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY }),
+            ]);
+            clearSelectedMods();
+            notify(t("mod_task_completed"));
+          }}
+        />
+      )}
+
       <ConfirmDialog
         open={deleteConfirm.open}
         title={deleteConfirm.title}
@@ -558,6 +680,18 @@ export function ModsPage() {
           deleteConfirm.onConfirm();
         }}
         onCancel={() => setDeleteConfirm((s) => ({ ...s, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={cleanupPreview !== undefined}
+        title={t("remove_unused_downloaded_mods")}
+        message={t("unused_downloaded_mods_confirm", { count: cleanupPreview?.removedCount ?? 0 })}
+        warningMessage={t("unused_downloaded_mods_warning")}
+        confirmLabel={t("remove")}
+        destructive
+        loading={cleaning}
+        onConfirm={() => void removeUnusedDownloadedMods()}
+        onCancel={() => setCleanupPreview(undefined)}
       />
     </>
   );

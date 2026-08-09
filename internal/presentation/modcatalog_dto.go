@@ -237,6 +237,35 @@ type ModInstallResultDTO struct {
 	Installations []ModInstallationResultDTO `json:"installations"`
 }
 
+type BatchModInstallResultDTO struct {
+	ModID     string              `json:"modId"`
+	VersionID string              `json:"versionId"`
+	Result    ModInstallResultDTO `json:"result"`
+	Error     string              `json:"error,omitempty"`
+}
+
+type DownloadedModCleanupResultDTO struct {
+	RemovedCount int   `json:"removedCount"`
+	FreedBytes   int64 `json:"freedBytes"`
+}
+
+func downloadedModCleanupResultDTO(result domain.DownloadedModCleanupResult) DownloadedModCleanupResultDTO {
+	return DownloadedModCleanupResultDTO{RemovedCount: result.RemovedCount, FreedBytes: result.FreedBytes}
+}
+
+func batchModInstallResultsDTO(results []domain.BatchModInstallResult) []BatchModInstallResultDTO {
+	dtos := make([]BatchModInstallResultDTO, 0, len(results))
+	for _, result := range results {
+		dtos = append(dtos, BatchModInstallResultDTO{
+			ModID:     result.ModID,
+			VersionID: result.VersionID,
+			Result:    modInstallResultDTO(result.Result),
+			Error:     result.Error,
+		})
+	}
+	return dtos
+}
+
 func modInstallResultDTO(result domain.ModInstallResult) ModInstallResultDTO {
 	dto := ModInstallResultDTO{
 		TaskID: result.TaskID, Downloaded: downloadedModDTO(result.Downloaded),

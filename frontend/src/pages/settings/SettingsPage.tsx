@@ -8,11 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { useAppShellStore } from "../../app/stores/app-shell";
 import { useToastStore } from "../../app/stores/toast";
+import { modCatalogApi } from "../../entities/mod/api";
 import { settingsApi } from "../../entities/settings/api";
 import type { DataFolder, DataFolderProgress, Settings } from "../../entities/settings/model";
 import { useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
-import { SETTINGS_QUERY_KEY } from "../../shared/api/keys";
+import { DOWNLOADED_MODS_QUERY_KEY, SETTINGS_QUERY_KEY } from "../../shared/api/keys";
+import type { DownloadedModCleanupResult } from "../../shared/api/types";
 import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
@@ -57,6 +59,8 @@ export function SettingsPage() {
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
   const [checking, setChecking] = useState(false);
+  const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
+  const [cleaning, setCleaning] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -197,6 +201,33 @@ export function SettingsPage() {
     } catch (error) {
       setMoving(false);
       notifyRef.current(errorMessage(error), "error");
+    }
+  }
+
+  async function previewUnusedDownloadedMods() {
+    try {
+      const preview = await modCatalogApi.previewUnusedDownloaded();
+      if (preview.removedCount === 0) {
+        notify(t("no_unused_downloaded_mods"));
+        return;
+      }
+      setCleanupPreview(preview);
+    } catch (previewError) {
+      notify(errorMessage(previewError), "error");
+    }
+  }
+
+  async function removeUnusedDownloadedMods() {
+    setCleaning(true);
+    try {
+      const result = await modCatalogApi.removeUnusedDownloaded();
+      setCleanupPreview(undefined);
+      await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+      notify(t("unused_downloaded_mods_removed", { count: result.removedCount }));
+    } catch (cleanupError) {
+      notify(errorMessage(cleanupError), "error");
+    } finally {
+      setCleaning(false);
     }
   }
 
@@ -491,6 +522,18 @@ export function SettingsPage() {
                       </Button>
                     </div>
                   </div>
+                  <div className="settingRowDivider" />
+                  <div className="settingRow">
+                    <div className="settingRowControl">
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => void previewUnusedDownloadedMods()}
+                      >
+                        {t("remove_unused_downloaded_mods")}
+                      </Button>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -529,6 +572,18 @@ export function SettingsPage() {
         destructive
         onConfirm={() => void confirmDataFolderMove()}
         onCancel={() => setMoveDialogOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={cleanupPreview !== undefined}
+        title={t("remove_unused_downloaded_mods")}
+        message={t("unused_downloaded_mods_confirm", { count: cleanupPreview?.removedCount ?? 0 })}
+        warningMessage={t("unused_downloaded_mods_warning")}
+        confirmLabel={t("remove")}
+        destructive
+        loading={cleaning}
+        onConfirm={() => void removeUnusedDownloadedMods()}
+        onCancel={() => setCleanupPreview(undefined)}
       />
 
       <footer className="legal">{t("not_affiliated_notice")}</footer>

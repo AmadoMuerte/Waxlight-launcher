@@ -1,6 +1,8 @@
 import { call } from "./bridge";
 import type {
   DownloadedMod,
+  DownloadedModCleanupResult,
+  ModBatchInstallResult,
   ModDetails,
   ModInstallResult,
   ModSearchQuery,
@@ -21,6 +23,10 @@ export const modCatalogApi = {
     downloadOnly: boolean;
     allowIncompatible: boolean;
   }) => call<ModInstallResult>("ModCatalogController", "DownloadMod", request),
+  downloadBatch: (request: {
+    instanceId: string;
+    targets: { modId: string; versionId: string }[];
+  }) => call<ModBatchInstallResult[]>("ModCatalogController", "DownloadModsBatch", request),
   installDownloaded: (request: {
     modId: string;
     versionId: string;
@@ -29,6 +35,10 @@ export const modCatalogApi = {
   }) => call<ModInstallResult>("ModCatalogController", "InstallDownloadedMod", request),
   removeDownloaded: (modId: string, versionId: string) =>
     call<void>("ModCatalogController", "RemoveDownloadedMod", modId, versionId),
+  previewUnusedDownloaded: () =>
+    call<DownloadedModCleanupResult>("ModCatalogController", "PreviewUnusedDownloadedMods"),
+  removeUnusedDownloaded: () =>
+    call<DownloadedModCleanupResult>("ModCatalogController", "RemoveUnusedDownloadedMods"),
   uploadMods: (sourcePaths: string[]) =>
     call<UploadModsResult>("ModCatalogController", "UploadMods", sourcePaths),
   cancelTask: (taskId: string) => call<void>("ModCatalogController", "CancelModTask", taskId),

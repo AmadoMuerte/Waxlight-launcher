@@ -2924,6 +2924,106 @@ main {
   transform: translateY(-2px);
 }
 
+.modSelectCheck {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #ffffff2e;
+  border-radius: 50%;
+  background: #111114b8;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: 0.18s ease;
+}
+
+.modCard:hover .modSelectCheck,
+.modSelectCheck:has(input:checked) {
+  opacity: 1;
+}
+
+.modSelectCheck:has(input:checked) {
+  border-color: #d39137;
+  background: #302519e8;
+}
+
+.modSelectCheck input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--amber);
+  cursor: pointer;
+}
+
+.selectedModsBar {
+  position: fixed;
+  z-index: 4;
+  bottom: 20px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: min(760px, calc(100vw - 32px));
+  min-height: 64px;
+  padding: 14px 18px 14px 22px;
+  border: 1px solid #6e502b;
+  border-radius: 10px;
+  background: #211a15fa;
+  box-shadow: 0 8px 24px #0004;
+  transform: translateX(-50%);
+}
+
+.selectedModsBar .button:first-of-type {
+  margin-left: auto;
+}
+
+.selectedModsBar strong {
+  font-size: 17px;
+}
+
+.selectedModsBar .button {
+  border-radius: 3px;
+  font-size: 17px;
+}
+
+.selectedModsBar .button.primary {
+  border-radius: 3px;
+}
+
+@media (max-width: 1200px) and (min-width: 761px) {
+  .selectedModsBar {
+    right: 24px;
+    left: 244px;
+    gap: 10px;
+    width: auto;
+    min-height: 52px;
+    padding: 9px 12px;
+    transform: none;
+  }
+
+  .selectedModsBar strong,
+  .selectedModsBar .button {
+    font-size: 14px;
+  }
+
+  .selectedModsBar .button {
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+
+  .selectedModsBar .button:first-of-type {
+    margin-left: auto;
+  }
+
+  .selectedModsBar .button:last-of-type {
+    margin-left: 0;
+  }
+}
+
 .modArtwork {
   position: relative;
   display: grid;
@@ -3163,6 +3263,11 @@ main {
 .instanceChoice:hover {
   background: #ffffff06;
 }
+
+.instanceChoice.selected {
+  border-color: #594229;
+  background: #d7903012;
+}
 .instanceChoice input {
   accent-color: var(--amber);
 }
@@ -3198,6 +3303,91 @@ main {
 }
 .instancePicker > .modalActions {
   margin-top: 20px;
+}
+
+.batchModDialog {
+  width: min(980px, calc(100vw - 32px));
+}
+
+.batchModLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 34%);
+  min-height: 400px;
+}
+
+.batchModMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px 24px;
+}
+
+.batchModMain .modalActions {
+  margin-top: auto;
+}
+
+.batchModList {
+  overflow-y: auto;
+  border-left: 1px solid #302d31;
+  background: #121114;
+}
+
+.batchModList h3 {
+  margin: 0;
+  padding: 20px;
+  border-bottom: 1px solid #302d31;
+  font-family: Newsreader, Georgia, serif;
+  font-size: 20px;
+}
+
+.batchModItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #29272a;
+}
+
+.batchModItem small {
+  color: #918a83;
+  font-size: 12px;
+}
+
+.batchModItem.incompatible {
+  border-left: 3px solid #d9ad42;
+  background: #d9ad4215;
+}
+
+.batchModItem.incompatible span {
+  color: #e6bf58;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.batchInstallResults p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.batchDownloading {
+  color: #f0c47d;
+  font-weight: 700;
+}
+
+.batchDownloading::after {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  content: "...";
+  vertical-align: bottom;
+  animation: batchDots 1.1s steps(4, end) infinite;
+}
+
+@keyframes batchDots {
+  to {
+    width: 1.1em;
+  }
 }
 
 .taskProgress,
@@ -3788,6 +3978,21 @@ main {
   }
   .settingsPageFooter {
     padding: 16px 20px;
+  }
+  .batchModLayout {
+    grid-template-columns: 1fr;
+  }
+  .batchModList {
+    max-height: 220px;
+    border-top: 1px solid #302d31;
+    border-left: 0;
+  }
+  .selectedModsBar {
+    right: 16px;
+    left: 16px;
+    width: auto;
+    align-items: stretch;
+    flex-direction: column;
   }
   .lightbox {
     padding: 55px 8px 20px;
