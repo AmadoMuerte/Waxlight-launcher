@@ -1,0 +1,27 @@
+name: Discord release notification
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify Discord
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Send Discord release notification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: |
+          ./scripts/send-discord-release.sh \
+            "${{ github.event.release.tag_name }}" \
+            "${{ github.event.release.prerelease }}"
