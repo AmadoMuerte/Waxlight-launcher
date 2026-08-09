@@ -632,3 +632,15 @@ jobs:
               --verify-tag \
               "${prerelease_args[@]}"
           fi
+
+      - name: Send Discord release notification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        shell: bash
+        run: |
+          prerelease="false"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            prerelease="true"
+          fi
+          ./scripts/send-discord-release.sh "$RELEASE_TAG" "$prerelease"
