@@ -1231,26 +1231,26 @@ func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 	}
 }
 
-func TestTelemetrySettingDefaultsEnabled(t *testing.T) {
+func TestTelemetrySettingDefaultsDisabled(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	settings, err := fixture.service.GetSettings(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !settings.TelemetryEnabled {
-		t.Fatal("telemetry must default to enabled for new installations")
+	if settings.TelemetryEnabled {
+		t.Fatal("telemetry must default to disabled for new installations")
 	}
 }
 
-func TestTelemetryExplicitDisableSurvivesReload(t *testing.T) {
+func TestTelemetryExplicitEnableSurvivesReload(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	settings, err := fixture.service.GetSettings(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings.TelemetryEnabled = false
+	settings.TelemetryEnabled = true
 	if _, err := fixture.service.SaveSettings(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -1258,8 +1258,8 @@ func TestTelemetryExplicitDisableSurvivesReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reloaded.TelemetryEnabled {
-		t.Fatal("explicitly disabled telemetry was silently re-enabled")
+	if !reloaded.TelemetryEnabled {
+		t.Fatal("explicitly enabled telemetry was silently disabled")
 	}
 }
 

@@ -63,36 +63,21 @@ revocation.
 
 ## Windows release signing policy
 
-All Windows release artifacts (standalone executable and NSIS installer) are
-signed with Authenticode digital signatures. The signing certificate is stored
-as a GitHub Actions secret (`CODESIGN_CERTIFICATE_BASE64`) and imported into
-the CI runner's certificate store for each release build.
+The project-wide [Code signing policy](CODE_SIGNING_POLICY.md) defines the source, roles, approval requirements, privacy links, and artifact rules used for Windows release signing.
+
+Waxlight is transitioning Windows release signing to the SignPath Foundation open-source signing program. Releases published before that integration is active may be unsigned. A Git tag marked “Verified” by GitHub is not the same thing as an Authenticode signature on a Windows executable. Always verify the specific downloaded artifact.
+
+For releases signed through the Foundation program: **Free code signing provided by SignPath.io, certificate by SignPath Foundation.**
 
 ### What SHA-256 verifies vs what Authenticode verifies
 
-SHA-256 checksums in `SHA256SUMS` confirm that the downloaded file is
-byte-identical to the file the release publisher had when the checksum was
-generated. This protects against corrupted downloads, CDN tampering, and
-network bit-flip errors. SHA-256 does **not** verify who created the file. If
-the GitHub account is compromised, the attacker can publish valid SHA-256 hashes
-for malicious binaries.
+SHA-256 checksums in `SHA256SUMS` confirm that the downloaded file is byte-identical to the artifact for which the checksum was generated. SHA-256 does **not** establish publisher identity.
 
-Authenticode verifies that the file was signed by a trusted publisher whose
-certificate chains to a trusted Certificate Authority. It confirms publisher
-identity and that the file has not been modified since signing. Together,
-SHA-256 + Authenticode provide integrity + authenticity. Neither alone is
-sufficient.
+Authenticode adds publisher authentication and post-signing integrity. A signed Waxlight release should report a valid Windows Authenticode signature and a certificate chain trusted by Windows. Legacy unsigned releases will report `NotSigned`.
 
 ### Trusted publisher configuration
 
-The launcher updater maintains a configured list of trusted publishers —
-certificate subjects or thumbprints that are accepted during signature
-verification. Only files signed by one of these publishers are installed. The
-updater rejects unsigned files, files signed by unknown publishers, and files
-whose signature is invalid or untrusted by Windows.
-
-Trusted publishers are updated before new signing certificates are introduced,
-so older launcher versions can verify releases signed with the new certificate.
+The launcher updater requires a configured trusted-publisher list before it will install a Windows update automatically. Until the production SignPath publisher identity is configured in release builds, it rejects automatic Windows installer updates after checksum verification. Checksum verification must not be described as equivalent to publisher authentication.
 
 ### Why Unblock-File is not used
 
@@ -102,10 +87,10 @@ downloaded from the internet, and SmartScreen uses it to decide whether to warn
 the user before running the file.
 
 Removing MOTW bypasses SmartScreen protection. The updater does **not** use
-`Unblock-File`. Instead, it relies on Authenticode signatures: SmartScreen
-recognizes signed executables from trusted publishers and does not display
-unnecessary warnings. This approach maintains the operating system's security
-boundaries rather than working around them.
+`Unblock-File`. It only starts Windows installers after trusted-publisher
+Authenticode verification succeeds; while no publisher is configured, automatic
+Windows installation is refused. Manual downloads retain Windows' normal MOTW
+and SmartScreen behavior.
 
 ## Supported versions
 

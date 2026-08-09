@@ -5,23 +5,15 @@ on:
     tags:
       - "v*.*.*"
 
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Existing release tag to build, for example v0.1.3
-        required: true
-        type: string
-
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
-  WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+  RELEASE_TAG: ${{ github.ref_name }}
 
 jobs:
   verify:
@@ -32,7 +24,7 @@ jobs:
       - name: Validate release tag
         shell: bash
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
@@ -312,129 +304,62 @@ jobs:
         run: |
           $Version = $env:RELEASE_TAG.TrimStart("v")
           $Executable = "release\Waxlight-Launcher-v$Version-windows-amd64.exe"
+          $Installer = "release\Waxlight-Launcher-v$Version-windows-amd64-installer.exe"
 
-          if (-not (Test-Path $Executable)) {
-            throw "Windows executable not found: $Executable"
+          $Build = 0
+          if ($Version -match "-") {
+            $Prerelease = ($Version -split "-", 2)[1]
+            $PrereleaseMatch = [regex]::Match($Prerelease, '^(alpha|beta|rc)\.([1-9][0-9]{0,3})$')
+            if (-not $PrereleaseMatch.Success) {
+              throw "Windows prereleases must use alpha.N, beta.N, or rc.N: $Version"
+            }
+            $Sequence = [int]$PrereleaseMatch.Groups[2].Value
+            if ($Sequence -gt 19999) {
+              throw "Windows prerelease sequence must not exceed 19999: $Version"
+            }
+            $Build = switch ($PrereleaseMatch.Groups[1].Value) {
+              "alpha" { $Sequence }
+              "beta" { 20000 + $Sequence }
+              "rc" { 40000 + $Sequence }
+            }
           }
-
-          $VersionInfo = (Get-Item $Executable).VersionInfo
-
-          Write-Host "Windows executable metadata:"
-          Write-Host "  FileDescription: $($VersionInfo.FileDescription)"
-          Write-Host "  ProductName:     $($VersionInfo.ProductName)"
-          Write-Host "  CompanyName:     $($VersionInfo.CompanyName)"
-          Write-Host "  LegalCopyright:  $($VersionInfo.LegalCopyright)"
-          Write-Host "  FileVersion:     $($VersionInfo.FileVersion)"
-          Write-Host "  ProductVersion:  $($VersionInfo.ProductVersion)"
-          Write-Host "  Comments:        $($VersionInfo.Comments)"
-
-          $Errors = @()
+          $BaseVersion = ($Version -split "-", 2)[0]
+          $ExpectedVersion = "$BaseVersion.$Build"
           $CopyrightSymbol = [char]0x00A9
           $ExpectedCopyright = "Copyright $CopyrightSymbol 2026 AmadoMuerte"
 
-          if ($VersionInfo.FileDescription -ne "Waxlight Launcher") {
-            $Errors += "FileDescription must be 'Waxlight Launcher', got '$($VersionInfo.FileDescription)'"
-          }
-
-          if ($VersionInfo.ProductName -ne "Waxlight Launcher") {
-            $Errors += "ProductName must be 'Waxlight Launcher', got '$($VersionInfo.ProductName)'"
-          }
-
-          if ($VersionInfo.CompanyName -ne "AmadoMuerte") {
-            $Errors += "CompanyName must be 'AmadoMuerte', got '$($VersionInfo.CompanyName)'"
-          }
-
-          if ($VersionInfo.LegalCopyright -ne $ExpectedCopyright) {
-            $Errors += "LegalCopyright must be '$ExpectedCopyright', got '$($VersionInfo.LegalCopyright)'"
-          }
-
-          if ([string]::IsNullOrEmpty($VersionInfo.CompanyName)) {
-            $Errors += "CompanyName must not be empty"
-          }
-
-          if ([string]::IsNullOrEmpty($VersionInfo.ProductName)) {
-            $Errors += "ProductName must not be empty"
-          }
-
-          if ($Errors.Count -gt 0) {
-            Write-Host "Windows metadata validation failed:" -ForegroundColor Red
-            foreach ($Error in $Errors) {
-              Write-Host "  - $Error" -ForegroundColor Red
+          foreach ($Artifact in @(
+            @{ Path = $Executable; FileDescription = "Waxlight Launcher" },
+            @{ Path = $Installer; FileDescription = "Waxlight Launcher Installer" }
+          )) {
+            if (-not (Test-Path $Artifact.Path)) {
+              throw "Windows artifact not found: $($Artifact.Path)"
             }
-            throw "Windows metadata validation failed with $($Errors.Count) error(s)"
+            $VersionInfo = (Get-Item $Artifact.Path).VersionInfo
+            $Errors = @()
+            foreach ($Property in @(
+              @{ Name = "FileDescription"; Expected = $Artifact.FileDescription },
+              @{ Name = "ProductName"; Expected = "Waxlight Launcher" },
+              @{ Name = "CompanyName"; Expected = "AmadoMuerte" },
+              @{ Name = "LegalCopyright"; Expected = $ExpectedCopyright },
+              @{ Name = "FileVersion"; Expected = $ExpectedVersion },
+              @{ Name = "ProductVersion"; Expected = $ExpectedVersion }
+            )) {
+              if ($VersionInfo.($Property.Name) -ne $Property.Expected) {
+                $Errors += "$($Property.Name) must be '$($Property.Expected)', got '$($VersionInfo.($Property.Name))'"
+              }
+            }
+            if ($Errors.Count -gt 0) {
+              throw "Windows metadata validation failed for $($Artifact.Path): $($Errors -join '; ')"
+            }
           }
 
           Write-Host "Windows metadata validation passed" -ForegroundColor Green
 
-      - name: Decode signing certificate
-        if: ${{ env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
-        shell: powershell
-        env:
-          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
-        run: |
-          $CertBytes = [System.Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64)
-          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
-          [System.IO.File]::WriteAllBytes($CertPath, $CertBytes)
-          Write-Host "Certificate decoded to $CertPath"
-
-      - name: Sign Windows executables
-        if: ${{ env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
-        shell: powershell
-        env:
-          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
-          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGNING_TIMESTAMP_URL }}
-        run: |
-          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
-          $TimestampUrl = if ($env:WINDOWS_SIGNING_TIMESTAMP_URL) { $env:WINDOWS_SIGNING_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
-
-          $Version = $env:RELEASE_TAG.TrimStart("v")
-          $FilesToSign = @(
-            "release\Waxlight-Launcher-v$Version-windows-amd64.exe",
-            "release\Waxlight-Launcher-v$Version-windows-amd64-installer.exe"
-          )
-
-          foreach ($File in $FilesToSign) {
-            if (-not (Test-Path $File)) {
-              Write-Warning "File not found for signing: $File"
-              continue
-            }
-
-            Write-Host "Signing $File..."
-            & signtool sign `
-              /fd SHA256 `
-              /f $CertPath `
-              /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD `
-              /tr $TimestampUrl `
-              /td SHA256 `
-              $File
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "signtool sign failed for $File with exit code $LASTEXITCODE"
-            }
-
-            Write-Host "Verifying signature of $File..."
-            & signtool verify /pa /all /v $File
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "signtool verify failed for $File with exit code $LASTEXITCODE"
-            }
-
-            $Signature = Get-AuthenticodeSignature -LiteralPath $File
-            Write-Host "Signature status: $($Signature.Status)"
-            Write-Host "Signer: $($Signature.SignerCertificate.Subject)"
-            Write-Host "Thumbprint: $($Signature.SignerCertificate.Thumbprint)"
-            Write-Host ""
-          }
-
-      - name: Clean up signing certificate
-        if: ${{ always() && env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
-        shell: powershell
-        run: |
-          $CertPath = Join-Path $env:RUNNER_TEMP "signing-cert.pfx"
-          if (Test-Path $CertPath) {
-            Remove-Item -Path $CertPath -Force
-            Write-Host "Signing certificate removed"
-          }
+      # Windows Authenticode signing is intentionally not performed with a PFX
+      # stored in GitHub Secrets. After SignPath Foundation approves Waxlight,
+      # insert the official SignPath signing step/artifact configuration here so
+      # signed binaries remain verifiably tied to this repository build.
 
       - name: Verify Windows packages
         shell: powershell
@@ -587,13 +512,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          notes_file="releases/${RELEASE_TAG}.md"
+          source_notes_file="releases/${RELEASE_TAG}.md"
+          notes_file="$RUNNER_TEMP/${RELEASE_TAG}-release-notes.md"
 
-          if [[ ! -s "$notes_file" ]]; then
-            echo "Release notes file is missing: $notes_file" >&2
+          if [[ ! -s "$source_notes_file" ]]; then
+            echo "Release notes file is missing: $source_notes_file" >&2
             echo "Commit the release notes as part of the release preparation." >&2
             exit 1
           fi
+
+          cp "$source_notes_file" "$notes_file"
+          printf '\n## Code signing policy\n\n%s\n' \
+            "See the [Waxlight Code signing policy](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md). Legacy releases created before SignPath Foundation signing is activated may be unsigned; verify the Authenticode status of the downloaded Windows artifact." \
+            >> "$notes_file"
 
           prerelease_args=()
 
@@ -604,34 +535,19 @@ jobs:
             echo "Detected stable version: $RELEASE_TAG"
           fi
 
-          if gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-
-            echo "Release $RELEASE_TAG already exists."
-            echo "Replacing release assets..."
-
-            gh release upload \
-              "$RELEASE_TAG" \
-              release/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
-
-            gh release edit \
-              "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Waxlight Launcher ${RELEASE_TAG#v}" \
-              --notes-file "$notes_file" \
-              "${prerelease_args[@]}"
-          else
-            gh release create \
-              "$RELEASE_TAG" \
-              release/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Waxlight Launcher ${RELEASE_TAG#v}" \
-              --notes-file "$notes_file" \
-              --verify-tag \
-              "${prerelease_args[@]}"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to replace assets for existing release $RELEASE_TAG" >&2
+            exit 1
           fi
+
+          gh release create \
+            "$RELEASE_TAG" \
+            release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Waxlight Launcher ${RELEASE_TAG#v}" \
+            --notes-file "$notes_file" \
+            --verify-tag \
+            "${prerelease_args[@]}"
 
       - name: Send Discord release notification
         env:

@@ -1118,7 +1118,7 @@ func (s *SQLiteStore) GetSettings(ctx context.Context) (domain.Settings, error) 
 		GlobalLaunchArguments:    []string{},
 		CheckForUpdates:          true,
 		UpdateChannel:            "stable",
-		TelemetryEnabled:         true,
+		TelemetryEnabled:         false,
 		AutomaticSafetySnapshots: true,
 	}
 	rows, e := s.db.QueryContext(ctx, `SELECT key,value FROM app_settings`)

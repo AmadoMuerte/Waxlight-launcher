@@ -46,14 +46,8 @@ try {
         throw "Installer exited with code $($Installer.ExitCode)"
     }
 
-    $ProgramFiles64 = $env:ProgramW6432
-    if ([string]::IsNullOrWhiteSpace($ProgramFiles64)) {
-        $ProgramFiles64 = $env:ProgramFiles
-    }
-
     $Candidates = @(
-        (Join-Path $ProgramFiles64 "Waxlight Launcher\waxlight.exe"),
-        (Join-Path $env:ProgramFiles "Waxlight Launcher\waxlight.exe")
+        (Join-Path $env:LOCALAPPDATA "Programs\Waxlight Launcher\waxlight.exe")
     ) | Select-Object -Unique
 
     $InstalledExecutable = $null
