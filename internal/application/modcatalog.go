@@ -1770,5 +1770,20 @@ func friendlyInstallError(err error) string {
 	if errors.Is(err, os.ErrPermission) {
 		return "Waxlight does not have permission to write to this instance"
 	}
+	if errors.Is(err, context.Canceled) {
+		return "Mod installation was cancelled"
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return "The downloaded mod file is missing. Download it again and retry."
+	}
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "mod source must be a file"):
+		return "The downloaded mod is not a file"
+	case strings.Contains(message, "unsupported mod file extension"):
+		return "The downloaded file is not a supported mod archive"
+	case strings.Contains(message, "mod file already exists"):
+		return "A different mod file with this name already exists in the instance"
+	}
 	return "Could not install the mod in this instance"
 }

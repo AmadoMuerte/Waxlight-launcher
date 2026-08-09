@@ -57,11 +57,11 @@ export namespace presentation {
 	    instanceName: string;
 	    installed: boolean;
 	    message: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModInstallationResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -75,11 +75,11 @@ export namespace presentation {
 	    instanceName: string;
 	    version: string;
 	    enabled: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new InstalledModInstanceDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -104,11 +104,11 @@ export namespace presentation {
 	    installedInstances: InstalledModInstanceDTO[];
 	    latestVersion?: string;
 	    updateAvailable: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DownloadedModDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -127,7 +127,7 @@ export namespace presentation {
 	        this.latestVersion = source["latestVersion"];
 	        this.updateAvailable = source["updateAvailable"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -150,18 +150,18 @@ export namespace presentation {
 	    taskId: string;
 	    downloaded: DownloadedModDTO;
 	    installations: ModInstallationResultDTO[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModInstallResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.taskId = source["taskId"];
 	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
 	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -185,11 +185,11 @@ export namespace presentation {
 	    versionId: string;
 	    result: ModInstallResultDTO;
 	    error?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new BatchModInstallResultDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -197,7 +197,7 @@ export namespace presentation {
 	        this.result = this.convertValues(source["result"], ModInstallResultDTO);
 	        this.error = source["error"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -388,7 +388,7 @@ export namespace presentation {
 		    return a;
 		}
 	}
-
+	
 	export class PackageAuthorDTO {
 	    name?: string;
 	    homepage?: string;
@@ -1821,3 +1821,4 @@ export namespace presentation {
 	}
 
 }
+
