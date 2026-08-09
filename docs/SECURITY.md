@@ -42,9 +42,13 @@ are removed only after every imported value is read back and verified.
 The security scope also includes credentials temporarily injected into a game
 instance's `clientsettings.json`. Those values are removed after exit/failure and
 on startup reconciliation, but they necessarily exist in plaintext while the
-game needs them. Support-bundle, diagnostics, and instance-export features do
-not currently exist; any future implementation must remove the four
-authentication properties before producing an artifact.
+game needs them. Waxlight can export a redacted support log and import/export
+instances as Waxlight packages. Support logs redact sensitive log values and do
+not include credentials, account data, or private paths. Instance packages
+sanitize `clientsettings.json` and exclude session keys, session signatures,
+player IDs/names, MP tokens, passwords, credential-store secrets, authentication
+tokens, and other account or machine-specific settings. Do not add any of those
+values to support exports or ordinary instance exports.
 
 ## Threat-model boundary
 
