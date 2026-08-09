@@ -1904,7 +1904,13 @@ func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.S
 		// transition check simply falls back to a fresh comparison.
 		previous = domain.Settings{}
 	}
-	if err := s.store.SaveSettings(ctx, v); err != nil {
+	saveSettings := func() error { return s.store.SaveSettings(ctx, v) }
+	if s.telemetry != nil {
+		err = s.telemetry.SynchronizeConsent(saveSettings)
+	} else {
+		err = saveSettings()
+	}
+	if err != nil {
 		return v, err
 	}
 	slog.Info("settings saved", "language", v.Language, "updateChannel", v.UpdateChannel)

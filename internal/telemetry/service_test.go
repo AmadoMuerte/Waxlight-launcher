@@ -94,6 +94,18 @@ type fakeSender struct {
 	heartbeatError error
 }
 
+type blockingHeartbeatStore struct {
+	*fakeStore
+	listed  chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingHeartbeatStore) ListInstances(ctx context.Context) ([]domain.Instance, error) {
+	close(s.listed)
+	<-s.release
+	return s.fakeStore.ListInstances(ctx)
+}
+
 func (s *fakeSender) SendHeartbeat(_ context.Context, payload Heartbeat) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -344,6 +356,31 @@ func TestDisablingPreventsFurtherEvents(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	if sender.eventCount() != 1 || sender.errorCount() != 0 {
 		t.Fatal("events or errors were transmitted after telemetry was disabled")
+	}
+}
+
+func TestDisablingBeforeHeartbeatDeliveryPreventsTransmission(t *testing.T) {
+	store := &blockingHeartbeatStore{
+		fakeStore: newFakeStore(t, map[string]string{}),
+		listed:    make(chan struct{}),
+		release:   make(chan struct{}),
+	}
+	store.setEnabled(true)
+	sender := &fakeSender{}
+	service := NewService(sender, store)
+
+	done := make(chan struct{})
+	go func() {
+		service.sendHeartbeat(context.Background())
+		close(done)
+	}()
+	<-store.listed
+	store.setEnabled(false)
+	close(store.release)
+	<-done
+
+	if sender.heartbeatCount() != 0 {
+		t.Fatal("heartbeat was transmitted after telemetry was disabled")
 	}
 }
 

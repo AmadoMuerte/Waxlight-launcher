@@ -6,17 +6,12 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 )
 
 // DefaultEndpoint is the production Waxlight telemetry backend. It is the
 // single place the endpoint is defined for release builds.
 const DefaultEndpoint = "https://waxlight.telemetry.amadomuerte.ru"
-
-// endpointEnvironmentVariable overrides DefaultEndpoint for local development
-// and test harnesses. It never changes the persisted user configuration.
-const endpointEnvironmentVariable = "WAXLIGHT_TELEMETRY_ENDPOINT"
 
 // requestTimeout bounds every telemetry request. Telemetry must never be able
 // to block Waxlight for a long time.
@@ -36,7 +31,7 @@ type Client struct {
 }
 
 // NewClient returns a Client posting to endpoint. Tests inject their own
-// endpoint; release builds use DefaultEndpoint (or the development override).
+// endpoint; release builds use DefaultEndpoint.
 func NewClient(endpoint string) *Client {
 	return &Client{
 		endpoint: endpoint,
@@ -44,12 +39,9 @@ func NewClient(endpoint string) *Client {
 	}
 }
 
-// ProductionEndpoint resolves the endpoint for release builds, honoring the
-// development-only environment override.
+// ProductionEndpoint returns the sole telemetry destination used by release
+// builds. Keeping it fixed makes the privacy policy and runtime behavior match.
 func ProductionEndpoint() string {
-	if override := os.Getenv(endpointEnvironmentVariable); override != "" {
-		return override
-	}
 	return DefaultEndpoint
 }
 
