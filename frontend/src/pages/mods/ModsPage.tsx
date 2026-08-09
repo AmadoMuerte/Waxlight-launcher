@@ -14,6 +14,7 @@ import {
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { modCatalogApi } from "../../entities/mod/api";
 import type {
+  DownloadedModCleanupResult,
   DownloadedMod,
   ModDetails,
   ModSearchQuery,
@@ -85,6 +86,8 @@ export function ModsPage() {
     message?: string;
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
+  const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
+  const [cleaning, setCleaning] = useState(false);
 
   const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
   const instanceId = searchParams.get("instanceId") ?? "";
@@ -283,6 +286,33 @@ export function ModsPage() {
     }
   }, [notify, selectedModIds, t]);
 
+  async function previewUnusedDownloadedMods() {
+    try {
+      const preview = await modCatalogApi.previewUnusedDownloaded();
+      if (preview.removedCount === 0) {
+        notify(t("no_unused_downloaded_mods"));
+        return;
+      }
+      setCleanupPreview(preview);
+    } catch (previewError) {
+      notify(errorMessage(previewError), "error");
+    }
+  }
+
+  async function removeUnusedDownloadedMods() {
+    setCleaning(true);
+    try {
+      const result = await modCatalogApi.removeUnusedDownloaded();
+      setCleanupPreview(undefined);
+      await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+      notify(t("unused_downloaded_mods_removed", { count: result.removedCount }));
+    } catch (cleanupError) {
+      notify(errorMessage(cleanupError), "error");
+    } finally {
+      setCleaning(false);
+    }
+  }
+
   const localByModId = useMemo(
     () => new Map(filteredDownloaded.map((item) => [item.modId, item])),
     [filteredDownloaded],
@@ -414,6 +444,11 @@ export function ModsPage() {
         description={t("mods_description")}
         action={
           <div className="modsHeaderActions">
+            {view === "downloaded" && (
+              <Button variant="danger" onClick={() => void previewUnusedDownloadedMods()}>
+                {t("remove_unused_downloaded_mods")}
+              </Button>
+            )}
             <div className="modsSearch">
               <span>⌕</span>
               <input
@@ -636,6 +671,18 @@ export function ModsPage() {
           deleteConfirm.onConfirm();
         }}
         onCancel={() => setDeleteConfirm((s) => ({ ...s, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={cleanupPreview !== undefined}
+        title={t("remove_unused_downloaded_mods")}
+        message={t("unused_downloaded_mods_confirm", { count: cleanupPreview?.removedCount ?? 0 })}
+        warningMessage={t("unused_downloaded_mods_warning")}
+        confirmLabel={t("remove")}
+        destructive
+        loading={cleaning}
+        onConfirm={() => void removeUnusedDownloadedMods()}
+        onCancel={() => setCleanupPreview(undefined)}
       />
     </>
   );

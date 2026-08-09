@@ -619,5 +619,10 @@
   "last_supported_game_version": "Vintage Story {{version}} дейін қолдайды",
   "mod_version_mismatch": "Мод нұсқасы таңдалған жинаққа сәйкес емес",
   "mod_installed": "Жүктелді және орнатылды",
-  "downloading_mods": "Модтар жүктелуде"
+  "downloading_mods": "Модтар жүктелуде",
+  "remove_unused_downloaded_mods": "Орнатылмаған модтарды жою",
+  "no_unused_downloaded_mods": "Барлық жүктелген модтар орнатылған.",
+  "unused_downloaded_mods_confirm": "{{count}} мод жойылады.",
+  "unused_downloaded_mods_warning": "Орнатылған модтар мен тәуелділіктер жойылмайды.",
+  "unused_downloaded_mods_removed": "{{count}} пайдаланылмаған мод жойылды."
 }

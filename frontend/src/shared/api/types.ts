@@ -271,6 +271,11 @@ export interface ModBatchInstallResult {
   error?: string;
 }
 
+export interface DownloadedModCleanupResult {
+  removedCount: number;
+  freedBytes: number;
+}
+
 export interface ModUpdateTarget {
   modId: string;
   versionId: string;

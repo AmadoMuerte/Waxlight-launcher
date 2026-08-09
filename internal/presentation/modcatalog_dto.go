@@ -244,6 +244,15 @@ type BatchModInstallResultDTO struct {
 	Error     string              `json:"error,omitempty"`
 }
 
+type DownloadedModCleanupResultDTO struct {
+	RemovedCount int   `json:"removedCount"`
+	FreedBytes   int64 `json:"freedBytes"`
+}
+
+func downloadedModCleanupResultDTO(result domain.DownloadedModCleanupResult) DownloadedModCleanupResultDTO {
+	return DownloadedModCleanupResultDTO{RemovedCount: result.RemovedCount, FreedBytes: result.FreedBytes}
+}
+
 func batchModInstallResultsDTO(results []domain.BatchModInstallResult) []BatchModInstallResultDTO {
 	dtos := make([]BatchModInstallResultDTO, 0, len(results))
 	for _, result := range results {

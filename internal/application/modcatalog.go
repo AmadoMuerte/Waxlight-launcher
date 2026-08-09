@@ -1148,6 +1148,81 @@ func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID stri
 	return nil
 }
 
+func (s *Service) PreviewUnusedDownloadedMods(
+	ctx context.Context,
+) (domain.DownloadedModCleanupResult, error) {
+	items, err := s.unusedDownloadedMods(ctx)
+	if err != nil {
+		return domain.DownloadedModCleanupResult{}, err
+	}
+	return downloadedModCleanupResult(items), nil
+}
+
+func (s *Service) RemoveUnusedDownloadedMods(
+	ctx context.Context,
+) (domain.DownloadedModCleanupResult, error) {
+	items, err := s.unusedDownloadedMods(ctx)
+	if err != nil {
+		return domain.DownloadedModCleanupResult{}, err
+	}
+	for _, item := range items {
+		if err := s.modDownloads.Delete(ctx, item.ModID, item.VersionID); err != nil {
+			return domain.DownloadedModCleanupResult{}, err
+		}
+		s.reportEvent(ctx, telemetry.EventModRemoved)
+	}
+	return downloadedModCleanupResult(items), nil
+}
+
+func (s *Service) unusedDownloadedMods(ctx context.Context) ([]domain.DownloadedMod, error) {
+	if s.modDownloads == nil {
+		return []domain.DownloadedMod{}, nil
+	}
+	items, err := s.modDownloads.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := s.store.ListInstances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	installed := make(map[string]struct{})
+	for _, instance := range instances {
+		mods, listErr := s.store.ListMods(ctx, instance.ID)
+		if listErr != nil {
+			return nil, listErr
+		}
+		for _, mod := range mods {
+			modID, versionID, ok := parseModDBSource(mod.Source)
+			if ok {
+				installed[modDownloadKey(modID, versionID)] = struct{}{}
+			}
+		}
+	}
+	unused := make([]domain.DownloadedMod, 0, len(items))
+	for _, item := range items {
+		if _, used := installed[modDownloadKey(item.ModID, item.VersionID)]; used {
+			continue
+		}
+		key := modDownloadKey(item.ModID, item.VersionID)
+		s.operationsMu.Lock()
+		_, downloading := s.activeModDownloads[key]
+		s.operationsMu.Unlock()
+		if !downloading {
+			unused = append(unused, item)
+		}
+	}
+	return unused, nil
+}
+
+func downloadedModCleanupResult(items []domain.DownloadedMod) domain.DownloadedModCleanupResult {
+	result := domain.DownloadedModCleanupResult{RemovedCount: len(items)}
+	for _, item := range items {
+		result.FreedBytes += item.FileSize
+	}
+	return result
+}
+
 // removeSupersededCacheVersion deletes a cached mod version that was replaced by
 // an update, unless another instance still has that version installed. This
 // keeps the downloaded mods list free of duplicate entries for the same mod.

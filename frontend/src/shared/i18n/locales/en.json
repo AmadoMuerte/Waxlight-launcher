@@ -619,5 +619,10 @@
   "last_supported_game_version": "Supported through Vintage Story {{version}}",
   "mod_version_mismatch": "Mod version does not match selected instance",
   "mod_installed": "Downloaded and installed",
-  "downloading_mods": "Downloading mods"
+  "downloading_mods": "Downloading mods",
+  "remove_unused_downloaded_mods": "Remove mods not installed in instances",
+  "no_unused_downloaded_mods": "All downloaded mods are installed in an instance.",
+  "unused_downloaded_mods_confirm": "{{count}} mods will be removed.",
+  "unused_downloaded_mods_warning": "Installed mods and their dependencies will not be removed.",
+  "unused_downloaded_mods_removed": "Removed {{count}} unused downloaded mods."
 }

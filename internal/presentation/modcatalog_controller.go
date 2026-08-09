@@ -151,6 +151,16 @@ func (controller *ModCatalogController) RemoveDownloadedMod(
 	return controller.svc.RemoveDownloadedMod(context.Background(), modID, versionID)
 }
 
+func (controller *ModCatalogController) PreviewUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
+	result, err := controller.svc.PreviewUnusedDownloadedMods(context.Background())
+	return downloadedModCleanupResultDTO(result), err
+}
+
+func (controller *ModCatalogController) RemoveUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
+	result, err := controller.svc.RemoveUnusedDownloadedMods(context.Background())
+	return downloadedModCleanupResultDTO(result), err
+}
+
 func (controller *ModCatalogController) UploadMods(
 	sourcePaths []string,
 ) (UploadModsResultDTO, error) {

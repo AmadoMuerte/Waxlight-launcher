@@ -619,5 +619,10 @@
   "last_supported_game_version": "Pris en charge jusqu’à Vintage Story {{version}}",
   "mod_version_mismatch": "La version du mod ne correspond pas à l’instance",
   "mod_installed": "Téléchargé et installé",
-  "downloading_mods": "Téléchargement des mods"
+  "downloading_mods": "Téléchargement des mods",
+  "remove_unused_downloaded_mods": "Supprimer les mods non installés",
+  "no_unused_downloaded_mods": "Tous les mods téléchargés sont installés.",
+  "unused_downloaded_mods_confirm": "{{count}} mods seront supprimés.",
+  "unused_downloaded_mods_warning": "Les mods installés et leurs dépendances resteront.",
+  "unused_downloaded_mods_removed": "{{count}} mods inutilisés supprimés."
 }

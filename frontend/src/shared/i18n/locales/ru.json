@@ -619,5 +619,10 @@
   "last_supported_game_version": "Поддержка до Vintage Story {{version}}",
   "mod_version_mismatch": "Версия мода не совпадает с выбранной в сборке",
   "mod_installed": "Скачан и установлен",
-  "downloading_mods": "Скачивание модов"
+  "downloading_mods": "Скачивание модов",
+  "remove_unused_downloaded_mods": "Удалить моды не установленные в сборках",
+  "no_unused_downloaded_mods": "Все скачанные моды установлены хотя бы в одной сборке.",
+  "unused_downloaded_mods_confirm": "Будет удалено: {{count}} модов.",
+  "unused_downloaded_mods_warning": "Установленные моды и их зависимости не будут удалены.",
+  "unused_downloaded_mods_removed": "Удалено неиспользуемых скачанных модов: {{count}}."
 }

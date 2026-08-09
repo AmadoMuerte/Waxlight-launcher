@@ -34,8 +34,16 @@ export function ListModTags() {
   return window['go']['presentation']['ModCatalogController']['ListModTags']();
 }
 
+export function PreviewUnusedDownloadedMods() {
+  return window['go']['presentation']['ModCatalogController']['PreviewUnusedDownloadedMods']();
+}
+
 export function RemoveDownloadedMod(arg1, arg2) {
   return window['go']['presentation']['ModCatalogController']['RemoveDownloadedMod'](arg1, arg2);
+}
+
+export function RemoveUnusedDownloadedMods() {
+  return window['go']['presentation']['ModCatalogController']['RemoveUnusedDownloadedMods']();
 }
 
 export function SearchMods(arg1) {

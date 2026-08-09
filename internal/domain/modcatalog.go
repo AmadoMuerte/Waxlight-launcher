@@ -154,6 +154,11 @@ type BatchModInstallResult struct {
 	Error     string
 }
 
+type DownloadedModCleanupResult struct {
+	RemovedCount int
+	FreedBytes   int64
+}
+
 type ModInstallationResult struct {
 	InstanceID   string
 	InstanceName string

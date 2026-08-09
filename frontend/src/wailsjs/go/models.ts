@@ -388,6 +388,20 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	export class DownloadedModCleanupResultDTO {
+	    removedCount: number;
+	    freedBytes: number;
+
+	    static createFrom(source: any = {}) {
+	        return new DownloadedModCleanupResultDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.removedCount = source["removedCount"];
+	        this.freedBytes = source["freedBytes"];
+	    }
+	}
 	
 	export class PackageAuthorDTO {
 	    name?: string;
@@ -1821,4 +1835,3 @@ export namespace presentation {
 	}
 
 }
-

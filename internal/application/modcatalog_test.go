@@ -235,6 +235,50 @@ func TestDownloadCatalogModsBatchContinuesAfterTargetFailure(t *testing.T) {
 	}
 }
 
+func TestRemoveUnusedDownloadedModsKeepsInstalledDependencies(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name: "Uses dependency", GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	downloads := modstorage.New(fixture.root)
+	fixture.service.ConfigureMods(staticModCatalog{}, downloads)
+	used := domain.DownloadedMod{SchemaVersion: 1, ModID: "library", VersionID: "2.0.10", Name: "Library", FileSize: 50}
+	unused := domain.DownloadedMod{SchemaVersion: 1, ModID: "oldmod", VersionID: "1.0.0", Name: "Old Mod", FileSize: 25}
+	if err := downloads.Save(ctx, used); err != nil {
+		t.Fatal(err)
+	}
+	if err := downloads.Save(ctx, unused); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.store.SaveMod(ctx, domain.InstalledMod{
+		ID: "installed-library", InstanceID: instance.ID, Name: "Library", Source: "moddb:library:2.0.10",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	preview, err := fixture.service.PreviewUnusedDownloadedMods(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.RemovedCount != 1 || preview.FreedBytes != 25 {
+		t.Fatalf("unexpected cleanup preview: %#v", preview)
+	}
+	if _, err := fixture.service.RemoveUnusedDownloadedMods(ctx); err != nil {
+		t.Fatal(err)
+	}
+	items, err := downloads.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ModID != "library" || items[0].VersionID != "2.0.10" {
+		t.Fatalf("installed dependency was not retained: %#v", items)
+	}
+}
+
 func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
