@@ -38,6 +38,7 @@ interface InstanceModalProps {
   onClose: () => void;
   onExport: () => void;
   onClone: () => void;
+  onModUpdatesChanged?: (instanceID: string, report: InstanceModUpdateReport) => void;
 }
 
 export function InstanceModal({
@@ -47,6 +48,7 @@ export function InstanceModal({
   onClose,
   onExport,
   onClone,
+  onModUpdatesChanged,
 }: InstanceModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -172,9 +174,12 @@ export function InstanceModal({
 
   const loadUpdates = useCallback(async () => {
     try {
-      setUpdateReport(await modsApi.checkInstanceUpdates(instance.id));
+      const report = await modsApi.checkInstanceUpdates(instance.id);
+      setUpdateReport(report);
+      return report;
     } catch (error) {
       notify(errorMessage(error), "error");
+      return undefined;
     }
   }, [instance.id, notify]);
 
@@ -182,7 +187,8 @@ export function InstanceModal({
     try {
       const result = await modsApi.linkLocal(instance.id);
       await loadMods();
-      await loadUpdates();
+      const report = await loadUpdates();
+      if (report) onModUpdatesChanged?.(instance.id, report);
       await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
       if (result.linked.length > 0) {
         notify(t("mods_linked_count", { count: result.linked.length }));
@@ -193,7 +199,7 @@ export function InstanceModal({
     } catch {
       // Recognition is best effort; the mods list still loads without it.
     }
-  }, [instance.id, loadMods, loadUpdates, notify, queryClient, t]);
+  }, [instance.id, loadMods, loadUpdates, notify, onModUpdatesChanged, queryClient, t]);
 
   useEffect(() => {
     void loadMods();
@@ -800,7 +806,8 @@ export function InstanceModal({
           onClose={() => setUpdatesDialogOpen(false)}
           onApplied={async () => {
             await loadMods();
-            await loadUpdates();
+            const report = await loadUpdates();
+            if (report) onModUpdatesChanged?.(instance.id, report);
             await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
           }}
         />

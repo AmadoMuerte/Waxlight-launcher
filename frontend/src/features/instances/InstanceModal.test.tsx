@@ -92,6 +92,7 @@ const installedMod = {
 
 function renderModal() {
   const notify = vi.fn();
+  const onModUpdatesChanged = vi.fn();
   useToastStore.setState({ notify });
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -109,11 +110,12 @@ function renderModal() {
           onClose={vi.fn()}
           onExport={vi.fn()}
           onClone={vi.fn()}
+          onModUpdatesChanged={onModUpdatesChanged}
         />
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { notify };
+  return { notify, onModUpdatesChanged };
 }
 
 async function openSettingsTab() {
@@ -237,7 +239,7 @@ describe("confirmDeletion gate", () => {
   });
 
   it("installs a selected catalog version from the instance mods tab", async () => {
-    renderModal();
+    const { onModUpdatesChanged } = renderModal();
     const user = await openModsTab();
 
     await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
@@ -249,6 +251,12 @@ describe("confirmDeletion gate", () => {
         mods: [{ modId: "playercorpse", versionId: "8" }],
         allowIncompatible: false,
       }),
+    );
+    await waitFor(() =>
+      expect(onModUpdatesChanged).toHaveBeenCalledWith(
+        "instance-1",
+        expect.objectContaining({ gameVersion: "1.20" }),
+      ),
     );
   });
 
