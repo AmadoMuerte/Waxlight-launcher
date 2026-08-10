@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- GENERATED from content/ru/getting-started.md by wiki/build.mjs — do not edit by hand -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Установка Waxlight Launcher и первые шаги — от скачивания до запуска игры за несколько минут.">
+  <title>Быстрый старт — Waxlight Wiki</title>
+  <link rel="icon" href="../assets/waxlight.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-page="getting-started">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Быстрый старт</h1>
+<p>От скачивания до запуска игры — несколько минут.</p>
+<h2>Скачивание</h2>
+<p>Официальные сборки публикуются <strong>только</strong> на странице <a href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">GitHub Releases</a>. Каждый релиз включает файл <code>SHA256SUMS</code> для проверки целостности загруженных файлов.</p>
+<table><thead><tr><th>Платформа</th><th>Пакет</th><th>Файл</th></tr></thead><tbody><tr><td>Windows x64</td><td>Установщик (с ярлыками и деинсталлятором)</td><td><code>*-windows-amd64-installer.exe</code></td></tr><tr><td>Windows x64</td><td>Портативная версия (без установки)</td><td><code>*-windows-amd64-portable.zip</code></td></tr><tr><td>Debian / Ubuntu x64</td><td>Пакет .deb (Debian, Ubuntu, Mint и совместимые)</td><td><code>*-linux-amd64.deb</code></td></tr><tr><td>Fedora / RPM x64</td><td>Пакет .rpm (Fedora и RPM-совместимые)</td><td><code>*-linux-amd64.rpm</code></td></tr><tr><td>Прочие Linux x64</td><td>Портативный архив (нужны GTK 3 и WebKitGTK 4.1)</td><td><code>*-linux-amd64.tar.gz</code></td></tr></tbody></table>
+<div class="callout warn"><span class="callout-title">SmartScreen в Windows</span><p>Ранние неподписанные сборки могут вызывать предупреждение Microsoft Defender SmartScreen. Скачивайте Waxlight только со страницы Releases официального репозитория. Подробнее — в разделе <a href="./policies/code-signing.html">«Подпись кода»</a>.</p></div>
+<h2>Проверка целостности</h2>
+<p>Сравните SHA-256 скачанного файла со значением из <code>SHA256SUMS</code>:</p>
+<pre><code class="language-bash"># Linux
+sha256sum -c SHA256SUMS --ignore-missing
+
+# Windows (PowerShell)
+Get-FileHash .\waxlight-*-windows-amd64-installer.exe -Algorithm SHA256
+</code></pre>
+<p>SHA-256 подтверждает, что файл побайтово совпадает с артефактом релиза, но <strong>не удостоверяет издателя</strong>. Для этого служит Authenticode-подпись — см. <a href="./policies/code-signing.html">политику подписи кода</a>.</p>
+<h2>Первые шаги</h2>
+<ol>
+<li><strong>Войдите в аккаунт.</strong> Откройте раздел «Аккаунты» и войдите с учётной записью Vintage Story. Поддерживается TOTP/2FA. Подробнее — <a href="./features/accounts.html">Аккаунты и вход</a>.</li>
+<li><strong>Установите версию игры.</strong> Раздел «Версии игры» → выберите версию → «Скачать». Прогресс виден на странице <a href="./features/operations.html">«Операции»</a>.</li>
+<li><strong>Создайте инстанс.</strong> В «Библиотеке» создайте инстанс и выберите для него аккаунт и версию игры.</li>
+<li><strong>Установите моды (по желанию).</strong> Раздел «Моды» — встроенный браузер Vintage Story ModDB с поиском и фильтрами.</li>
+<li><strong>Нажмите «Играть».</strong> Для игры требуется действующий аккаунт Vintage Story с доступом к игре.</li>
+</ol>
+<h2>Где хранятся данные</h2>
+<table><thead><tr><th>Платформа</th><th>Каталог по умолчанию</th></tr></thead><tbody><tr><td>Linux</td><td><code>~/.config/waxlight/</code></td></tr><tr><td>Windows</td><td><code>%AppData%\waxlight\</code></td></tr></tbody></table>
+<p>Внутри — версии игры (<code>versions</code>), инстансы (<code>instances</code>), загрузки (<code>downloads</code>), кэш (<code>cache</code>), бэкапы (<code>backups</code>), журналы (<code>logs</code>) и база данных лаунчера. Основной каталог можно перенести в другое место: <strong>Настройки → Папка данных</strong>. Учётные данные аккаунтов при этом остаются в системном хранилище ОС.</p>
+<h2>Телеметрия при первом запуске</h2>
+<p>Опциональная телеметрия <strong>выключена по умолчанию</strong>. В Windows-установщике показывается политика конфиденциальности и отдельный, по умолчанию снятый, флажок согласия. Настройку можно изменить в любой момент: <strong>Настройки → Конфиденциальность и телеметрия</strong>. Полный список передаваемых полей — в <a href="./policies/privacy.html">политике конфиденциальности</a>.</p>
+<h2>Нужна помощь?</h2>
+<p>Загляните в <a href="./faq.html">FAQ</a>, задайте вопрос на <a href="https://discord.gg/CrRHvg9UVw">Discord-сервере</a> или откройте <a href="https://github.com/AmadoMuerte/Waxlight-launcher/issues">issue на GitHub</a>.</p>
+    </div>
+  </main>
+  <script src="../assets/wiki-data.js"></script>
+  <script src="../assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- GENERATED from content/ru/features/operations.md by wiki/build.mjs — do not edit by hand -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Отслеживание загрузок и длительных задач — прогресс, отмена, история.">
+  <title>Операции и загрузки — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/operations">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Операции и загрузки</h1>
+<p>Все длительные задачи — загрузки и установки версий игры — на одной странице: прогресс, отмена, история.</p>
+<h2>Статусы</h2>
+<table><thead><tr><th>Статус</th><th>Состояние</th></tr></thead><tbody><tr><td><code>queued</code></td><td>В очереди (активная)</td></tr><tr><td><code>running</code></td><td>Выполняется (активная)</td></tr><tr><td><code>completed</code></td><td>Завершена успешно</td></tr><tr><td><code>failed</code></td><td>Завершена с ошибкой</td></tr><tr><td><code>cancelled</code></td><td>Устаревшая запись из старых версий лаунчера</td></tr></tbody></table>
+<h2>Отмена — это откат</h2>
+<p>Успешная отмена операции не оставляет записи в истории. Waxlight:</p>
+<ol>
+<li>отменяет контекст операции и ждёт остановки загрузчика/установщика;</li>
+<li>удаляет <code>&lt;файл&gt;.partial</code> и <code>&lt;файл&gt;</code> из каталога <code>downloads/</code>;</li>
+<li>удаляет строку операции из базы и публикует событие <code>operation:removed</code>;</li>
+<li>освобождает блокировки и завершает вызов отмены.</li>
+</ol>
+<p>Если очистка файлов не удалась, операция помечается <code>failed</code>, а вызов возвращает ошибку — запись специально остаётся, чтобы показать проблему и дать повторить удаление после исправления прав.</p>
+<h2>Докачка</h2>
+<p>Официальные пакеты игры скачиваются в <code>downloads/&lt;имя&gt;.partial</code>. После проверки контрольной суммы файл переименовывается без <code>.partial</code>. При сетевой ошибке частичный файл сохраняется — следующая попытка продолжит с места обрыва, если CDN поддерживает HTTP Range.</p>
+<h2>История</h2>
+<ul>
+<li>Активные операции можно только отменить.</li>
+<li>Завершённые — удалить по одной (с подтверждением) или очистить всю историю разом.</li>
+<li>Удаление активных операций запрещено на уровне базы данных: защита работает даже против некорректного клиента.</li>
+<li>Список отсортирован от новых к старым и ограничен 100 записями.</li>
+</ul>
+<p>Контракт страницы: <a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/operations-page.html">operations-page.md</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>
