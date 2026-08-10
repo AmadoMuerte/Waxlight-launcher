@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- GENERATED from content/en/features/mods.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A built-in Vintage Story ModDB browser — search, install, and update mods per instance.">
+  <title>Mods & ModDB — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/mods">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Mods &amp; ModDB</h1>
+<p>A built-in Vintage Story ModDB browser: search, install, update, and manage mods per instance.</p>
+<h2>The ModDB catalog</h2>
+<p>The Mods section talks to the official Vintage Story ModDB catalog:</p>
+<ul>
+<li>catalog search and filters;</li>
+<li>a mod details page with description, versions, and changelogs;</li>
+<li>installing a chosen mod version into a specific instance;</li>
+<li>batch mod installation.</li>
+</ul>
+<h2>Managing an instance&#x27;s mods</h2>
+<ul>
+<li>install from the catalog and from local files;</li>
+<li>enable/disable without removal;</li>
+<li>update and remove;</li>
+<li>manually installed mods appear alongside catalog ones (marked as local).</li>
+</ul>
+<h2>Update analysis</h2>
+<p>Waxlight can check which of an instance&#x27;s mods can be updated through the catalog. The check (an instance&#x27;s &quot;mod updates&quot;) builds a report for every installed mod:</p>
+<table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody><tr><td><code>up_to_date</code></td><td>Installed version equals the catalog candidate</td></tr><tr><td><code>update_available</code></td><td>A newer version exists; target ID and version are provided</td></tr><tr><td><code>not_updatable</code></td><td>Cannot be updated via the catalog: local mod, absent from the catalog, or catalog error</td></tr><tr><td><code>unknown</code></td><td>State could not be determined</td></tr></tbody></table>
+<p>The update candidate is chosen by priority: the version the catalog marks as latest → newest stable → newest of any kind. The report additionally shows:</p>
+<ul>
+<li><strong>compatibility</strong> — whether the candidate supports the instance&#x27;s game version (informational; updates are never blocked);</li>
+<li><strong>added dependencies</strong> — not yet present in the instance;</li>
+<li><strong>removed dependencies</strong> — no longer required by the new version;</li>
+<li>changelogs and a prerelease flag.</li>
+</ul>
+<div class="callout"><span class="callout-title">A report, not an action</span><p>The analysis downloads nothing and changes nothing in the instance. Updates are applied by an explicit user action through the regular catalog download flow.</p></div>
+<p>Technical details of the analysis library: <a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/modpack.html">modpack.md</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>

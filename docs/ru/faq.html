@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- GENERATED from content/ru/faq.md by wiki/build.mjs — do not edit by hand -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Частые вопросы об установке, аккаунтах, безопасности, SmartScreen и телеметрии.">
+  <title>FAQ — Waxlight Wiki</title>
+  <link rel="icon" href="../assets/waxlight.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-page="faq">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>FAQ</h1>
+<p>Частые вопросы о Waxlight. Не нашли ответ — спросите в <a href="https://discord.gg/CrRHvg9UVw">Discord</a>.</p>
+<h2>Общее</h2>
+<h3>Waxlight — официальный лаунчер Vintage Story?</h3>
+<p>Нет. Waxlight — независимый открытый проект, не аффилированный с Anego Studios и разработчиками Vintage Story. Лаунчер не распространяет игру и не обходит её лицензирование: нужен действующий аккаунт Vintage Story.</p>
+<h3>На каких платформах работает Waxlight?</h3>
+<p>Windows x64 и Linux x64. Пакеты: установщик и portable ZIP для Windows; <code>.deb</code>, <code>.rpm</code> и portable <code>.tar.gz</code> для Linux.</p>
+<h3>Где скачивать Waxlight?</h3>
+<p>Только на странице <a href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">GitHub Releases</a> официального репозитория. Каждый релиз содержит <code>SHA256SUMS</code> для проверки целостности.</p>
+<h2>Установка и обновления</h2>
+<h3>Windows показывает предупреждение SmartScreen. Это безопасно?</h3>
+<p>Ранние неподписанные сборки могут вызывать SmartScreen. Waxlight переходит на подпись через SignPath Foundation; до её активации скачивайте только с официальной страницы Releases и проверяйте SHA-256. Подробнее — <a href="./policies/code-signing.html">«Подпись кода»</a>.</p>
+<h3>Почему автообновление на Windows не устанавливается автоматически?</h3>
+<p>Так задумано. До настройки доверенного издателя SignPath лаунчер после проверки контрольной суммы отклоняет автоматическую установку неподписанных обновлений. Скачайте новую версию вручную со страницы Releases. См. <a href="./features/updates.html">«Обновления лаунчера»</a>.</p>
+<h3>Куда Waxlight складывает данные?</h3>
+<p>Linux: <code>~/.config/waxlight/</code>; Windows: <code>%AppData%\waxlight\</code>. Папку можно перенести в <strong>Настройки → Папка данных</strong>.</p>
+<h2>Аккаунты и безопасность</h2>
+<h3>Где хранятся мои пароль и сессия?</h3>
+<p>Пароли и TOTP-коды не сохраняются вообще. Сессионные ключи — только в системном хранилище: Secret Service (GNOME Keyring/KWallet) на Linux и Credential Manager на Windows. Подробнее — <a href="./features/accounts.html">«Аккаунты и вход»</a>.</p>
+<h3>Удаление аккаунта из лаунчера завершает сессию на сервере?</h3>
+<p>Нет. Удаление локальное: стираются ключи, метаданные и связи инстансов. Используемого эндпоинта отзыва сессий у Vintage Story нет.</p>
+<h3>Что отправляет телеметрия?</h3>
+<p>По умолчанию — ничего: телеметрия выключена. Если включить, отправляются только псевдонимный ID установки, версия лаунчера, ОС/архитектура, количества инстансов и модов и предопределённые имена событий/коды ошибок. Полный список — в <a href="./policies/privacy.html">политике конфиденциальности</a>.</p>
+<h2>Игра и моды</h2>
+<h3>Можно ли держать несколько версий игры?</h3>
+<p>Да, версии устанавливаются рядом в общее хранилище <code>versions/</code>, и каждому инстансу назначается своя версия. См. <a href="./features/game-versions.html">«Версии игры»</a>.</p>
+<h3>Как поделиться сборкой модов с другом?</h3>
+<p>Экспортируйте инстанс как пакет Waxlight: учётные данные и машинно-специфичные настройки вырезаются автоматически. Друг импортирует пакет и выберет свой аккаунт. См. <a href="./features/packages.html">«Пакеты инстансов»</a>.</p>
+<h3>Инстанс сломался после обновления модов. Что делать?</h3>
+<p>Используйте механизмы восстановления: страховочные копии и «последнее известное хорошее состояние». См. <a href="./features/backups.html">«Бэкапы и восстановление»</a>.</p>
+<h2>Сообщество</h2>
+<h3>Есть ли у проекта Discord?</h3>
+<p>Да — официальный сервер Waxlight: <a href="https://discord.gg/CrRHvg9UVw">discord.gg/CrRHvg9UVw</a>. Помощь, новости разработки, обсуждение функций.</p>
+<h3>Как сообщить об ошибке?</h3>
+<p>Через <a href="https://github.com/AmadoMuerte/Waxlight-launcher/issues">GitHub Issues</a>. Уязвимости безопасности — только приватно по <a href="./policies/security.html">политике безопасности</a>. Перед отправкой экспортируйте журнал поддержки — он редактируется автоматически и не содержит учётных данных.</p>
+<h3>Как поддержать проект?</h3>
+<p>Через <a href="https://hipolink.net/amadomuerte">страницу поддержки</a> — Waxlight бесплатен и развивается на энтузиазме.</p>
+    </div>
+  </main>
+  <script src="../assets/wiki-data.js"></script>
+  <script src="../assets/app.js"></script>
+</body>
+</html>

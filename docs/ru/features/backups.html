@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- GENERATED from content/ru/features/backups.md by wiki/build.mjs — do not edit by hand -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Снапшоты, страховочные копии перед изменениями и возврат к рабочему состоянию.">
+  <title>Бэкапы и восстановление — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/backups">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Бэкапы и восстановление</h1>
+<p>Снапшоты, страховочные копии перед рискованными изменениями и возврат к заведомо рабочему состоянию.</p>
+<h2>Снапшоты</h2>
+<p>Waxlight умеет создавать снапшоты инстансов — сохранённые копии состояния, к которым можно вернуться после неудачных экспериментов с модами или настройками. Снапшоты хранятся в каталоге <code>backups/</code> внутри папки данных лаунчера.</p>
+<h2>Страховочные копии</h2>
+<p>Перед потенциально опасными изменениями инстанса лаунчер автоматически создаёт страховочную копию (safety snapshot), чтобы у пользователя всегда была точка отката.</p>
+<h2>Last known good</h2>
+<p>Механизм «последнего известного хорошего состояния» (last known good) фиксирует конфигурацию, при которой игра успешно запускалась, и позволяет восстановить её после сбоев — например, если инстанс перестал запускаться после обновления модов.</p>
+<div class="callout warn"><span class="callout-title">Остановите игру перед бэкапом</span><p>Во время работы игры в <code>clientsettings.json</code> находятся сессионные данные аккаунта. Копия, снятая в этот момент, может их захватить. Останавливайте игру перед созданием бэкапов и снапшотов файловой системы.</p></div>
+<h2>Безопасность экспорта</h2>
+<p>Все функции, которые копируют, экспортируют или архивируют инстанс, удаляют из <code>clientsettings.json</code> свойства <code>sessionkey</code>, <code>sessionsignature</code>, <code>playeruid</code> и <code>playername</code>. Это жёсткое правило проекта — см. <a href="./packages.html">«Пакеты инстансов»</a> и <a href="../policies/security.html">«Безопасность»</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>

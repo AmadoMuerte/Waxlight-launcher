@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- GENERATED from content/en/getting-started.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Installing Waxlight Launcher and first steps — from download to launching the game in minutes.">
+  <title>Getting started — Waxlight Wiki</title>
+  <link rel="icon" href="../assets/waxlight.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-page="getting-started">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Getting started</h1>
+<p>From download to launching the game in a few minutes.</p>
+<h2>Download</h2>
+<p>Official builds are published <strong>only</strong> on the <a href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">GitHub Releases</a> page. Every release includes a <code>SHA256SUMS</code> file for integrity verification.</p>
+<table><thead><tr><th>Platform</th><th>Package</th><th>File</th></tr></thead><tbody><tr><td>Windows x64</td><td>Installer (shortcuts and uninstaller included)</td><td><code>*-windows-amd64-installer.exe</code></td></tr><tr><td>Windows x64</td><td>Portable (no installation)</td><td><code>*-windows-amd64-portable.zip</code></td></tr><tr><td>Debian / Ubuntu x64</td><td>.deb package (Debian, Ubuntu, Mint, and compatible)</td><td><code>*-linux-amd64.deb</code></td></tr><tr><td>Fedora / RPM x64</td><td>.rpm package (Fedora and RPM-compatible)</td><td><code>*-linux-amd64.rpm</code></td></tr><tr><td>Other Linux x64</td><td>Portable archive (requires GTK 3 and WebKitGTK 4.1)</td><td><code>*-linux-amd64.tar.gz</code></td></tr></tbody></table>
+<div class="callout warn"><span class="callout-title">Windows SmartScreen</span><p>Early unsigned builds may trigger a Microsoft Defender SmartScreen warning. Download Waxlight only from the official repository&#x27;s Releases page. See <a href="./policies/code-signing.html">Code signing</a> for details.</p></div>
+<h2>Integrity check</h2>
+<p>Compare the downloaded file&#x27;s SHA-256 with the value from <code>SHA256SUMS</code>:</p>
+<pre><code class="language-bash"># Linux
+sha256sum -c SHA256SUMS --ignore-missing
+
+# Windows (PowerShell)
+Get-FileHash .\waxlight-*-windows-amd64-installer.exe -Algorithm SHA256
+</code></pre>
+<p>SHA-256 confirms the file is byte-identical to the release artifact but does <strong>not</strong> authenticate the publisher. That is what the Authenticode signature is for — see the <a href="./policies/code-signing.html">code signing policy</a>.</p>
+<h2>First steps</h2>
+<ol>
+<li><strong>Sign in.</strong> Open Accounts and sign in with a Vintage Story account. TOTP/2FA is supported. See <a href="./features/accounts.html">Accounts &amp; sign-in</a>.</li>
+<li><strong>Install a game version.</strong> Go to Game Versions → pick a version → Download. Progress is visible on the <a href="./features/operations.html">Operations</a> page.</li>
+<li><strong>Create an instance.</strong> In Library, create an instance and select its account and game version.</li>
+<li><strong>Install mods (optional).</strong> The Mods section is a built-in Vintage Story ModDB browser with search and filters.</li>
+<li><strong>Press Play.</strong> A valid Vintage Story account with access to the game is required.</li>
+</ol>
+<h2>Where data is stored</h2>
+<table><thead><tr><th>Platform</th><th>Default directory</th></tr></thead><tbody><tr><td>Linux</td><td><code>~/.config/waxlight/</code></td></tr><tr><td>Windows</td><td><code>%AppData%\waxlight\</code></td></tr></tbody></table>
+<p>Inside are game versions (<code>versions</code>), instances (<code>instances</code>), downloads (<code>downloads</code>), cache (<code>cache</code>), backups (<code>backups</code>), logs (<code>logs</code>), and the launcher database. The main data folder can be relocated: <strong>Settings → Data folder</strong>. Account credentials stay in the OS credential store regardless.</p>
+<h2>Telemetry on first run</h2>
+<p>Optional telemetry is <strong>disabled by default</strong>. The Windows installer shows the privacy policy with a separate, unchecked opt-in box. The setting can be changed at any time: <strong>Settings → Privacy &amp; telemetry</strong>. The full list of transmitted fields is in the <a href="./policies/privacy.html">Privacy Policy</a>.</p>
+<h2>Need help?</h2>
+<p>Check the <a href="./faq.html">FAQ</a>, ask on the <a href="https://discord.gg/CrRHvg9UVw">Discord server</a>, or open an <a href="https://github.com/AmadoMuerte/Waxlight-launcher/issues">issue on GitHub</a>.</p>
+    </div>
+  </main>
+  <script src="../assets/wiki-data.js"></script>
+  <script src="../assets/app.js"></script>
+</body>
+</html>

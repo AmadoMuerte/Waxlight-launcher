@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- GENERATED from content/en/features/packages.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Export and import instances as portable packages with private-data sanitization.">
+  <title>Instance packages — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/packages">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Instance packages</h1>
+<p>Export and import instances as portable Waxlight packages — share builds and move them between machines.</p>
+<h2>What a package is</h2>
+<p>A Waxlight package is an instance archive you can hand to another user or import on another computer. It contains the instance&#x27;s files: mods, configs, settings — everything needed to reproduce the build.</p>
+<h2>Private-data sanitization</h2>
+<p>On export, the package is automatically sanitized. Excluded from it:</p>
+<ul>
+<li><code>sessionkey</code>, <code>sessionsignature</code>, <code>playeruid</code>, and <code>playername</code> from <code>clientsettings.json</code>;</li>
+<li>MP tokens, passwords, credential-store secrets, authentication tokens;</li>
+<li>other account- and machine-specific settings.</li>
+</ul>
+<div class="callout ok"><span class="callout-title">Safe to share</span><p>A package contains no credentials: the recipient needs their own Vintage Story account to play the imported build.</p></div>
+<h2>Import</h2>
+<p>When importing a package, Waxlight unpacks the instance into the library. After import, select an account for the instance and, if needed, a game version — and you are ready to play.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>

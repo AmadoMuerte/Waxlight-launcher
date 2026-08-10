@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- GENERATED from content/ru/features/game-versions.md by wiki/build.mjs — do not edit by hand -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Несколько версий Vintage Story рядом, установка из официального канала обновлений игры.">
+  <title>Версии игры — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/game-versions">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Версии игры</h1>
+<p>Несколько версий Vintage Story, установленных рядом, из официального канала обновлений игры.</p>
+<h2>Откуда берутся версии</h2>
+<p>Waxlight использует официальную ленту версий Vintage Story:</p>
+<pre><code class="language-text">GET https://api.vintagestory.at/stable-unstable.json
+</code></pre>
+<p>Для каждой версии лента содержит дистрибутивы по платформам: имя файла, размер, контрольную сумму MD5 и официальные URL. Waxlight выбирает только текущую клиентскую платформу:</p>
+<ul>
+<li><strong>Linux x64</strong> — архив <code>.tar.gz</code>;</li>
+<li><strong>Windows x64</strong> — официальный установщик Inno Setup <code>.exe</code>.</li>
+</ul>
+<p>Серверы, macOS-клиенты и прочие записи игнорируются. Принимаются только HTTPS-загрузки с <code>cdn.vintagestory.at</code>, имя файла в URL должно совпадать с каталогом; некорректные релизы пропускаются.</p>
+<h2>Установка версии</h2>
+<p>Раздел «Версии игры» показывает установленные версии и доступные для скачивания (stable и unstable с фильтром). Конвейер установки:</p>
+<ol>
+<li>проверка, что версия ещё не установлена и не устанавливается;</li>
+<li>проверка свободного места под пакет и распакованные файлы;</li>
+<li>создание отслеживаемой отменяемой операции (видна на странице <a href="./operations.html">«Операции»</a>);</li>
+<li>загрузка через общий менеджер с докачкой <code>.partial</code>-файла при поддержке HTTP Range;</li>
+<li>проверка MD5 из официальной ленты;</li>
+<li>установка в общее хранилище <code>versions/&lt;version-id&gt;</code>;</li>
+<li>поиск исполняемого файла игры и запись <code>.waxlight-version</code>;</li>
+<li>регистрация версии в SQLite только после успешной установки;</li>
+<li>удаление кэшированного пакета.</li>
+</ol>
+<p>Распаковка в Linux защищена от path traversal и отклоняет ссылки. В Windows используется официальный установщик с документированными ключами <code>/VERYSILENT /NORESTART /CURRENTUSER /NOICONS /DIR=</code> без shell.</p>
+<div class="callout"><span class="callout-title">Про MD5</span><p>Официальная лента публикует MD5, а не SHA-256. MD5 используется только для сверки загруженного файла с данными издателя и не считается криптографической подписью. При ручном импорте архива можно указать необязательный SHA-256.</p></div>
+<h2>Установка из файла</h2>
+<p>Помимо официальной ленты, версию можно установить из локального архива/файла («Установить из файла»), с опциональной проверкой SHA-256. Это полезно для версий, которых нет в ленте.</p>
+<h2>Ограничения</h2>
+<ul>
+<li>Лента не публикует даты релизов — Waxlight их не выдумывает.</li>
+<li>Автоматическая установка поддерживает x64 Linux и x64 Windows.</li>
+<li>Лента — официальный продакшн-эндпоинт без опубликованной схемы и гарантий стабильности; её парсер изолирован и покрыт тестами.</li>
+<li>Waxlight не обходит аутентификацию игры: для запуска нужна валидная сессия аккаунта Vintage Story.</li>
+</ul>
+<p>Технический документ: <a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/game-versions.html">game-versions.md</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- GENERATED from content/en/faq.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Frequently asked questions about installation, accounts, security, SmartScreen, and telemetry.">
+  <title>FAQ — Waxlight Wiki</title>
+  <link rel="icon" href="../assets/waxlight.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-page="faq">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>FAQ</h1>
+<p>Frequently asked questions about Waxlight. No answer here? Ask on <a href="https://discord.gg/CrRHvg9UVw">Discord</a>.</p>
+<h2>General</h2>
+<h3>Is Waxlight an official Vintage Story launcher?</h3>
+<p>No. Waxlight is an independent open-source project, not affiliated with or endorsed by Anego Studios or the developers of Vintage Story. The launcher does not distribute the game or bypass its licensing: a valid Vintage Story account is required.</p>
+<h3>Which platforms does Waxlight run on?</h3>
+<p>Windows x64 and Linux x64. Packages: installer and portable ZIP for Windows; <code>.deb</code>, <code>.rpm</code>, and portable <code>.tar.gz</code> for Linux.</p>
+<h3>Where should I download Waxlight?</h3>
+<p>Only from the official repository&#x27;s <a href="https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest">GitHub Releases</a> page. Every release includes <code>SHA256SUMS</code> for integrity verification.</p>
+<h2>Installation and updates</h2>
+<h3>Windows shows a SmartScreen warning. Is it safe?</h3>
+<p>Early unsigned builds may trigger SmartScreen. Waxlight is transitioning to SignPath Foundation signing; until it is active, download only from the official Releases page and verify the SHA-256. See <a href="./policies/code-signing.html">Code signing</a>.</p>
+<h3>Why doesn&#x27;t the Windows auto-update install automatically?</h3>
+<p>By design. Until a trusted SignPath publisher is configured, the launcher rejects automatic installation of unsigned updates after checksum verification. Download the new version manually from the Releases page. See <a href="./features/updates.html">Launcher updates</a>.</p>
+<h3>Where does Waxlight store its data?</h3>
+<p>Linux: <code>~/.config/waxlight/</code>; Windows: <code>%AppData%\waxlight\</code>. The folder can be relocated in <strong>Settings → Data folder</strong>.</p>
+<h2>Accounts and security</h2>
+<h3>Where are my password and session stored?</h3>
+<p>Passwords and TOTP codes are never stored at all. Session keys live only in the OS store: Secret Service (GNOME Keyring/KWallet) on Linux and Credential Manager on Windows. See <a href="./features/accounts.html">Accounts &amp; sign-in</a>.</p>
+<h3>Does removing an account from the launcher end the server session?</h3>
+<p>No. Removal is local: it deletes the keys, metadata, and instance references. Vintage Story has no relied-upon session revocation endpoint.</p>
+<h3>What does telemetry send?</h3>
+<p>By default — nothing: telemetry is off. If enabled, it sends only a pseudonymous installation ID, launcher version, OS/architecture, instance and mod counts, and predefined event names/error codes. Full list: <a href="./policies/privacy.html">Privacy Policy</a>.</p>
+<h2>Game and mods</h2>
+<h3>Can I keep multiple game versions?</h3>
+<p>Yes, versions install side by side into the shared <code>versions/</code> store, and each instance gets its own version. See <a href="./features/game-versions.html">Game versions</a>.</p>
+<h3>How do I share a mod build with a friend?</h3>
+<p>Export the instance as a Waxlight package: credentials and machine-specific settings are stripped automatically. Your friend imports the package and picks their own account. See <a href="./features/packages.html">Instance packages</a>.</p>
+<h3>An instance broke after mod updates. What now?</h3>
+<p>Use the recovery mechanisms: safety backups and the last-known-good state. See <a href="./features/backups.html">Backups &amp; recovery</a>.</p>
+<h2>Community</h2>
+<h3>Does the project have a Discord?</h3>
+<p>Yes — the official Waxlight server: <a href="https://discord.gg/CrRHvg9UVw">discord.gg/CrRHvg9UVw</a>. Help, development news, feature discussions.</p>
+<h3>How do I report a bug?</h3>
+<p>Via <a href="https://github.com/AmadoMuerte/Waxlight-launcher/issues">GitHub Issues</a>. Security vulnerabilities — only privately via the <a href="./policies/security.html">security policy</a>. Before sending, export the support log — it is redacted automatically and contains no credentials.</p>
+<h3>How can I support the project?</h3>
+<p>Through the <a href="https://hipolink.net/amadomuerte">support page</a> — Waxlight is free and developed as a labor of love.</p>
+    </div>
+  </main>
+  <script src="../assets/wiki-data.js"></script>
+  <script src="../assets/app.js"></script>
+</body>
+</html>
