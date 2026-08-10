@@ -3,32 +3,33 @@ package presentation
 import (
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/modpack"
+	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
+	"github.com/waxlight/waxlight-launcher/internal/application"
 )
 
 func TestInstanceModUpdateReportDTO(t *testing.T) {
-	report := modpack.Report{
-		Build: modpack.Build{GameVersion: "1.20"},
-		Mods: []modpack.ModUpdate{
+	report := application.ModUpdateReport{
+		Build: vsmodpack.Build{GameVersion: "1.20"},
+		Mods: []vsmodpack.ModUpdate{
 			{
 				ModID:            "stonequarry",
 				Name:             "Stone Quarry",
 				InstalledVersion: "1.2.0",
 				TargetVersionID:  "v2",
 				TargetVersion:    "1.3.0",
-				Status:           modpack.StatusUpdateAvailable,
+				Status:           vsmodpack.StatusUpdateAvailable,
 				Changelog:        "Fixed a crash.",
 				Compatible:       false,
-				AddedDeps:        []modpack.Dependency{{ModID: "newdep", Name: "New"}},
+				AddedDeps:        []vsmodpack.Dependency{{ModID: "newdep", Name: "New"}},
 			},
 			{
 				ModID:  "mylocal",
 				Name:   "My Local",
-				Status: modpack.StatusNotUpdatable,
-				Reason: modpack.ReasonLocalMod,
+				Status: vsmodpack.StatusNotUpdatable,
+				Reason: vsmodpack.ReasonLocalMod,
 			},
 		},
-		Summary: modpack.Summary{
+		Summary: vsmodpack.Summary{
 			TotalMods: 2, UpdatesAvailable: 1, Incompatible: 1, NotUpdatableLocal: 1,
 		},
 	}

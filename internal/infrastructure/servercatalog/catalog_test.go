@@ -1,18 +1,22 @@
 package servercatalog
 
 import (
-	"strings"
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
-
-	"golang.org/x/net/html"
 )
 
-func TestParseServers(t *testing.T) {
-	root, err := html.Parse(strings.NewReader(`<div class="server"><b>12 players</b> on <a href="vintagestoryjoin://example.org:42420">Example</a><img title="7 mods installed"><div class="serverdesc">A <strong>friendly</strong> server.</div></div><div class="server"><b>4 players</b> on <abbr title="Whitelisted players only">Private</abbr></div>`))
+func TestClientMapsPublicServerListings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`<div class="server"><b>12 players</b> on <a href="vintagestoryjoin://example.org:42420">Example</a><img title="7 mods installed"><div class="serverdesc">A <strong>friendly</strong> server.</div></div><div class="server"><b>4 players</b> on <abbr title="Whitelisted players only">Private</abbr></div>`))
+	}))
+	defer server.Close()
+
+	servers, err := NewClientWithURL(server.Client(), server.URL).List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	servers := parseServers(root)
 	if len(servers) != 2 {
 		t.Fatalf("got %d servers, want 2", len(servers))
 	}

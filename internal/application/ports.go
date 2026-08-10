@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
@@ -41,7 +40,7 @@ type AuthClient interface {
 		string,
 		string,
 		string,
-	) (auth.Session, *auth.TOTPChallenge, error)
+	) (AuthSession, *TOTPChallenge, error)
 	Validate(context.Context, string, string) (bool, error)
 }
 

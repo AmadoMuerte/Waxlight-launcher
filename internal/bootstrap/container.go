@@ -12,7 +12,6 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
@@ -134,7 +133,7 @@ func New() (*Container, error) {
 	slog.Info("bootstrap: credential recovery checks finished")
 	accountService := application.NewAccountService(
 		store,
-		auth.NewClient(nil),
+		vintagestory.NewAuthClient(nil),
 		secretStore,
 	)
 	telemetryService := telemetry.NewService(
