@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- GENERATED from content/en/features/game-versions.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Multiple Vintage Story versions side by side, installed from the official version feed.">
+  <title>Game versions — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/game-versions">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Game versions</h1>
+<p>Multiple Vintage Story versions installed side by side, from the game&#x27;s official version feed.</p>
+<h2>Where versions come from</h2>
+<p>Waxlight uses the official Vintage Story version feed:</p>
+<pre><code class="language-text">GET https://api.vintagestory.at/stable-unstable.json
+</code></pre>
+<p>For each version, the feed lists platform distributions with a filename, human-readable size, MD5 checksum, and official URLs. Waxlight selects only the current client platform:</p>
+<ul>
+<li><strong>Linux x64</strong> — a <code>.tar.gz</code> archive;</li>
+<li><strong>Windows x64</strong> — the official Inno Setup <code>.exe</code> installer.</li>
+</ul>
+<p>Servers, macOS clients, and other entries are ignored. Only HTTPS downloads from <code>cdn.vintagestory.at</code> are accepted, and the URL basename must match the catalog filename; malformed releases are skipped rather than trusted.</p>
+<h2>Installing a version</h2>
+<p>The Game Versions section lists installed versions and those available for download (stable and unstable, with a filter). The installation pipeline:</p>
+<ol>
+<li>confirm the version is not installed or already being installed;</li>
+<li>check free space for the package and extracted files;</li>
+<li>create a persisted, cancellable operation (visible on the <a href="./operations.html">Operations</a> page);</li>
+<li>download through the shared manager, resuming a <code>.partial</code> file when the CDN supports HTTP ranges;</li>
+<li>verify the MD5 from the official feed;</li>
+<li>install into the shared <code>versions/&lt;version-id&gt;</code> store;</li>
+<li>locate the game executable and write <code>.waxlight-version</code>;</li>
+<li>register the version in SQLite only after installation succeeds;</li>
+<li>remove the cached package.</li>
+</ol>
+<p>Linux extraction is path-traversal protected and rejects links. Windows uses the official installer with the documented <code>/VERYSILENT /NORESTART /CURRENTUSER /NOICONS /DIR=</code> switches, without a shell.</p>
+<div class="callout"><span class="callout-title">About MD5</span><p>The official feed publishes MD5, not SHA-256. MD5 is used only to verify that a downloaded file matches the publisher&#x27;s feed; it is not treated as a cryptographic signature. Manual archive import supports an optional user-supplied SHA-256.</p></div>
+<h2>Install from file</h2>
+<p>Besides the official feed, a version can be installed from a local archive/file (&quot;Install from file&quot;) with optional SHA-256 verification. Useful for versions not present in the feed.</p>
+<h2>Known boundaries</h2>
+<ul>
+<li>The feed does not publish release timestamps, so Waxlight does not invent them.</li>
+<li>Automatic installation supports x64 Linux and x64 Windows.</li>
+<li>The feed is an official production endpoint without a published schema or stability guarantee; its parser is isolated and covered by tests.</li>
+<li>Waxlight does not bypass game authentication: a valid Vintage Story account session is still required to play.</li>
+</ul>
+<p>Technical document: <a href="https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/game-versions.html">game-versions.md</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>

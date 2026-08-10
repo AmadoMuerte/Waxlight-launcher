@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- GENERATED from content/en/features/backups.md by wiki/build.mjs — do not edit by hand -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Snapshots, safety backups before changes, and restoration of a known-good state.">
+  <title>Backups & recovery — Waxlight Wiki</title>
+  <link rel="icon" href="../../assets/waxlight.png">
+  <link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body data-page="features/backups">
+  <main class="wiki-main">
+    <div class="wiki-content">
+<h1>Backups &amp; recovery</h1>
+<p>Snapshots, safety backups before risky changes, and a return to a known-good state.</p>
+<h2>Snapshots</h2>
+<p>Waxlight can create instance snapshots — saved copies of an instance&#x27;s state you can return to after unsuccessful experiments with mods or settings. Snapshots are stored in the <code>backups/</code> directory inside the launcher&#x27;s data folder.</p>
+<h2>Safety backups</h2>
+<p>Before potentially destructive changes to an instance, the launcher automatically creates a safety snapshot, so there is always a rollback point.</p>
+<h2>Last known good</h2>
+<p>The last-known-good mechanism records the configuration in which the game last launched successfully and can restore it after failures — for example, when an instance stops launching after mod updates.</p>
+<div class="callout warn"><span class="callout-title">Stop the game before backing up</span><p>While the game is running, the account session data sits in <code>clientsettings.json</code>. A copy taken at that moment may capture it. Stop the game before creating backups and filesystem snapshots.</p></div>
+<h2>Export safety</h2>
+<p>Every feature that copies, exports, or archives an instance removes <code>sessionkey</code>, <code>sessionsignature</code>, <code>playeruid</code>, and <code>playername</code> from its <code>clientsettings.json</code>. This is a hard project rule — see <a href="./packages.html">Instance packages</a> and <a href="../policies/security.html">Security</a>.</p>
+    </div>
+  </main>
+  <script src="../../assets/wiki-data.js"></script>
+  <script src="../../assets/app.js"></script>
+</body>
+</html>
