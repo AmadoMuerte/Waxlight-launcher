@@ -1,4 +1,4 @@
-package application
+package accounts
 
 import (
 	"context"
@@ -8,20 +8,22 @@ import (
 
 type expiringAuthClient struct{}
 
-func (expiringAuthClient) Login(context.Context, string, string, string, string) (AuthSession, *TOTPChallenge, error) {
-	return AuthSession{}, &TOTPChallenge{PreLoginToken: "WAXLIGHT_TEST_PRELOGIN_DO_NOT_LEAK"}, ErrTOTPRequired
+func (expiringAuthClient) Login(context.Context, string, string, string, string) (Session, *TOTPChallenge, error) {
+	return Session{}, &TOTPChallenge{PreLoginToken: "WAXLIGHT_TEST_PRELOGIN_DO_NOT_LEAK"}, ErrTOTPRequired
 }
 func (expiringAuthClient) Validate(context.Context, string, string) (bool, error) { return false, nil }
 
-type unusedStore struct{ Store }
+type unusedStore struct{ Repository }
 type unusedSecrets struct{}
 
-func (unusedSecrets) Get(context.Context, string) (Secret, error) { return Secret{}, ErrSecretNotFound }
-func (unusedSecrets) Set(context.Context, string, Secret) error   { return nil }
-func (unusedSecrets) Delete(context.Context, string) error        { return nil }
+func (unusedSecrets) Get(context.Context, string) (Credential, error) {
+	return Credential{}, ErrCredentialsNotFound
+}
+func (unusedSecrets) Set(context.Context, string, Credential) error { return nil }
+func (unusedSecrets) Delete(context.Context, string) error          { return nil }
 
 func TestLoginFlowExpiresAndClearsSecrets(t *testing.T) {
-	service := NewAccountService(unusedStore{}, expiringAuthClient{}, unusedSecrets{})
+	service := NewService(unusedStore{}, expiringAuthClient{}, unusedSecrets{}, nil, nil, nil)
 	now := time.Now().UTC()
 	service.now = func() time.Time { return now }
 	service.flowTTL = time.Second

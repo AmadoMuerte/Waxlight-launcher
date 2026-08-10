@@ -8,18 +8,18 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestNativeCredentialStoreRoundTrip(t *testing.T) {
 	store := NewStore(t.TempDir())
 	id := "integration-" + uuid.NewString()
-	secret := application.Secret{SessionKey: "integration-session-key", SessionSignature: "integration-signature"}
+	secret := accounts.Credential{SessionKey: "integration-session-key", SessionSignature: "integration-signature"}
 	if err := store.Set(context.Background(), id, secret); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Delete(context.Background(), id) })
-	updated := application.Secret{SessionKey: "updated-session-key", SessionSignature: "updated-signature"}
+	updated := accounts.Credential{SessionKey: "updated-session-key", SessionSignature: "updated-signature"}
 	if err := store.Set(context.Background(), id, updated); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestNativeCredentialStoreRoundTrip(t *testing.T) {
 	if err := store.Delete(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get(context.Background(), id); !errors.Is(err, application.ErrSecretNotFound) {
+	if _, err := store.Get(context.Background(), id); !errors.Is(err, accounts.ErrCredentialsNotFound) {
 		t.Fatalf("unexpected missing error: %v", err)
 	}
 }

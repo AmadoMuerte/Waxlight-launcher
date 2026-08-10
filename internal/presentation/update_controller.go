@@ -7,8 +7,10 @@ import (
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/events"
 )
 
 type LauncherUpdateDTO struct {
@@ -25,15 +27,17 @@ type LauncherUpdateDTO struct {
 }
 
 type LauncherUpdateController struct {
-	service *application.LauncherUpdateService
-	base    *Base
+	service   *application.LauncherUpdateService
+	lifecycle *app.Lifecycle
+	events    events.Publisher
 }
 
 func NewLauncherUpdateController(
 	service *application.LauncherUpdateService,
-	base *Base,
+	lifecycle *app.Lifecycle,
+	eventPublisher events.Publisher,
 ) *LauncherUpdateController {
-	return &LauncherUpdateController{service: service, base: base}
+	return &LauncherUpdateController{service: service, lifecycle: lifecycle, events: eventPublisher}
 }
 
 func (controller *LauncherUpdateController) CurrentVersion() string {
@@ -41,30 +45,30 @@ func (controller *LauncherUpdateController) CurrentVersion() string {
 }
 
 func (controller *LauncherUpdateController) CheckUpdates(channel string) (LauncherUpdateDTO, error) {
-	update, err := controller.service.Check(context.Background(), channel)
+	update, err := controller.service.Check(controller.lifecycle.Context(), channel)
 	return launcherUpdateDTO(update), err
 }
 
 func (controller *LauncherUpdateController) InstallUpdate(channel string) error {
-	ctx := controller.base.ctx
-	if ctx == nil {
-		return errors.New("application runtime is unavailable")
-	}
+	ctx := controller.lifecycle.Context()
 	err := controller.service.Install(ctx, channel, func(progress domain.LauncherUpdateProgress) {
-		wruntime.EventsEmit(ctx, "updates:progress", progress)
+		controller.events.Publish("updates:progress", progress)
 	})
 	if err != nil {
 		return err
 	}
-	go func() {
-		time.Sleep(250 * time.Millisecond)
-		wruntime.Quit(ctx)
-	}()
+	controller.lifecycle.Go(func(workerCtx context.Context) {
+		select {
+		case <-time.After(250 * time.Millisecond):
+			wruntime.Quit(workerCtx)
+		case <-workerCtx.Done():
+		}
+	})
 	return nil
 }
 
 func (controller *LauncherUpdateController) OpenReleasePage(channel string) error {
-	update, err := controller.service.Check(context.Background(), channel)
+	update, err := controller.service.Check(controller.lifecycle.Context(), channel)
 	if err != nil {
 		return err
 	}
@@ -81,13 +85,10 @@ func (controller *LauncherUpdateController) OpenUrl(rawURL string) error {
 }
 
 func (controller *LauncherUpdateController) openExternalURL(rawURL string) error {
-	if controller.base.ctx == nil {
-		return errors.New("application runtime is unavailable")
-	}
 	if !validExternalURL(rawURL) {
 		return domain.NewError(domain.ErrInvalidURL, "only http and https links can be opened")
 	}
-	wruntime.BrowserOpenURL(controller.base.ctx, rawURL)
+	wruntime.BrowserOpenURL(controller.lifecycle.Context(), rawURL)
 	return nil
 }
 

@@ -17,7 +17,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/language"
@@ -26,7 +28,7 @@ import (
 
 type Service struct {
 	store              Store
-	accounts           *AccountService
+	accounts           *accounts.Service
 	clientSettings     ClientSettingsPatcher
 	installer          ArchiveInstaller
 	versionCatalog     GameVersionCatalog
@@ -40,7 +42,7 @@ type Service struct {
 	launcher           ProcessLauncher
 	dataRoot           string
 	snapshots          *snapshotstore.Store
-	events             EventPublisher
+	events             events.Publisher
 	telemetry          *telemetry.Service
 	runningMu          sync.Mutex
 	launchMu           sync.Mutex
@@ -124,7 +126,7 @@ func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
 	s.diskSpace = checker
 }
 
-func (s *Service) SetEventPublisher(publisher EventPublisher) {
+func (s *Service) SetEventPublisher(publisher events.Publisher) {
 	s.events = publisher
 }
 
@@ -209,12 +211,11 @@ func (s *Service) rejectIfRelocating() error {
 }
 
 func (s *Service) ConfigureAuthentication(
-	accounts *AccountService,
+	accountService *accounts.Service,
 	clientSettings ClientSettingsPatcher,
 ) {
-	s.accounts = accounts
+	s.accounts = accountService
 	s.clientSettings = clientSettings
-	accounts.ConfigureInstanceCleanup(s.clearAccountFromInstances)
 	slog.Info("authentication subsystem configured")
 }
 
@@ -237,7 +238,7 @@ func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) clearAccountFromInstances(ctx context.Context, accountID string) error {
+func (s *Service) ClearAccountFromInstances(ctx context.Context, accountID string) error {
 	if s.clientSettings == nil {
 		return nil
 	}
@@ -292,62 +293,6 @@ func cleanName(v string) (string, error) {
 		return "", domain.NewError(domain.ErrValidation, "Name cannot exceed 80 characters")
 	}
 	return v, nil
-}
-
-func (s *Service) ListAccounts(ctx context.Context) ([]domain.Account, error) {
-	return s.store.ListAccounts(ctx)
-}
-
-func (s *Service) AddLocalAccount(
-	ctx context.Context,
-	username string,
-	displayName string,
-) (domain.Account, error) {
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return domain.Account{}, domain.NewError(domain.ErrValidation, "Enter a username")
-	}
-	if displayName == "" {
-		displayName = username
-	}
-	displayName, _ = cleanName(displayName)
-	now := time.Now().UTC()
-	accounts, e := s.store.ListAccounts(ctx)
-	if e != nil {
-		return domain.Account{}, e
-	}
-	account := domain.Account{
-		ID:          newID(),
-		Username:    username,
-		DisplayName: displayName,
-		Status:      "local_profile",
-		IsDefault:   len(accounts) == 0,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-
-	if e = s.store.SaveAccount(ctx, account); e == nil {
-		s.emit("account:added", account)
-	}
-	return account, e
-}
-
-func (s *Service) SetDefaultAccount(ctx context.Context, id string) error {
-	if _, e := s.store.GetAccount(ctx, id); e != nil {
-		return e
-	}
-	e := s.store.SetDefaultAccount(ctx, id)
-	if e == nil {
-		s.emit("account:updated", map[string]string{"id": id})
-	}
-	return e
-}
-func (s *Service) DeleteAccount(ctx context.Context, id string) error {
-	e := s.store.DeleteAccount(ctx, id)
-	if e == nil {
-		s.emit("account:removed", map[string]string{"id": id})
-	}
-	return e
 }
 
 func (s *Service) ListVersions(ctx context.Context) ([]domain.GameVersion, error) {
@@ -619,7 +564,10 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 		return domain.Instance{}, e
 	}
 	if in.DefaultAccountID != nil {
-		if _, e = s.store.GetAccount(ctx, *in.DefaultAccountID); e != nil {
+		if s.accounts == nil {
+			return domain.Instance{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		}
+		if _, e = s.accounts.GetAccount(ctx, *in.DefaultAccountID); e != nil {
 			return domain.Instance{}, e
 		}
 	}
@@ -1453,10 +1401,10 @@ func (s *Service) ValidateLaunch(
 			validation.Warnings,
 			"No account is selected. The game will start without authentication data.",
 		)
-	} else if account, accountErr := s.store.GetAccount(ctx, *chosen); accountErr != nil {
+	} else if account, accountErr := s.accounts.GetAccount(ctx, *chosen); accountErr != nil {
 		validation.Valid = false
 		validation.Issues = append(validation.Issues, "The selected account no longer exists")
-	} else if account.Status == domain.AccountStatusExpired || account.Status == domain.AccountStatusNeedsReauth {
+	} else if account.Status == accounts.StatusExpired || account.Status == accounts.StatusNeedsReauth {
 		validation.Valid = false
 		validation.Issues = append(validation.Issues, "The selected account must be authenticated again")
 	}
@@ -1739,24 +1687,33 @@ func (s *Service) resolveAccountID(
 	requested *string,
 ) (*string, error) {
 	if requested != nil && strings.TrimSpace(*requested) != "" {
-		if _, err := s.store.GetAccount(ctx, *requested); err != nil {
+		if s.accounts == nil {
+			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		}
+		if _, err := s.accounts.GetAccount(ctx, *requested); err != nil {
 			return nil, err
 		}
 		value := *requested
 		return &value, nil
 	}
 	if instance.DefaultAccountID != nil && strings.TrimSpace(*instance.DefaultAccountID) != "" {
-		if _, err := s.store.GetAccount(ctx, *instance.DefaultAccountID); err != nil {
+		if s.accounts == nil {
+			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		}
+		if _, err := s.accounts.GetAccount(ctx, *instance.DefaultAccountID); err != nil {
 			return nil, err
 		}
 		value := *instance.DefaultAccountID
 		return &value, nil
 	}
-	accounts, err := s.store.ListAccounts(ctx)
+	if s.accounts == nil {
+		return nil, nil
+	}
+	storedAccounts, err := s.accounts.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, account := range accounts {
+	for _, account := range storedAccounts {
 		if account.IsDefault {
 			value := account.ID
 			return &value, nil

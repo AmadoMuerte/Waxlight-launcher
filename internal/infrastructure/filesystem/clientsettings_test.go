@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
-func testAccount() domain.Account {
-	return domain.Account{
+func testAccount() accounts.Account {
+	return accounts.Account{
 		Username:         "Ada",
 		UID:              "player-uid",
 		SessionKey:       "session-key",

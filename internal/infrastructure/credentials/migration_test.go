@@ -8,37 +8,37 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 type migrationStore struct {
-	values      map[string]application.Secret
+	values      map[string]accounts.Credential
 	setCalls    int
 	failAt      int
 	readCorrupt bool
 	err         error
 }
 
-func (store *migrationStore) Get(_ context.Context, id string) (application.Secret, error) {
+func (store *migrationStore) Get(_ context.Context, id string) (accounts.Credential, error) {
 	if store.err != nil {
-		return application.Secret{}, store.err
+		return accounts.Credential{}, store.err
 	}
 	secret, ok := store.values[id]
 	if !ok {
-		return application.Secret{}, application.ErrSecretNotFound
+		return accounts.Credential{}, accounts.ErrCredentialsNotFound
 	}
 	if store.readCorrupt {
 		secret.SessionKey += "-corrupt"
 	}
 	return secret, nil
 }
-func (store *migrationStore) Set(_ context.Context, id string, secret application.Secret) error {
+func (store *migrationStore) Set(_ context.Context, id string, secret accounts.Credential) error {
 	store.setCalls++
 	if store.err != nil || (store.failAt > 0 && store.setCalls == store.failAt) {
 		if store.err != nil {
 			return store.err
 		}
-		return application.ErrStoreUnavailable
+		return accounts.ErrStoreUnavailable
 	}
 	store.values[id] = secret
 	return nil
@@ -62,7 +62,7 @@ const validLegacy = `{"version":1,"secrets":{"account-1":{"sessionkey":"key-1","
 func TestMigrationImportsVerifiesDeletesAndIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	path := writeLegacy(t, root, validLegacy, 0o600)
-	store := &migrationStore{values: map[string]application.Secret{}}
+	store := &migrationStore{values: map[string]accounts.Credential{}}
 	migrator := NewMigrator(root, store)
 	if err := migrator.Run(context.Background(), []string{"account-1", "account-2"}); err != nil {
 		t.Fatal(err)
@@ -87,9 +87,9 @@ func TestMigrationImportsVerifiesDeletesAndIsIdempotent(t *testing.T) {
 
 func TestMigrationPartialFailureAndVerificationFailureRetainSource(t *testing.T) {
 	for name, store := range map[string]*migrationStore{
-		"partial":      {values: map[string]application.Secret{}, failAt: 2},
-		"verification": {values: map[string]application.Secret{}, readCorrupt: true},
-		"denied":       {values: map[string]application.Secret{}, err: application.ErrPermissionDenied},
+		"partial":      {values: map[string]accounts.Credential{}, failAt: 2},
+		"verification": {values: map[string]accounts.Credential{}, readCorrupt: true},
+		"denied":       {values: map[string]accounts.Credential{}, err: accounts.ErrPermissionDenied},
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
@@ -106,14 +106,14 @@ func TestMigrationPartialFailureAndVerificationFailureRetainSource(t *testing.T)
 
 func TestMigrationPreservesCredentialStoreErrorCategory(t *testing.T) {
 	for name, want := range map[string]error{
-		"locked":  application.ErrStoreLocked,
-		"denied":  application.ErrPermissionDenied,
-		"offline": application.ErrStoreUnavailable,
+		"locked":  accounts.ErrStoreLocked,
+		"denied":  accounts.ErrPermissionDenied,
+		"offline": accounts.ErrStoreUnavailable,
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
 			writeLegacy(t, root, validLegacy, 0o600)
-			store := &migrationStore{values: map[string]application.Secret{}, err: want}
+			store := &migrationStore{values: map[string]accounts.Credential{}, err: want}
 			err := NewMigrator(root, store).Run(context.Background(), []string{"account-1", "account-2"})
 			if !errors.Is(err, want) {
 				t.Fatalf("migration error lost credential store category: %v", err)
@@ -137,7 +137,7 @@ func TestMigrationRejectsMalformedOversizedAndUnknownAccounts(t *testing.T) {
 			if name == "unknown-account" {
 				ids = []string{"account-1"}
 			}
-			store := &migrationStore{values: map[string]application.Secret{}}
+			store := &migrationStore{values: map[string]accounts.Credential{}}
 			if err := NewMigrator(root, store).Run(context.Background(), ids); err == nil {
 				t.Fatal("expected rejection")
 			}

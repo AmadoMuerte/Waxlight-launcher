@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 const secretVersion = 1
@@ -17,36 +17,36 @@ type encodedSecret struct {
 	SessionSignature string `json:"sessionSignature"`
 }
 
-func encodeSecret(secret application.Secret) (string, error) {
+func encodeSecret(secret accounts.Credential) (string, error) {
 	if secret.SessionKey == "" || secret.SessionSignature == "" {
-		return "", application.ErrCorruptSecret
+		return "", accounts.ErrCorruptCredentials
 	}
 	contents, err := json.Marshal(encodedSecret{
 		Version: secretVersion, SessionKey: secret.SessionKey,
 		SessionSignature: secret.SessionSignature,
 	})
 	if err != nil {
-		return "", application.ErrCorruptSecret
+		return "", accounts.ErrCorruptCredentials
 	}
 	return string(contents), nil
 }
 
-func decodeSecret(value string) (application.Secret, error) {
+func decodeSecret(value string) (accounts.Credential, error) {
 	if len(value) == 0 || len(value) > 64*1024 {
-		return application.Secret{}, application.ErrCorruptSecret
+		return accounts.Credential{}, accounts.ErrCorruptCredentials
 	}
 	decoder := json.NewDecoder(bytes.NewBufferString(value))
 	decoder.DisallowUnknownFields()
 	var stored encodedSecret
 	if err := decoder.Decode(&stored); err != nil {
-		return application.Secret{}, application.ErrCorruptSecret
+		return accounts.Credential{}, accounts.ErrCorruptCredentials
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return application.Secret{}, application.ErrCorruptSecret
+		return accounts.Credential{}, accounts.ErrCorruptCredentials
 	}
 	if stored.Version != secretVersion || stored.SessionKey == "" || stored.SessionSignature == "" {
-		return application.Secret{}, application.ErrCorruptSecret
+		return accounts.Credential{}, accounts.ErrCorruptCredentials
 	}
-	return application.Secret{SessionKey: stored.SessionKey, SessionSignature: stored.SessionSignature}, nil
+	return accounts.Credential{SessionKey: stored.SessionKey, SessionSignature: stored.SessionSignature}, nil
 }

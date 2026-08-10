@@ -1,25 +1,26 @@
 package presentation
 
 import (
-	"context"
 	"log/slog"
 
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 )
 
 type SnapshotController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewSnapshotController(service *application.Service) *SnapshotController {
-	return &SnapshotController{svc: service}
+func NewSnapshotController(service *application.Service, lifecycle *app.Lifecycle) *SnapshotController {
+	return &SnapshotController{svc: service, lifecycle: lifecycle}
 }
 
 func (controller *SnapshotController) CreateInstanceSnapshot(
 	instanceID string,
 ) (OperationDTO, error) {
 	operation, err := controller.svc.CreateInstanceSnapshot(
-		context.Background(),
+		controller.lifecycle.Context(),
 		instanceID,
 	)
 	return operationDTO(operation), err
@@ -29,7 +30,7 @@ func (controller *SnapshotController) ListInstanceSnapshots(
 	instanceID string,
 ) ([]InstanceSnapshotDTO, error) {
 	snapshots, err := controller.svc.ListInstanceSnapshots(
-		context.Background(),
+		controller.lifecycle.Context(),
 		instanceID,
 	)
 	if err != nil {
@@ -47,7 +48,7 @@ func (controller *SnapshotController) RestoreInstanceSnapshot(
 	snapshotID string,
 ) error {
 	err := controller.svc.RestoreInstanceSnapshot(
-		context.Background(),
+		controller.lifecycle.Context(),
 		instanceID,
 		snapshotID,
 	)
@@ -62,7 +63,7 @@ func (controller *SnapshotController) DeleteInstanceSnapshot(
 	snapshotID string,
 ) error {
 	err := controller.svc.DeleteInstanceSnapshot(
-		context.Background(),
+		controller.lifecycle.Context(),
 		instanceID,
 		snapshotID,
 	)

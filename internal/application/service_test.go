@@ -15,10 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 type recordingLauncher struct {
@@ -167,7 +168,7 @@ func (process *controllableProcess) Kill() error {
 
 type testFixture struct {
 	service    *application.Service
-	store      *database.SQLiteStore
+	store      *sqlite.SQLiteStore
 	root       string
 	executable string
 	launcher   *recordingLauncher
@@ -177,7 +178,7 @@ func newTestFixture(t *testing.T) testFixture {
 	t.Helper()
 
 	root := t.TempDir()
-	store, err := database.Open(filepath.Join(root, "test.db"))
+	store, err := sqlite.Open(filepath.Join(root, "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +358,7 @@ func TestStartupReconciliationHardensExistingLogs(t *testing.T) {
 	if err := os.Chmod(logs, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	accountService := application.NewAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore())
+	accountService := newTestAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore(), fixture.service.ClearAccountFromInstances)
 	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
 	if err := fixture.service.ReconcileInjectedCredentials(ctx); err != nil {
 		t.Fatal(err)
@@ -718,7 +719,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: application.AuthSession{
+		session: accounts.Session{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",
@@ -726,10 +727,11 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 		},
 		validateResult: true,
 	}
-	accountService := application.NewAccountService(
+	accountService := newTestAccountService(
 		fixture.store,
 		authClient,
 		newMemorySecretStore(),
+		fixture.service.ClearAccountFromInstances,
 	)
 	fixture.service.ConfigureAuthentication(
 		accountService,
@@ -807,7 +809,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 		strings.Contains(fmt.Sprint(fixture.launcher.environment), "session-key") {
 		t.Fatal("credentials were passed through process arguments or environment")
 	}
-	if _, err := (filesystem.ClientSettingsService{}).Inject(settingsPath, domain.Account{
+	if _, err := (filesystem.ClientSettingsService{}).Inject(settingsPath, accounts.Account{
 		SessionKey: "stale-key", SessionSignature: "stale-signature", UID: "player-uid", Username: "Waxlighter",
 	}); err != nil {
 		t.Fatal(err)
@@ -828,8 +830,8 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	authClient := &fakeAuthClient{session: application.AuthSession{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
-	accountService := application.NewAccountService(fixture.store, authClient, newMemorySecretStore())
+	authClient := &fakeAuthClient{session: accounts.Session{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
+	accountService := newTestAccountService(fixture.store, authClient, newMemorySecretStore(), fixture.service.ClearAccountFromInstances)
 	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
 	if err != nil {
@@ -871,7 +873,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: application.AuthSession{
+		session: accounts.Session{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",
@@ -879,10 +881,11 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 		},
 		validateResult: false,
 	}
-	accountService := application.NewAccountService(
+	accountService := newTestAccountService(
 		fixture.store,
 		authClient,
 		newMemorySecretStore(),
+		fixture.service.ClearAccountFromInstances,
 	)
 	fixture.service.ConfigureAuthentication(
 		accountService,
@@ -911,7 +914,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 		t.Fatal("game process was started with an expired session")
 	}
 	account, err := fixture.store.GetAccount(ctx, accountID)
-	if err != nil || account.Status != domain.AccountStatusExpired {
+	if err != nil || account.Status != accounts.StatusExpired {
 		t.Fatalf("account was not marked expired: %#v, %v", account, err)
 	}
 }
@@ -1127,7 +1130,7 @@ func isErrorCode(err error, code string) bool {
 
 func waitForOperationStatus(
 	t *testing.T,
-	store *database.SQLiteStore,
+	store *sqlite.SQLiteStore,
 	operationID string,
 	wantedStatus string,
 ) {

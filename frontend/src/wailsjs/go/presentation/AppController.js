@@ -5,7 +5,3 @@
 export function AppInfo() {
   return window['go']['presentation']['AppController']['AppInfo']();
 }
-
-export function Startup(arg1) {
-  return window['go']['presentation']['AppController']['Startup'](arg1);
-}

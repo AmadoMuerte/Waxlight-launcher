@@ -2,30 +2,6 @@ package domain
 
 import "time"
 
-type AccountStatus string
-
-const (
-	AccountStatusValid       AccountStatus = "valid"
-	AccountStatusExpired     AccountStatus = "expired"
-	AccountStatusUnknown     AccountStatus = "unknown"
-	AccountStatusNeedsReauth AccountStatus = "needs_reauth"
-)
-
-type Account struct {
-	ID               string        `json:"id"`
-	Username         string        `json:"username"`
-	DisplayName      string        `json:"displayName"`
-	Email            string        `json:"email"`
-	UID              string        `json:"uid"`
-	SessionKey       string        `json:"-"`
-	SessionSignature string        `json:"-"`
-	Status           AccountStatus `json:"status"`
-	IsDefault        bool          `json:"isDefault"`
-	CreatedAt        time.Time     `json:"createdAt"`
-	UpdatedAt        time.Time     `json:"updatedAt"`
-	LastValidatedAt  *time.Time    `json:"lastValidatedAt,omitempty"`
-}
-
 type GameVersion struct {
 	ID              string
 	Name            string

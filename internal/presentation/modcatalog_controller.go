@@ -1,19 +1,20 @@
 package presentation
 
 import (
-	"context"
 	"time"
 
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 type ModCatalogController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewModCatalogController(service *application.Service) *ModCatalogController {
-	return &ModCatalogController{svc: service}
+func NewModCatalogController(service *application.Service, lifecycle *app.Lifecycle) *ModCatalogController {
+	return &ModCatalogController{svc: service, lifecycle: lifecycle}
 }
 
 type ModSearchRequest struct {
@@ -45,7 +46,7 @@ func (controller *ModCatalogController) SearchMods(
 		}
 		query.UpdatedAfter = &value
 	}
-	result, err := controller.svc.SearchMods(context.Background(), query)
+	result, err := controller.svc.SearchMods(controller.lifecycle.Context(), query)
 	dto := ModSearchResultDTO{
 		Items: []ModSummaryDTO{}, Page: result.Page, PageSize: result.PageSize,
 		TotalItems: result.TotalItems, TotalPages: result.TotalPages,
@@ -58,12 +59,12 @@ func (controller *ModCatalogController) SearchMods(
 }
 
 func (controller *ModCatalogController) GetMod(modID string) (ModDetailsDTO, error) {
-	mod, err := controller.svc.GetCatalogMod(context.Background(), modID)
+	mod, err := controller.svc.GetCatalogMod(controller.lifecycle.Context(), modID)
 	return modDetailsDTO(mod), err
 }
 
 func (controller *ModCatalogController) ListModTags() ([]ModTagDTO, error) {
-	tags, err := controller.svc.ListModTags(context.Background())
+	tags, err := controller.svc.ListModTags(controller.lifecycle.Context())
 	dtos := make([]ModTagDTO, 0, len(tags))
 	for _, tag := range tags {
 		dtos = append(dtos, ModTagDTO{Name: tag.Name, Count: tag.Count})
@@ -72,7 +73,7 @@ func (controller *ModCatalogController) ListModTags() ([]ModTagDTO, error) {
 }
 
 func (controller *ModCatalogController) ListDownloadedMods() ([]DownloadedModDTO, error) {
-	mods, err := controller.svc.ListDownloadedMods(context.Background())
+	mods, err := controller.svc.ListDownloadedMods(controller.lifecycle.Context())
 	dto := make([]DownloadedModDTO, 0, len(mods))
 	for _, mod := range mods {
 		dto = append(dto, downloadedModDTO(mod))
@@ -92,7 +93,7 @@ func (controller *ModCatalogController) DownloadMod(
 	request DownloadCatalogModRequest,
 ) (ModInstallResultDTO, error) {
 	result, err := controller.svc.DownloadCatalogMod(
-		context.Background(),
+		controller.lifecycle.Context(),
 		domain.DownloadModRequest{
 			ModID: request.ModID, VersionID: request.VersionID,
 			InstanceIDs: request.InstanceIDs, DownloadOnly: request.DownloadOnly,
@@ -122,7 +123,7 @@ func (controller *ModCatalogController) DownloadModsBatch(
 		})
 	}
 	return batchModInstallResultsDTO(controller.svc.DownloadCatalogModsBatch(
-		context.Background(),
+		controller.lifecycle.Context(),
 		domain.BatchDownloadModsRequest{InstanceID: request.InstanceID, Targets: targets},
 	))
 }
@@ -138,7 +139,7 @@ func (controller *ModCatalogController) InstallDownloadedMod(
 	request InstallDownloadedModRequest,
 ) (ModInstallResultDTO, error) {
 	result, err := controller.svc.InstallDownloadedMod(
-		context.Background(), request.ModID, request.VersionID,
+		controller.lifecycle.Context(), request.ModID, request.VersionID,
 		request.InstanceIDs, request.AllowIncompatible,
 	)
 	return modInstallResultDTO(result), err
@@ -148,23 +149,23 @@ func (controller *ModCatalogController) RemoveDownloadedMod(
 	modID string,
 	versionID string,
 ) error {
-	return controller.svc.RemoveDownloadedMod(context.Background(), modID, versionID)
+	return controller.svc.RemoveDownloadedMod(controller.lifecycle.Context(), modID, versionID)
 }
 
 func (controller *ModCatalogController) PreviewUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
-	result, err := controller.svc.PreviewUnusedDownloadedMods(context.Background())
+	result, err := controller.svc.PreviewUnusedDownloadedMods(controller.lifecycle.Context())
 	return downloadedModCleanupResultDTO(result), err
 }
 
 func (controller *ModCatalogController) RemoveUnusedDownloadedMods() (DownloadedModCleanupResultDTO, error) {
-	result, err := controller.svc.RemoveUnusedDownloadedMods(context.Background())
+	result, err := controller.svc.RemoveUnusedDownloadedMods(controller.lifecycle.Context())
 	return downloadedModCleanupResultDTO(result), err
 }
 
 func (controller *ModCatalogController) UploadMods(
 	sourcePaths []string,
 ) (UploadModsResultDTO, error) {
-	result, err := controller.svc.UploadMods(context.Background(), sourcePaths)
+	result, err := controller.svc.UploadMods(controller.lifecycle.Context(), sourcePaths)
 	return uploadModsResultDTO(result), err
 }
 
@@ -175,7 +176,7 @@ func (controller *ModCatalogController) CancelModTask(taskID string) error {
 func (controller *ModCatalogController) CheckModUpdates(
 	modID string,
 ) ([]DownloadedModDTO, error) {
-	mods, err := controller.svc.CheckModUpdates(context.Background(), modID)
+	mods, err := controller.svc.CheckModUpdates(controller.lifecycle.Context(), modID)
 	dto := make([]DownloadedModDTO, 0, len(mods))
 	for _, mod := range mods {
 		dto = append(dto, downloadedModDTO(mod))

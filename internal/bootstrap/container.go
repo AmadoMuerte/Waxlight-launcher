@@ -10,10 +10,11 @@ import (
 	"runtime"
 	"time"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
@@ -26,17 +27,20 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/servercatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
+	wailstransport "github.com/waxlight/waxlight-launcher/internal/transport/wails"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
 type Container struct {
 	Service        *application.Service
-	AccountService *application.AccountService
+	AccountService *accounts.Service
 	DataRoot       *dataroot.Manager
-	Base           *presentation.Base
+	Lifecycle      *app.Lifecycle
+	Events         events.Publisher
 	Controllers    []any
 	telemetry      *telemetry.Service
 }
@@ -76,7 +80,7 @@ func New() (*Container, error) {
 		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
 	}
 
-	store, err := database.Open(dataroot.DatabasePath(dataRoot))
+	store, err := sqlite.Open(dataroot.DatabasePath(dataRoot))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -107,13 +111,13 @@ func New() (*Container, error) {
 	// prevent the launcher from opening. Credential operations report failures
 	// when the user signs in or launches a game.
 	secretStore := credentials.NewStore(dataRoot)
-	accounts, err := store.ListAccounts(context.Background())
+	storedAccounts, err := store.ListAccounts(context.Background())
 	if err != nil {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("list accounts for credential migration: %w", err)
 	}
-	accountIDs := make([]string, 0, len(accounts))
-	for _, account := range accounts {
+	accountIDs := make([]string, 0, len(storedAccounts))
+	for _, account := range storedAccounts {
 		accountIDs = append(accountIDs, account.ID)
 	}
 	if err := secretStore.ReconcilePending(context.Background(), accountIDs); err != nil {
@@ -131,21 +135,30 @@ func New() (*Container, error) {
 		slog.Warn("bootstrap: credential store unavailable; legacy credential migration will retry later", "error", err)
 	}
 	slog.Info("bootstrap: credential recovery checks finished")
-	accountService := application.NewAccountService(
-		store,
-		vintagestory.NewAuthClient(nil),
-		secretStore,
-	)
 	telemetryService := telemetry.NewService(
 		telemetry.NewClient(telemetry.ProductionEndpoint()),
 		service,
+	)
+	accountService := accounts.NewService(
+		store,
+		vintagestory.NewAuthClient(nil),
+		secretStore,
+		secretStore,
+		service.ClearAccountFromInstances,
+		func(ctx context.Context) {
+			telemetryService.Error(
+				ctx,
+				telemetry.ErrorAuthServerUnavailable,
+				telemetry.ComponentAuthentication,
+				telemetry.OperationAuthenticate,
+			)
+		},
 	)
 	service.ConfigureTelemetry(telemetryService)
 	service.ConfigureAuthentication(
 		accountService,
 		filesystem.ClientSettingsService{},
 	)
-	accountService.ConfigureTelemetry(telemetryService)
 	if err := service.ReconcileInjectedCredentials(context.Background()); err != nil {
 		closeStoreOnError(store)
 		return nil, err
@@ -181,50 +194,56 @@ func New() (*Container, error) {
 		version.Version(),
 	)
 	updateService.ConfigureTelemetry(telemetryService)
-	base := presentation.NewBase(service)
+	lifecycle := app.NewLifecycle()
+	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
 	controllers := []any{
-		presentation.NewAppController(base),
-		presentation.NewAccountController(accountService),
-		presentation.NewGameVersionController(service),
-		presentation.NewInstanceController(service),
-		presentation.NewServerController(service),
-		presentation.NewModManagerController(service),
-		presentation.NewModCatalogController(service),
-		presentation.NewInstancePackageController(service, base),
-		presentation.NewLaunchController(service),
-		presentation.NewStatisticsController(service),
-		presentation.NewOperationController(service),
-		presentation.NewSnapshotController(service),
-		presentation.NewLastKnownGoodController(service),
-		presentation.NewLogController(service, base),
-		presentation.NewSettingsController(service, base, dataRootManager, downloadManager),
-		presentation.NewLauncherUpdateController(updateService, base),
+		presentation.NewAppController(),
+		presentation.NewAccountController(accountService, lifecycle),
+		presentation.NewGameVersionController(service, lifecycle),
+		presentation.NewInstanceController(service, lifecycle),
+		presentation.NewServerController(service, lifecycle),
+		presentation.NewModManagerController(service, lifecycle),
+		presentation.NewModCatalogController(service, lifecycle),
+		presentation.NewInstancePackageController(service, lifecycle),
+		presentation.NewLaunchController(service, lifecycle),
+		presentation.NewStatisticsController(service, lifecycle),
+		presentation.NewOperationController(service, lifecycle),
+		presentation.NewSnapshotController(service, lifecycle),
+		presentation.NewLastKnownGoodController(service, lifecycle),
+		presentation.NewLogController(service, lifecycle),
+		presentation.NewSettingsController(service, lifecycle, eventPublisher, dataRootManager, downloadManager),
+		presentation.NewLauncherUpdateController(updateService, lifecycle, eventPublisher),
 	}
 
 	return &Container{
 		Service:        service,
 		AccountService: accountService,
 		DataRoot:       dataRootManager,
-		Base:           base,
+		Lifecycle:      lifecycle,
+		Events:         eventPublisher,
 		Controllers:    controllers,
 		telemetry:      telemetryService,
 	}, nil
 }
 
 func credentialStoreUnavailable(err error) bool {
-	return errors.Is(err, application.ErrStoreLocked) ||
-		errors.Is(err, application.ErrStoreUnavailable) ||
-		errors.Is(err, application.ErrPermissionDenied)
+	return errors.Is(err, accounts.ErrStoreLocked) ||
+		errors.Is(err, accounts.ErrStoreUnavailable) ||
+		errors.Is(err, accounts.ErrPermissionDenied)
 }
 
 func (container *Container) Startup(ctx context.Context) {
-	container.Base.Startup(ctx)
+	container.Lifecycle.Startup(ctx)
+	container.Service.SetEventPublisher(container.Events)
 	// Push every new log line to the UI console as it is produced. The logging
 	// package stays framework-free; the Wails binding lives here.
 	logging.SetEmitter(func(entry logging.Entry) {
-		wruntime.EventsEmit(ctx, "logs:append", entry.Line())
+		container.Events.Publish("logs:append", entry.Line())
 	})
-	go container.AccountService.ValidateStaleAccounts(ctx, 24*time.Hour)
+	// Native keyring calls cannot be interrupted on every platform. Keep this
+	// startup hygiene task cancelable, but do not let a blocked keyring prevent
+	// the application from shutting down.
+	go container.AccountService.ValidateStaleAccounts(container.Lifecycle.Context(), 24*time.Hour)
 	container.telemetryHeartbeat()
 }
 
@@ -237,6 +256,8 @@ func (container *Container) telemetryHeartbeat() {
 }
 
 func (container *Container) Shutdown(context.Context) {
+	logging.SetEmitter(nil)
+	container.Lifecycle.Shutdown()
 	if err := container.Service.Close(); err != nil {
 		slog.Warn("bootstrap: could not close the application service cleanly", "error", err)
 	}
@@ -245,7 +266,7 @@ func (container *Container) Shutdown(context.Context) {
 // closeStoreOnError best-effort closes the database after a bootstrap failure.
 // The original error is already returned to the caller; a close failure is
 // logged so a flushed-but-failed shutdown is not silently lost.
-func closeStoreOnError(store *database.SQLiteStore) {
+func closeStoreOnError(store *sqlite.SQLiteStore) {
 	if err := store.Close(); err != nil {
 		slog.Warn("bootstrap: could not close the database after a failure", "error", err)
 	}

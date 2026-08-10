@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 )
@@ -76,7 +76,7 @@ func (store *Store) ReconcilePending(ctx context.Context, accountIDs []string) e
 		if _, ok := known[id]; ok {
 			continue
 		}
-		if err := store.Delete(ctx, id); err != nil && !errors.Is(err, application.ErrSecretNotFound) {
+		if err := store.Delete(ctx, id); err != nil && !errors.Is(err, accounts.ErrCredentialsNotFound) {
 			return err
 		}
 	}
@@ -89,7 +89,7 @@ func (store *Store) ReconcilePending(ctx context.Context, accountIDs []string) e
 func (store *Store) loadPending() (pendingCommits, error) {
 	state := pendingCommits{Version: 1, IDs: []string{}}
 	if store.pendingPath == "" {
-		return state, application.ErrStoreUnavailable
+		return state, accounts.ErrStoreUnavailable
 	}
 	info, err := os.Lstat(store.pendingPath)
 	if errors.Is(err, os.ErrNotExist) {

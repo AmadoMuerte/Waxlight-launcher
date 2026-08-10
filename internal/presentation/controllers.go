@@ -2,7 +2,6 @@ package presentation
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -10,41 +9,20 @@ import (
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
-type Base struct {
-	svc *application.Service
-	ctx context.Context
-}
+type AppController struct{}
 
-func NewBase(service *application.Service) *Base {
-	return &Base{svc: service}
-}
-
-func (base *Base) Startup(ctx context.Context) {
-	base.ctx = ctx
-	base.svc.SetEventPublisher(&eventBus{ctx: ctx})
-}
-
-type eventBus struct {
-	ctx context.Context
-}
-
-func (bus *eventBus) Publish(name string, payload any) {
-	wruntime.EventsEmit(bus.ctx, name, payload)
-}
-
-type AppController struct {
-	*Base
-}
-
-func NewAppController(base *Base) *AppController {
-	return &AppController{Base: base}
+func NewAppController() *AppController {
+	return &AppController{}
 }
 
 func (controller *AppController) AppInfo() map[string]any {
@@ -57,15 +35,16 @@ func (controller *AppController) AppInfo() map[string]any {
 }
 
 type AccountController struct {
-	svc *application.AccountService
+	svc       *accounts.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewAccountController(service *application.AccountService) *AccountController {
-	return &AccountController{svc: service}
+func NewAccountController(service *accounts.Service, lifecycle *app.Lifecycle) *AccountController {
+	return &AccountController{svc: service, lifecycle: lifecycle}
 }
 
 func (controller *AccountController) ListAccounts() ([]AccountDTO, error) {
-	accounts, err := controller.svc.ListAccounts(context.Background())
+	accounts, err := controller.svc.ListAccounts(controller.lifecycle.Context())
 	result := make([]AccountDTO, 0, len(accounts))
 	for _, account := range accounts {
 		result = append(result, accountDTO(account))
@@ -74,12 +53,12 @@ func (controller *AccountController) ListAccounts() ([]AccountDTO, error) {
 }
 
 func (controller *AccountController) Login(email, password string) (LoginResultDTO, error) {
-	result, err := controller.svc.Login(context.Background(), email, password)
+	result, err := controller.svc.Login(controller.lifecycle.Context(), email, password)
 	return loginResultDTO(result), err
 }
 
 func (controller *AccountController) CompleteTOTP(flowID, code string) (LoginResultDTO, error) {
-	result, err := controller.svc.CompleteTOTP(context.Background(), flowID, code)
+	result, err := controller.svc.CompleteTOTP(controller.lifecycle.Context(), flowID, code)
 	return loginResultDTO(result), err
 }
 
@@ -88,15 +67,15 @@ func (controller *AccountController) CancelLogin(flowID string) error {
 }
 
 func (controller *AccountController) SetDefaultAccount(id string) error {
-	return controller.svc.SelectAccount(context.Background(), id)
+	return controller.svc.SelectAccount(controller.lifecycle.Context(), id)
 }
 
 func (controller *AccountController) RemoveAccount(id string) error {
-	return controller.svc.RemoveAccount(context.Background(), id)
+	return controller.svc.RemoveAccount(controller.lifecycle.Context(), id)
 }
 
 func (controller *AccountController) ValidateAccount(id string) (AccountDTO, error) {
-	account, err := controller.svc.ValidateAccount(context.Background(), id)
+	account, err := controller.svc.ValidateAccount(controller.lifecycle.Context(), id)
 	return accountDTO(account), err
 }
 
@@ -106,7 +85,7 @@ func (controller *AccountController) ReauthenticateAccount(
 	password string,
 ) (LoginResultDTO, error) {
 	result, err := controller.svc.ReauthenticateAccount(
-		context.Background(),
+		controller.lifecycle.Context(),
 		accountID,
 		email,
 		password,
@@ -115,11 +94,12 @@ func (controller *AccountController) ReauthenticateAccount(
 }
 
 type GameVersionController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewGameVersionController(service *application.Service) *GameVersionController {
-	return &GameVersionController{svc: service}
+func NewGameVersionController(service *application.Service, lifecycle *app.Lifecycle) *GameVersionController {
+	return &GameVersionController{svc: service, lifecycle: lifecycle}
 }
 
 type InstallVersionRequest struct {
@@ -134,7 +114,7 @@ func (controller *GameVersionController) ListInstalledVersions() (
 	[]GameVersionDTO,
 	error,
 ) {
-	versions, err := controller.svc.ListVersions(context.Background())
+	versions, err := controller.svc.ListVersions(controller.lifecycle.Context())
 	result := make([]GameVersionDTO, 0, len(versions))
 	for _, version := range versions {
 		result = append(result, versionDTO(version))
@@ -146,7 +126,7 @@ func (controller *GameVersionController) ListAvailableVersions() (
 	[]AvailableGameVersionDTO,
 	error,
 ) {
-	versions, err := controller.svc.ListAvailableVersions(context.Background())
+	versions, err := controller.svc.ListAvailableVersions(controller.lifecycle.Context())
 	result := make([]AvailableGameVersionDTO, 0, len(versions))
 	for _, version := range versions {
 		result = append(result, availableVersionDTO(version))
@@ -158,7 +138,7 @@ func (controller *GameVersionController) InstallVersion(
 	versionID string,
 ) (OperationDTO, error) {
 	operation, err := controller.svc.InstallAvailableVersion(
-		context.Background(),
+		controller.lifecycle.Context(),
 		versionID,
 	)
 	return operationDTO(operation), err
@@ -168,7 +148,7 @@ func (controller *GameVersionController) InstallLocalVersion(
 	request InstallVersionRequest,
 ) (OperationDTO, error) {
 	operation, err := controller.svc.InstallVersion(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.ID,
 		request.Name,
 		request.SourcePath,
@@ -182,15 +162,16 @@ func (controller *GameVersionController) RemoveVersion(
 	id string,
 	deleteFiles bool,
 ) error {
-	return controller.svc.DeleteVersion(context.Background(), id, deleteFiles)
+	return controller.svc.DeleteVersion(controller.lifecycle.Context(), id, deleteFiles)
 }
 
 type InstanceController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewInstanceController(service *application.Service) *InstanceController {
-	return &InstanceController{svc: service}
+func NewInstanceController(service *application.Service, lifecycle *app.Lifecycle) *InstanceController {
+	return &InstanceController{svc: service, lifecycle: lifecycle}
 }
 
 type CreateInstanceRequest struct {
@@ -217,12 +198,13 @@ type CloneInstanceRequest struct {
 }
 
 func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
-	instances, err := controller.svc.ListInstances(context.Background())
+	ctx := controller.lifecycle.Context()
+	instances, err := controller.svc.ListInstances(ctx)
 	result := make([]InstanceDTO, 0, len(instances))
 
 	for _, instance := range instances {
 		dto := instanceDTO(instance)
-		mods, modsErr := controller.svc.ListMods(context.Background(), instance.ID)
+		mods, modsErr := controller.svc.ListMods(ctx, instance.ID)
 		if modsErr != nil {
 			slog.Warn("could not count mods for the instance list", "instance", instance.ID, "error", modsErr)
 		}
@@ -233,7 +215,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 			}
 		}
 		playtime, playtimeErr := controller.svc.GetInstancePlaytime(
-			context.Background(),
+			ctx,
 			instance.ID,
 		)
 		if playtimeErr != nil {
@@ -247,7 +229,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 }
 
 func (controller *InstanceController) GetInstance(id string) (InstanceDTO, error) {
-	instance, err := controller.svc.GetInstance(context.Background(), id)
+	instance, err := controller.svc.GetInstance(controller.lifecycle.Context(), id)
 	return instanceDTO(instance), err
 }
 
@@ -255,7 +237,7 @@ func (controller *InstanceController) CreateInstance(
 	request CreateInstanceRequest,
 ) (InstanceDTO, error) {
 	instance, err := controller.svc.CreateInstance(
-		context.Background(),
+		controller.lifecycle.Context(),
 		application.CreateInstanceInput{
 			Name:             request.Name,
 			Description:      request.Description,
@@ -271,7 +253,8 @@ func (controller *InstanceController) CreateInstance(
 func (controller *InstanceController) UpdateInstance(
 	request UpdateInstanceRequest,
 ) (InstanceDTO, error) {
-	instance, err := controller.svc.GetInstance(context.Background(), request.ID)
+	ctx := controller.lifecycle.Context()
+	instance, err := controller.svc.GetInstance(ctx, request.ID)
 	if err != nil {
 		return InstanceDTO{}, err
 	}
@@ -282,7 +265,7 @@ func (controller *InstanceController) UpdateInstance(
 	instance.DefaultAccountID = request.DefaultAccountID
 	instance.LaunchArguments = request.LaunchArguments
 
-	updated, err := controller.svc.UpdateInstance(context.Background(), instance)
+	updated, err := controller.svc.UpdateInstance(ctx, instance)
 	return instanceDTO(updated), err
 }
 
@@ -290,14 +273,14 @@ func (controller *InstanceController) DeleteInstance(
 	id string,
 	deleteFiles bool,
 ) error {
-	return controller.svc.DeleteInstance(context.Background(), id, deleteFiles)
+	return controller.svc.DeleteInstance(controller.lifecycle.Context(), id, deleteFiles)
 }
 
 func (controller *InstanceController) CloneInstance(
 	request CloneInstanceRequest,
 ) (InstanceDTO, error) {
 	instance, err := controller.svc.CloneInstance(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.SourceID,
 		request.Name,
 	)
@@ -305,11 +288,12 @@ func (controller *InstanceController) CloneInstance(
 }
 
 type ServerController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewServerController(service *application.Service) *ServerController {
-	return &ServerController{svc: service}
+func NewServerController(service *application.Service, lifecycle *app.Lifecycle) *ServerController {
+	return &ServerController{svc: service, lifecycle: lifecycle}
 }
 
 type SaveFavoriteServerRequest struct {
@@ -320,7 +304,7 @@ type SaveFavoriteServerRequest struct {
 }
 
 func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, error) {
-	servers, err := controller.svc.ListFavoriteServers(context.Background())
+	servers, err := controller.svc.ListFavoriteServers(controller.lifecycle.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +316,7 @@ func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, 
 }
 
 func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, error) {
-	servers, err := controller.svc.ListPublicServers(context.Background())
+	servers, err := controller.svc.ListPublicServers(controller.lifecycle.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -344,22 +328,23 @@ func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, erro
 }
 
 func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServerRequest) (FavoriteServerDTO, error) {
-	server, err := controller.svc.SaveFavoriteServer(context.Background(), application.SaveFavoriteServerInput{
+	server, err := controller.svc.SaveFavoriteServer(controller.lifecycle.Context(), application.SaveFavoriteServerInput{
 		ID: request.ID, Name: request.Name, Address: request.Address, InstanceID: request.InstanceID,
 	})
 	return favoriteServerDTO(server), err
 }
 
 func (controller *ServerController) DeleteFavoriteServer(id string) error {
-	return controller.svc.DeleteFavoriteServer(context.Background(), id)
+	return controller.svc.DeleteFavoriteServer(controller.lifecycle.Context(), id)
 }
 
 type ModManagerController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewModManagerController(service *application.Service) *ModManagerController {
-	return &ModManagerController{svc: service}
+func NewModManagerController(service *application.Service, lifecycle *app.Lifecycle) *ModManagerController {
+	return &ModManagerController{svc: service, lifecycle: lifecycle}
 }
 
 type InstallModFileRequest struct {
@@ -388,7 +373,7 @@ type ModFileFailureDTO struct {
 func (controller *ModManagerController) ListInstalledMods(
 	instanceID string,
 ) ([]InstalledModDTO, error) {
-	mods, err := controller.svc.ListMods(context.Background(), instanceID)
+	mods, err := controller.svc.ListMods(controller.lifecycle.Context(), instanceID)
 	result := make([]InstalledModDTO, 0, len(mods))
 	for _, mod := range mods {
 		result = append(result, modDTO(mod))
@@ -399,7 +384,7 @@ func (controller *ModManagerController) ListInstalledMods(
 func (controller *ModManagerController) LinkLocalMods(
 	instanceID string,
 ) (LinkLocalModsResultDTO, error) {
-	result, err := controller.svc.LinkLocalMods(context.Background(), instanceID)
+	result, err := controller.svc.LinkLocalMods(controller.lifecycle.Context(), instanceID)
 	return linkLocalModsResultDTO(result), err
 }
 
@@ -407,7 +392,7 @@ func (controller *ModManagerController) CheckInstanceModUpdates(
 	instanceID string,
 ) (InstanceModUpdateReportDTO, error) {
 	report, err := controller.svc.CheckInstanceModUpdates(
-		context.Background(),
+		controller.lifecycle.Context(),
 		instanceID,
 	)
 	return instanceModUpdateReportDTO(report), err
@@ -442,7 +427,7 @@ func (controller *ModManagerController) UpdateInstanceMods(
 		})
 	}
 	result, err := controller.svc.UpdateInstanceMods(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		targets,
 		request.AllowIncompatible,
@@ -458,7 +443,7 @@ func (controller *ModManagerController) InstallModFile(
 	request InstallModFileRequest,
 ) (OperationDTO, error) {
 	operation, err := controller.svc.InstallModFile(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.SourcePath,
 		request.Name,
@@ -471,7 +456,7 @@ func (controller *ModManagerController) InstallModFiles(
 	request InstallModFilesRequest,
 ) (InstallModFilesResultDTO, error) {
 	result, err := controller.svc.InstallModFiles(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.SourcePaths,
 	)
@@ -493,7 +478,7 @@ func (controller *ModManagerController) SetModEnabled(
 	enabled bool,
 ) (InstalledModDTO, error) {
 	mod, err := controller.svc.SetModEnabled(
-		context.Background(),
+		controller.lifecycle.Context(),
 		id,
 		enabled,
 	)
@@ -501,11 +486,11 @@ func (controller *ModManagerController) SetModEnabled(
 }
 
 func (controller *ModManagerController) RemoveMod(id string, deleteDependencies bool) error {
-	return controller.svc.DeleteMod(context.Background(), id, deleteDependencies)
+	return controller.svc.DeleteMod(controller.lifecycle.Context(), id, deleteDependencies)
 }
 
 func (controller *ModManagerController) GetModDeletePreview(id string) (ModDeletePreviewDTO, error) {
-	preview, err := controller.svc.ModDeletePreview(context.Background(), id)
+	preview, err := controller.svc.ModDeletePreview(controller.lifecycle.Context(), id)
 	if err != nil {
 		return ModDeletePreviewDTO{}, err
 	}
@@ -517,11 +502,12 @@ func (controller *ModManagerController) GetModDeletePreview(id string) (ModDelet
 }
 
 type LaunchController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewLaunchController(service *application.Service) *LaunchController {
-	return &LaunchController{svc: service}
+func NewLaunchController(service *application.Service, lifecycle *app.Lifecycle) *LaunchController {
+	return &LaunchController{svc: service, lifecycle: lifecycle}
 }
 
 type LaunchRequest struct {
@@ -545,7 +531,7 @@ func (controller *LaunchController) ValidateLaunch(
 	request LaunchRequest,
 ) (LaunchValidationDTO, error) {
 	validation, err := controller.svc.ValidateLaunch(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.AccountID,
 	)
@@ -560,7 +546,7 @@ func (controller *LaunchController) LaunchInstance(
 	request LaunchRequest,
 ) (PlaySessionDTO, error) {
 	session, err := controller.svc.Launch(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.AccountID,
 	)
@@ -575,7 +561,7 @@ func (controller *LaunchController) LaunchServer(
 	request ServerLaunchRequest,
 ) (PlaySessionDTO, error) {
 	session, err := controller.svc.LaunchServer(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.AccountID,
 		request.Address,
@@ -588,7 +574,7 @@ func (controller *LaunchController) LaunchServer(
 }
 
 func (controller *LaunchController) StopInstance(id string) error {
-	err := controller.svc.Stop(context.Background(), id, false)
+	err := controller.svc.Stop(controller.lifecycle.Context(), id, false)
 	if err != nil {
 		slog.Warn("stop request failed", "error", err)
 	}
@@ -596,7 +582,7 @@ func (controller *LaunchController) StopInstance(id string) error {
 }
 
 func (controller *LaunchController) ForceStopInstance(id string) error {
-	err := controller.svc.Stop(context.Background(), id, true)
+	err := controller.svc.Stop(controller.lifecycle.Context(), id, true)
 	if err != nil {
 		slog.Warn("force stop request failed", "error", err)
 	}
@@ -608,31 +594,33 @@ func (controller *LaunchController) GetRunningInstances() []string {
 }
 
 type StatisticsController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewStatisticsController(service *application.Service) *StatisticsController {
-	return &StatisticsController{svc: service}
+func NewStatisticsController(service *application.Service, lifecycle *app.Lifecycle) *StatisticsController {
+	return &StatisticsController{svc: service, lifecycle: lifecycle}
 }
 
 func (controller *StatisticsController) GetOverviewStatistics() (
 	StatisticsDTO,
 	error,
 ) {
-	statistics, err := controller.svc.GetStatistics(context.Background())
+	statistics, err := controller.svc.GetStatistics(controller.lifecycle.Context())
 	return statisticsDTO(statistics), err
 }
 
 type OperationController struct {
-	svc *application.Service
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewOperationController(service *application.Service) *OperationController {
-	return &OperationController{svc: service}
+func NewOperationController(service *application.Service, lifecycle *app.Lifecycle) *OperationController {
+	return &OperationController{svc: service, lifecycle: lifecycle}
 }
 
 func (controller *OperationController) ListOperations() ([]OperationDTO, error) {
-	operations, err := controller.svc.ListOperations(context.Background())
+	operations, err := controller.svc.ListOperations(controller.lifecycle.Context())
 	result := make([]OperationDTO, 0, len(operations))
 	for _, operation := range operations {
 		result = append(result, operationDTO(operation))
@@ -645,31 +633,33 @@ func (controller *OperationController) CancelOperation(id string) error {
 }
 
 func (controller *OperationController) DeleteOperation(id string) error {
-	return controller.svc.DeleteFinishedOperation(context.Background(), id)
+	return controller.svc.DeleteFinishedOperation(controller.lifecycle.Context(), id)
 }
 
 func (controller *OperationController) ClearOperationHistory() (int64, error) {
-	return controller.svc.ClearFinishedOperations(context.Background())
+	return controller.svc.ClearFinishedOperations(controller.lifecycle.Context())
 }
 
 type SettingsController struct {
 	svc       *application.Service
-	base      *Base
+	lifecycle *app.Lifecycle
+	events    events.Publisher
 	dataRoot  *dataroot.Manager
 	downloads *downloader.Manager
 }
 
 func NewSettingsController(
 	service *application.Service,
-	base *Base,
+	lifecycle *app.Lifecycle,
+	eventPublisher events.Publisher,
 	dataRoot *dataroot.Manager,
 	downloads *downloader.Manager,
 ) *SettingsController {
-	return &SettingsController{svc: service, base: base, dataRoot: dataRoot, downloads: downloads}
+	return &SettingsController{svc: service, lifecycle: lifecycle, events: eventPublisher, dataRoot: dataRoot, downloads: downloads}
 }
 
 func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
-	settings, err := controller.svc.GetSettings(context.Background())
+	settings, err := controller.svc.GetSettings(controller.lifecycle.Context())
 	return settingsDTO(settings), err
 }
 
@@ -677,7 +667,7 @@ func (controller *SettingsController) UpdateSettings(
 	request SettingsDTO,
 ) (SettingsDTO, error) {
 	settings, err := controller.svc.SaveSettings(
-		context.Background(),
+		controller.lifecycle.Context(),
 		domain.Settings{
 			Language:                 request.Language,
 			DownloadsParallel:        request.DownloadsParallel,
@@ -717,11 +707,9 @@ func (controller *SettingsController) GetDataFolder() (DataFolderDTO, error) {
 
 // SelectDataFolder opens a native directory picker for the data folder target.
 func (controller *SettingsController) SelectDataFolder() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
+	ctx := controller.lifecycle.Context()
 	return wruntime.OpenDirectoryDialog(
-		controller.base.ctx,
+		ctx,
 		wruntime.OpenDialogOptions{Title: "Select the launcher data folder"},
 	)
 }
@@ -730,15 +718,11 @@ func (controller *SettingsController) SelectDataFolder() (string, error) {
 // target. Progress is emitted through the "data-folder:progress" event; the
 // application relaunches itself when the copy finishes.
 func (controller *SettingsController) MoveDataFolder(target string) error {
-	ctx := controller.base.ctx
-	if ctx == nil {
-		return errors.New("application runtime is unavailable")
-	}
 	if err := controller.svc.CanRelocateDataFolder(); err != nil {
 		return err
 	}
 	controller.svc.SetDataFolderRelocating(true)
-	wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{Phase: "preparing"})
+	controller.events.Publish("data-folder:progress", DataFolderProgressDTO{Phase: "preparing"})
 	lastProgressEmit := time.Time{}
 	err := controller.dataRoot.StartRelocation(
 		target,
@@ -752,7 +736,7 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 				return
 			}
 			lastProgressEmit = now
-			wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{
+			controller.events.Publish("data-folder:progress", DataFolderProgressDTO{
 				CopiedBytes: copied,
 				TotalBytes:  total,
 				Progress:    progress,
@@ -762,17 +746,20 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 		func(err error) {
 			controller.svc.SetDataFolderRelocating(false)
 			if err != nil {
-				wruntime.EventsEmit(ctx, "data-folder:error", map[string]string{"message": err.Error()})
+				controller.events.Publish("data-folder:error", map[string]string{"message": err.Error()})
 				return
 			}
-			wruntime.EventsEmit(ctx, "data-folder:progress", DataFolderProgressDTO{
+			controller.events.Publish("data-folder:progress", DataFolderProgressDTO{
 				Progress: 1,
 				Phase:    "relaunching",
 			})
-			go func() {
-				time.Sleep(500 * time.Millisecond)
-				wruntime.Quit(ctx)
-			}()
+			controller.lifecycle.Go(func(workerCtx context.Context) {
+				select {
+				case <-time.After(500 * time.Millisecond):
+					wruntime.Quit(workerCtx)
+				case <-workerCtx.Done():
+				}
+			})
 		},
 	)
 	if err != nil {
@@ -783,12 +770,8 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 }
 
 func (controller *SettingsController) SelectGameArchive() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
-
 	return wruntime.OpenFileDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.OpenDialogOptions{
 			Title: "Select a Vintage Story archive",
 			Filters: []wruntime.FileFilter{
@@ -802,23 +785,15 @@ func (controller *SettingsController) SelectGameArchive() (string, error) {
 }
 
 func (controller *SettingsController) SelectGameDirectory() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
-
 	return wruntime.OpenDirectoryDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.OpenDialogOptions{Title: "Select a Vintage Story directory"},
 	)
 }
 
 func (controller *SettingsController) SelectModFile() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
-
 	return wruntime.OpenFileDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.OpenDialogOptions{
 			Title: "Select a mod file",
 			Filters: []wruntime.FileFilter{
@@ -832,12 +807,8 @@ func (controller *SettingsController) SelectModFile() (string, error) {
 }
 
 func (controller *SettingsController) SelectModFiles() ([]string, error) {
-	if controller.base.ctx == nil {
-		return nil, nil
-	}
-
 	return wruntime.OpenMultipleFilesDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.OpenDialogOptions{
 			Title: "Select mod files",
 			Filters: []wruntime.FileFilter{
@@ -851,10 +822,6 @@ func (controller *SettingsController) SelectModFiles() ([]string, error) {
 }
 
 func (controller *SettingsController) OpenDirectory(path string) error {
-	if controller.base.ctx == nil {
-		return nil
-	}
-
 	info, err := os.Stat(path)
 	if err != nil || !info.IsDir() {
 		return domain.NewError(domain.ErrValidation, "Directory not found")

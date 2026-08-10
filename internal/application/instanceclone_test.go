@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 )
 
@@ -16,17 +16,17 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	fixture.service.ConfigureAuthentication(
-		application.NewAccountService(fixture.store, nil, nil),
+		newTestAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore(), fixture.service.ClearAccountFromInstances),
 		filesystem.ClientSettingsService{},
 	)
 
-	account := domain.Account{
+	account := accounts.Account{
 		ID:          "acc-1",
 		Username:    "gasada",
 		DisplayName: "gasada",
 		Email:       "gasada@example.com",
 		UID:         "uid-123",
-		Status:      domain.AccountStatusValid,
+		Status:      accounts.StatusValid,
 	}
 	if err := fixture.store.SaveAccount(ctx, account); err != nil {
 		t.Fatal(err)

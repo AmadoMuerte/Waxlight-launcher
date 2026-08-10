@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -50,8 +50,8 @@ func TestStoreRoundTripUpdateMultipleAccountsAndDelete(t *testing.T) {
 	backend := &memoryBackend{values: map[string]string{}}
 	store := newStoreWithBackend(backend)
 	ctx := context.Background()
-	first := application.Secret{SessionKey: "first-key", SessionSignature: "first-signature"}
-	second := application.Secret{SessionKey: "second-key", SessionSignature: "second-signature"}
+	first := accounts.Credential{SessionKey: "first-key", SessionSignature: "first-signature"}
+	second := accounts.Credential{SessionKey: "second-key", SessionSignature: "second-signature"}
 	if err := store.Set(ctx, "account-1", first); err != nil {
 		t.Fatal(err)
 	}
@@ -73,10 +73,10 @@ func TestStoreRoundTripUpdateMultipleAccountsAndDelete(t *testing.T) {
 	if err := store.Delete(ctx, "account-1"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get(ctx, "account-1"); !errors.Is(err, application.ErrSecretNotFound) {
+	if _, err := store.Get(ctx, "account-1"); !errors.Is(err, accounts.ErrCredentialsNotFound) {
 		t.Fatalf("unexpected missing error: %v", err)
 	}
-	if err := store.Delete(ctx, "account-1"); !errors.Is(err, application.ErrSecretNotFound) {
+	if err := store.Delete(ctx, "account-1"); !errors.Is(err, accounts.ErrCredentialsNotFound) {
 		t.Fatalf("unexpected repeated delete: %v", err)
 	}
 }
@@ -91,7 +91,7 @@ func TestStoreRejectsCorruptAndUnsupportedSecrets(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			backend.values[backend.key(ServiceNamespace, name)] = value
-			if _, err := store.Get(context.Background(), name); !errors.Is(err, application.ErrCorruptSecret) {
+			if _, err := store.Get(context.Background(), name); !errors.Is(err, accounts.ErrCorruptCredentials) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
@@ -103,13 +103,13 @@ func TestStoreMapsLockedDeniedUnavailableAndCancellation(t *testing.T) {
 		source error
 		target error
 	}{
-		"locked":      {errors.New("collection is locked"), application.ErrStoreLocked},
-		"denied":      {errors.New("access denied"), application.ErrPermissionDenied},
-		"unavailable": {errors.New("dbus connection failed"), application.ErrStoreUnavailable},
+		"locked":      {errors.New("collection is locked"), accounts.ErrStoreLocked},
+		"denied":      {errors.New("access denied"), accounts.ErrPermissionDenied},
+		"unavailable": {errors.New("dbus connection failed"), accounts.ErrStoreUnavailable},
 	} {
 		t.Run(name, func(t *testing.T) {
 			store := newStoreWithBackend(&memoryBackend{values: map[string]string{}, err: tc.source})
-			if err := store.Set(context.Background(), "account", application.Secret{SessionKey: "key", SessionSignature: "sig"}); !errors.Is(err, tc.target) {
+			if err := store.Set(context.Background(), "account", accounts.Credential{SessionKey: "key", SessionSignature: "sig"}); !errors.Is(err, tc.target) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
@@ -117,13 +117,13 @@ func TestStoreMapsLockedDeniedUnavailableAndCancellation(t *testing.T) {
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
 	store := newStoreWithBackend(&memoryBackend{values: map[string]string{}})
-	if _, err := store.Get(cancelled, "account"); !errors.Is(err, application.ErrStoreUnavailable) {
+	if _, err := store.Get(cancelled, "account"); !errors.Is(err, accounts.ErrStoreUnavailable) {
 		t.Fatalf("unexpected cancellation error: %v", err)
 	}
 }
 
 func TestSecretEncodingDoesNotUseLegacyFieldNames(t *testing.T) {
-	value, err := encodeSecret(application.Secret{SessionKey: "key", SessionSignature: "signature"})
+	value, err := encodeSecret(accounts.Credential{SessionKey: "key", SessionSignature: "signature"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestPendingCredentialReconciliationDeletesOnlyOrphans(t *testing.T) {
 	backend := &memoryBackend{values: map[string]string{}}
 	store := &Store{backend: backend, pendingPath: filepath.Join(t.TempDir(), "security", "pending.json")}
 	ctx := context.Background()
-	secret := application.Secret{SessionKey: "key", SessionSignature: "signature"}
+	secret := accounts.Credential{SessionKey: "key", SessionSignature: "signature"}
 	for _, id := range []string{"committed", "orphan"} {
 		if err := store.MarkPending(ctx, id); err != nil {
 			t.Fatal(err)
@@ -151,7 +151,7 @@ func TestPendingCredentialReconciliationDeletesOnlyOrphans(t *testing.T) {
 	if _, err := store.Get(ctx, "committed"); err != nil {
 		t.Fatalf("committed secret was deleted: %v", err)
 	}
-	if _, err := store.Get(ctx, "orphan"); !errors.Is(err, application.ErrSecretNotFound) {
+	if _, err := store.Get(ctx, "orphan"); !errors.Is(err, accounts.ErrCredentialsNotFound) {
 		t.Fatalf("orphan was retained: %v", err)
 	}
 	if _, err := os.Stat(store.pendingPath); !errors.Is(err, os.ErrNotExist) {

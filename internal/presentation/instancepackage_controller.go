@@ -1,21 +1,21 @@
 package presentation
 
 import (
-	"context"
 	"path/filepath"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 type InstancePackageController struct {
-	svc  *application.Service
-	base *Base
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewInstancePackageController(service *application.Service, base *Base) *InstancePackageController {
-	return &InstancePackageController{svc: service, base: base}
+func NewInstancePackageController(service *application.Service, lifecycle *app.Lifecycle) *InstancePackageController {
+	return &InstancePackageController{svc: service, lifecycle: lifecycle}
 }
 
 type ExportInstanceRequest struct {
@@ -38,7 +38,7 @@ func (controller *InstancePackageController) ExportInstance(
 		}
 	}
 	manifest, err := controller.svc.ExportInstance(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.TargetPath,
 		domain.ExportInstanceOptions{
@@ -53,7 +53,7 @@ func (controller *InstancePackageController) ExportInstance(
 func (controller *InstancePackageController) InspectPackage(
 	packagePath string,
 ) (PackageInspectionDTO, error) {
-	inspection, err := controller.svc.InspectPackage(context.Background(), packagePath)
+	inspection, err := controller.svc.InspectPackage(controller.lifecycle.Context(), packagePath)
 	return packageInspectionDTO(inspection), err
 }
 
@@ -72,7 +72,7 @@ func (controller *InstancePackageController) ImportPackage(
 	request ImportInstanceRequest,
 ) (ImportReportDTO, error) {
 	report, err := controller.svc.ImportPackage(
-		context.Background(),
+		controller.lifecycle.Context(),
 		request.PackagePath,
 		domain.ImportInstanceOptions{
 			Name:              request.Name,
@@ -90,9 +90,6 @@ func (controller *InstancePackageController) ImportPackage(
 func (controller *InstancePackageController) SelectExportPath(
 	suggestedName string,
 ) (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
 	if suggestedName == "" {
 		suggestedName = "instance.waxlight"
 	}
@@ -100,7 +97,7 @@ func (controller *InstancePackageController) SelectExportPath(
 		suggestedName += ".waxlight"
 	}
 	return wruntime.SaveFileDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.SaveDialogOptions{
 			Title:           "Export Waxlight instance",
 			DefaultFilename: suggestedName,
@@ -115,11 +112,8 @@ func (controller *InstancePackageController) SelectExportPath(
 }
 
 func (controller *InstancePackageController) SelectPackageFile() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
 	return wruntime.OpenFileDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.OpenDialogOptions{
 			Title: "Import a Waxlight instance",
 			Filters: []wruntime.FileFilter{

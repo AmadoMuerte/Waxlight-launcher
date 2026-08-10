@@ -3,6 +3,7 @@ package presentation
 import (
 	"time"
 
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
@@ -21,7 +22,7 @@ type AccountDTO struct {
 	LastValidatedAt *string `json:"lastValidatedAt,omitempty"`
 }
 
-func accountDTO(account domain.Account) AccountDTO {
+func accountDTO(account accounts.Account) AccountDTO {
 	result := AccountDTO{
 		ID:          account.ID,
 		Username:    account.Username,
@@ -44,7 +45,7 @@ type LoginResultDTO struct {
 	Message string      `json:"message,omitempty"`
 }
 
-func loginResultDTO(result application.LoginResult) LoginResultDTO {
+func loginResultDTO(result accounts.LoginResult) LoginResultDTO {
 	dto := LoginResultDTO{
 		Status:  result.Status,
 		FlowID:  result.FlowID,
