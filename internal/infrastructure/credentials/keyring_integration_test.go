@@ -19,8 +19,12 @@ func TestNativeCredentialStoreRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Delete(context.Background(), id) })
+	updated := application.Secret{SessionKey: "updated-session-key", SessionSignature: "updated-signature"}
+	if err := store.Set(context.Background(), id, updated); err != nil {
+		t.Fatal(err)
+	}
 	got, err := store.Get(context.Background(), id)
-	if err != nil || got != secret {
+	if err != nil || got != updated {
 		t.Fatalf("unexpected secret: %#v, %v", got, err)
 	}
 	if err := store.Delete(context.Background(), id); err != nil {
