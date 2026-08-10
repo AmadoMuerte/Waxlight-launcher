@@ -23,6 +23,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/servercatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
@@ -160,6 +161,7 @@ func New() (*Container, error) {
 		gameversion.NewInstaller(),
 	)
 	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
+	service.ConfigurePublicServerCatalog(servercatalog.NewClient(nil))
 	service.ConfigureDiskSpaceChecker(filesystem.DiskSpace{})
 	updateHTTPClient := updater.NewHTTPClient()
 	updateDownloader := downloader.NewManager(
@@ -181,6 +183,7 @@ func New() (*Container, error) {
 		presentation.NewAccountController(accountService),
 		presentation.NewGameVersionController(service),
 		presentation.NewInstanceController(service),
+		presentation.NewServerController(service),
 		presentation.NewModManagerController(service),
 		presentation.NewModCatalogController(service),
 		presentation.NewInstancePackageController(service, base),

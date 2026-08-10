@@ -30,6 +30,7 @@ type Service struct {
 	clientSettings     ClientSettingsPatcher
 	installer          ArchiveInstaller
 	versionCatalog     GameVersionCatalog
+	serverCatalog      PublicServerCatalog
 	downloader         Downloader
 	packageInstaller   GamePackageInstaller
 	diskSpace          DiskSpaceChecker
@@ -112,6 +113,11 @@ func (s *Service) ConfigureVersionDownloads(
 	s.downloader = downloader
 	s.packageInstaller = installer
 	slog.Info("version download subsystem configured")
+}
+
+func (s *Service) ConfigurePublicServerCatalog(catalog PublicServerCatalog) {
+	s.serverCatalog = catalog
+	slog.Info("public server catalog configured")
 }
 
 func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
@@ -722,6 +728,60 @@ func (s *Service) ListInstances(ctx context.Context) ([]domain.Instance, error) 
 }
 func (s *Service) GetInstance(ctx context.Context, id string) (domain.Instance, error) {
 	return s.store.GetInstance(ctx, id)
+}
+
+type SaveFavoriteServerInput struct {
+	ID         string
+	Name       string
+	Address    string
+	InstanceID *string
+}
+
+func (s *Service) ListFavoriteServers(ctx context.Context) ([]domain.FavoriteServer, error) {
+	return s.store.ListFavoriteServers(ctx)
+}
+
+func (s *Service) ListPublicServers(ctx context.Context) ([]domain.PublicServer, error) {
+	if s.serverCatalog == nil {
+		return nil, domain.NewError(domain.ErrValidation, "Public server catalog is unavailable")
+	}
+	return s.serverCatalog.List(ctx)
+}
+
+func (s *Service) SaveFavoriteServer(ctx context.Context, input SaveFavoriteServerInput) (domain.FavoriteServer, error) {
+	name := strings.TrimSpace(input.Name)
+	address := strings.TrimSpace(input.Address)
+	if name == "" || len(name) > 100 || len(address) > 255 || strings.ContainsAny(address, "\r\n\t ") {
+		return domain.FavoriteServer{}, domain.NewError(domain.ErrValidation, "Enter a server name and an address without spaces")
+	}
+	if input.InstanceID != nil {
+		if _, err := s.store.GetInstance(ctx, *input.InstanceID); err != nil {
+			return domain.FavoriteServer{}, err
+		}
+	}
+	now := time.Now().UTC()
+	server := domain.FavoriteServer{ID: input.ID, Name: name, Address: address, InstanceID: input.InstanceID, UpdatedAt: now}
+	if server.ID == "" {
+		server.ID = newID()
+		server.CreatedAt = now
+	} else if previous, err := s.store.GetFavoriteServer(ctx, server.ID); err != nil {
+		return domain.FavoriteServer{}, err
+	} else {
+		server.CreatedAt = previous.CreatedAt
+	}
+	if err := s.store.SaveFavoriteServer(ctx, server); err != nil {
+		return domain.FavoriteServer{}, err
+	}
+	s.emit("favorite-server:updated", server)
+	return server, nil
+}
+
+func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
+	if err := s.store.DeleteFavoriteServer(ctx, id); err != nil {
+		return err
+	}
+	s.emit("favorite-server:removed", map[string]string{"id": id})
+	return nil
 }
 func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domain.Instance, error) {
 	old, e := s.store.GetInstance(ctx, in.ID)
@@ -1420,6 +1480,29 @@ func (s *Service) Launch(
 	instanceID string,
 	accountID *string,
 ) (domain.PlaySession, error) {
+	return s.launch(ctx, instanceID, accountID, "")
+}
+
+// LaunchServer starts an instance and connects it to the requested server.
+func (s *Service) LaunchServer(
+	ctx context.Context,
+	instanceID string,
+	accountID *string,
+	address string,
+) (domain.PlaySession, error) {
+	address = strings.TrimSpace(address)
+	if address == "" || len(address) > 255 || strings.ContainsAny(address, " \t\r\n/?#") {
+		return domain.PlaySession{}, domain.NewError(domain.ErrValidation, "Enter a valid server address")
+	}
+	return s.launch(ctx, instanceID, accountID, address)
+}
+
+func (s *Service) launch(
+	ctx context.Context,
+	instanceID string,
+	accountID *string,
+	serverAddress string,
+) (domain.PlaySession, error) {
 	if err := s.rejectIfRelocating(); err != nil {
 		return domain.PlaySession{}, err
 	}
@@ -1508,6 +1591,9 @@ func (s *Service) Launch(
 	arguments := append([]string{}, settings.GlobalLaunchArguments...)
 	arguments = append(arguments, instance.LaunchArguments...)
 	arguments = append(arguments, "--dataPath", instance.Directory)
+	if serverAddress != "" {
+		arguments = append(arguments, "--connect", serverAddress)
+	}
 
 	logPath := filepath.Join(
 		logsDirectory,

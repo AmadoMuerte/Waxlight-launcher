@@ -105,6 +105,11 @@ CREATE TABLE IF NOT EXISTS instances (
  launch_arguments TEXT NOT NULL DEFAULT '[]', last_played_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
  FOREIGN KEY(game_version_id) REFERENCES game_versions(id), FOREIGN KEY(default_account_id) REFERENCES accounts(id) ON DELETE SET NULL
 );
+CREATE TABLE IF NOT EXISTS favorite_servers (
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, address TEXT NOT NULL, instance_id TEXT,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ FOREIGN KEY(instance_id) REFERENCES instances(id) ON DELETE SET NULL
+);
 CREATE TABLE IF NOT EXISTS installed_mods (
  id TEXT PRIMARY KEY, instance_id TEXT NOT NULL, name TEXT NOT NULL, version TEXT NOT NULL, file_name TEXT NOT NULL,
  file_path TEXT NOT NULL, enabled INTEGER NOT NULL, managed INTEGER NOT NULL, source TEXT NOT NULL, size_bytes INTEGER NOT NULL,
@@ -171,6 +176,10 @@ INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime
 		return err
 	}
 	_, err = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (4, datetime('now'))`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (5, datetime('now'))`)
 	return err
 }
 
@@ -658,6 +667,65 @@ func (s *SQLiteStore) IsDirectoryUsed(ctx context.Context, path, except string) 
 	var n int
 	e := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instances WHERE directory=? AND id<>?`, path, except).Scan(&n)
 	return n > 0, e
+}
+
+func (s *SQLiteStore) ListFavoriteServers(ctx context.Context) ([]domain.FavoriteServer, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, address, instance_id, created_at, updated_at FROM favorite_servers ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	servers := []domain.FavoriteServer{}
+	for rows.Next() {
+		server, err := scanFavoriteServer(rows)
+		if err != nil {
+			return nil, err
+		}
+		servers = append(servers, server)
+	}
+	return servers, rows.Err()
+}
+
+func (s *SQLiteStore) GetFavoriteServer(ctx context.Context, id string) (domain.FavoriteServer, error) {
+	server, err := scanFavoriteServer(s.db.QueryRowContext(ctx, `SELECT id, name, address, instance_id, created_at, updated_at FROM favorite_servers WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return server, domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	}
+	return server, err
+}
+
+func (s *SQLiteStore) SaveFavoriteServer(ctx context.Context, server domain.FavoriteServer) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO favorite_servers(id, name, address, instance_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, address = excluded.address,
+		instance_id = excluded.instance_id, updated_at = excluded.updated_at
+	`, server.ID, server.Name, server.Address, server.InstanceID, ts(server.CreatedAt), ts(server.UpdatedAt))
+	return err
+}
+
+func (s *SQLiteStore) DeleteFavoriteServer(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM favorite_servers WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	if count, _ := result.RowsAffected(); count == 0 {
+		return domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	}
+	return nil
+}
+
+func scanFavoriteServer(row scanner) (domain.FavoriteServer, error) {
+	var server domain.FavoriteServer
+	var instanceID sql.NullString
+	var createdAt, updatedAt string
+	err := row.Scan(&server.ID, &server.Name, &server.Address, &instanceID, &createdAt, &updatedAt)
+	if instanceID.Valid {
+		server.InstanceID = &instanceID.String
+	}
+	server.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	server.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
+	return server, err
 }
 
 // GetLastKnownGood loads the Last Known Good marker of an instance. The
