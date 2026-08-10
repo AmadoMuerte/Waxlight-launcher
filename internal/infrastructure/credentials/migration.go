@@ -143,11 +143,11 @@ func (m *Migrator) writeState(status string, imported int) error {
 func secretStoreErrorForMigration(err error) error {
 	switch {
 	case errors.Is(err, application.ErrStoreLocked):
-		return errors.New("legacy credential migration requires an unlocked operating-system credential store; source file was retained")
+		return fmt.Errorf("legacy credential migration requires an unlocked operating-system credential store; source file was retained: %w", application.ErrStoreLocked)
 	case errors.Is(err, application.ErrPermissionDenied):
-		return errors.New("operating-system credential store denied the legacy migration; source file was retained")
+		return fmt.Errorf("operating-system credential store denied the legacy migration; source file was retained: %w", application.ErrPermissionDenied)
 	default:
-		return errors.New("operating-system credential store is unavailable for legacy migration; source file was retained")
+		return fmt.Errorf("operating-system credential store is unavailable for legacy migration; source file was retained: %w", application.ErrStoreUnavailable)
 	}
 }
 

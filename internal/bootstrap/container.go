@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -102,12 +103,10 @@ func New() (*Container, error) {
 		processinfra.Launcher{},
 		dataRoot,
 	)
+	// Do not probe with a write here: a temporarily locked native store must not
+	// prevent the launcher from opening. Credential operations report failures
+	// when the user signs in or launches a game.
 	secretStore := credentials.NewStore(dataRoot)
-	if err := secretStore.Probe(context.Background()); err != nil {
-		closeStoreOnError(store)
-		return nil, fmt.Errorf("native credential store is unavailable or locked; unlock it and retry: %w", err)
-	}
-	slog.Info("bootstrap: native credential store ready")
 	accounts, err := store.ListAccounts(context.Background())
 	if err != nil {
 		closeStoreOnError(store)
@@ -118,14 +117,20 @@ func New() (*Container, error) {
 		accountIDs = append(accountIDs, account.ID)
 	}
 	if err := secretStore.ReconcilePending(context.Background(), accountIDs); err != nil {
-		closeStoreOnError(store)
-		return nil, fmt.Errorf("reconcile interrupted credential commit: %w", err)
+		if !credentialStoreUnavailable(err) {
+			closeStoreOnError(store)
+			return nil, fmt.Errorf("reconcile interrupted credential commit: %w", err)
+		}
+		slog.Warn("bootstrap: credential store unavailable; interrupted credential recovery will retry later", "error", err)
 	}
 	if err := credentials.NewMigrator(dataRoot, secretStore).Run(context.Background(), accountIDs); err != nil {
-		closeStoreOnError(store)
-		return nil, err
+		if !credentialStoreUnavailable(err) {
+			closeStoreOnError(store)
+			return nil, err
+		}
+		slog.Warn("bootstrap: credential store unavailable; legacy credential migration will retry later", "error", err)
 	}
-	slog.Info("bootstrap: credential reconciliation complete")
+	slog.Info("bootstrap: credential recovery checks finished")
 	accountService := application.NewAccountService(
 		store,
 		auth.NewClient(nil),
@@ -202,6 +207,12 @@ func New() (*Container, error) {
 		Controllers:    controllers,
 		telemetry:      telemetryService,
 	}, nil
+}
+
+func credentialStoreUnavailable(err error) bool {
+	return errors.Is(err, application.ErrStoreLocked) ||
+		errors.Is(err, application.ErrStoreUnavailable) ||
+		errors.Is(err, application.ErrPermissionDenied)
 }
 
 func (container *Container) Startup(ctx context.Context) {

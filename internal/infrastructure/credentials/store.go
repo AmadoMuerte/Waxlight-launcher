@@ -2,8 +2,6 @@ package credentials
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -36,28 +34,6 @@ func NewStore(dataRoot string) *Store {
 }
 
 func newStoreWithBackend(backend keyringBackend) *Store { return &Store{backend: backend} }
-
-func (store *Store) Probe(ctx context.Context) error {
-	random := make([]byte, 16)
-	if _, err := rand.Read(random); err != nil {
-		return application.ErrStoreUnavailable
-	}
-	id := "probe-" + hex.EncodeToString(random)
-	secret := application.Secret{SessionKey: "credential-store-probe", SessionSignature: "credential-store-probe"}
-	if err := store.Set(ctx, id, secret); err != nil {
-		return err
-	}
-	defer store.Delete(context.Background(), id)
-	got, err := store.Get(ctx, id)
-	if err != nil || got != secret {
-		return application.ErrStoreUnavailable
-	}
-	if err := store.Delete(ctx, id); err != nil {
-		return err
-	}
-	slog.Info("credential store probe succeeded")
-	return nil
-}
 
 func (store *Store) Get(ctx context.Context, accountID string) (application.Secret, error) {
 	if err := validateRequest(ctx, accountID); err != nil {
