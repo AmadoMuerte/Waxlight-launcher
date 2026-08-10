@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import "../shared/i18n";
 import { setMissingKeyReporter } from "../shared/i18n";
 import { installGlobalErrorLogging, log } from "../shared/lib/logger";
+import { TooltipProvider } from "../shared/ui/tooltip";
 import { App } from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { queryClient } from "./providers/queryClient";
@@ -28,11 +29,13 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
-      </HashRouter>
+      <TooltipProvider>
+        <HashRouter>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </HashRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

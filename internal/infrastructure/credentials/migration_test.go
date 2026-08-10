@@ -104,6 +104,24 @@ func TestMigrationPartialFailureAndVerificationFailureRetainSource(t *testing.T)
 	}
 }
 
+func TestMigrationPreservesCredentialStoreErrorCategory(t *testing.T) {
+	for name, want := range map[string]error{
+		"locked":  application.ErrStoreLocked,
+		"denied":  application.ErrPermissionDenied,
+		"offline": application.ErrStoreUnavailable,
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeLegacy(t, root, validLegacy, 0o600)
+			store := &migrationStore{values: map[string]application.Secret{}, err: want}
+			err := NewMigrator(root, store).Run(context.Background(), []string{"account-1", "account-2"})
+			if !errors.Is(err, want) {
+				t.Fatalf("migration error lost credential store category: %v", err)
+			}
+		})
+	}
+}
+
 func TestMigrationRejectsMalformedOversizedAndUnknownAccounts(t *testing.T) {
 	oversized := strings.Repeat("x", maxLegacyFileBytes+1)
 	for name, contents := range map[string]string{

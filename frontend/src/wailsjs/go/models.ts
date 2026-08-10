@@ -457,6 +457,24 @@ export namespace presentation {
 		    return a;
 		}
 	}
+	export class FavoriteServerDTO {
+	    id: string;
+	    name: string;
+	    address: string;
+	    instanceId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new FavoriteServerDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.address = source["address"];
+	        this.instanceId = source["instanceId"];
+	    }
+	}
 	export class GameVersionDTO {
 	    id: string;
 	    name: string;
@@ -1673,6 +1691,66 @@ export namespace presentation {
 	        this.exitCode = source["exitCode"];
 	        this.crashed = source["crashed"];
 	        this.recovered = source["recovered"];
+	    }
+	}
+	export class PublicServerDTO {
+	    name: string;
+	    address: string;
+	    description: string;
+	    players: number;
+	    modCount: number;
+	    requiresWhitelist: boolean;
+	    accessRestricted: boolean;
+	    joinable: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new PublicServerDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.address = source["address"];
+	        this.description = source["description"];
+	        this.players = source["players"];
+	        this.modCount = source["modCount"];
+	        this.requiresWhitelist = source["requiresWhitelist"];
+	        this.accessRestricted = source["accessRestricted"];
+	        this.joinable = source["joinable"];
+	    }
+	}
+	export class SaveFavoriteServerRequest {
+	    id: string;
+	    name: string;
+	    address: string;
+	    instanceId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SaveFavoriteServerRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.address = source["address"];
+	        this.instanceId = source["instanceId"];
+	    }
+	}
+	export class ServerLaunchRequest {
+	    instanceId: string;
+	    accountId?: string;
+	    address: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ServerLaunchRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.instanceId = source["instanceId"];
+	        this.accountId = source["accountId"];
+	        this.address = source["address"];
 	    }
 	}
 	export class SettingsDTO {

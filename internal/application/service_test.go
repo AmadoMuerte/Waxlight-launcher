@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
@@ -671,11 +670,55 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 	}
 }
 
+func TestLaunchServerPassesConnectArgumentToSelectedInstance(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+		Name:          "Server instance",
+		GameVersionID: "1.20",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fixture.service.LaunchServer(ctx, instance.ID, nil, "example.org:42420"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"--dataPath", instance.Directory, "--connect", "example.org:42420"}
+	if !reflect.DeepEqual(fixture.launcher.arguments, want) {
+		t.Fatalf("unexpected server launch arguments: %v", fixture.launcher.arguments)
+	}
+	if err := fixture.service.Stop(ctx, instance.ID, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLaunchServerRejectsUnsafeAddress(t *testing.T) {
+	fixture := newTestFixture(t)
+	if _, err := fixture.service.LaunchServer(context.Background(), "instance", nil, "example.org/unsafe"); err == nil {
+		t.Fatal("expected invalid server address error")
+	}
+}
+
+func TestSaveFavoriteServerAllowsWhitelistListingWithoutAddress(t *testing.T) {
+	fixture := newTestFixture(t)
+	server, err := fixture.service.SaveFavoriteServer(
+		context.Background(),
+		application.SaveFavoriteServerInput{Name: "Whitelist server"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Address != "" || server.Name != "Whitelist server" {
+		t.Fatalf("unexpected saved server: %#v", server)
+	}
+}
+
 func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: auth.Session{
+		session: application.AuthSession{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",
@@ -785,7 +828,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	authClient := &fakeAuthClient{session: auth.Session{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
+	authClient := &fakeAuthClient{session: application.AuthSession{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
 	accountService := application.NewAccountService(fixture.store, authClient, newMemorySecretStore())
 	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
@@ -828,7 +871,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: auth.Session{
+		session: application.AuthSession{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",

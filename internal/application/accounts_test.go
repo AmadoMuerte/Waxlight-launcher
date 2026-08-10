@@ -11,14 +11,13 @@ import (
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 )
 
 type fakeAuthClient struct {
 	mu               sync.Mutex
-	session          auth.Session
+	session          application.AuthSession
 	challenge        bool
 	loginErr         error
 	validateResult   bool
@@ -36,14 +35,14 @@ func (client *fakeAuthClient) Login(
 	password string,
 	totp string,
 	preLogin string,
-) (auth.Session, *auth.TOTPChallenge, error) {
+) (application.AuthSession, *application.TOTPChallenge, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.lastPassword = password
 	client.lastTOTP = totp
 	client.lastPreLogin = preLogin
 	if client.challenge && totp == "" {
-		return auth.Session{}, &auth.TOTPChallenge{PreLoginToken: "pre-login"}, auth.ErrTOTPRequired
+		return application.AuthSession{}, &application.TOTPChallenge{PreLoginToken: "pre-login"}, application.ErrTOTPRequired
 	}
 	return client.session, nil, client.loginErr
 }
@@ -111,7 +110,7 @@ func newAccountFixture(t *testing.T) (*application.AccountService, *database.SQL
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	client := &fakeAuthClient{
-		session: auth.Session{
+		session: application.AuthSession{
 			SessionKey:       "session-key",
 			SessionSignature: "signature",
 			UID:              "server-uid",
@@ -158,7 +157,7 @@ func TestDatabaseContainsNoAuthenticationSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := &fakeAuthClient{session: auth.Session{
+	client := &fakeAuthClient{session: application.AuthSession{
 		SessionKey:       "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK",
 		SessionSignature: "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK",
 		UID:              "server-uid", PlayerName: "Waxlighter",
@@ -345,7 +344,7 @@ func TestAccountSelectionValidationAndRemoval(t *testing.T) {
 	if err := store.SaveAccount(context.Background(), stored); err != nil {
 		t.Fatal(err)
 	}
-	client.validateErr = auth.ErrNetwork
+	client.validateErr = application.ErrAuthNetwork
 	if _, err := service.ValidateAccount(context.Background(), id); err == nil {
 		t.Fatal("expected network error")
 	}

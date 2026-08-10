@@ -74,6 +74,7 @@ const (
 	ErrUpdateFailed        = "UPDATE_FAILED"
 	ErrDataFolderBusy      = "DATA_FOLDER_BUSY"
 	ErrInvalidURL          = "INVALID_URL"
+	ErrServerNotFound      = "SERVER_NOT_FOUND"
 
 	ErrUpdateDownloadFailed     = "UPDATE_DOWNLOAD_FAILED"
 	ErrUpdateChecksumMismatch   = "UPDATE_CHECKSUM_MISMATCH"

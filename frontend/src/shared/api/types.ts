@@ -67,6 +67,24 @@ export interface Instance {
   playtimeSeconds: number;
 }
 
+export interface FavoriteServer {
+  id: string;
+  name: string;
+  address: string;
+  instanceId?: string;
+}
+
+export interface PublicServer {
+  name: string;
+  address: string;
+  description: string;
+  players: number;
+  modCount: number;
+  requiresWhitelist: boolean;
+  accessRestricted: boolean;
+  joinable: boolean;
+}
+
 export interface InstanceSnapshot {
   id: string;
   instanceId: string;

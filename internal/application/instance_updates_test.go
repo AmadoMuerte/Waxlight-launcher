@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/modpack"
 )
 
 func mustTime(t *testing.T) time.Time {
@@ -171,7 +171,7 @@ func TestCheckInstanceModUpdatesUnknownInstance(t *testing.T) {
 	}
 }
 
-func findReportMod(mods []modpack.ModUpdate, name string) *modpack.ModUpdate {
+func findReportMod(mods []vsmodpack.ModUpdate, name string) *vsmodpack.ModUpdate {
 	for index := range mods {
 		if mods[index].Name == name || mods[index].ModID == name {
 			return &mods[index]

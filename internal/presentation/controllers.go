@@ -304,6 +304,56 @@ func (controller *InstanceController) CloneInstance(
 	return instanceDTO(instance), err
 }
 
+type ServerController struct {
+	svc *application.Service
+}
+
+func NewServerController(service *application.Service) *ServerController {
+	return &ServerController{svc: service}
+}
+
+type SaveFavoriteServerRequest struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Address    string  `json:"address"`
+	InstanceID *string `json:"instanceId,omitempty"`
+}
+
+func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, error) {
+	servers, err := controller.svc.ListFavoriteServers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]FavoriteServerDTO, 0, len(servers))
+	for _, server := range servers {
+		result = append(result, favoriteServerDTO(server))
+	}
+	return result, nil
+}
+
+func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, error) {
+	servers, err := controller.svc.ListPublicServers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PublicServerDTO, 0, len(servers))
+	for _, server := range servers {
+		result = append(result, publicServerDTO(server))
+	}
+	return result, nil
+}
+
+func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServerRequest) (FavoriteServerDTO, error) {
+	server, err := controller.svc.SaveFavoriteServer(context.Background(), application.SaveFavoriteServerInput{
+		ID: request.ID, Name: request.Name, Address: request.Address, InstanceID: request.InstanceID,
+	})
+	return favoriteServerDTO(server), err
+}
+
+func (controller *ServerController) DeleteFavoriteServer(id string) error {
+	return controller.svc.DeleteFavoriteServer(context.Background(), id)
+}
+
 type ModManagerController struct {
 	svc *application.Service
 }
@@ -479,6 +529,12 @@ type LaunchRequest struct {
 	AccountID  *string `json:"accountId,omitempty"`
 }
 
+type ServerLaunchRequest struct {
+	InstanceID string  `json:"instanceId"`
+	AccountID  *string `json:"accountId,omitempty"`
+	Address    string  `json:"address"`
+}
+
 type LaunchValidationDTO struct {
 	Valid    bool     `json:"valid"`
 	Issues   []string `json:"issues"`
@@ -510,6 +566,22 @@ func (controller *LaunchController) LaunchInstance(
 	)
 	if err != nil {
 		slog.Warn("launch request failed", "error", err)
+		return PlaySessionDTO{}, err
+	}
+	return sessionDTO(session), nil
+}
+
+func (controller *LaunchController) LaunchServer(
+	request ServerLaunchRequest,
+) (PlaySessionDTO, error) {
+	session, err := controller.svc.LaunchServer(
+		context.Background(),
+		request.InstanceID,
+		request.AccountID,
+		request.Address,
+	)
+	if err != nil {
+		slog.Warn("server launch request failed", "error", err)
 		return PlaySessionDTO{}, err
 	}
 	return sessionDTO(session), nil
