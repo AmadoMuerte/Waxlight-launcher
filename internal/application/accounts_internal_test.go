@@ -4,14 +4,12 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 )
 
 type expiringAuthClient struct{}
 
-func (expiringAuthClient) Login(context.Context, string, string, string, string) (auth.Session, *auth.TOTPChallenge, error) {
-	return auth.Session{}, &auth.TOTPChallenge{PreLoginToken: "WAXLIGHT_TEST_PRELOGIN_DO_NOT_LEAK"}, auth.ErrTOTPRequired
+func (expiringAuthClient) Login(context.Context, string, string, string, string) (AuthSession, *TOTPChallenge, error) {
+	return AuthSession{}, &TOTPChallenge{PreLoginToken: "WAXLIGHT_TEST_PRELOGIN_DO_NOT_LEAK"}, ErrTOTPRequired
 }
 func (expiringAuthClient) Validate(context.Context, string, string) (bool, error) { return false, nil }
 

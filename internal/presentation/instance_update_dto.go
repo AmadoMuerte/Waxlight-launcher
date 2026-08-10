@@ -1,6 +1,9 @@
 package presentation
 
-import "github.com/waxlight/waxlight-launcher/internal/modpack"
+import (
+	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
+	"github.com/waxlight/waxlight-launcher/internal/application"
+)
 
 type ModDependencyDTO struct {
 	ModID       string `json:"modId"`
@@ -39,7 +42,7 @@ type InstanceModUpdateReportDTO struct {
 	Summary     ModUpdateSummaryDTO `json:"summary"`
 }
 
-func modDependencyDTO(dependency modpack.Dependency) ModDependencyDTO {
+func modDependencyDTO(dependency vsmodpack.Dependency) ModDependencyDTO {
 	return ModDependencyDTO{
 		ModID:       dependency.ModID,
 		Name:        dependency.Name,
@@ -47,7 +50,7 @@ func modDependencyDTO(dependency modpack.Dependency) ModDependencyDTO {
 	}
 }
 
-func modUpdateDTO(update modpack.ModUpdate) ModUpdateDTO {
+func modUpdateDTO(update vsmodpack.ModUpdate) ModUpdateDTO {
 	return ModUpdateDTO{
 		ModID:            update.ModID,
 		Name:             update.Name,
@@ -64,7 +67,7 @@ func modUpdateDTO(update modpack.ModUpdate) ModUpdateDTO {
 	}
 }
 
-func dependenciesDTO(dependencies []modpack.Dependency) []ModDependencyDTO {
+func dependenciesDTO(dependencies []vsmodpack.Dependency) []ModDependencyDTO {
 	if dependencies == nil {
 		return []ModDependencyDTO{}
 	}
@@ -75,7 +78,7 @@ func dependenciesDTO(dependencies []modpack.Dependency) []ModDependencyDTO {
 	return result
 }
 
-func modUpdateSummaryDTO(summary modpack.Summary) ModUpdateSummaryDTO {
+func modUpdateSummaryDTO(summary vsmodpack.Summary) ModUpdateSummaryDTO {
 	return ModUpdateSummaryDTO{
 		TotalMods:                summary.TotalMods,
 		UpToDate:                 summary.UpToDate,
@@ -87,7 +90,7 @@ func modUpdateSummaryDTO(summary modpack.Summary) ModUpdateSummaryDTO {
 	}
 }
 
-func instanceModUpdateReportDTO(report modpack.Report) InstanceModUpdateReportDTO {
+func instanceModUpdateReportDTO(report application.ModUpdateReport) InstanceModUpdateReportDTO {
 	dto := InstanceModUpdateReportDTO{
 		GameVersion: report.Build.GameVersion,
 		Summary:     modUpdateSummaryDTO(report.Summary),

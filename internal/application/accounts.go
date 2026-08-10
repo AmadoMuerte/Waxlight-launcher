@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
@@ -74,7 +73,7 @@ func (service *AccountService) reportAuthFailure(err error) {
 	if service.telemetry == nil {
 		return
 	}
-	if !errors.Is(err, auth.ErrNetwork) && !errors.Is(err, auth.ErrServer) {
+	if !errors.Is(err, ErrAuthNetwork) && !errors.Is(err, ErrAuthServer) {
 		return
 	}
 	service.telemetry.Error(
@@ -131,7 +130,7 @@ func (service *AccountService) startLogin(
 	}
 
 	session, challenge, err := service.client.Login(ctx, email, password, "", "")
-	if errors.Is(err, auth.ErrTOTPRequired) && challenge != nil {
+	if errors.Is(err, ErrTOTPRequired) && challenge != nil {
 		flowID := uuid.NewString()
 		service.flowMu.Lock()
 		service.purgeExpiredLocked()
@@ -224,7 +223,7 @@ func (service *AccountService) persistSession(
 	ctx context.Context,
 	expectedAccountID string,
 	email string,
-	session auth.Session,
+	session AuthSession,
 ) (LoginResult, error) {
 	service.persistMu.Lock()
 	defer service.persistMu.Unlock()
@@ -522,17 +521,17 @@ func safeAccount(account domain.Account) domain.Account {
 
 func loginFailure(err error) LoginResult {
 	switch {
-	case errors.Is(err, auth.ErrInvalidCredentials):
+	case errors.Is(err, ErrInvalidCredentials):
 		return LoginResult{Status: LoginStatusInvalidCredentials}
-	case errors.Is(err, auth.ErrIPChanged):
+	case errors.Is(err, ErrIPChanged):
 		return LoginResult{Status: LoginStatusIPChanged}
-	case errors.Is(err, auth.ErrTemporarilyBlocked):
+	case errors.Is(err, ErrTemporarilyBlocked):
 		return LoginResult{Status: LoginStatusTemporarilyBlocked}
-	case errors.Is(err, auth.ErrNetwork):
+	case errors.Is(err, ErrAuthNetwork):
 		return LoginResult{Status: LoginStatusNetworkError}
-	case errors.Is(err, auth.ErrServer):
+	case errors.Is(err, ErrAuthServer):
 		return LoginResult{Status: LoginStatusServerError}
-	case errors.Is(err, auth.ErrInvalidAuthReply):
+	case errors.Is(err, ErrInvalidAuthReply):
 		return LoginResult{Status: LoginStatusInvalidResponse}
 	default:
 		return LoginResult{Status: LoginStatusUnknownError}
@@ -541,11 +540,11 @@ func loginFailure(err error) LoginResult {
 
 func mapAuthError(err error) error {
 	switch {
-	case errors.Is(err, auth.ErrNetwork):
+	case errors.Is(err, ErrAuthNetwork):
 		return &domain.AppError{Code: domain.ErrAuthNetwork, Message: "Could not connect to the Vintage Story authentication server", Retryable: true}
-	case errors.Is(err, auth.ErrServer):
+	case errors.Is(err, ErrAuthServer):
 		return &domain.AppError{Code: domain.ErrAuthServer, Message: "The Vintage Story authentication server is unavailable", Retryable: true}
-	case errors.Is(err, auth.ErrInvalidAuthReply):
+	case errors.Is(err, ErrInvalidAuthReply):
 		return domain.NewError(domain.ErrAuthInvalidResponse, "The authentication server returned an invalid response")
 	default:
 		return domain.NewError(domain.ErrAuthInvalidResponse, "Could not validate the account session")

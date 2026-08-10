@@ -223,11 +223,11 @@ test-frontend:
 test: frontend test-backend test-frontend
 
 format:
-	$(GOFMT) -w $$($(GIT) ls-files '*.go')
+	$(GOFMT) -w $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done)
 	$(NPM) --prefix frontend run format
 
 format-check:
-	@unformatted="$$($(GOFMT) -l $$($(GIT) ls-files '*.go'))"; \
+	@unformatted="$$($(GOFMT) -l $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done))"; \
 	if [[ -n "$$unformatted" ]]; then \
 		echo "error: Go files need formatting:"; \
 		printf '%s\n' "$$unformatted"; \

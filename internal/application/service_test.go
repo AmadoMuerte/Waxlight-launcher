@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/auth"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
@@ -719,7 +718,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: auth.Session{
+		session: application.AuthSession{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",
@@ -829,7 +828,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	authClient := &fakeAuthClient{session: auth.Session{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
+	authClient := &fakeAuthClient{session: application.AuthSession{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
 	accountService := application.NewAccountService(fixture.store, authClient, newMemorySecretStore())
 	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
@@ -872,7 +871,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{
-		session: auth.Session{
+		session: application.AuthSession{
 			SessionKey:       "session-key",
 			SessionSignature: "session-signature",
 			UID:              "player-uid",
