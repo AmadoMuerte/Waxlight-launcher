@@ -153,6 +153,56 @@ it("does not replace autosaved settings during background refresh", async () => 
   expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
 });
 
+it("navigates between sidebar pages with mouse back and forward buttons", async () => {
+  renderApp();
+
+  const libraryLink = await screen.findByRole("link", { name: /Library|Библиотека/ });
+  const settingsLink = screen.getByRole("link", { name: /Settings|Настройки/ });
+  fireEvent.click(settingsLink);
+  await waitFor(() => expect(settingsLink.className).toContain("active"));
+
+  fireEvent.mouseDown(window, { button: 3 });
+  await waitFor(() => expect(libraryLink.className).toContain("active"));
+
+  fireEvent.mouseDown(window, { button: 4 });
+  await waitFor(() => expect(settingsLink.className).toContain("active"));
+});
+
+it("supports browser navigation shortcuts sent by mouse drivers", async () => {
+  renderApp();
+
+  const libraryLink = await screen.findByRole("link", { name: /Library|Библиотека/ });
+  const settingsLink = screen.getByRole("link", { name: /Settings|Настройки/ });
+  fireEvent.click(settingsLink);
+  await waitFor(() => expect(settingsLink.className).toContain("active"));
+
+  fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+  await waitFor(() => expect(libraryLink.className).toContain("active"));
+
+  fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+  await waitFor(() => expect(settingsLink.className).toContain("active"));
+});
+
+it("navigates when the native window reports a side mouse button", async () => {
+  const listeners = new Map<string, (payload: unknown) => void>();
+  vi.stubGlobal("runtime", {
+    EventsOnMultiple: (name: string, callback: (payload: unknown) => void) => {
+      listeners.set(name, callback);
+      return () => listeners.delete(name);
+    },
+  });
+  renderApp();
+
+  const libraryLink = await screen.findByRole("link", { name: /Library|Библиотека/ });
+  const settingsLink = screen.getByRole("link", { name: /Settings|Настройки/ });
+  fireEvent.click(settingsLink);
+  await waitFor(() => expect(settingsLink.className).toContain("active"));
+
+  act(() => listeners.get("navigation:mouse")?.(-1));
+  await waitFor(() => expect(libraryLink.className).toContain("active"));
+  vi.unstubAllGlobals();
+});
+
 it("shows a non-intrusive startup update dialog that can be postponed", async () => {
   api.checkUpdate.mockResolvedValueOnce({
     installedVersion: "0.1.4",
