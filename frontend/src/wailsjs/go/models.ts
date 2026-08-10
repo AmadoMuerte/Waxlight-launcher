@@ -391,11 +391,11 @@ export namespace presentation {
 	export class DownloadedModCleanupResultDTO {
 	    removedCount: number;
 	    freedBytes: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadedModCleanupResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.removedCount = source["removedCount"];
@@ -462,11 +462,11 @@ export namespace presentation {
 	    name: string;
 	    address: string;
 	    instanceId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new FavoriteServerDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1702,11 +1702,11 @@ export namespace presentation {
 	    requiresWhitelist: boolean;
 	    accessRestricted: boolean;
 	    joinable: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PublicServerDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -1724,11 +1724,11 @@ export namespace presentation {
 	    name: string;
 	    address: string;
 	    instanceId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SaveFavoriteServerRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1741,11 +1741,11 @@ export namespace presentation {
 	    instanceId: string;
 	    accountId?: string;
 	    address: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ServerLaunchRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -1913,4 +1913,3 @@ export namespace presentation {
 	}
 
 }
-
