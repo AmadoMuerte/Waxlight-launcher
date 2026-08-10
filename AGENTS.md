@@ -112,6 +112,13 @@ Before promoting `dev` to `main`:
 - Runtime SQLite schema changes belong in `internal/infrastructure/database/sqlite.go`; files in `migrations/` are not canonical runtime migrations.
 - Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/infrastructure/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/infrastructure/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, `logs`, and `backups`.
 
+## Vintage Story Library
+
+- [`github.com/AmadoMuerte/vintagestory-go`](https://github.com/AmadoMuerte/vintagestory-go) is the source of truth for reusable Vintage Story integration functionality. Its packages currently cover authentication, game versions, ModDB, modpack analysis, and the public server catalog.
+- Keep Waxlight-specific orchestration, persistence, credential storage, domain models, user-facing errors, installation, launching, and Wails DTOs in this repository. Access `vintagestory-go` through thin infrastructure adapters when its types must be mapped into Waxlight contracts.
+- Before implementing Vintage Story protocol, catalog, parsing, compatibility, or analysis behavior in Waxlight, inspect the released library API and repository. Do not create a second implementation or copy library source into Waxlight.
+- If Waxlight needs generic Vintage Story behavior that the library does not expose, contribute the missing capability or fix to `vintagestory-go` first, add tests there, release an appropriate library version, and then update Waxlight to consume it. A narrow temporary adapter is acceptable only when it contains Waxlight-specific mapping or orchestration, not duplicated generic implementation.
+
 ## Safety And Data
 
 - Never put passwords, TOTP codes, pre-login tokens, session keys, or signatures in DTOs, generated bindings, logs, errors, fixtures, URLs, process arguments, environment variables, or exports.
