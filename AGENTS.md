@@ -3,6 +3,7 @@
 ## Workflow
 
 - Frontend lives in `frontend/`; install its locked dependencies with `npm ci --include=dev --prefix frontend`. This also registers the Husky pre-commit hook from `frontend/.husky`.
+- When implementation depends on an external library API, use Context7 to verify the current documentation before coding.
 - `make test` first runs the frontend production build (including i18n and TypeScript checks), then Go and frontend tests.
 - Run focused Go tests with `go test ./path/to/package -run TestName`.
 - Run `make format` to format Go and frontend sources. Use `make format-check` to validate `gofmt` and `oxfmt --check` without changing files.
