@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
 
 import { useAccountsQuery } from "../entities/account/queries";
 import { useGameVersionsQuery } from "../entities/game-version/queries";
@@ -37,6 +37,7 @@ import { useRecoveryStore } from "./stores/recovery";
 const POLL_INTERVAL = 8_000;
 
 export function App() {
+  const navigate = useNavigate();
   const accountsQuery = useAccountsQuery({ refetchInterval: POLL_INTERVAL });
   const instancesQuery = useInstancesQuery({ refetchInterval: POLL_INTERVAL });
   const versionsQuery = useGameVersionsQuery({ refetchInterval: POLL_INTERVAL });
@@ -66,6 +67,50 @@ export function App() {
   const settings = settingsQuery.data;
   const updateCheckedOnceRef = useRef(false);
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
+
+  useEffect(() => {
+    const navigateWithMouseButton = (event: MouseEvent) => {
+      const delta = event.button === 3 ? -1 : event.button === 4 ? 1 : 0;
+      if (delta === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void navigate(delta);
+    };
+    const navigateWithKeyboard = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+      if (delta === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      void navigate(delta);
+    };
+
+    window.addEventListener("mousedown", navigateWithMouseButton, true);
+    window.addEventListener("keydown", navigateWithKeyboard, true);
+    let unsubscribeNative: (() => void) | undefined;
+    try {
+      unsubscribeNative = EventsOn("navigation:mouse", (direction: number) => {
+        if (direction === -1 || direction === 1) {
+          void navigate(direction);
+        }
+      });
+    } catch (error) {
+      log.warn(errorMessage(error), { source: "mouse-navigation" });
+    }
+    return () => {
+      window.removeEventListener("mousedown", navigateWithMouseButton, true);
+      window.removeEventListener("keydown", navigateWithKeyboard, true);
+      unsubscribeNative?.();
+    };
+  }, [navigate]);
 
   useEffect(() => {
     setFatalError(fatalError);

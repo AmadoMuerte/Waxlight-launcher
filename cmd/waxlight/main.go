@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"time"
 
@@ -48,8 +49,11 @@ func main() {
 		AssetServer:      &assetserver.Options{Assets: frontendassets.Assets},
 		BackgroundColour: &options.RGBA{R: 13, G: 13, B: 16, A: 1},
 		OnStartup:        container.Startup,
-		OnShutdown:       container.Shutdown,
-		Bind:             container.Controllers,
+		OnDomReady: func(ctx context.Context) {
+			installMouseNavigation(ctx)
+		},
+		OnShutdown: container.Shutdown,
+		Bind:       container.Controllers,
 		Linux: &linux.Options{
 			Icon:        appIcon,
 			ProgramName: "waxlight",
