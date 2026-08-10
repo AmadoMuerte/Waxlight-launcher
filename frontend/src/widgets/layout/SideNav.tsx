@@ -7,6 +7,7 @@ const navigation = [
   { to: "/library", icon: "▦", labelKey: "library" },
   { to: "/mods", icon: "◇", labelKey: "mods" },
   { to: "/versions", icon: "⬡", labelKey: "game_versions" },
+  { to: "/servers", icon: "◎", labelKey: "servers" },
   { to: "/operations", icon: "⇣", labelKey: "operations" },
   { to: "/statistics", icon: "◷", labelKey: "statistics" },
   { to: "/settings", icon: "⚙", labelKey: "settings" },

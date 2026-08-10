@@ -14,6 +14,10 @@ export function LaunchInstance(arg1) {
   return window['go']['presentation']['LaunchController']['LaunchInstance'](arg1);
 }
 
+export function LaunchServer(arg1) {
+  return window['go']['presentation']['LaunchController']['LaunchServer'](arg1);
+}
+
 export function StopInstance(arg1) {
   return window['go']['presentation']['LaunchController']['StopInstance'](arg1);
 }

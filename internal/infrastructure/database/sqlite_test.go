@@ -62,6 +62,44 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 	}
 }
 
+func TestFavoriteServersPersistAndDelete(t *testing.T) {
+	store, err := database.Open(filepath.Join(t.TempDir(), "favorites.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Now().UTC().Round(0)
+	server := domain.FavoriteServer{
+		ID:        "server-id",
+		Name:      "Cozy server",
+		Address:   "example.org:42420",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := store.SaveFavoriteServer(context.Background(), server); err != nil {
+		t.Fatal(err)
+	}
+
+	servers, err := store.ListFavoriteServers(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(servers) != 1 || servers[0].Name != server.Name || servers[0].Address != server.Address {
+		t.Fatalf("unexpected favorite servers: %#v", servers)
+	}
+	if err := store.DeleteFavoriteServer(context.Background(), server.ID); err != nil {
+		t.Fatal(err)
+	}
+	servers, err = store.ListFavoriteServers(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(servers) != 0 {
+		t.Fatalf("favorite server was not deleted: %#v", servers)
+	}
+}
+
 func TestDatabaseRejectsSymlinkAndUsesOwnerOnlyPermissions(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "waxlight.db")

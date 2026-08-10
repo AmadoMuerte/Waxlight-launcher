@@ -153,6 +153,37 @@ func instanceDTO(instance domain.Instance) InstanceDTO {
 	return result
 }
 
+type FavoriteServerDTO struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Address    string  `json:"address"`
+	InstanceID *string `json:"instanceId,omitempty"`
+}
+
+func favoriteServerDTO(server domain.FavoriteServer) FavoriteServerDTO {
+	return FavoriteServerDTO{ID: server.ID, Name: server.Name, Address: server.Address, InstanceID: server.InstanceID}
+}
+
+type PublicServerDTO struct {
+	Name              string `json:"name"`
+	Address           string `json:"address"`
+	Description       string `json:"description"`
+	Players           int    `json:"players"`
+	ModCount          int    `json:"modCount"`
+	RequiresWhitelist bool   `json:"requiresWhitelist"`
+	AccessRestricted  bool   `json:"accessRestricted"`
+	Joinable          bool   `json:"joinable"`
+}
+
+func publicServerDTO(server domain.PublicServer) PublicServerDTO {
+	return PublicServerDTO{
+		Name: server.Name, Address: server.Address, Description: server.Description,
+		Players: server.Players, ModCount: server.ModCount,
+		RequiresWhitelist: server.RequiresWhitelist, AccessRestricted: server.PasswordProtected,
+		Joinable: server.Joinable,
+	}
+}
+
 type InstalledModDTO struct {
 	ID          string `json:"id"`
 	InstanceID  string `json:"instanceId"`

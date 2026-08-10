@@ -15,6 +15,7 @@ import { LibraryPage } from "../pages/library/LibraryPage";
 import { ModDetailsPage } from "../pages/mod-details/ModDetailsPage";
 import { ModsPage } from "../pages/mods/ModsPage";
 import { OperationsPage } from "../pages/operations/OperationsPage";
+import { ServersPage } from "../pages/servers/ServersPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
 import { StatisticsPage } from "../pages/statistics/StatisticsPage";
 import { VersionsPage } from "../pages/versions/VersionsPage";
@@ -215,6 +216,7 @@ export function App() {
           <Route path="/mods/:modId" element={<ModDetailsPage />} />
           <Route path="/mods" element={<ModsPage />} />
           <Route path="/versions" element={<VersionsPage />} />
+          <Route path="/servers" element={<ServersPage />} />
           <Route path="/operations" element={<OperationsPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/statistics" element={<StatisticsPage />} />

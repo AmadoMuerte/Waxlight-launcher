@@ -8,6 +8,8 @@ export function GetRunningInstances():Promise<Array<string>>;
 
 export function LaunchInstance(arg1:presentation.LaunchRequest):Promise<presentation.PlaySessionDTO>;
 
+export function LaunchServer(arg1:presentation.ServerLaunchRequest):Promise<presentation.PlaySessionDTO>;
+
 export function StopInstance(arg1:string):Promise<void>;
 
 export function ValidateLaunch(arg1:presentation.LaunchRequest):Promise<presentation.LaunchValidationDTO>;

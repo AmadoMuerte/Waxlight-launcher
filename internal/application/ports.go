@@ -71,6 +71,11 @@ type Store interface {
 	DeleteInstance(context.Context, string) error
 	IsDirectoryUsed(context.Context, string, string) (bool, error)
 
+	ListFavoriteServers(context.Context) ([]domain.FavoriteServer, error)
+	GetFavoriteServer(context.Context, string) (domain.FavoriteServer, error)
+	SaveFavoriteServer(context.Context, domain.FavoriteServer) error
+	DeleteFavoriteServer(context.Context, string) error
+
 	GetLastKnownGood(context.Context, string) (domain.LastKnownGood, error)
 	SaveLastKnownGood(context.Context, domain.LastKnownGood) error
 	DeleteLastKnownGood(context.Context, string) error
@@ -178,6 +183,10 @@ type SignatureVerifier interface {
 
 type GameVersionCatalog interface {
 	List(context.Context) ([]domain.AvailableGameVersion, error)
+}
+
+type PublicServerCatalog interface {
+	List(context.Context) ([]domain.PublicServer, error)
 }
 
 type GamePackageInstaller interface {
