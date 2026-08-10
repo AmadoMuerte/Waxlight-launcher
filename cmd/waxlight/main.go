@@ -10,9 +10,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/mousenavigation"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 )
 
@@ -50,7 +52,9 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 13, G: 13, B: 16, A: 1},
 		OnStartup:        container.Startup,
 		OnDomReady: func(ctx context.Context) {
-			installMouseNavigation(ctx)
+			mousenavigation.Install(func(direction int) {
+				runtime.EventsEmit(ctx, "navigation:mouse", direction)
+			})
 		},
 		OnShutdown: container.Shutdown,
 		Bind:       container.Controllers,

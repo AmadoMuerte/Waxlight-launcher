@@ -1,3 +1,5 @@
+//go:build linux && desktop
+
 #include "mouse_navigation_linux.h"
 
 #include <gtk/gtk.h>

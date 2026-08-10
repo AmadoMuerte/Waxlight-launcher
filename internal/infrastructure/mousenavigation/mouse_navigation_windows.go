@@ -1,14 +1,11 @@
 //go:build windows
 
-package main
+package mousenavigation
 
 import (
-	"context"
 	"runtime"
 	"syscall"
 	"unsafe"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -35,29 +32,29 @@ var (
 	getWindowThreadProcessID = user32.NewProc("GetWindowThreadProcessId")
 )
 
-func installMouseNavigation(ctx context.Context) {
-	go runMouseNavigationHook(ctx)
+func Install(callback func(int)) {
+	go runMouseNavigationHook(callback)
 }
 
-func runMouseNavigationHook(ctx context.Context) {
+func runMouseNavigationHook(callback func(int)) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	callback := syscall.NewCallback(func(code int, wParam, lParam uintptr) uintptr {
+	hookCallback := syscall.NewCallback(func(code int, wParam, lParam uintptr) uintptr {
 		if code >= 0 && wParam == wmXButtonDown && foregroundProcessIsCurrent() {
 			input := (*lowLevelMouseInput)(unsafe.Pointer(lParam))
 			switch input.mouseData >> 16 {
 			case xButton1:
-				wailsruntime.EventsEmit(ctx, "navigation:mouse", -1)
+				callback(-1)
 			case xButton2:
-				wailsruntime.EventsEmit(ctx, "navigation:mouse", 1)
+				callback(1)
 			}
 		}
 		result, _, _ := callNextHookEx.Call(0, uintptr(code), wParam, lParam)
 		return result
 	})
 
-	hook, _, _ := setWindowsHookEx.Call(whMouseLL, callback, 0, 0)
+	hook, _, _ := setWindowsHookEx.Call(whMouseLL, hookCallback, 0, 0)
 	if hook == 0 {
 		return
 	}
