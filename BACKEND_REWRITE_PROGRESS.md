@@ -936,9 +936,9 @@ narrow repositories and filesystem boundaries.
   credential sanitization, failed restores, Last Known Good, and crash
   recovery.
 - [x] Run focused race tests and the complete local validation matrix.
-- [ ] Complete manual smoke testing for create, restore, prune, failed launch,
+- [x] Complete manual smoke testing for create, restore, prune, failed launch,
   and suggested recovery.
-- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+- [x] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
   merge before Stage 7 begins.
 
 ## Stage 7: Updates, Telemetry, Statistics, and Game Logs
