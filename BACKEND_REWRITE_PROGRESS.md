@@ -14,8 +14,8 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 1 status: merged into `dev`
 - Stage 2 branch: `refactor/backend-core-features`
 - Stage 2 pull request: [#82](https://github.com/AmadoMuerte/Waxlight-launcher/pull/82)
-- Stage 2 status: implemented, validated locally, committed, synchronized, and
-  submitted for review; CI and merge are pending
+- Stage 2 status: merged into `dev` after successful local validation, manual
+  smoke testing, and CI
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -113,8 +113,8 @@ builds.
 
 ## Stage 2: Operations, Versions, and Settings
 
-Stage 2 is implemented on `refactor/backend-core-features` and delivered for
-review in pull request #82.
+Stage 2 was implemented on `refactor/backend-core-features` and merged into
+`dev` through pull request #82.
 
 ### Operations Feature
 
@@ -278,8 +278,9 @@ that the Wails/frontend API, DTO, and event contracts remain compatible. On
 - `make wails-build` on Linux AMD64
 - `git diff --check`
 
-Native Windows credential-store integration and Windows production build checks
-remain CI-only.
+PR #82 also passed CI tests/static checks, vulnerability and secret scanning,
+Linux and Windows native credential-store integration, and Linux and Windows
+production builds.
 
 Manual smoke testing also passed for the implemented Stage 2 behavior.
 
@@ -294,7 +295,8 @@ Manual smoke testing also passed for the implemented Stage 2 behavior.
 - [x] Commit Stage 2 with a clear English commit message.
 - [x] Synchronize `refactor/backend-core-features` with the latest `origin/dev`.
 - [x] Push the branch and open pull request #82 against `dev`.
-- [ ] Wait for CI before starting the next integration stage.
+- [x] Pass all required CI checks.
+- [x] Merge pull request #82 into `dev`.
 
 ### Instances, Launching, and Sessions
 
