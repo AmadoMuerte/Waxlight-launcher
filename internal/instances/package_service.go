@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -85,44 +85,44 @@ func (service *PackageService) ExportInstance(
 	ctx context.Context,
 	instanceID string,
 	targetPath string,
-	options domain.ExportInstanceOptions,
-) (domain.PackageManifest, error) {
+	options ExportInstanceOptions,
+) (PackageManifest, error) {
 	release, err := service.beginMutation()
 	if err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 	defer release()
 	instance, err := service.repository.GetInstance(ctx, instanceID)
 	if err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 	slog.Info("exporting instance package", "instance", instance.Name)
 	version, err := service.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 
 	mods, err := service.mods.ListMods(ctx, instanceID)
 	if err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 
 	if err := validatePackageAuthorLinks(options.Author); err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 
 	name := instance.Name
 	if strings.TrimSpace(options.Name) != "" {
 		if name, err = cleanName(options.Name); err != nil {
-			return domain.PackageManifest{}, err
+			return PackageManifest{}, err
 		}
 	}
-	manifest := domain.PackageManifest{
-		SchemaVersion:   domain.InstancePackageSchemaVersion,
+	manifest := PackageManifest{
+		SchemaVersion:   InstancePackageSchemaVersion,
 		Name:            name,
 		Description:     strings.TrimSpace(options.Description),
 		Author:          options.Author,
-		GameVersion:     domain.PackageGameVersion{ID: version.ID, Name: version.Name},
+		GameVersion:     PackageGameVersion{ID: version.ID, Name: version.Name},
 		LaunchArguments: append([]string(nil), instance.LaunchArguments...),
 		CreatedAt:       service.now().UTC(),
 	}
@@ -136,13 +136,13 @@ func (service *PackageService) ExportInstance(
 	embedded := make(map[string]string, len(mods))
 	seenEmbedded := make(map[string]struct{}, len(mods))
 	for _, mod := range mods {
-		packageMod := domain.PackageMod{
+		packageMod := PackageMod{
 			Name:    mod.Name,
 			Version: mod.Version,
 			Enabled: mod.Enabled,
 		}
 		if modID, versionID, ok := service.identity.ParseModDBSource(mod.Source); ok {
-			packageMod.Source = domain.PackageModSourceCatalog
+			packageMod.Source = PackageModSourceCatalog
 			packageMod.ModID = modID
 			packageMod.VersionID = versionID
 			packageMod.FileName = mod.FileName
@@ -156,12 +156,12 @@ func (service *PackageService) ExportInstance(
 				}
 			}
 		} else {
-			packageMod.Source = domain.PackageModSourceEmbedded
+			packageMod.Source = PackageModSourceEmbedded
 			packageMod.FileName = uniqueEmbeddedName(mod.FilePath, seenEmbedded)
 			seenEmbedded[packageMod.FileName] = struct{}{}
 			checksum, sumErr := sha256File(mod.FilePath)
 			if sumErr != nil {
-				return domain.PackageManifest{}, sumErr
+				return PackageManifest{}, sumErr
 			}
 			packageMod.Checksum = checksum
 			embedded[packageMod.FileName] = mod.FilePath
@@ -171,7 +171,7 @@ func (service *PackageService) ExportInstance(
 
 	configFiles, err := collectInstanceConfigs(instance.Directory)
 	if err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 	manifest.ConfigFiles = configFiles
 
@@ -189,12 +189,12 @@ func (service *PackageService) ExportInstance(
 		EmbeddedMods: embedded,
 		IconPath:     iconPath,
 	}); err != nil {
-		return domain.PackageManifest{}, err
+		return PackageManifest{}, err
 	}
 	return manifest, nil
 }
 
-func validatePackageAuthorLinks(author *domain.PackageAuthor) error {
+func validatePackageAuthorLinks(author *PackageAuthor) error {
 	if author == nil {
 		return nil
 	}
@@ -211,10 +211,10 @@ func validatePackageAuthorLinks(author *domain.PackageAuthor) error {
 		}
 		parsed, err := url.Parse(value)
 		if err != nil || parsed.Host == "" {
-			return domain.NewError(domain.ErrValidation, "The "+link.label+" must be a valid URL")
+			return errs.NewError(errs.ErrValidation, "The "+link.label+" must be a valid URL")
 		}
 		if parsed.Scheme != "http" && parsed.Scheme != "https" {
-			return domain.NewError(domain.ErrValidation, "The "+link.label+" must start with http:// or https://")
+			return errs.NewError(errs.ErrValidation, "The "+link.label+" must start with http:// or https://")
 		}
 	}
 	return nil
@@ -303,7 +303,7 @@ func walkConfigDirectory(root string, name string) ([]string, error) {
 		}
 		relative, relErr := filepath.Rel(root, path)
 		if relErr != nil || strings.HasPrefix(relative, "..") {
-			return domain.NewError(domain.ErrValidation, "Config file escapes the instance directory")
+			return errs.NewError(errs.ErrValidation, "Config file escapes the instance directory")
 		}
 		if strings.Contains(relative, string(os.PathSeparator)+".waxlight") || strings.HasPrefix(filepath.Base(relative), ".waxlight") {
 			return nil
@@ -316,17 +316,17 @@ func walkConfigDirectory(root string, name string) ([]string, error) {
 
 // InspectPackage validates a package and reports how it would be imported,
 // without modifying anything.
-func (service *PackageService) InspectPackage(ctx context.Context, packagePath string) (domain.PackageInspection, error) {
+func (service *PackageService) InspectPackage(ctx context.Context, packagePath string) (PackageInspection, error) {
 	packagePath = strings.TrimSpace(packagePath)
 	if packagePath == "" {
-		return domain.PackageInspection{}, domain.NewError(domain.ErrValidation, "Select a package file")
+		return PackageInspection{}, errs.NewError(errs.ErrValidation, "Select a package file")
 	}
 	pkg, err := service.io.Open(packagePath)
 	if err != nil {
-		return domain.PackageInspection{}, err
+		return PackageInspection{}, err
 	}
 
-	inspection := domain.PackageInspection{
+	inspection := PackageInspection{
 		Path:            packagePath,
 		SchemaVersion:   pkg.Manifest().SchemaVersion,
 		Name:            pkg.Manifest().Name,
@@ -342,7 +342,7 @@ func (service *PackageService) InspectPackage(ctx context.Context, packagePath s
 	inspection.VersionStatus = service.packageVersionStatus(ctx, pkg.Manifest().GameVersion)
 
 	for _, mod := range pkg.Manifest().Mods {
-		check := domain.PackageModCheck{
+		check := PackageModCheck{
 			ModID:     mod.ModID,
 			VersionID: mod.VersionID,
 			Name:      mod.Name,
@@ -351,8 +351,8 @@ func (service *PackageService) InspectPackage(ctx context.Context, packagePath s
 			Enabled:   mod.Enabled,
 		}
 		switch mod.Source {
-		case domain.PackageModSourceEmbedded:
-			check.Status = domain.PackageModEmbedded
+		case PackageModSourceEmbedded:
+			check.Status = PackageModEmbedded
 			if mod.Checksum == "" {
 				inspection.UnverifiedFiles++
 			}
@@ -360,10 +360,10 @@ func (service *PackageService) InspectPackage(ctx context.Context, packagePath s
 			status, message := service.checkCatalogMod(ctx, mod, pkg.Manifest().GameVersion)
 			check.Status = status
 			check.Message = message
-			if status == domain.PackageModMissing && message == "" {
+			if status == PackageModMissing && message == "" {
 				inspection.Warnings = append(inspection.Warnings, "Mod "+mod.Name+" could not be resolved in the mod catalog")
 			}
-			if status == domain.PackageModIncompatible {
+			if status == PackageModIncompatible {
 				inspection.Warnings = append(inspection.Warnings, "Mod "+mod.Name+" is not compatible with Vintage Story "+pkg.Manifest().GameVersion.Name)
 			}
 		}
@@ -372,7 +372,7 @@ func (service *PackageService) InspectPackage(ctx context.Context, packagePath s
 	if inspection.UnverifiedFiles > 0 {
 		inspection.Warnings = append(inspection.Warnings, "The package contains mod files that cannot be verified")
 	}
-	if inspection.VersionStatus == domain.PackageVersionMissing {
+	if inspection.VersionStatus == PackageVersionMissing {
 		inspection.Warnings = append(inspection.Warnings, "The required game version is not available")
 	}
 	return inspection, nil
@@ -380,48 +380,48 @@ func (service *PackageService) InspectPackage(ctx context.Context, packagePath s
 
 func (service *PackageService) checkCatalogMod(
 	ctx context.Context,
-	mod domain.PackageMod,
-	gameVersion domain.PackageGameVersion,
-) (domain.PackageModStatus, string) {
+	mod PackageMod,
+	gameVersion PackageGameVersion,
+) (PackageModStatus, string) {
 	if service.catalog == nil {
-		return domain.PackageModMissing, "The mod catalog is unavailable"
+		return PackageModMissing, "The mod catalog is unavailable"
 	}
 	details, err := service.catalog.Get(ctx, mod.ModID)
 	if err != nil {
-		return domain.PackageModMissing, "This mod was not found in the mod catalog"
+		return PackageModMissing, "This mod was not found in the mod catalog"
 	}
 	selected, ok := service.identity.FindModVersion(details.Versions, mod.VersionID)
 	if !ok {
-		return domain.PackageModMissing, "The requested mod version is no longer available"
+		return PackageModMissing, "The requested mod version is no longer available"
 	}
 	if !service.identity.ModSupportsVersion(selected.GameVersions, gameVersion.Name) {
-		return domain.PackageModIncompatible, "This mod version does not support the required game version"
+		return PackageModIncompatible, "This mod version does not support the required game version"
 	}
-	return domain.PackageModAvailable, ""
+	return PackageModAvailable, ""
 }
 
 func (service *PackageService) packageVersionStatus(
 	ctx context.Context,
-	required domain.PackageGameVersion,
-) domain.PackageVersionStatus {
+	required PackageGameVersion,
+) PackageVersionStatus {
 	if _, ok := service.findInstalledVersion(ctx, required); ok {
-		return domain.PackageVersionInstalled
+		return PackageVersionInstalled
 	}
 	available, err := service.versions.ListAvailable(ctx)
 	if err != nil {
-		return domain.PackageVersionMissing
+		return PackageVersionMissing
 	}
 	for _, version := range available {
 		if version.ID == required.ID || version.Name == required.Name || (required.Name != "" && version.ID == required.Name) {
-			return domain.PackageVersionAvailable
+			return PackageVersionAvailable
 		}
 	}
-	return domain.PackageVersionMissing
+	return PackageVersionMissing
 }
 
 func (service *PackageService) findInstalledVersion(
 	ctx context.Context,
-	required domain.PackageGameVersion,
+	required PackageGameVersion,
 ) (versions.GameVersion, bool) {
 	installed, err := service.versions.List(ctx)
 	if err != nil {
@@ -445,26 +445,26 @@ func (service *PackageService) findInstalledVersion(
 func (service *PackageService) ImportPackage(
 	ctx context.Context,
 	packagePath string,
-	options domain.ImportInstanceOptions,
-) (domain.ImportReport, error) {
+	options ImportInstanceOptions,
+) (ImportReport, error) {
 	release, err := service.beginMutation()
 	if err != nil {
-		return domain.ImportReport{}, err
+		return ImportReport{}, err
 	}
 	defer release()
 	packagePath = strings.TrimSpace(packagePath)
 	if packagePath == "" {
-		return domain.ImportReport{}, domain.NewError(domain.ErrValidation, "Select a package file")
+		return ImportReport{}, errs.NewError(errs.ErrValidation, "Select a package file")
 	}
 	slog.Info("importing instance package", "package", packagePath)
 	pkg, err := service.io.Open(packagePath)
 	if err != nil {
-		return domain.ImportReport{}, err
+		return ImportReport{}, err
 	}
 
 	versionID, err := service.resolveImportVersion(ctx, pkg.Manifest().GameVersion, options)
 	if err != nil {
-		return domain.ImportReport{}, err
+		return ImportReport{}, err
 	}
 
 	name := strings.TrimSpace(options.Name)
@@ -483,14 +483,14 @@ func (service *PackageService) ImportPackage(
 		LaunchArguments: append([]string(nil), pkg.Manifest().LaunchArguments...),
 	})
 	if err != nil {
-		return domain.ImportReport{}, err
+		return ImportReport{}, err
 	}
 
-	report := domain.ImportReport{
+	report := ImportReport{
 		InstanceID:    instance.ID,
 		InstanceName:  instance.Name,
 		GameVersionID: versionID,
-		Mods:          []domain.ImportedModResult{},
+		Mods:          []ImportedModResult{},
 	}
 
 	if err := pkg.ExtractConfigs(ctx, instance.Directory); err != nil {
@@ -537,13 +537,13 @@ func (service *PackageService) cleanupFailedImport(ctx context.Context, instance
 func (service *PackageService) installPackageMod(
 	ctx context.Context,
 	pkg PackageArchive,
-	mod domain.PackageMod,
+	mod PackageMod,
 	instance Instance,
 	allowIncompatible bool,
-) domain.ImportedModResult {
-	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}
+) ImportedModResult {
+	result := ImportedModResult{Name: mod.Name, Version: mod.Version}
 	switch mod.Source {
-	case domain.PackageModSourceEmbedded:
+	case PackageModSourceEmbedded:
 		modsDirectory := filepath.Join(instance.Directory, modsDirectoryFor(mod.Enabled))
 		if err := pkg.ExtractEmbeddedMod(ctx, mod.FileName, modsDirectory); err != nil {
 			result.Status = "failed"
@@ -586,11 +586,11 @@ func modsDirectoryFor(enabled bool) string {
 
 func (service *PackageService) installCatalogPackageMod(
 	ctx context.Context,
-	mod domain.PackageMod,
+	mod PackageMod,
 	instance Instance,
 	allowIncompatible bool,
-) domain.ImportedModResult {
-	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}
+) ImportedModResult {
+	result := ImportedModResult{Name: mod.Name, Version: mod.Version}
 	if service.installer == nil {
 		result.Status = "skipped"
 		result.Message = "The mod catalog is unavailable"
@@ -624,7 +624,7 @@ func (service *PackageService) installCatalogPackageMod(
 }
 
 func friendlyPackageModError(err error) string {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if errors.As(err, &appError) {
 		if appError.Code == mods.ErrModIncompatible {
 			return "This mod is not compatible with the selected game version"
@@ -640,7 +640,7 @@ func friendlyPackageModError(err error) string {
 	return "Could not download the mod"
 }
 
-func (service *PackageService) disableInstalledCatalogMod(ctx context.Context, mod domain.PackageMod, instanceID string) error {
+func (service *PackageService) disableInstalledCatalogMod(ctx context.Context, mod PackageMod, instanceID string) error {
 	mods, err := service.mods.ListMods(ctx, instanceID)
 	if err != nil {
 		return err
@@ -655,7 +655,7 @@ func (service *PackageService) disableInstalledCatalogMod(ctx context.Context, m
 	return nil
 }
 
-func (service *PackageService) packageImportWarnings(report domain.ImportReport) []string {
+func (service *PackageService) packageImportWarnings(report ImportReport) []string {
 	var warnings []string
 	for _, mod := range report.Mods {
 		if mod.Status == "skipped" && mod.Message != "" {
@@ -671,8 +671,8 @@ func (service *PackageService) packageImportWarnings(report domain.ImportReport)
 // pipeline before the instance is created.
 func (service *PackageService) resolveImportVersion(
 	ctx context.Context,
-	required domain.PackageGameVersion,
-	options domain.ImportInstanceOptions,
+	required PackageGameVersion,
+	options ImportInstanceOptions,
 ) (string, error) {
 	override := strings.TrimSpace(options.GameVersionID)
 	if override != "" {
@@ -705,15 +705,15 @@ func (service *PackageService) resolveImportVersion(
 			}
 		}
 		if catalogVersion == nil {
-			return "", domain.NewError(domain.ErrVersionNotFound, "The required game version is not available")
+			return "", errs.NewError(errs.ErrVersionNotFound, "The required game version is not available")
 		}
 		if _, err := service.versions.InstallCatalogAndWait(ctx, catalogVersion.ID); err != nil {
 			return "", err
 		}
 		return catalogVersion.ID, nil
 	}
-	return "", domain.NewError(
-		domain.ErrVersionNotInstalled,
+	return "", errs.NewError(
+		errs.ErrVersionNotInstalled,
 		"Vintage Story "+required.Name+" is not installed",
 	)
 }

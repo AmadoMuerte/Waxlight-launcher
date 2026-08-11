@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
@@ -183,7 +183,7 @@ func TestStoreRemove(t *testing.T) {
 	if err := store.Remove("instance-1", "snap-1"); err == nil {
 		t.Fatal("removing a missing snapshot must fail")
 	} else {
-		var appErr *domain.AppError
+		var appErr *errs.AppError
 		if !errors.As(err, &appErr) || appErr.Code != snapshots.ErrSnapshotNotFound {
 			t.Fatalf("expected SNAPSHOT_NOT_FOUND, got %v", err)
 		}

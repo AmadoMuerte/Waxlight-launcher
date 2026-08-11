@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
@@ -278,16 +278,16 @@ func newID() string {
 func cleanName(v string) (string, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
-		return "", domain.NewError(domain.ErrValidation, "Name cannot be empty")
+		return "", errs.NewError(errs.ErrValidation, "Name cannot be empty")
 	}
 	if len([]rune(v)) > 80 {
-		return "", domain.NewError(domain.ErrValidation, "Name cannot exceed 80 characters")
+		return "", errs.NewError(errs.ErrValidation, "Name cannot exceed 80 characters")
 	}
 	return v, nil
 }
 
 func isAppErrorCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }
 
@@ -326,10 +326,10 @@ func safeRemoveAll(path, dataRoot, marker string) error {
 	home, _ := os.UserHomeDir()
 	volumeRoot := filepath.VolumeName(abs) + string(os.PathSeparator)
 	if abs == "/" || abs == volumeRoot || abs == home || abs == root || len(abs) < 5 {
-		return domain.NewError(domain.ErrValidation, "Unsafe deletion path")
+		return errs.NewError(errs.ErrValidation, "Unsafe deletion path")
 	}
 	if _, e = os.Stat(filepath.Join(abs, marker)); e != nil {
-		return domain.NewError(domain.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
+		return errs.NewError(errs.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
 	}
 	return removeAllReliably(abs)
 }

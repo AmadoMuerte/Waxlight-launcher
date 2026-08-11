@@ -3,7 +3,7 @@ package servers
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // CatalogService lists public server listings behind the catalog port. The
@@ -20,7 +20,7 @@ func NewCatalogService(catalog Catalog) *CatalogService {
 // List returns the public server catalog sorted by player count.
 func (service *CatalogService) List(ctx context.Context) ([]PublicServer, error) {
 	if service.catalog == nil {
-		return nil, domain.NewError(domain.ErrValidation, "Public server catalog is unavailable")
+		return nil, errs.NewError(errs.ErrValidation, "Public server catalog is unavailable")
 	}
 	return service.catalog.List(ctx)
 }

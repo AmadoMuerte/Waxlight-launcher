@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/language"
 )
 
@@ -30,7 +30,7 @@ func NewService(
 
 func (service *Service) Update(ctx context.Context, value Settings) (Settings, error) {
 	if value.DownloadsParallel < 1 || value.DownloadsParallel > 10 {
-		return value, domain.NewError(domain.ErrValidation, "Parallel downloads must be between 1 and 10")
+		return value, errs.NewError(errs.ErrValidation, "Parallel downloads must be between 1 and 10")
 	}
 	value.Language = language.NormalizeLanguage(value.Language)
 	channel, err := normalizeUpdateChannel(value.UpdateChannel)
@@ -40,7 +40,7 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 	value.UpdateChannel = channel
 	value.SkippedUpdateVersion = strings.TrimSpace(value.SkippedUpdateVersion)
 	if len(value.SkippedUpdateVersion) > 64 {
-		return value, domain.NewError(domain.ErrValidation, "Skipped update version is too long")
+		return value, errs.NewError(errs.ErrValidation, "Skipped update version is too long")
 	}
 
 	previous, getErr := service.reader.Get(ctx)
@@ -73,6 +73,6 @@ func normalizeUpdateChannel(channel string) (string, error) {
 	case "prerelease":
 		return "prerelease", nil
 	default:
-		return "", domain.NewError(domain.ErrValidation, "Update channel must be stable or prerelease")
+		return "", errs.NewError(errs.ErrValidation, "Update channel must be stable or prerelease")
 	}
 }

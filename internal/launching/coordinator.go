@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/gamelog"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
@@ -142,8 +142,8 @@ func (coordinator *Coordinator) ValidateLaunch(
 	if err != nil {
 		validation.Valid = false
 		issue := "The Vintagestory executable could not be found"
-		var appError *domain.AppError
-		if errors.As(err, &appError) && appError.Code == domain.ErrVersionNotFound {
+		var appError *errs.AppError
+		if errors.As(err, &appError) && appError.Code == errs.ErrVersionNotFound {
 			issue = "The selected game version is not installed"
 		}
 		validation.Issues = append(validation.Issues, issue)
@@ -196,7 +196,7 @@ func (coordinator *Coordinator) LaunchServer(
 ) (sessions.PlaySession, error) {
 	address = strings.TrimSpace(address)
 	if address == "" || len(address) > 255 || strings.ContainsAny(address, " \t\r\n/?#") {
-		return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Enter a valid server address")
+		return sessions.PlaySession{}, errs.NewError(errs.ErrValidation, "Enter a valid server address")
 	}
 	return coordinator.launch(ctx, instanceID, accountID, address)
 }
@@ -220,14 +220,14 @@ func (coordinator *Coordinator) launch(
 	releaseLaunch := coordinator.registry.BeginLaunch()
 	defer releaseLaunch()
 	if coordinator.registry.Busy(instanceID) {
-		return sessions.PlaySession{}, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return sessions.PlaySession{}, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	validation, err := coordinator.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
 		return sessions.PlaySession{}, err
 	}
 	if !validation.Valid {
-		return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, strings.Join(validation.Issues, "; "))
+		return sessions.PlaySession{}, errs.NewError(errs.ErrValidation, strings.Join(validation.Issues, "; "))
 	}
 
 	instance, err := coordinator.instances.GetInstance(ctx, instanceID)
@@ -248,7 +248,7 @@ func (coordinator *Coordinator) launch(
 	cleanupCredentials := func() error { return nil }
 	if accountID != nil {
 		if coordinator.accounts == nil || coordinator.clientSettings == nil {
-			return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Account authentication is unavailable")
+			return sessions.PlaySession{}, errs.NewError(errs.ErrValidation, "Account authentication is unavailable")
 		}
 		account, validateErr := coordinator.accounts.ValidateAuthorizedAccount(ctx, *accountID)
 		if validateErr != nil {
@@ -256,8 +256,8 @@ func (coordinator *Coordinator) launch(
 		}
 		cleanup, patchErr := coordinator.clientSettings.Inject(clientSettingsPath, account)
 		if patchErr != nil {
-			return sessions.PlaySession{}, &domain.AppError{
-				Code:    domain.ErrClientSettings,
+			return sessions.PlaySession{}, &errs.AppError{
+				Code:    errs.ErrClientSettings,
 				Message: "Could not write authentication to the instance settings",
 				Cause:   patchErr,
 			}
@@ -265,8 +265,8 @@ func (coordinator *Coordinator) launch(
 		cleanupCredentials = cleanup
 	} else if coordinator.clientSettings != nil {
 		if clearErr := coordinator.clientSettings.Clear(clientSettingsPath); clearErr != nil {
-			return sessions.PlaySession{}, &domain.AppError{
-				Code:    domain.ErrClientSettings,
+			return sessions.PlaySession{}, &errs.AppError{
+				Code:    errs.ErrClientSettings,
 				Message: "Could not clear authentication from the instance settings",
 				Cause:   clearErr,
 			}
@@ -312,8 +312,8 @@ func (coordinator *Coordinator) launch(
 	); writeErr != nil {
 		closeLaunchLog(logFile, instance.Name)
 		coordinator.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, &domain.AppError{
-			Code:    domain.ErrFilePermission,
+		return sessions.PlaySession{}, &errs.AppError{
+			Code:    errs.ErrFilePermission,
 			Message: "Could not write the launch command to the instance log",
 			Cause:   writeErr,
 		}
@@ -333,8 +333,8 @@ func (coordinator *Coordinator) launch(
 		coordinator.clearInjectedCredentials(cleanupCredentials, instance)
 		coordinator.reportEvent(ctx, telemetry.EventGameLaunchFailed)
 		coordinator.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
-		return sessions.PlaySession{}, &domain.AppError{
-			Code:    domain.ErrProcessStart,
+		return sessions.PlaySession{}, &errs.AppError{
+			Code:    errs.ErrProcessStart,
 			Message: "Failed to start Vintage Story",
 			Cause:   err,
 		}
@@ -408,7 +408,7 @@ func (coordinator *Coordinator) resolveAccountID(
 ) (*string, error) {
 	if requested != nil && strings.TrimSpace(*requested) != "" {
 		if coordinator.accounts == nil {
-			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+			return nil, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 		}
 		if _, err := coordinator.accounts.GetAccount(ctx, *requested); err != nil {
 			return nil, err
@@ -418,7 +418,7 @@ func (coordinator *Coordinator) resolveAccountID(
 	}
 	if instance.DefaultAccountID != nil && strings.TrimSpace(*instance.DefaultAccountID) != "" {
 		if coordinator.accounts == nil {
-			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+			return nil, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 		}
 		if _, err := coordinator.accounts.GetAccount(ctx, *instance.DefaultAccountID); err != nil {
 			return nil, err
@@ -571,7 +571,7 @@ func (coordinator *Coordinator) Stop(ctx context.Context, instanceID string, for
 	slog.Info("stopping instance", "instance", instanceID, "force", force)
 	game, ok := coordinator.registry.Get(instanceID)
 	if !ok {
-		return domain.NewError(domain.ErrValidation, "The instance is not running")
+		return errs.NewError(errs.ErrValidation, "The instance is not running")
 	}
 	var e error
 	if force {
@@ -580,7 +580,7 @@ func (coordinator *Coordinator) Stop(ctx context.Context, instanceID string, for
 		e = game.process.Stop()
 	}
 	if e != nil {
-		return &domain.AppError{Code: domain.ErrProcessStop, Message: "Failed to stop Vintage Story", Cause: e}
+		return &errs.AppError{Code: errs.ErrProcessStop, Message: "Failed to stop Vintage Story", Cause: e}
 	}
 	return nil
 }
@@ -593,7 +593,7 @@ func (coordinator *Coordinator) RunningInstanceIDs() []string {
 // CheckDataRootRelocation rejects a move while a game or operation is running.
 func (coordinator *Coordinator) CheckDataRootRelocation(ctx context.Context) error {
 	if len(coordinator.registry.RunningInstanceIDs()) > 0 {
-		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before moving the data folder")
+		return errs.NewError(instances.ErrInstanceRunning, "Stop the game before moving the data folder")
 	}
 	tracked, err := coordinator.operations.ListLimit(ctx, 1000)
 	if err != nil {
@@ -601,7 +601,7 @@ func (coordinator *Coordinator) CheckDataRootRelocation(ctx context.Context) err
 	}
 	for _, operation := range tracked {
 		if operation.Status == operations.StatusRunning || operation.Status == operations.StatusQueued {
-			return domain.NewError(domain.ErrDataFolderBusy, "Wait for running operations to finish before moving the data folder")
+			return errs.NewError(errs.ErrDataFolderBusy, "Wait for running operations to finish before moving the data folder")
 		}
 	}
 	return nil
@@ -634,7 +634,7 @@ func (coordinator *Coordinator) ReconcileInjectedCredentials(ctx context.Context
 			return err
 		}
 		if err := coordinator.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
+			return &errs.AppError{Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
 		}
 	}
 	return nil
@@ -657,7 +657,7 @@ func (coordinator *Coordinator) ClearAccountFromInstances(ctx context.Context, a
 	}
 	for _, instance := range instances {
 		if err := coordinator.clientSettings.Clear(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear account authentication from an instance", Cause: err}
+			return &errs.AppError{Code: errs.ErrClientSettings, Message: "Could not clear account authentication from an instance", Cause: err}
 		}
 		if instance.DefaultAccountID != nil && *instance.DefaultAccountID == accountID {
 			instance.DefaultAccountID = nil

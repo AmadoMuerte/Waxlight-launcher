@@ -11,7 +11,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
@@ -265,7 +265,7 @@ func TestInterruptedOperationsReconcileAcrossRestartAndRemainManageable(t *testi
 		if operation.Status != operations.StatusFailed || operation.FinishedAt == nil || !operation.FinishedAt.Equal(finished) {
 			t.Fatalf("interrupted operation not terminal: %+v", operation)
 		}
-		if operation.ErrorCode == nil || *operation.ErrorCode != domain.ErrOperationInterrupted || operation.ErrorMessage == nil || *operation.ErrorMessage == "" {
+		if operation.ErrorCode == nil || *operation.ErrorCode != errs.ErrOperationInterrupted || operation.ErrorMessage == nil || *operation.ErrorMessage == "" {
 			t.Fatalf("interrupted operation lacks user-facing error: %+v", operation)
 		}
 	}

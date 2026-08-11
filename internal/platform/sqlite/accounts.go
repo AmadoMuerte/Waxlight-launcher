@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const saveAccountSQL = `
@@ -44,7 +44,7 @@ func (s *SQLiteStore) GetAccount(ctx context.Context, id string) (accounts.Accou
 	account, err := scanAccount(s.db.QueryRowContext(ctx, `SELECT id, username, display_name, email, uid, status,
 		is_default, last_validated_at, created_at, updated_at FROM accounts WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return account, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		return account, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	}
 	return account, err
 }
@@ -104,7 +104,7 @@ func (s *SQLiteStore) SetDefaultAccount(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		return errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	}
 	return tx.Commit()
 }
@@ -115,7 +115,7 @@ func (s *SQLiteStore) DeleteAccount(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		return errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	}
 	return nil
 }

@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 type Filesystem struct {
@@ -52,7 +52,7 @@ func (Filesystem) RemoveDownload(path string) error {
 
 func (fs Filesystem) RemoveInstallTarget(path, id string) error {
 	if !samePath(path, fs.VersionPath(id)) {
-		return domain.NewError(domain.ErrValidation, "Refusing to remove an unexpected game version directory")
+		return errs.NewError(errs.ErrValidation, "Refusing to remove an unexpected game version directory")
 	}
 	return os.RemoveAll(path)
 }
@@ -68,11 +68,11 @@ func (fs Filesystem) RemoveVersion(path, id string) error {
 	}
 	relative, err := filepath.Rel(cleanRoot, cleanPath)
 	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return domain.NewError(domain.ErrValidation, "Refusing to remove a directory outside the launcher data folder")
+		return errs.NewError(errs.ErrValidation, "Refusing to remove a directory outside the launcher data folder")
 	}
 	marker, err := os.ReadFile(filepath.Join(cleanPath, ".waxlight-version"))
 	if err != nil || string(marker) != id {
-		return domain.NewError(domain.ErrValidation, "Refusing to remove a directory not owned by the launcher")
+		return errs.NewError(errs.ErrValidation, "Refusing to remove a directory not owned by the launcher")
 	}
 	return os.RemoveAll(cleanPath)
 }

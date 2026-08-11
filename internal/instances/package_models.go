@@ -1,4 +1,4 @@
-package domain
+package instances
 
 import "time"
 

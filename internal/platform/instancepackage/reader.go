@@ -10,7 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 )
@@ -18,7 +19,7 @@ import (
 // Package is a validated read-only view of a .waxlight archive.
 type Package struct {
 	Path     string
-	Manifest domain.PackageManifest
+	Manifest instances.PackageManifest
 	Entries  map[string]int64
 	IconSize int64
 }
@@ -28,7 +29,7 @@ type Package struct {
 func Open(path string) (*Package, error) {
 	archive, err := zip.OpenReader(path)
 	if err != nil {
-		return nil, domain.NewError(domain.ErrPackageInvalid, "The file is not a valid Waxlight package")
+		return nil, errs.NewError(errs.ErrPackageInvalid, "The file is not a valid Waxlight package")
 	}
 	defer archive.Close()
 
@@ -43,7 +44,7 @@ func Open(path string) (*Package, error) {
 		Entries:  make(map[string]int64, len(archive.File)),
 	}
 	if len(archive.File) > maxEntryCount {
-		return nil, domain.NewError(domain.ErrPackageInvalid, "The package contains too many files")
+		return nil, errs.NewError(errs.ErrPackageInvalid, "The package contains too many files")
 	}
 
 	var totalUncompressed int64
@@ -61,10 +62,10 @@ func Open(path string) (*Package, error) {
 			continue
 		}
 		if file.Mode()&os.ModeSymlink != 0 {
-			return nil, domain.NewError(domain.ErrPackageSecurity, "Package contains a symbolic link")
+			return nil, errs.NewError(errs.ErrPackageSecurity, "Package contains a symbolic link")
 		}
 		if file.Mode()&os.ModeType != 0 {
-			return nil, domain.NewError(domain.ErrPackageSecurity, "Package contains a special file")
+			return nil, errs.NewError(errs.ErrPackageSecurity, "Package contains a special file")
 		}
 
 		if _, err := ValidateEntryName(clean, ""); err != nil {
@@ -87,16 +88,16 @@ func Open(path string) (*Package, error) {
 		}
 		totalUncompressed += int64(size)
 		if totalUncompressed > maxTotalUncompressed {
-			return nil, domain.NewError(domain.ErrPackageInvalid, "The package is too large to import")
+			return nil, errs.NewError(errs.ErrPackageInvalid, "The package is too large to import")
 		}
 		result.Entries[clean] = int64(size)
 	}
 
 	if !seenManifest {
-		return nil, domain.NewError(domain.ErrPackageInvalid, "The package does not contain a manifest")
+		return nil, errs.NewError(errs.ErrPackageInvalid, "The package does not contain a manifest")
 	}
 	if _, ok := result.Entries[IconFileName]; !ok && manifest.HasIcon {
-		return nil, domain.NewError(domain.ErrPackageInvalid, "The package declares an icon that is missing")
+		return nil, errs.NewError(errs.ErrPackageInvalid, "The package declares an icon that is missing")
 	}
 	if err := validateManifestReferencedEntries(manifest, result.Entries); err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func Open(path string) (*Package, error) {
 	return result, nil
 }
 
-func readManifest(archive *zip.ReadCloser) (domain.PackageManifest, error) {
+func readManifest(archive *zip.ReadCloser) (instances.PackageManifest, error) {
 	var raw []byte
 	for _, file := range archive.File {
 		clean, err := CleanArchiveName(file.Name)
@@ -113,72 +114,72 @@ func readManifest(archive *zip.ReadCloser) (domain.PackageManifest, error) {
 		}
 		file, err := file.Open()
 		if err != nil {
-			return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "Could not read the package manifest")
+			return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "Could not read the package manifest")
 		}
 		defer file.Close()
 		raw, err = io.ReadAll(io.LimitReader(file, maxManifestBytes+1))
 		if err != nil {
-			return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "Could not read the package manifest")
+			return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "Could not read the package manifest")
 		}
 		break
 	}
 	if len(raw) == 0 {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "The package does not contain a manifest")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package does not contain a manifest")
 	}
 	if len(raw) > maxManifestBytes {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "The package manifest is too large")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest is too large")
 	}
 
-	var manifest domain.PackageManifest
+	var manifest instances.PackageManifest
 	if err := json.Unmarshal(raw, &manifest); err != nil {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "The package manifest is not valid JSON")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest is not valid JSON")
 	}
 	if manifest.SchemaVersion == 0 {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageUnsupported, "The package does not declare a format version")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageUnsupported, "The package does not declare a format version")
 	}
-	if manifest.SchemaVersion != domain.InstancePackageSchemaVersion {
-		return domain.PackageManifest{}, domain.NewError(
-			domain.ErrPackageUnsupported,
+	if manifest.SchemaVersion != instances.InstancePackageSchemaVersion {
+		return instances.PackageManifest{}, errs.NewError(
+			errs.ErrPackageUnsupported,
 			fmt.Sprintf("The package format version %d is not supported by this launcher", manifest.SchemaVersion),
 		)
 	}
 	if strings.TrimSpace(manifest.Name) == "" {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "The package manifest does not name the instance")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest does not name the instance")
 	}
 	if strings.TrimSpace(manifest.GameVersion.ID) == "" && strings.TrimSpace(manifest.GameVersion.Name) == "" {
-		return domain.PackageManifest{}, domain.NewError(domain.ErrPackageInvalid, "The package manifest does not declare a game version")
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest does not declare a game version")
 	}
 	return manifest, nil
 }
 
-func validateManifestReferencedEntries(manifest domain.PackageManifest, entries map[string]int64) error {
+func validateManifestReferencedEntries(manifest instances.PackageManifest, entries map[string]int64) error {
 	seenConfig := make(map[string]struct{}, len(manifest.ConfigFiles))
 	for _, relative := range manifest.ConfigFiles {
 		clean, err := CleanArchiveName(relative)
 		if err != nil {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references an unsafe config path")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references an unsafe config path")
 		}
 		if _, duplicate := seenConfig[clean]; duplicate {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references a config path twice")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references a config path twice")
 		}
 		seenConfig[clean] = struct{}{}
 		if _, ok := entries[ConfigsPrefix+clean]; !ok {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references a config file that is missing from the archive")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references a config file that is missing from the archive")
 		}
 	}
 	for _, mod := range manifest.Mods {
-		if mod.Source != domain.PackageModSourceEmbedded {
+		if mod.Source != instances.PackageModSourceEmbedded {
 			continue
 		}
 		if strings.TrimSpace(mod.ArchivePath) == "" && strings.TrimSpace(mod.FileName) == "" {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references an embedded mod without a file")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references an embedded mod without a file")
 		}
 		clean, err := CleanArchiveName(modsArchiveName(mod))
 		if err != nil {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references an unsafe embedded mod path")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references an unsafe embedded mod path")
 		}
 		if _, ok := entries[clean]; !ok {
-			return domain.NewError(domain.ErrPackageInvalid, "The package manifest references an embedded mod that is missing from the archive")
+			return errs.NewError(errs.ErrPackageInvalid, "The package manifest references an embedded mod that is missing from the archive")
 		}
 	}
 	return nil
@@ -228,7 +229,7 @@ func (p *Package) ExtractConfigs(ctx context.Context, targetDir string) error {
 	}
 	for _, relative := range p.Manifest.ConfigFiles {
 		if _, ok := written[relative]; !ok {
-			return domain.NewError(domain.ErrPackageInvalid, "A declared config file could not be extracted")
+			return errs.NewError(errs.ErrPackageInvalid, "A declared config file could not be extracted")
 		}
 	}
 	return nil
@@ -239,7 +240,7 @@ func (p *Package) ExtractConfigs(ctx context.Context, targetDir string) error {
 func (p *Package) ExtractEmbeddedMod(ctx context.Context, fileName string, directory string) error {
 	clean, err := CleanArchiveName(ModsPrefix + fileName)
 	if err != nil {
-		return domain.NewError(domain.ErrPackageInvalid, "The package contains an unsafe embedded mod path")
+		return errs.NewError(errs.ErrPackageInvalid, "The package contains an unsafe embedded mod path")
 	}
 	archive, err := zip.OpenReader(p.Path)
 	if err != nil {
@@ -257,7 +258,7 @@ func (p *Package) ExtractEmbeddedMod(ctx context.Context, fileName string, direc
 		}
 		return extractEntry(file, destination, maxEmbeddedModBytes)
 	}
-	return domain.NewError(domain.ErrPackageInvalid, "The embedded mod file could not be found in the package")
+	return errs.NewError(errs.ErrPackageInvalid, "The embedded mod file could not be found in the package")
 }
 
 func (p *Package) ExtractIcon(ctx context.Context, destination string) error {
@@ -279,7 +280,7 @@ func (p *Package) ExtractIcon(ctx context.Context, destination string) error {
 		}
 		return extractEntry(file, destination, maxIconBytes)
 	}
-	return domain.NewError(domain.ErrPackageInvalid, "The declared package icon could not be found")
+	return errs.NewError(errs.ErrPackageInvalid, "The declared package icon could not be found")
 }
 
 func extractEntry(file *zip.File, destination string, maxBytes int64) error {
@@ -304,10 +305,10 @@ func extractEntry(file *zip.File, destination string, maxBytes int64) error {
 func ensureInside(root string, path string) error {
 	relative, err := filepath.Rel(root, path)
 	if err != nil {
-		return domain.NewError(domain.ErrPackageSecurity, "Package file would escape the instance directory")
+		return errs.NewError(errs.ErrPackageSecurity, "Package file would escape the instance directory")
 	}
 	if relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
-		return domain.NewError(domain.ErrPackageSecurity, "Package file would escape the instance directory")
+		return errs.NewError(errs.ErrPackageSecurity, "Package file would escape the instance directory")
 	}
 	return nil
 }
@@ -319,12 +320,12 @@ func sanitizeClientSettingsFile(path string) error {
 	}
 	sanitized, err := filesystem.SanitizeClientSettings(contents)
 	if err != nil {
-		return domain.NewError(domain.ErrPackageInvalid, "The package contains invalid client settings")
+		return errs.NewError(errs.ErrPackageInvalid, "The package contains invalid client settings")
 	}
 	return atomicfile.Write(path, sanitized, 0o600)
 }
 
-func modsArchiveName(mod domain.PackageMod) string {
+func modsArchiveName(mod instances.PackageMod) string {
 	name := mod.ArchivePath
 	if name == "" {
 		name = ModsPrefix + mod.FileName

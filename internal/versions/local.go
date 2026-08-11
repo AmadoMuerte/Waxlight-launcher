@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -51,7 +51,7 @@ func (service *LocalInstallService) InstallLocal(
 		name = id
 	}
 	if strings.TrimSpace(sourcePath) == "" {
-		return operations.Operation{}, domain.NewError(domain.ErrValidation, "Select a game archive or directory")
+		return operations.Operation{}, errs.NewError(errs.ErrValidation, "Select a game archive or directory")
 	}
 	if err := ensureMissing(ctx, service.repository, id); err != nil {
 		return operations.Operation{}, err
@@ -69,7 +69,7 @@ func (service *LocalInstallService) InstallLocal(
 		return service.runLocalInstall(workerCtx, operation, id, name, sourcePath, executableRelativePath, checksum)
 	})
 	if errors.Is(err, operations.ErrKeyActive) {
-		return operations.Operation{}, domain.NewError(domain.ErrVersionExists, "This game version is already being installed")
+		return operations.Operation{}, errs.NewError(errs.ErrVersionExists, "This game version is already being installed")
 	}
 	if err != nil {
 		return operations.Operation{}, err
@@ -111,14 +111,14 @@ func (service *LocalInstallService) runLocalInstall(
 		if cancelled(err) {
 			return localInstallResult{operation: operation}, service.runtime.cancelInstall(operation, "", target, id)
 		}
-		err = service.runtime.failAndClean(&operation, target, id, err, domain.ErrArchiveInvalid)
-		return localInstallResult{operation: operation}, &domain.AppError{Code: errorCode(err, domain.ErrArchiveInvalid), Message: "Failed to install the game version", Cause: err}
+		err = service.runtime.failAndClean(&operation, target, id, err, errs.ErrArchiveInvalid)
+		return localInstallResult{operation: operation}, &errs.AppError{Code: errorCode(err, errs.ErrArchiveInvalid), Message: "Failed to install the game version", Cause: err}
 	}
 	if ctx.Err() != nil {
 		return localInstallResult{operation: operation}, service.runtime.cancelInstall(operation, "", target, id)
 	}
 	if err := service.runtime.filesystem.WriteMarker(target, id); err != nil {
-		return localInstallResult{operation: operation}, service.runtime.failAndClean(&operation, target, id, err, domain.ErrFilePermission)
+		return localInstallResult{operation: operation}, service.runtime.failAndClean(&operation, target, id, err, errs.ErrFilePermission)
 	}
 	version := GameVersion{
 		ID: id, Name: name, Channel: "unknown", Platform: service.platform, Architecture: service.architecture,
@@ -129,7 +129,7 @@ func (service *LocalInstallService) runLocalInstall(
 		if cancelled(err) {
 			return localInstallResult{operation: operation}, service.runtime.cancelInstall(operation, "", target, id)
 		}
-		return localInstallResult{operation: operation}, service.runtime.failAndClean(&operation, target, id, err, domain.ErrFilePermission)
+		return localInstallResult{operation: operation}, service.runtime.failAndClean(&operation, target, id, err, errs.ErrFilePermission)
 	}
 	operation.Status, operation.Progress = operations.StatusCompleted, 1
 	operation.TotalBytes, operation.CurrentBytes = size, size
@@ -141,8 +141,8 @@ func operationKey(id string) string { return "game-version:" + id }
 
 func ensureMissing(ctx context.Context, repository Repository, id string) error {
 	if _, err := repository.GetVersion(ctx, id); err == nil {
-		return domain.NewError(domain.ErrVersionExists, "This game version is already installed")
-	} else if !isCode(err, domain.ErrVersionNotFound) {
+		return errs.NewError(errs.ErrVersionExists, "This game version is already installed")
+	} else if !isCode(err, errs.ErrVersionNotFound) {
 		return err
 	}
 	return nil

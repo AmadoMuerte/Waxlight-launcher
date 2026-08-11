@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
@@ -91,9 +91,9 @@ func (controller *SettingsController) SelectModFiles() ([]string, error) {
 func (controller *SettingsController) OpenDirectory(path string) error {
 	if err := controller.opener.OpenDirectory(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return domain.NewError(domain.ErrValidation, "Directory not found")
+			return errs.NewError(errs.ErrValidation, "Directory not found")
 		}
-		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not open the directory", Cause: err}
+		return &errs.AppError{Code: errs.ErrFilePermission, Message: "Could not open the directory", Cause: err}
 	}
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	vsmodinfo "github.com/AmadoMuerte/vintagestory-go/modinfo"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // ArchiveInfo is the modinfo.json metadata of a mod file.
@@ -41,15 +41,15 @@ func ReadModArchiveInfo(filePath string) (ArchiveInfo, error) {
 		// packages simply cannot advertise dependencies through modinfo.json.
 		return ArchiveInfo{}, nil
 	case errors.Is(err, vsmodinfo.ErrTooLarge):
-		return ArchiveInfo{}, domain.NewError(ErrInvalidModFile, "modinfo.json is unexpectedly large")
+		return ArchiveInfo{}, errs.NewError(ErrInvalidModFile, "modinfo.json is unexpectedly large")
 	case errors.Is(err, vsmodinfo.ErrInvalidContent):
-		return ArchiveInfo{}, &domain.AppError{
+		return ArchiveInfo{}, &errs.AppError{
 			Code:    ErrInvalidModFile,
 			Message: "The downloaded mod contains an invalid modinfo.json",
 			Cause:   err,
 		}
 	default:
-		return ArchiveInfo{}, &domain.AppError{
+		return ArchiveInfo{}, &errs.AppError{
 			Code:    ErrInvalidModFile,
 			Message: "Could not inspect the downloaded mod archive",
 			Cause:   err,
@@ -137,7 +137,7 @@ func dependencyFailureMessage(err error) string {
 	if errors.Is(err, context.Canceled) {
 		return "Download cancelled"
 	}
-	var appErr *domain.AppError
+	var appErr *errs.AppError
 	if errors.As(err, &appErr) && appErr.Message != "" {
 		return appErr.Message
 	}
@@ -147,6 +147,6 @@ func dependencyFailureMessage(err error) string {
 // isAppErrorCode reports whether the error chain contains an AppError with the
 // given code.
 func isAppErrorCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/apptest"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
@@ -56,10 +56,10 @@ func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := catalogService.CancelModTask("persistent"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
+	if err := catalogService.CancelModTask("persistent"); !isAppErrorCode(err, errs.ErrOperationNotFound) {
 		t.Fatalf("mod cancellation accepted persistent operation ID: %v", err)
 	}
-	if err := manager.Cancel("mod-task"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
+	if err := manager.Cancel("mod-task"); !isAppErrorCode(err, errs.ErrOperationNotFound) {
 		t.Fatalf("operation cancellation accepted ModDB task ID: %v", err)
 	}
 	select {

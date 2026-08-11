@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 func (service *Service) persistSession(ctx context.Context, expectedAccountID, email string, session Session) (LoginResult, error) {
@@ -167,7 +167,7 @@ func (service *Service) RemoveAccount(ctx context.Context, accountID string) err
 		return credentialStoreError("Could not read the saved account session", credentialErr)
 	}
 	if err := service.credentials.Delete(ctx, accountID); err != nil && !errors.Is(err, ErrCredentialsNotFound) {
-		return &domain.AppError{Code: domain.ErrSecretStorage, Message: "Could not remove the saved account session", Cause: err}
+		return &errs.AppError{Code: errs.ErrSecretStorage, Message: "Could not remove the saved account session", Cause: err}
 	}
 	if err := service.repository.DeleteAccount(ctx, accountID); err != nil {
 		if credentialErr == nil {
@@ -227,7 +227,7 @@ func (service *Service) ValidateAuthorizedAccount(ctx context.Context, accountID
 			return account, err
 		}
 		slog.Warn("account session expired", "account", accountID)
-		return account, domain.NewError(domain.ErrSessionExpired, "The account session has expired")
+		return account, errs.NewError(errs.ErrSessionExpired, "The account session has expired")
 	}
 	account.Status = StatusValid
 	if err := service.saveAccountMutation(ctx, safeAccount(account)); err != nil {
@@ -252,10 +252,10 @@ func (service *Service) authorizedAccount(ctx context.Context, accountID string)
 		if saveErr := service.saveAccountMutation(ctx, account); saveErr != nil {
 			slog.Warn("could not persist the reauthentication flag", "account", accountID, "error", saveErr)
 		}
-		return safeAccount(account), domain.NewError(domain.ErrSessionExpired, "The account needs to be authenticated again")
+		return safeAccount(account), errs.NewError(errs.ErrSessionExpired, "The account needs to be authenticated again")
 	}
 	if err != nil {
-		return account, &domain.AppError{Code: domain.ErrSecretStorage, Message: "Could not read the account session", Cause: err}
+		return account, &errs.AppError{Code: errs.ErrSecretStorage, Message: "Could not read the account session", Cause: err}
 	}
 	account.SessionKey = credential.SessionKey
 	account.SessionSignature = credential.SessionSignature
@@ -283,7 +283,7 @@ func credentialStoreError(message string, err error) error {
 		message = "The saved account session is corrupt and must be replaced"
 	}
 	retryable := errors.Is(err, ErrStoreLocked) || errors.Is(err, ErrStoreUnavailable)
-	return &domain.AppError{Code: domain.ErrSecretStorage, Message: message, Cause: err, Retryable: retryable}
+	return &errs.AppError{Code: errs.ErrSecretStorage, Message: message, Cause: err, Retryable: retryable}
 }
 
 func safeAccount(account Account) Account {
@@ -295,12 +295,12 @@ func safeAccount(account Account) Account {
 func mapAuthError(err error) error {
 	switch {
 	case errors.Is(err, ErrAuthNetwork):
-		return &domain.AppError{Code: domain.ErrAuthNetwork, Message: "Could not connect to the Vintage Story authentication server", Retryable: true}
+		return &errs.AppError{Code: errs.ErrAuthNetwork, Message: "Could not connect to the Vintage Story authentication server", Retryable: true}
 	case errors.Is(err, ErrAuthServer):
-		return &domain.AppError{Code: domain.ErrAuthServer, Message: "The Vintage Story authentication server is unavailable", Retryable: true}
+		return &errs.AppError{Code: errs.ErrAuthServer, Message: "The Vintage Story authentication server is unavailable", Retryable: true}
 	case errors.Is(err, ErrInvalidAuthReply):
-		return domain.NewError(domain.ErrAuthInvalidResponse, "The authentication server returned an invalid response")
+		return errs.NewError(errs.ErrAuthInvalidResponse, "The authentication server returned an invalid response")
 	default:
-		return domain.NewError(domain.ErrAuthInvalidResponse, "Could not validate the account session")
+		return errs.NewError(errs.ErrAuthInvalidResponse, "Could not validate the account session")
 	}
 }

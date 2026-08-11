@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
@@ -55,7 +55,7 @@ func (service *CatalogInstallService) InstallCatalog(ctx context.Context, versio
 		return Install{}, err
 	}
 	if service.downloader == nil || service.packageInstaller == nil {
-		return Install{}, domain.NewError(domain.ErrVersionCatalog, "Game version downloads are not configured")
+		return Install{}, errs.NewError(errs.ErrVersionCatalog, "Game version downloads are not configured")
 	}
 	if err := ensureMissing(ctx, service.repository, versionID); err != nil {
 		return Install{}, err
@@ -72,10 +72,10 @@ func (service *CatalogInstallService) InstallCatalog(ctx context.Context, versio
 		}
 	}
 	if selected == nil {
-		return Install{}, domain.NewError(domain.ErrVersionNotFound, "The selected version is not available for this platform")
+		return Install{}, errs.NewError(errs.ErrVersionNotFound, "The selected version is not available for this platform")
 	}
 	if _, err := validateID(selected.ID); err != nil {
-		return Install{}, domain.NewError(domain.ErrVersionCatalog, "The game version catalog contains an invalid version ID")
+		return Install{}, errs.NewError(errs.ErrVersionCatalog, "The game version catalog contains an invalid version ID")
 	}
 	if err := validateCatalogFilename(selected.Filename); err != nil {
 		return Install{}, err
@@ -100,7 +100,7 @@ func (service *CatalogInstallService) InstallCatalog(ctx context.Context, versio
 		return service.runCatalogInstall(workerCtx, release, operation)
 	})
 	if errors.Is(err, operations.ErrKeyActive) {
-		return Install{}, domain.NewError(domain.ErrVersionExists, "This game version is already being installed")
+		return Install{}, errs.NewError(errs.ErrVersionExists, "This game version is already being installed")
 	}
 	if err != nil {
 		return Install{}, err
@@ -117,10 +117,10 @@ func (service *CatalogInstallService) InstallCatalogAndWait(ctx context.Context,
 	}
 	version, err := install.Wait(ctx)
 	if err != nil {
-		return GameVersion{}, &domain.AppError{Code: domain.ErrVersionInstall, Message: "Could not install the required game version", Cause: err}
+		return GameVersion{}, &errs.AppError{Code: errs.ErrVersionInstall, Message: "Could not install the required game version", Cause: err}
 	}
 	if version.ID == "" {
-		return GameVersion{}, domain.NewError(domain.ErrVersionInstall, "Could not install the required game version")
+		return GameVersion{}, errs.NewError(errs.ErrVersionInstall, "Could not install the required game version")
 	}
 	return version, nil
 }
@@ -131,10 +131,10 @@ func (service *CatalogInstallService) checkDiskSpace(release AvailableGameVersio
 	}
 	available, err := service.diskSpace.Available(service.dataRoot)
 	if err != nil {
-		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not check available disk space", Cause: err}
+		return &errs.AppError{Code: errs.ErrFilePermission, Message: "Could not check available disk space", Cause: err}
 	}
 	if available < release.DownloadSize*2 {
-		return domain.NewError(domain.ErrInsufficientSpace, "Not enough disk space to download and install this version")
+		return errs.NewError(errs.ErrInsufficientSpace, "Not enough disk space to download and install this version")
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func (service *CatalogInstallService) runCatalogInstall(ctx context.Context, rel
 				if cancelled(err) {
 					return GameVersion{}, service.runtime.cancel(operation, downloadPath)
 				}
-				service.runtime.fail(&operation, err, domain.ErrDownloadFailed)
+				service.runtime.fail(&operation, err, errs.ErrDownloadFailed)
 				return GameVersion{}, err
 			}
 			return service.installDownloaded(ctx, release, downloadPath, operation, lastSaved)
@@ -204,13 +204,13 @@ func (service *CatalogInstallService) installDownloaded(ctx context.Context, rel
 		if cancelled(err) {
 			return GameVersion{}, service.runtime.cancelInstall(operation, downloadPath, target, release.ID)
 		}
-		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, domain.ErrArchiveInvalid)
+		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, errs.ErrArchiveInvalid)
 	}
 	if ctx.Err() != nil {
 		return GameVersion{}, service.runtime.cancelInstall(operation, downloadPath, target, release.ID)
 	}
 	if err := service.runtime.filesystem.WriteMarker(target, release.ID); err != nil {
-		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, domain.ErrFilePermission)
+		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, errs.ErrFilePermission)
 	}
 	installedAt := service.runtime.now().UTC()
 	version := GameVersion{
@@ -222,7 +222,7 @@ func (service *CatalogInstallService) installDownloaded(ctx context.Context, rel
 		if cancelled(err) {
 			return GameVersion{}, service.runtime.cancelInstall(operation, downloadPath, target, release.ID)
 		}
-		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, domain.ErrFilePermission)
+		return GameVersion{}, service.runtime.failAndClean(&operation, target, release.ID, err, errs.ErrFilePermission)
 	}
 	operation.Status, operation.Progress = operations.StatusCompleted, 1
 	operation.CurrentBytes, operation.FinishedAt = operation.TotalBytes, &installedAt

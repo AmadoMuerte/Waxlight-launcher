@@ -5,7 +5,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 )
@@ -33,7 +33,7 @@ func TestCloneGuardRejectsRunningInstance(t *testing.T) {
 	if _, err := registry.Guard("instance", MutationLockMarker, "Stop the game before cloning this instance"); !isAppErrorCode(err, instances.ErrInstanceRunning) {
 		t.Fatalf("Guard() error = %v", err)
 	} else {
-		var appError *domain.AppError
+		var appError *errs.AppError
 		if !errors.As(err, &appError) || appError.Message != "Stop the game before cloning this instance" {
 			t.Fatalf("Guard() error = %+v", appError)
 		}
@@ -71,7 +71,7 @@ func TestRegistryLockMessage(t *testing.T) {
 	if _, err := registry.Lock("instance", MutationLockMarker); !isAppErrorCode(err, snapshots.ErrSnapshotInProgress) {
 		t.Fatalf("Lock() error = %v", err)
 	} else {
-		var appError *domain.AppError
+		var appError *errs.AppError
 		if !errors.As(err, &appError) || appError.Message != "Wait for the running operation on this instance to finish" {
 			t.Fatalf("Lock() error = %+v", appError)
 		}
@@ -98,6 +98,6 @@ func TestRegistryRunningAndStop(t *testing.T) {
 }
 
 func isAppErrorCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }

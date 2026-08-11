@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
@@ -65,11 +65,11 @@ func (registry *Registry) Guard(instanceID string, marker string, runningMessage
 	_, running := registry.running[instanceID]
 	registry.mu.Unlock()
 	if running {
-		return nil, domain.NewError(instances.ErrInstanceRunning, runningMessage)
+		return nil, errs.NewError(instances.ErrInstanceRunning, runningMessage)
 	}
 	slotRelease, holder := registry.slot.TryAcquire(instanceID, marker)
 	if holder != "" {
-		return nil, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return nil, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	return slotRelease, nil
 }
@@ -81,7 +81,7 @@ func (registry *Registry) Guard(instanceID string, marker string, runningMessage
 func (registry *Registry) Lock(instanceID string, marker string) (func(), error) {
 	release, holder := registry.slot.TryAcquire(instanceID, marker)
 	if holder != "" {
-		return nil, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
+		return nil, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	return release, nil
 }

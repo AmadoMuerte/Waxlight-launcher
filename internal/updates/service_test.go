@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
@@ -324,7 +324,7 @@ func TestLauncherUpdateRejectsPortableModeOnWindows(t *testing.T) {
 		t.Fatal("expected portable Windows update error")
 	}
 
-	var appErr *domain.AppError
+	var appErr *errs.AppError
 	if !errors.As(err, &appErr) {
 		t.Fatalf("expected AppError, got %T: %v", err, err)
 	}

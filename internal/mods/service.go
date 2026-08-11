@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
@@ -202,7 +202,7 @@ func (service *Service) installModFile(
 ) (operations.Operation, error) {
 	slog.Info("installing mod file", "instance", instance.Name, "mod", name)
 	if sourcePath == "" {
-		return operations.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
+		return operations.Operation{}, errs.NewError(errs.ErrValidation, "Select a mod file")
 	}
 	now := service.now().UTC()
 	resource := instance.ID
@@ -280,7 +280,7 @@ func (service *Service) InstallModFiles(
 	}
 	defer service.gate.End()
 	if len(sourcePaths) == 0 {
-		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
+		return result, errs.NewError(errs.ErrValidation, "Select at least one mod file")
 	}
 	instance, err := service.repository.GetInstance(ctx, instanceID)
 	if err != nil {
@@ -307,7 +307,7 @@ func (service *Service) InstallModFiles(
 		}
 	}
 	if len(result.Installed) == 0 && len(result.Failed) > 0 {
-		return result, domain.NewError(ErrInvalidModFile, "no mods were installed")
+		return result, errs.NewError(ErrInvalidModFile, "no mods were installed")
 	}
 	return result, nil
 }
@@ -401,7 +401,7 @@ func (service *Service) RemoveMods(
 	}
 	defer service.gate.End()
 	if len(modIDs) == 0 {
-		return domain.NewError(domain.ErrValidation, "Select at least one mod to remove")
+		return errs.NewError(errs.ErrValidation, "Select at least one mod to remove")
 	}
 	instance, err := service.repository.GetInstance(ctx, instanceID)
 	if err != nil {
@@ -423,7 +423,7 @@ func (service *Service) RemoveMods(
 			return getErr
 		}
 		if mod.InstanceID != instance.ID {
-			return domain.NewError(domain.ErrValidation, "The selected mod does not belong to this instance")
+			return errs.NewError(errs.ErrValidation, "The selected mod does not belong to this instance")
 		}
 		if deleteDependencies {
 			set, setErr := service.modDeletionSet(ctx, mod)

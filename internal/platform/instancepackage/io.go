@@ -3,7 +3,6 @@ package instancepackage
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
@@ -32,7 +31,7 @@ type archiveAdapter struct {
 	pkg *Package
 }
 
-func (adapter archiveAdapter) Manifest() domain.PackageManifest {
+func (adapter archiveAdapter) Manifest() instances.PackageManifest {
 	return adapter.pkg.Manifest
 }
 

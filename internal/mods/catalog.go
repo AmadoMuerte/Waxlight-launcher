@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
@@ -279,10 +279,10 @@ func (service *CatalogService) downloadCatalogMod(
 	}
 	selected, ok := FindModVersion(details.Versions, request.VersionID)
 	if !ok {
-		return ModInstallResult{}, domain.NewError(ErrModVersionNotFound, "Mod version not found")
+		return ModInstallResult{}, errs.NewError(ErrModVersionNotFound, "Mod version not found")
 	}
 	if !strings.HasPrefix(selected.DownloadURL, "https://") {
-		return ModInstallResult{}, domain.NewError(ErrInvalidModFile, "The catalog returned an unsafe download URL")
+		return ModInstallResult{}, errs.NewError(ErrInvalidModFile, "The catalog returned an unsafe download URL")
 	}
 	slog.Info("downloading catalog mod", "mod", details.Name, "version", selected.Version, "instances", len(request.InstanceIDs))
 
@@ -309,7 +309,7 @@ func (service *CatalogService) downloadCatalogMod(
 			gameVersion = version.ID
 		}
 		if !request.AllowIncompatible && !ModSupportsVersion(selected.GameVersions, gameVersion) {
-			return ModInstallResult{}, domain.NewError(
+			return ModInstallResult{}, errs.NewError(
 				ErrModIncompatible,
 				fmt.Sprintf("%s does not list support for Vintage Story %s", details.Name, gameVersion),
 			)

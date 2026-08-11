@@ -11,13 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 )
 
 // WriteSource describes everything needed to produce a package.
 type WriteSource struct {
-	Manifest     domain.PackageManifest
+	Manifest     instances.PackageManifest
 	InstanceDir  string
 	EmbeddedMods map[string]string
 	IconPath     string
@@ -83,7 +84,7 @@ func Write(ctx context.Context, targetPath string, source WriteSource) error {
 		}
 		if filepath.Base(fileName) != fileName {
 			abortPackageWrite(archive, output, targetPath)
-			return domain.NewError(domain.ErrValidation, "Embedded mod name is not a plain file name")
+			return errs.NewError(errs.ErrValidation, "Embedded mod name is not a plain file name")
 		}
 		contents, err := readEmbeddedMod(sourcePath)
 		if err != nil {
@@ -142,7 +143,7 @@ func readConfigFile(instanceDir string, relative string) ([]byte, error) {
 		return nil, err
 	}
 	if strings.HasPrefix(clean, ConfigsPrefix) || strings.HasPrefix(clean, ModsPrefix) || clean == ManifestFileName || clean == IconFileName {
-		return nil, domain.NewError(domain.ErrValidation, "Unsafe config path in package")
+		return nil, errs.NewError(errs.ErrValidation, "Unsafe config path in package")
 	}
 	path, err := safeJoin(instanceDir, filepath.FromSlash(clean))
 	if err != nil {
@@ -153,10 +154,10 @@ func readConfigFile(instanceDir string, relative string) ([]byte, error) {
 		return nil, fmt.Errorf("config file is unavailable: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return nil, domain.NewError(domain.ErrValidation, "Config path is not a regular file")
+		return nil, errs.NewError(errs.ErrValidation, "Config path is not a regular file")
 	}
 	if info.Size() > maxConfigBytes {
-		return nil, domain.NewError(domain.ErrValidation, "Config file is too large to export")
+		return nil, errs.NewError(errs.ErrValidation, "Config file is too large to export")
 	}
 	contents, err := os.ReadFile(path)
 	if err != nil {
@@ -165,7 +166,7 @@ func readConfigFile(instanceDir string, relative string) ([]byte, error) {
 	if strings.EqualFold(filepath.Base(clean), "clientsettings.json") {
 		sanitized, err := filesystem.SanitizeClientSettings(contents)
 		if err != nil {
-			return nil, domain.NewError(domain.ErrValidation, "Could not sanitize client settings for export")
+			return nil, errs.NewError(errs.ErrValidation, "Could not sanitize client settings for export")
 		}
 		return sanitized, nil
 	}
@@ -178,10 +179,10 @@ func readEmbeddedMod(sourcePath string) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, domain.NewError(domain.ErrValidation, "Mod source is not a regular file")
+		return nil, errs.NewError(errs.ErrValidation, "Mod source is not a regular file")
 	}
 	if info.Size() > maxEmbeddedModBytes {
-		return nil, domain.NewError(domain.ErrValidation, "Mod file is too large to embed in the package")
+		return nil, errs.NewError(errs.ErrValidation, "Mod file is too large to embed in the package")
 	}
 	return os.ReadFile(sourcePath)
 }
@@ -192,10 +193,10 @@ func readIcon(iconPath string) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, domain.NewError(domain.ErrValidation, "Icon path is not a regular file")
+		return nil, errs.NewError(errs.ErrValidation, "Icon path is not a regular file")
 	}
 	if info.Size() > maxIconBytes {
-		return nil, domain.NewError(domain.ErrValidation, "Icon file is too large to export")
+		return nil, errs.NewError(errs.ErrValidation, "Icon file is too large to export")
 	}
 	return os.ReadFile(iconPath)
 }

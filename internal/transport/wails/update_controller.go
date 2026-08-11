@@ -7,7 +7,7 @@ import (
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/updates"
 )
@@ -87,7 +87,7 @@ func (controller *LauncherUpdateController) OpenUrl(rawURL string) error {
 
 func (controller *LauncherUpdateController) openExternalURL(rawURL string) error {
 	if !validExternalURL(rawURL) {
-		return domain.NewError(domain.ErrInvalidURL, "only http and https links can be opened")
+		return errs.NewError(errs.ErrInvalidURL, "only http and https links can be opened")
 	}
 	wruntime.BrowserOpenURL(controller.lifecycle.Context(), rawURL)
 	return nil

@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func TestWriteAndOpenRoundTrip(t *testing.T) {
@@ -35,21 +36,21 @@ func TestWriteAndOpenRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manifest := domain.PackageManifest{
-		SchemaVersion: domain.InstancePackageSchemaVersion,
+	manifest := instances.PackageManifest{
+		SchemaVersion: instances.InstancePackageSchemaVersion,
 		Name:          "Test pack",
 		Description:   "desc",
-		GameVersion:   domain.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 		ConfigFiles:   []string{"clientsettings.json", filepath.Join("Config", "nested", "mod.json")},
 		HasIcon:       true,
-		Mods: []domain.PackageMod{
+		Mods: []instances.PackageMod{
 			{
 				Name: "CatalogMod", Version: "1.0", FileName: "catalog.zip",
-				Source: domain.PackageModSourceCatalog, ModID: "12", VersionID: "34",
+				Source: instances.PackageModSourceCatalog, ModID: "12", VersionID: "34",
 			},
 			{
 				Name: "LocalMod", Version: "2.0", FileName: "local-mod.zip",
-				Source: domain.PackageModSourceEmbedded, Checksum: "sha256:abc",
+				Source: instances.PackageModSourceEmbedded, Checksum: "sha256:abc",
 			},
 		},
 	}
@@ -137,10 +138,10 @@ func TestExtractConfigsSanitizesStaleClientSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manifest := domain.PackageManifest{
-		SchemaVersion: domain.InstancePackageSchemaVersion,
+	manifest := instances.PackageManifest{
+		SchemaVersion: instances.InstancePackageSchemaVersion,
 		Name:          "Stale pack",
-		GameVersion:   domain.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 		ConfigFiles:   []string{"clientsettings.json"},
 	}
 	packagePath := filepath.Join(root, "pack.waxlight")
@@ -182,7 +183,7 @@ func TestRejectPathTraversal(t *testing.T) {
 	})
 	if _, err := Open(path); err == nil {
 		t.Fatal("expected traversal package to be rejected")
-	} else if code := appErrorCode(err); code != domain.ErrPackageSecurity {
+	} else if code := appErrorCode(err); code != errs.ErrPackageSecurity {
 		t.Fatalf("expected security error, got %v", err)
 	}
 }
@@ -219,14 +220,14 @@ func TestRejectSymlinkEntry(t *testing.T) {
 
 func TestRejectUnsupportedSchemaVersion(t *testing.T) {
 	manifest := struct {
-		SchemaVersion int                       `json:"schemaVersion"`
-		Name          string                    `json:"name"`
-		GameVersion   domain.PackageGameVersion `json:"gameVersion"`
-		ConfigFiles   []string                  `json:"configFiles"`
+		SchemaVersion int                          `json:"schemaVersion"`
+		Name          string                       `json:"name"`
+		GameVersion   instances.PackageGameVersion `json:"gameVersion"`
+		ConfigFiles   []string                     `json:"configFiles"`
 	}{
 		SchemaVersion: 2,
 		Name:          "Future pack",
-		GameVersion:   domain.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 	}
 	encoded, _ := json.Marshal(manifest)
 	path := craftArchive(t, map[string]zipContent{
@@ -234,21 +235,21 @@ func TestRejectUnsupportedSchemaVersion(t *testing.T) {
 	})
 	if _, err := Open(path); err == nil {
 		t.Fatal("expected unsupported schema version to be rejected")
-	} else if code := appErrorCode(err); code != domain.ErrPackageUnsupported {
+	} else if code := appErrorCode(err); code != errs.ErrPackageUnsupported {
 		t.Fatalf("expected unsupported error, got %v", err)
 	}
 }
 
 func TestRejectMissingDeclaredConfig(t *testing.T) {
 	manifest := struct {
-		SchemaVersion int                       `json:"schemaVersion"`
-		Name          string                    `json:"name"`
-		GameVersion   domain.PackageGameVersion `json:"gameVersion"`
-		ConfigFiles   []string                  `json:"configFiles"`
+		SchemaVersion int                          `json:"schemaVersion"`
+		Name          string                       `json:"name"`
+		GameVersion   instances.PackageGameVersion `json:"gameVersion"`
+		ConfigFiles   []string                     `json:"configFiles"`
 	}{
-		SchemaVersion: domain.InstancePackageSchemaVersion,
+		SchemaVersion: instances.InstancePackageSchemaVersion,
 		Name:          "Missing config pack",
-		GameVersion:   domain.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 		ConfigFiles:   []string{"Config/missing.json"},
 	}
 	encoded, _ := json.Marshal(manifest)
@@ -298,10 +299,10 @@ func craftArchive(t *testing.T, contents map[string]zipContent) string {
 }
 
 func validManifest() string {
-	manifest := domain.PackageManifest{
-		SchemaVersion: domain.InstancePackageSchemaVersion,
+	manifest := instances.PackageManifest{
+		SchemaVersion: instances.InstancePackageSchemaVersion,
 		Name:          "Empty pack",
-		GameVersion:   domain.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 		ConfigFiles:   []string{},
 	}
 	encoded, _ := json.Marshal(manifest)
@@ -309,7 +310,7 @@ func validManifest() string {
 }
 
 func appErrorCode(err error) string {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if errors.As(err, &appError) {
 		return appError.Code
 	}

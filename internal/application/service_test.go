@@ -18,8 +18,8 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/apptest"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
@@ -246,7 +246,7 @@ type accountHolder struct {
 
 func (holder *accountHolder) GetAccount(ctx context.Context, id string) (accounts.Account, error) {
 	if holder.service == nil {
-		return accounts.Account{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		return accounts.Account{}, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	}
 	return holder.service.GetAccount(ctx, id)
 }
@@ -260,7 +260,7 @@ func (holder *accountHolder) ListAccounts(ctx context.Context) ([]accounts.Accou
 
 func (holder *accountHolder) ValidateAuthorizedAccount(ctx context.Context, id string) (accounts.Account, error) {
 	if holder.service == nil {
-		return accounts.Account{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+		return accounts.Account{}, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	}
 	return holder.service.ValidateAuthorizedAccount(ctx, id)
 }
@@ -1027,11 +1027,11 @@ func TestInstallingAnExistingVersionIsRejected(t *testing.T) {
 		t.Fatal("expected duplicate version installation to fail")
 	}
 
-	var applicationError *domain.AppError
+	var applicationError *errs.AppError
 	if !errors.As(err, &applicationError) {
 		t.Fatalf("expected an application error, got %T", err)
 	}
-	if applicationError.Code != domain.ErrVersionExists {
+	if applicationError.Code != errs.ErrVersionExists {
 		t.Fatalf("unexpected error code %q", applicationError.Code)
 	}
 
@@ -1045,7 +1045,7 @@ func TestInstallingAnExistingVersionIsRejected(t *testing.T) {
 }
 
 func isErrorCode(err error, code string) bool {
-	var applicationError *domain.AppError
+	var applicationError *errs.AppError
 	return errors.As(err, &applicationError) && applicationError.Code == code
 }
 
@@ -1313,8 +1313,8 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected instance creation to be rejected while relocating")
 	}
-	var appErr *domain.AppError
-	if !errors.As(err, &appErr) || appErr.Code != domain.ErrDataFolderBusy {
+	var appErr *errs.AppError
+	if !errors.As(err, &appErr) || appErr.Code != errs.ErrDataFolderBusy {
 		t.Fatalf("expected DATA_FOLDER_BUSY, got %v", err)
 	}
 

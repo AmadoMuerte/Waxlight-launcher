@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -114,7 +114,7 @@ func (s *SQLiteStore) DeleteFinishedOperation(ctx context.Context, id string) er
 	if count, err := result.RowsAffected(); err != nil {
 		return err
 	} else if count == 0 {
-		return domain.NewError(domain.ErrOperationNotFound, "The finished operation was not found")
+		return errs.NewError(errs.ErrOperationNotFound, "The finished operation was not found")
 	}
 	return nil
 }

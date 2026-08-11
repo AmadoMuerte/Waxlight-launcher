@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
@@ -227,7 +227,7 @@ func (s *Service) Status(ctx context.Context, instanceID string) (LastKnownGoodS
 		return LastKnownGoodStatus{}, err
 	}
 	lkg, err := s.repository.GetLastKnownGood(ctx, instanceID)
-	if errors.Is(err, domain.ErrNotFound) {
+	if errors.Is(err, errs.ErrNotFound) {
 		return LastKnownGoodStatus{}, nil
 	}
 	if err != nil {

@@ -3,7 +3,7 @@ package wails
 import (
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
@@ -44,7 +44,7 @@ func (controller *ModCatalogController) SearchMods(
 	if request.UpdatedAfter != nil && *request.UpdatedAfter != "" {
 		value, err := time.Parse(time.RFC3339, *request.UpdatedAfter)
 		if err != nil {
-			return ModSearchResultDTO{}, domain.NewError(domain.ErrValidation, "Invalid updated date")
+			return ModSearchResultDTO{}, errs.NewError(errs.ErrValidation, "Invalid updated date")
 		}
 		query.UpdatedAfter = &value
 	}

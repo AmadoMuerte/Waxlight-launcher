@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
@@ -28,7 +28,7 @@ func (repository *repository) GetFavoriteServer(_ context.Context, id string) (F
 			return server, nil
 		}
 	}
-	return FavoriteServer{}, domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	return FavoriteServer{}, errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 }
 
 func (repository *repository) SaveFavoriteServer(_ context.Context, server FavoriteServer) error {
@@ -55,7 +55,7 @@ func (repository *repository) DeleteFavoriteServer(_ context.Context, id string)
 			return nil
 		}
 	}
-	return domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	return errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 }
 
 type instanceReader struct {
@@ -166,7 +166,7 @@ func TestServiceSaveRejectsUnknownInstance(t *testing.T) {
 	repository := &repository{}
 	service := NewService(
 		repository,
-		instanceReader{err: domain.NewError(instances.ErrInstanceNotFound, "Instance not found")},
+		instanceReader{err: errs.NewError(instances.ErrInstanceNotFound, "Instance not found")},
 		blockedGate{},
 		nil,
 		func() time.Time { return time.Now() },
@@ -238,7 +238,7 @@ func TestServiceHonorsMutationGate(t *testing.T) {
 	service := NewService(
 		repository,
 		instanceReader{},
-		blockedGate{err: domain.NewError(domain.ErrDataFolderBusy, "The data folder is being moved")},
+		blockedGate{err: errs.NewError(errs.ErrDataFolderBusy, "The data folder is being moved")},
 		nil,
 		func() time.Time { return time.Now() },
 		func() string { return "server-id" },

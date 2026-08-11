@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
@@ -46,7 +46,7 @@ func scanMod(row scanner) (mods.InstalledMod, error) {
 func (s *SQLiteStore) GetMod(ctx context.Context, id string) (mods.InstalledMod, error) {
 	mod, err := scanMod(s.db.QueryRowContext(ctx, `SELECT `+modColumns+` FROM installed_mods WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return mod, domain.NewError(mods.ErrModNotFound, "Mod not found")
+		return mod, errs.NewError(mods.ErrModNotFound, "Mod not found")
 	}
 	return mod, err
 }
@@ -67,7 +67,7 @@ func (s *SQLiteStore) DeleteMod(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(mods.ErrModNotFound, "Mod not found")
+		return errs.NewError(mods.ErrModNotFound, "Mod not found")
 	}
 	return nil
 }

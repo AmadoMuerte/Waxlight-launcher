@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
@@ -175,7 +175,7 @@ func snapshotManifest(t *testing.T, snapshotDir string) snapshots.Manifest {
 
 func appErrorCode(t *testing.T, err error) string {
 	t.Helper()
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if !errors.As(err, &appError) {
 		t.Fatalf("expected an AppError, got %v", err)
 	}
@@ -389,7 +389,7 @@ func TestCreateInstanceSnapshotRejectsInsufficientSpace(t *testing.T) {
 	fixture.setDiskSpace(fixedDiskSpace(0))
 
 	_, err := fixture.service.Snapshots().Create(ctx, instance.ID)
-	if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
+	if code := appErrorCode(t, err); code != errs.ErrInsufficientSpace {
 		t.Fatalf("expected INSUFFICIENT_DISK_SPACE, got %s", code)
 	}
 	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
@@ -1025,11 +1025,11 @@ func TestSnapshotOperationsRejectUnsafeIdentifiers(t *testing.T) {
 	}
 
 	err = fixture.service.Snapshots().Restore(ctx, instance.ID, "../escape")
-	if code := appErrorCode(t, err); code != domain.ErrValidation {
+	if code := appErrorCode(t, err); code != errs.ErrValidation {
 		t.Fatalf("expected VALIDATION_ERROR for a traversal snapshot id, got %s", code)
 	}
 	err = fixture.service.Snapshots().Delete(ctx, instance.ID, "..\\escape")
-	if code := appErrorCode(t, err); code != domain.ErrValidation {
+	if code := appErrorCode(t, err); code != errs.ErrValidation {
 		t.Fatalf("expected VALIDATION_ERROR for a traversal snapshot id, got %s", code)
 	}
 	err = fixture.service.Snapshots().Restore(ctx, instance.ID, "missing-snapshot")

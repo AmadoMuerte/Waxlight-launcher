@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/recovery"
 )
 
@@ -18,7 +18,7 @@ func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (
 	err := s.db.QueryRowContext(ctx, `SELECT recorded_at, game_version, snapshot_id, mods
 		FROM last_known_good WHERE instance_id=?`, instanceID).Scan(&recorded, &marker.GameVersion, &snapshot, &mods)
 	if errors.Is(err, sql.ErrNoRows) {
-		return marker, domain.ErrNotFound
+		return marker, errs.ErrNotFound
 	}
 	if err != nil {
 		return marker, err

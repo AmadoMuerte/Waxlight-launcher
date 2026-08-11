@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/platform/instancedirectory"
@@ -254,7 +254,7 @@ func TestStorageSerializesConcurrentSameDirectoryCreation(t *testing.T) {
 			success++
 			continue
 		}
-		var appError *domain.AppError
+		var appError *errs.AppError
 		if errors.As(err, &appError) && appError.Code == instances.ErrDirectoryConflict {
 			conflicts++
 			continue
@@ -311,7 +311,7 @@ func TestIndependentStoragesReserveSameDirectoryBeforeLayout(t *testing.T) {
 	}
 
 	_, secondErr := secondService.Create(context.Background(), instances.CreateInput{Name: "Second", GameVersionID: "1.20", Directory: directory})
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if !errors.As(secondErr, &appError) || appError.Code != instances.ErrDirectoryConflict {
 		t.Fatalf("second allocator error = %v", secondErr)
 	}

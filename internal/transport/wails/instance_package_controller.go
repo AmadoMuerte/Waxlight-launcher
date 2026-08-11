@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
@@ -31,9 +30,9 @@ type ExportInstanceRequest struct {
 func (controller *InstancePackageController) ExportInstance(
 	request ExportInstanceRequest,
 ) (PackageManifestDTO, error) {
-	var author *domain.PackageAuthor
+	var author *instances.PackageAuthor
 	if request.Author != nil {
-		author = &domain.PackageAuthor{
+		author = &instances.PackageAuthor{
 			Name:     request.Author.Name,
 			Homepage: request.Author.Homepage,
 			Source:   request.Author.Source,
@@ -43,7 +42,7 @@ func (controller *InstancePackageController) ExportInstance(
 		controller.lifecycle.Context(),
 		request.InstanceID,
 		request.TargetPath,
-		domain.ExportInstanceOptions{
+		instances.ExportInstanceOptions{
 			Name:        request.Name,
 			Description: request.Description,
 			Author:      author,
@@ -76,7 +75,7 @@ func (controller *InstancePackageController) ImportPackage(
 	report, err := controller.svc.ImportPackage(
 		controller.lifecycle.Context(),
 		request.PackagePath,
-		domain.ImportInstanceOptions{
+		instances.ImportInstanceOptions{
 			Name:              request.Name,
 			Description:       request.Description,
 			Directory:         request.Directory,

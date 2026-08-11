@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
@@ -30,7 +30,7 @@ func (repository *favoriteRepository) GetFavoriteServer(_ context.Context, id st
 			return server, nil
 		}
 	}
-	return servers.FavoriteServer{}, domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	return servers.FavoriteServer{}, errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 }
 
 func (repository *favoriteRepository) SaveFavoriteServer(_ context.Context, server servers.FavoriteServer) error {
@@ -57,7 +57,7 @@ func (repository *favoriteRepository) DeleteFavoriteServer(_ context.Context, id
 			return nil
 		}
 	}
-	return domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+	return errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 }
 
 type instanceReader struct{}

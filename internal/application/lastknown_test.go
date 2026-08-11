@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/apptest"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
@@ -908,7 +908,7 @@ func TestDeletedInstanceCleansLastKnownGood(t *testing.T) {
 	if err := fixture.service.InstanceDeleter().Delete(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.store.GetLastKnownGood(ctx, instance.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := fixture.store.GetLastKnownGood(ctx, instance.ID); !errors.Is(err, errs.ErrNotFound) {
 		t.Fatalf("expected the last known good to be cleaned up, got %v", err)
 	}
 }

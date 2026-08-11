@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/AmadoMuerte/vintagestory-go/moddb"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
@@ -97,10 +97,10 @@ func mapSide(side mods.ModSide) moddb.Side { return moddb.Side(side) }
 func mapError(err error) error {
 	switch {
 	case errors.Is(err, moddb.ErrNotFound):
-		return domain.NewError(mods.ErrModNotFound, "Mod not found")
+		return errs.NewError(mods.ErrModNotFound, "Mod not found")
 	case errors.Is(err, moddb.ErrInvalidResponse):
-		return &domain.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog returned an invalid response", Cause: err}
+		return &errs.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog returned an invalid response", Cause: err}
 	default:
-		return &domain.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog is temporarily unavailable", Retryable: true, Cause: err}
+		return &errs.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog is temporarily unavailable", Retryable: true, Cause: err}
 	}
 }

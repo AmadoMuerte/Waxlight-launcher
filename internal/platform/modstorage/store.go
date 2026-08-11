@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
 )
@@ -64,7 +64,7 @@ func (store *Store) Get(
 	}
 	value, err := readMetadata(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return value, domain.NewError(mods.ErrModVersionNotFound, "Downloaded mod version not found")
+		return value, errs.NewError(mods.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
 	return value, err
 }
@@ -91,7 +91,7 @@ func (store *Store) Delete(_ context.Context, modID, versionID string) error {
 	root, _ := filepath.Abs(store.root)
 	target, _ := filepath.Abs(directory)
 	if filepath.Dir(filepath.Dir(target)) != root {
-		return domain.NewError(domain.ErrValidation, "Unsafe mod cache path")
+		return errs.NewError(errs.ErrValidation, "Unsafe mod cache path")
 	}
 	return os.RemoveAll(target)
 }
@@ -103,11 +103,11 @@ func (store *Store) FilePath(modID, versionID, fileName string) (string, error) 
 	}
 	fileName = filepath.Base(strings.TrimSpace(fileName))
 	if fileName == "." || fileName == "" {
-		return "", domain.NewError(mods.ErrInvalidModFile, "Invalid mod file name")
+		return "", errs.NewError(mods.ErrInvalidModFile, "Invalid mod file name")
 	}
 	extension := strings.ToLower(filepath.Ext(fileName))
 	if extension != ".zip" && extension != ".cs" && extension != ".dll" {
-		return "", domain.NewError(mods.ErrInvalidModFile, "Unsupported mod file type")
+		return "", errs.NewError(mods.ErrInvalidModFile, "Unsupported mod file type")
 	}
 	return filepath.Join(filepath.Dir(path), fileName), nil
 }
@@ -127,7 +127,7 @@ func (store *Store) metadataPath(modID, versionID string) (string, error) {
 func safeSegment(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" || value == "." || value == ".." || filepath.Base(value) != value || strings.ContainsAny(value, `/\\`) {
-		return "", domain.NewError(domain.ErrValidation, "Invalid mod identifier")
+		return "", errs.NewError(errs.ErrValidation, "Invalid mod identifier")
 	}
 	return value, nil
 }
@@ -142,7 +142,7 @@ func readMetadata(path string) (mods.DownloadedMod, error) {
 		return value, err
 	}
 	if value.SchemaVersion != 1 {
-		return value, domain.NewError(domain.ErrValidation, "Unsupported downloaded mod metadata")
+		return value, errs.NewError(errs.ErrValidation, "Unsupported downloaded mod metadata")
 	}
 	return value, nil
 }

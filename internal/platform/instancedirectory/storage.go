@@ -8,7 +8,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
@@ -44,12 +44,12 @@ func (storage *Storage) Allocate(directory, instanceID string) (instances.Direct
 	}
 	allocation.directory = directory
 	if err := os.MkdirAll(filepath.Dir(directory), 0o755); err != nil {
-		return fail(&domain.AppError{Code: domain.ErrFilePermission, Message: "Failed to create the instance directory", Cause: err})
+		return fail(&errs.AppError{Code: errs.ErrFilePermission, Message: "Failed to create the instance directory", Cause: err})
 	}
 	if err := os.Mkdir(directory, 0o755); err == nil {
 		allocation.ownsDirectory = true
 	} else if !errors.Is(err, os.ErrExist) {
-		return fail(&domain.AppError{Code: domain.ErrFilePermission, Message: "Failed to create the instance directory", Cause: err})
+		return fail(&errs.AppError{Code: errs.ErrFilePermission, Message: "Failed to create the instance directory", Cause: err})
 	}
 	info, err := os.Lstat(directory)
 	if err != nil {
@@ -64,7 +64,7 @@ func (storage *Storage) Allocate(directory, instanceID string) (instances.Direct
 	marker, err := os.OpenFile(markerPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
-			return fail(domain.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance"))
+			return fail(errs.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance"))
 		}
 		return fail(err)
 	}

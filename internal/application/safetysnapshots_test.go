@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
@@ -58,7 +58,7 @@ func (catalog staticModCatalog) Get(_ context.Context, modID string) (mods.ModDe
 			return details, nil
 		}
 	}
-	return mods.ModDetails{}, domain.NewError(mods.ErrModNotFound, "Mod not found")
+	return mods.ModDetails{}, errs.NewError(mods.ErrModNotFound, "Mod not found")
 }
 
 func (catalog staticModCatalog) ListTags(context.Context) ([]mods.ModTag, error) {
@@ -444,7 +444,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 			[]mods.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 			false,
 		)
-		if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
+		if code := appErrorCode(t, err); code != errs.ErrInsufficientSpace {
 			t.Fatalf("expected INSUFFICIENT_DISK_SPACE, got %s", code)
 		}
 		if source := installedSource(t, fixture, instance.ID, "100"); source != "moddb:100:1000" {
@@ -468,7 +468,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 			t.Fatal(err)
 		}
 		err = fixture.mods.DeleteMod(ctx, mods[0].ID, false)
-		if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
+		if code := appErrorCode(t, err); code != errs.ErrInsufficientSpace {
 			t.Fatalf("expected INSUFFICIENT_DISK_SPACE, got %s", code)
 		}
 		if _, statErr := os.Stat(filepath.Join(instance.Directory, "Mods", "mod-a.zip")); statErr != nil {
