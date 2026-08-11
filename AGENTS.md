@@ -106,16 +106,57 @@ Before promoting `dev` to `main`:
 
 ## Structure
 
-- `cmd/waxlight/main.go` starts Wails and bootstraps `internal/bootstrap`; keep domain/application logic independent of Wails and React.
-- Go layers: `internal/domain` models/errors, `internal/application` use cases and ports, `internal/infrastructure` adapters, `internal/presentation` Wails controllers and DTOs.
-- Frontend backend access belongs in `frontend/src/shared/api`; Wails bindings are generated under `frontend/src/wailsjs`.
-- Runtime SQLite schema changes belong in `internal/platform/database/sqlite.go`; files in `migrations/` are not canonical runtime migrations.
-- Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/platform/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/platform/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, `logs`, and `backups`.
+- `cmd/waxlight/main.go` is a small entrypoint: installs the logger, then
+  calls `app.New()` and starts Wails. Keep feature logic independent of Wails
+  and React.
+- The backend is a feature-oriented modular monolith with hexagonal boundaries.
+  See `docs/backend-architecture.md` for the full package map, dependency
+  rules, lifecycle, events, migrations, security boundaries, and extension
+  checklist.
+- `internal/app/wire.go` is the complete, explicit composition root: it
+  constructs every dependency once (features, platform adapters, controllers)
+  and owns `Startup`/`Shutdown`. Store-to-feature mappings that belong to no
+  feature live in `internal/app/adapters.go`. Never add a service constructor
+  call outside `wire.go`.
+- Features (`internal/accounts`, `instances`, `versions`, `launching`,
+  `sessions`, `mods`, `snapshots`, `recovery`, `servers`, `settings`,
+  `operations`, `updates`, `telemetry`, `statistics`, `gamelog`, `downloads`,
+  `events`, `mutations`, `errs`, ...) own their models, ports, use cases, and
+  tests. Features never import `internal/app`, `internal/transport/wails`, or
+  `internal/platform/*`; they consume other features only through narrow ports
+  and structural views.
+- Adapters live in `internal/platform/*` (`sqlite`, `snapshots`, `process`,
+  `logging`, `dataroot`, `credentials`, `filesystem`, `downloader`,
+  `vintagestory`, ...) and are framework-free. Vintage Story access goes
+  through the thin `platform/vintagestory`, `platform/modcatalog`, and
+  `platform/servercatalog` adapters.
+- Wails controllers and DTOs live in `internal/transport/wails` (feature
+  files); they only convert parameters/DTOs, call features, emit events, and
+  open dialogs/browser/directories. Bindings are generated under
+  `frontend/src/wailsjs`; the checked-in API inventory is
+  `docs/wails-api-inventory.json` (`make api-inventory`).
+- User-facing errors use `internal/errs` (`errs.NewError`/`AppError`); the
+  code strings are a frontend contract (i18n) and must never change.
+- Runtime SQLite schema changes belong in
+  `internal/platform/sqlite/migrations.go`; files in `migrations/` are not
+  canonical runtime migrations.
+- Every new data directory created inside the launcher data root must be
+  handled by the data-root relocation in `internal/platform/dataroot` so it
+  moves with the data folder: it must not be added to `reservedNames` (so
+  `CopyData`/`TotalSize` include it), and it must be added to the directory
+  list in `removeOldRoot` in `internal/platform/dataroot/dataroot.go`. The
+  existing data directories are `versions`, `instances`, `downloads`,
+  `cache`, `security`, `updates`, `logs`, and `backups`.
+- Architecture rules are enforced by `scripts/check-architecture.sh`
+  (`make architecture`, included in `make security` and CI): no Wails,
+  app, or platform imports in features; no legacy
+  `application`/`domain`/`infrastructure`/`presentation` packages; no
+  credential fields in generated bindings.
 
 ## Vintage Story Library
 
 - [`github.com/AmadoMuerte/vintagestory-go`](https://github.com/AmadoMuerte/vintagestory-go) is the source of truth for reusable Vintage Story integration functionality. Its packages currently cover authentication, game versions, ModDB, modpack analysis, and the public server catalog.
-- Keep Waxlight-specific orchestration, persistence, credential storage, domain models, user-facing errors, installation, launching, and Wails DTOs in this repository. Access `vintagestory-go` through thin infrastructure adapters when its types must be mapped into Waxlight contracts.
+- Keep Waxlight-specific orchestration, persistence, credential storage, domain models, user-facing errors, installation, launching, and Wails DTOs in this repository. Access `vintagestory-go` through the thin platform adapters when its types must be mapped into Waxlight contracts.
 - Before implementing Vintage Story protocol, catalog, parsing, compatibility, or analysis behavior in Waxlight, inspect the released library API and repository. Do not create a second implementation or copy library source into Waxlight.
 - If Waxlight needs generic Vintage Story behavior that the library does not expose, contribute the missing capability or fix to `vintagestory-go` first, add tests there, release an appropriate library version, and then update Waxlight to consume it. A narrow temporary adapter is acceptable only when it contains Waxlight-specific mapping or orchestration, not duplicated generic implementation.
 
@@ -125,7 +166,7 @@ Before promoting `dev` to `main`:
 - Production credentials use native OS storage only; do not add plaintext or in-memory fallback.
 - Logins, passwords, sessions, and all credentials must live only in the protected OS credential store, and at most be written to the game's `clientsettings.json` for the duration of a running game session. Storing, using, displaying, echoing, logging, or returning them anywhere else is strictly forbidden.
 - Features that copy, export, diagnose, archive, or back up an instance must remove `sessionkey`, `sessionsignature`, `playeruid`, and `playername` from its `clientsettings.json`.
-- All launcher logging goes through `internal/platform/logging` (the `slog` default handler installed at startup). Never import stdlib `log` or print to stdout for diagnostics; `slog.Info/Warn/Error` is captured in the in-memory console and the exported support log. Log only the launcher's own events and errors — never game output, credentials, or account data. The logging package is framework-free and must stay independent of domain, application, and presentation.
+- All launcher logging goes through `internal/platform/logging` (the `slog` default handler installed at startup). Never import stdlib `log` or print to stdout for diagnostics; `slog.Info/Warn/Error` is captured in the in-memory console and the exported support log. Log only the launcher's own events and errors — never game output, credentials, or account data. The logging package is framework-free and must stay independent of features, transport, and the composition root.
 
 ## Frontend
 
