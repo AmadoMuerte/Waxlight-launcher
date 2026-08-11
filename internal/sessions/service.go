@@ -5,8 +5,9 @@ import (
 	"time"
 )
 
-const recentSessionLimit = 10
-
+// Service owns play-session persistence and recovery. Read capabilities used
+// by the statistics feature are exposed through the Reader interface; the
+// service implements it directly.
 type Service struct {
 	repository Repository
 	now        func() time.Time
@@ -41,27 +42,14 @@ func (service *Service) RecoverOpen(ctx context.Context) error {
 	return service.repository.RecoverOpenSessions(ctx, service.now().UTC())
 }
 
-func (service *Service) GetStatistics(ctx context.Context) (Statistics, error) {
-	totals, err := service.repository.SessionStatistics(ctx)
-	if err != nil {
-		return Statistics{}, err
-	}
-	playSessions, err := service.repository.ListSessions(ctx, "", recentSessionLimit)
-	if err != nil {
-		return Statistics{}, err
-	}
-	statistics := Statistics{
-		TotalPlaytimeSeconds: totals.TotalPlaytimeSeconds,
-		LaunchCount:          totals.LaunchCount,
-		MostPlayedInstanceID: totals.MostPlayedInstanceID,
-		RecentSessions:       playSessions,
-	}
-	if totals.LaunchCount > 0 {
-		statistics.AverageSessionSeconds = totals.TotalPlaytimeSeconds / int64(totals.LaunchCount)
-	}
-	return statistics, nil
+func (service *Service) SessionStatistics(ctx context.Context) (StatisticsTotals, error) {
+	return service.repository.SessionStatistics(ctx)
 }
 
-func (service *Service) GetInstancePlaytime(ctx context.Context, instanceID string) (int64, error) {
+func (service *Service) ListSessions(ctx context.Context, instanceID string, limit int) ([]PlaySession, error) {
+	return service.repository.ListSessions(ctx, instanceID, limit)
+}
+
+func (service *Service) InstancePlaytime(ctx context.Context, instanceID string) (int64, error) {
 	return service.repository.InstancePlaytime(ctx, instanceID)
 }

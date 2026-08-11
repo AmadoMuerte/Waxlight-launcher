@@ -98,11 +98,9 @@ func newTelemetryFixtureWithCatalog(t *testing.T, modCatalog mods.Catalog) (test
 	t.Helper()
 	fixture := newTestFixtureWithMods(t, modCatalog)
 	recorder := &telemetryRecorder{}
-	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
-	fixture.service.ConfigureTelemetry(telemetryService)
+	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store, fixture.lifecycle)
 	fixture.modTelemetry.current = telemetryService
 	fixture.setCreateTelemetry(telemetryService)
-	fixture.launching.SetTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
 	settings, err := fixture.settings.Get(context.Background())
@@ -220,8 +218,7 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 func TestTelemetryDisabledEmitsNothing(t *testing.T) {
 	fixture := newTestFixture(t)
 	recorder := &telemetryRecorder{}
-	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
-	fixture.service.ConfigureTelemetry(telemetryService)
+	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store, fixture.lifecycle)
 	fixture.modTelemetry.current = telemetryService
 	fixture.setCreateTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)

@@ -39,6 +39,14 @@ type Sender interface {
 	SendError(context.Context, ErrorEvent) error
 }
 
+// WorkerGroup starts background telemetry delivery derived from the
+// application lifecycle context. In-flight deliveries are cancellable through
+// the worker context and are joined when the lifecycle shuts down; a refused
+// worker (shutdown already begun) is safely abandoned.
+type WorkerGroup interface {
+	Go(func(context.Context)) bool
+}
+
 // Service coordinates telemetry collection, scheduling, and delivery.
 //
 // Telemetry is strictly best-effort: it is never required for launcher
@@ -50,6 +58,7 @@ type Service struct {
 	settings         SettingsReader
 	values           settings.ValueRepository
 	identity         *identity
+	workers          WorkerGroup
 	now              func() time.Time
 	deliveryMu       sync.RWMutex
 	heartbeatMu      sync.Mutex
@@ -64,13 +73,14 @@ func (s *Service) SynchronizeConsent(change func() error) error {
 	return change()
 }
 
-func NewService(sender Sender, reader SettingsReader, values settings.ValueRepository, store Store) *Service {
+func NewService(sender Sender, reader SettingsReader, values settings.ValueRepository, store Store, workers WorkerGroup) *Service {
 	return &Service{
 		sender:   sender,
 		store:    store,
 		settings: reader,
 		values:   values,
 		identity: newIdentity(values),
+		workers:  workers,
 		now:      func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -98,7 +108,9 @@ func (s *Service) Event(ctx context.Context, name string) {
 	if !s.Enabled(ctx) {
 		return
 	}
-	go s.sendEvent(context.Background(), name)
+	s.workers.Go(func(workerCtx context.Context) {
+		s.sendEvent(workerCtx, name)
+	})
 }
 
 func (s *Service) sendEvent(ctx context.Context, name string) {
@@ -145,7 +157,9 @@ func (s *Service) Error(ctx context.Context, code, component, operation string) 
 	if !s.Enabled(ctx) {
 		return
 	}
-	go s.sendError(context.Background(), code, component, operation)
+	s.workers.Go(func(workerCtx context.Context) {
+		s.sendError(workerCtx, code, component, operation)
+	})
 }
 
 func (s *Service) sendError(ctx context.Context, code, component, operation string) {
@@ -187,26 +201,35 @@ func (s *Service) MaybeSendHeartbeat() {
 		return
 	}
 	s.heartbeatMu.Lock()
-	defer s.heartbeatMu.Unlock()
 	if raw, err := s.values.GetSettingValue(ctx, lastHeartbeatKey); err == nil {
 		if last, parseErr := time.Parse(time.RFC3339, raw); parseErr == nil {
 			if s.now().Sub(last) < HeartbeatInterval {
+				s.heartbeatMu.Unlock()
 				return
 			}
 		}
 	}
 	if s.heartbeatPending {
+		s.heartbeatMu.Unlock()
 		return
 	}
 	s.heartbeatPending = true
-	go func() {
+	s.heartbeatMu.Unlock()
+	started := s.workers.Go(func(ctx context.Context) {
 		defer func() {
 			s.heartbeatMu.Lock()
 			s.heartbeatPending = false
 			s.heartbeatMu.Unlock()
 		}()
-		s.sendHeartbeat(context.Background())
-	}()
+		s.sendHeartbeat(ctx)
+	})
+	if !started {
+		// Shutdown already began; the delivery is safely abandoned and the
+		// pending flag must not keep future heartbeats blocked.
+		s.heartbeatMu.Lock()
+		s.heartbeatPending = false
+		s.heartbeatMu.Unlock()
+	}
 }
 
 func (s *Service) sendHeartbeat(ctx context.Context) {

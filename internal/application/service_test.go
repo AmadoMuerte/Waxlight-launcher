@@ -35,6 +35,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/statistics"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -435,7 +436,7 @@ func newTestFixtureFull(
 		launcher,
 		instancedirectory.LaunchLogs{},
 		nil,
-		nil,
+		modTelemetry,
 		service.Recovery(),
 		lifecycle,
 		operationManager,
@@ -1106,18 +1107,19 @@ func TestStatisticsAreCalculatedByBackend(t *testing.T) {
 		}
 	}
 
-	statistics, err := fixture.sessions.GetStatistics(ctx)
+	statisticsService := statistics.NewService(fixture.sessions)
+	overview, err := statisticsService.Overview(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if statistics.TotalPlaytimeSeconds != 120 {
-		t.Fatalf("unexpected total playtime: %+v", statistics)
+	if overview.TotalPlaytimeSeconds != 120 {
+		t.Fatalf("unexpected total playtime: %+v", overview)
 	}
-	if statistics.LaunchCount != 2 {
-		t.Fatalf("unexpected launch count: %+v", statistics)
+	if overview.LaunchCount != 2 {
+		t.Fatalf("unexpected launch count: %+v", overview)
 	}
-	if statistics.AverageSessionSeconds != 60 {
-		t.Fatalf("unexpected average session: %+v", statistics)
+	if overview.AverageSessionSeconds != 60 {
+		t.Fatalf("unexpected average session: %+v", overview)
 	}
 }
 

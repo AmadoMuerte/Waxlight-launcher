@@ -13,6 +13,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/gamelog"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
@@ -117,12 +118,6 @@ func NewCoordinator(
 // coordinator and the snapshot flow.
 func (coordinator *Coordinator) SetClientSettingsPatcher(patcher ClientSettingsPatcher) {
 	coordinator.clientSettings = patcher
-}
-
-// SetTelemetry swaps the telemetry reporter. It is used by tests after the
-// telemetry service is constructed.
-func (coordinator *Coordinator) SetTelemetry(telemetry TelemetryReporter) {
-	coordinator.telemetry = telemetry
 }
 
 // ValidateLaunch checks that an instance can be launched without modifying
@@ -390,7 +385,7 @@ func (coordinator *Coordinator) launch(
 		coordinator.markLaunchEstablished(workerCtx, instance, session.ID, startupWindow)
 	})
 	releaseOnReturn = false
-	go coordinator.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, watchGameLog(instance, logPath), startupWindow, release)
+	go coordinator.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, gamelog.Watch(instance.Name, logPath), startupWindow, release)
 	return session, nil
 }
 
