@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	vsauth "github.com/AmadoMuerte/vintagestory-go/auth"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestAuthClientMapsTOTPChallengeAndErrors(t *testing.T) {
@@ -21,7 +21,7 @@ func TestAuthClientMapsTOTPChallengeAndErrors(t *testing.T) {
 
 	client := NewAuthClientWithURLs(server.Client(), server.URL, server.URL)
 	_, challenge, err := client.Login(context.Background(), "player@example.com", "password", "", "")
-	if !errors.Is(err, application.ErrTOTPRequired) {
+	if !errors.Is(err, accounts.ErrTOTPRequired) {
 		t.Fatalf("expected TOTP error, got %v", err)
 	}
 	if challenge == nil || challenge.PreLoginToken != "pre" {
@@ -35,13 +35,13 @@ func TestMapAuthErrorPreservesApplicationCategories(t *testing.T) {
 		err  error
 		want error
 	}{
-		{name: "credentials", err: vsauth.ErrInvalidCredentials, want: application.ErrInvalidCredentials},
-		{name: "ip changed", err: vsauth.ErrIPChanged, want: application.ErrIPChanged},
-		{name: "blocked", err: vsauth.ErrTemporarilyBlocked, want: application.ErrTemporarilyBlocked},
-		{name: "invalid response", err: vsauth.ErrInvalidAuthReply, want: application.ErrInvalidAuthReply},
-		{name: "network", err: vsauth.ErrNetwork, want: application.ErrAuthNetwork},
-		{name: "server", err: vsauth.ErrServer, want: application.ErrAuthServer},
-		{name: "unknown", err: errors.New("unknown"), want: application.ErrUnknownAuth},
+		{name: "credentials", err: vsauth.ErrInvalidCredentials, want: accounts.ErrInvalidCredentials},
+		{name: "ip changed", err: vsauth.ErrIPChanged, want: accounts.ErrIPChanged},
+		{name: "blocked", err: vsauth.ErrTemporarilyBlocked, want: accounts.ErrTemporarilyBlocked},
+		{name: "invalid response", err: vsauth.ErrInvalidAuthReply, want: accounts.ErrInvalidAuthReply},
+		{name: "network", err: vsauth.ErrNetwork, want: accounts.ErrAuthNetwork},
+		{name: "server", err: vsauth.ErrServer, want: accounts.ErrAuthServer},
+		{name: "unknown", err: errors.New("unknown"), want: accounts.ErrUnknownAuth},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if !errors.Is(mapAuthError(test.err), test.want) {

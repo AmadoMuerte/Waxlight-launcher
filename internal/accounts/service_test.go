@@ -1,4 +1,4 @@
-package application_test
+package accounts_test
 
 import (
 	"context"
@@ -10,14 +10,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 type fakeAuthClient struct {
 	mu               sync.Mutex
-	session          application.AuthSession
+	session          accounts.Session
 	challenge        bool
 	loginErr         error
 	validateResult   bool
@@ -35,14 +34,14 @@ func (client *fakeAuthClient) Login(
 	password string,
 	totp string,
 	preLogin string,
-) (application.AuthSession, *application.TOTPChallenge, error) {
+) (accounts.Session, *accounts.TOTPChallenge, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.lastPassword = password
 	client.lastTOTP = totp
 	client.lastPreLogin = preLogin
 	if client.challenge && totp == "" {
-		return application.AuthSession{}, &application.TOTPChallenge{PreLoginToken: "pre-login"}, application.ErrTOTPRequired
+		return accounts.Session{}, &accounts.TOTPChallenge{PreLoginToken: "pre-login"}, accounts.ErrTOTPRequired
 	}
 	return client.session, nil, client.loginErr
 }
@@ -60,24 +59,24 @@ func (client *fakeAuthClient) Validate(
 }
 
 type memorySecretStore struct {
-	values    map[string]application.Secret
+	values    map[string]accounts.Credential
 	setErr    error
 	deleteErr error
 }
 
 func newMemorySecretStore() *memorySecretStore {
-	return &memorySecretStore{values: map[string]application.Secret{}}
+	return &memorySecretStore{values: map[string]accounts.Credential{}}
 }
 
-func (store *memorySecretStore) Get(_ context.Context, id string) (application.Secret, error) {
+func (store *memorySecretStore) Get(_ context.Context, id string) (accounts.Credential, error) {
 	secret, ok := store.values[id]
 	if !ok {
-		return application.Secret{}, application.ErrSecretNotFound
+		return accounts.Credential{}, accounts.ErrCredentialsNotFound
 	}
 	return secret, nil
 }
 
-func (store *memorySecretStore) Set(_ context.Context, id string, secret application.Secret) error {
+func (store *memorySecretStore) Set(_ context.Context, id string, secret accounts.Credential) error {
 	if store.setErr != nil {
 		return store.setErr
 	}
@@ -94,23 +93,27 @@ func (store *memorySecretStore) Delete(_ context.Context, id string) error {
 }
 
 type failingAccountCommitStore struct {
-	application.Store
+	accounts.Repository
 	err error
 }
 
-func (store failingAccountCommitStore) SaveAccountAndSelect(context.Context, domain.Account, bool) error {
+func (store failingAccountCommitStore) SaveAccountAndSelect(context.Context, accounts.Account, bool) error {
 	return store.err
 }
 
-func newAccountFixture(t *testing.T) (*application.AccountService, *database.SQLiteStore, *fakeAuthClient, *memorySecretStore) {
+func newService(repository accounts.Repository, client accounts.Authenticator, credentials accounts.Credentials) *accounts.Service {
+	return accounts.NewService(repository, client, credentials, nil, nil, nil)
+}
+
+func newAccountFixture(t *testing.T) (*accounts.Service, *sqlite.SQLiteStore, *fakeAuthClient, *memorySecretStore) {
 	t.Helper()
-	store, err := database.Open(filepath.Join(t.TempDir(), "accounts.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "accounts.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	client := &fakeAuthClient{
-		session: application.AuthSession{
+		session: accounts.Session{
 			SessionKey:       "session-key",
 			SessionSignature: "signature",
 			UID:              "server-uid",
@@ -119,13 +122,13 @@ func newAccountFixture(t *testing.T) (*application.AccountService, *database.SQL
 		validateResult: true,
 	}
 	secrets := newMemorySecretStore()
-	return application.NewAccountService(store, client, secrets), store, client, secrets
+	return newService(store, client, secrets), store, client, secrets
 }
 
 func TestAccountLoginStoresMetadataAndSecretSeparately(t *testing.T) {
 	service, store, _, secrets := newAccountFixture(t)
 	result, err := service.Login(context.Background(), "player@example.com", "password")
-	if err != nil || result.Status != application.LoginStatusSuccess || result.Account == nil {
+	if err != nil || result.Status != accounts.LoginStatusSuccess || result.Account == nil {
 		t.Fatalf("unexpected login result: %#v, %v", result, err)
 	}
 	if result.Account.SessionKey != "" || result.Account.SessionSignature != "" {
@@ -153,16 +156,16 @@ func TestAccountLoginStoresMetadataAndSecretSeparately(t *testing.T) {
 
 func TestDatabaseContainsNoAuthenticationSecrets(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "accounts.db")
-	metadata, err := database.Open(path)
+	metadata, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := &fakeAuthClient{session: application.AuthSession{
+	client := &fakeAuthClient{session: accounts.Session{
 		SessionKey:       "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK",
 		SessionSignature: "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK",
 		UID:              "server-uid", PlayerName: "Waxlighter",
 	}}
-	service := application.NewAccountService(metadata, client, newMemorySecretStore())
+	service := newService(metadata, client, newMemorySecretStore())
 	if _, err := service.Login(context.Background(), "player@example.com", "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK"); err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +235,7 @@ func TestConcurrentDuplicateLoginCreatesOneAccount(t *testing.T) {
 
 func TestLoginRollsBackCredentialWhenSecretOrMetadataCommitFails(t *testing.T) {
 	service, metadata, client, secrets := newAccountFixture(t)
-	secrets.setErr = application.ErrStoreLocked
+	secrets.setErr = accounts.ErrStoreLocked
 	result, err := service.Login(context.Background(), "player@example.com", "WAXLIGHT_TEST_PASSWORD_DO_NOT_LEAK")
 	if err == nil || result.Account != nil {
 		t.Fatalf("expected closed credential-store failure: %#v, %v", result, err)
@@ -246,8 +249,8 @@ func TestLoginRollsBackCredentialWhenSecretOrMetadataCommitFails(t *testing.T) {
 	}
 
 	secrets.setErr = nil
-	wrapped := failingAccountCommitStore{Store: metadata, err: errors.New("injected metadata failure")}
-	service = application.NewAccountService(wrapped, client, secrets)
+	wrapped := failingAccountCommitStore{Repository: metadata, err: errors.New("injected metadata failure")}
+	service = newService(wrapped, client, secrets)
 	result, err = service.Login(context.Background(), "player@example.com", "password")
 	if err == nil || result.Account != nil {
 		t.Fatalf("expected metadata failure: %#v, %v", result, err)
@@ -267,8 +270,8 @@ func TestReauthenticationRestoresPreviousCredentialOnMetadataFailure(t *testing.
 	previous := secrets.values[id]
 	client.session.SessionKey = "replacement-key"
 	client.session.SessionSignature = "replacement-signature"
-	failing := application.NewAccountService(
-		failingAccountCommitStore{Store: metadata, err: errors.New("selection commit failed")},
+	failing := newService(
+		failingAccountCommitStore{Repository: metadata, err: errors.New("selection commit failed")},
 		client, secrets,
 	)
 	if _, err := failing.ReauthenticateAccount(context.Background(), id, "player@example.com", "password"); err == nil {
@@ -283,14 +286,14 @@ func TestTOTPFlowUsesOpaqueIDAndCanBeCancelled(t *testing.T) {
 	service, _, client, _ := newAccountFixture(t)
 	client.challenge = true
 	result, err := service.Login(context.Background(), "player@example.com", "password")
-	if err != nil || result.Status != application.LoginStatusTOTPRequired || result.FlowID == "" {
+	if err != nil || result.Status != accounts.LoginStatusTOTPRequired || result.FlowID == "" {
 		t.Fatalf("unexpected TOTP result: %#v, %v", result, err)
 	}
 	if result.FlowID == "pre-login" || result.FlowID == "password" {
 		t.Fatal("flow ID exposed a secret")
 	}
 	completed, err := service.CompleteTOTP(context.Background(), result.FlowID, "123456")
-	if err != nil || completed.Status != application.LoginStatusSuccess {
+	if err != nil || completed.Status != accounts.LoginStatusSuccess {
 		t.Fatalf("unexpected completed flow: %#v, %v", completed, err)
 	}
 	if client.lastTOTP != "123456" || client.lastPreLogin != "pre-login" || client.lastPassword != "password" {
@@ -323,7 +326,7 @@ func TestAccountSelectionValidationAndRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	validated, err := service.ValidateAccount(context.Background(), id)
-	if err != nil || validated.Status != domain.AccountStatusValid {
+	if err != nil || validated.Status != accounts.StatusValid {
 		t.Fatalf("unexpected validation: %#v, %v", validated, err)
 	}
 	if client.validationUID != "server-uid" || client.validationSecret != "session-key" {
@@ -336,20 +339,20 @@ func TestAccountSelectionValidationAndRemoval(t *testing.T) {
 		t.Fatal("expected expired session error")
 	}
 	stored, err := store.GetAccount(context.Background(), id)
-	if err != nil || stored.Status != domain.AccountStatusExpired {
+	if err != nil || stored.Status != accounts.StatusExpired {
 		t.Fatalf("expired status was not stored: %#v, %v", stored, err)
 	}
 
-	stored.Status = domain.AccountStatusValid
+	stored.Status = accounts.StatusValid
 	if err := store.SaveAccount(context.Background(), stored); err != nil {
 		t.Fatal(err)
 	}
-	client.validateErr = application.ErrAuthNetwork
+	client.validateErr = accounts.ErrAuthNetwork
 	if _, err := service.ValidateAccount(context.Background(), id); err == nil {
 		t.Fatal("expected network error")
 	}
 	stored, _ = store.GetAccount(context.Background(), id)
-	if stored.Status != domain.AccountStatusValid {
+	if stored.Status != accounts.StatusValid {
 		t.Fatal("network failure incorrectly expired the session")
 	}
 
@@ -373,5 +376,5 @@ func containsAny(value string, candidates ...string) bool {
 	return false
 }
 
-var _ application.AuthClient = (*fakeAuthClient)(nil)
-var _ application.SecretStore = (*memorySecretStore)(nil)
+var _ accounts.Authenticator = (*fakeAuthClient)(nil)
+var _ accounts.Credentials = (*memorySecretStore)(nil)

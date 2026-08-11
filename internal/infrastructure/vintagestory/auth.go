@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	vsauth "github.com/AmadoMuerte/vintagestory-go/auth"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 // AuthClient isolates the Vintage Story authentication protocol from the
@@ -24,16 +24,16 @@ func NewAuthClientWithURLs(client *http.Client, loginURL, validateURL string) *A
 	return &AuthClient{client: vsauth.NewClientWithURLs(client, loginURL, validateURL)}
 }
 
-func (client *AuthClient) Login(ctx context.Context, email, password, totpCode, preLoginToken string) (application.AuthSession, *application.TOTPChallenge, error) {
+func (client *AuthClient) Login(ctx context.Context, email, password, totpCode, preLoginToken string) (accounts.Session, *accounts.TOTPChallenge, error) {
 	session, challenge, err := client.client.Login(ctx, email, password, totpCode, preLoginToken)
-	var mappedChallenge *application.TOTPChallenge
+	var mappedChallenge *accounts.TOTPChallenge
 	if challenge != nil {
-		mappedChallenge = &application.TOTPChallenge{PreLoginToken: challenge.PreLoginToken}
+		mappedChallenge = &accounts.TOTPChallenge{PreLoginToken: challenge.PreLoginToken}
 	}
 	if err != nil {
-		return application.AuthSession{}, mappedChallenge, mapAuthError(err)
+		return accounts.Session{}, mappedChallenge, mapAuthError(err)
 	}
-	return application.AuthSession{SessionKey: session.SessionKey, SessionSignature: session.SessionSignature, UID: session.UID, PlayerName: session.PlayerName}, nil, nil
+	return accounts.Session{SessionKey: session.SessionKey, SessionSignature: session.SessionSignature, UID: session.UID, PlayerName: session.PlayerName}, nil, nil
 }
 
 func (client *AuthClient) Validate(ctx context.Context, uid, sessionKey string) (bool, error) {
@@ -46,20 +46,20 @@ func mapAuthError(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, vsauth.ErrInvalidCredentials):
-		return application.ErrInvalidCredentials
+		return accounts.ErrInvalidCredentials
 	case errors.Is(err, vsauth.ErrTOTPRequired):
-		return application.ErrTOTPRequired
+		return accounts.ErrTOTPRequired
 	case errors.Is(err, vsauth.ErrIPChanged):
-		return application.ErrIPChanged
+		return accounts.ErrIPChanged
 	case errors.Is(err, vsauth.ErrTemporarilyBlocked):
-		return application.ErrTemporarilyBlocked
+		return accounts.ErrTemporarilyBlocked
 	case errors.Is(err, vsauth.ErrInvalidAuthReply):
-		return application.ErrInvalidAuthReply
+		return accounts.ErrInvalidAuthReply
 	case errors.Is(err, vsauth.ErrNetwork):
-		return application.ErrAuthNetwork
+		return accounts.ErrAuthNetwork
 	case errors.Is(err, vsauth.ErrServer):
-		return application.ErrAuthServer
+		return accounts.ErrAuthServer
 	default:
-		return application.ErrUnknownAuth
+		return accounts.ErrUnknownAuth
 	}
 }

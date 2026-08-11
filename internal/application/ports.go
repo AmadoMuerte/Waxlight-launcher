@@ -2,62 +2,20 @@ package application
 
 import (
 	"context"
-	"errors"
 	"io"
 
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
-var (
-	ErrSecretNotFound   = errors.New("account secret not found")
-	ErrStoreLocked      = errors.New("credential store locked")
-	ErrStoreUnavailable = errors.New("credential store unavailable")
-	ErrPermissionDenied = errors.New("credential store permission denied")
-	ErrCorruptSecret    = errors.New("stored account secret is corrupt")
-)
-
-type Secret struct {
-	SessionKey       string `json:"-"`
-	SessionSignature string `json:"-"`
-}
-
-type SecretStore interface {
-	Get(context.Context, string) (Secret, error)
-	Set(context.Context, string, Secret) error
-	Delete(context.Context, string) error
-}
-
-type PendingSecretStore interface {
-	SecretStore
-	MarkPending(context.Context, string) error
-	ClearPending(context.Context, string) error
-}
-
-type AuthClient interface {
-	Login(
-		context.Context,
-		string,
-		string,
-		string,
-		string,
-	) (AuthSession, *TOTPChallenge, error)
-	Validate(context.Context, string, string) (bool, error)
-}
-
 type ClientSettingsPatcher interface {
-	Inject(path string, account domain.Account) (func() error, error)
+	Inject(path string, account accounts.Account) (func() error, error)
 	Clear(path string) error
 	Reconcile(path string) error
 }
 
 type Store interface {
 	Close() error
-	ListAccounts(context.Context) ([]domain.Account, error)
-	GetAccount(context.Context, string) (domain.Account, error)
-	SaveAccount(context.Context, domain.Account) error
-	SetDefaultAccount(context.Context, string) error
-	DeleteAccount(context.Context, string) error
-
 	ListVersions(context.Context) ([]domain.GameVersion, error)
 	GetVersion(context.Context, string) (domain.GameVersion, error)
 	SaveVersion(context.Context, domain.GameVersion) error
@@ -100,12 +58,6 @@ type Store interface {
 	SetSettingValue(context.Context, string, string) error
 }
 
-// AccountCommitter atomically persists account metadata and its default
-// selection. Production metadata stores must implement this boundary.
-type AccountCommitter interface {
-	SaveAccountAndSelect(context.Context, domain.Account, bool) error
-}
-
 type ArchiveInstaller interface {
 	Install(
 		ctx context.Context,
@@ -142,10 +94,6 @@ type ProcessLauncher interface {
 		env map[string]string,
 		output io.Writer,
 	) (RunningProcess, error)
-}
-
-type EventPublisher interface {
-	Publish(name string, payload any)
 }
 
 type DownloadRequest struct {

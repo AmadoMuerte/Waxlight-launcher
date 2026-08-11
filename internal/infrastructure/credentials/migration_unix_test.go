@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestMigrationRejectsUnsafePermissionsAndSymlink(t *testing.T) {
@@ -27,7 +27,7 @@ func TestMigrationRejectsUnsafePermissionsAndSymlink(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
 			setup(t, root)
-			store := &migrationStore{values: map[string]application.Secret{}}
+			store := &migrationStore{values: map[string]accounts.Credential{}}
 			if err := NewMigrator(root, store).Run(context.Background(), []string{"account-1", "account-2"}); err == nil {
 				t.Fatal("expected rejection")
 			}

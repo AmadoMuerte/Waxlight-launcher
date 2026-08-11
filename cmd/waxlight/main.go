@@ -10,7 +10,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
@@ -53,7 +52,7 @@ func main() {
 		OnStartup:        container.Startup,
 		OnDomReady: func(ctx context.Context) {
 			mousenavigation.Install(func(direction int) {
-				runtime.EventsEmit(ctx, "navigation:mouse", direction)
+				container.Events.Publish("navigation:mouse", direction)
 			})
 		},
 		OnShutdown: container.Shutdown,

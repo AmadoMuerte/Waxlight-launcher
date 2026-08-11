@@ -10,6 +10,7 @@ import (
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
@@ -28,12 +29,12 @@ const maxFrontendLogAttrs = 16
 // LogController exposes the launcher's in-memory log console and lets the user
 // export the recent logs plus a system summary for support.
 type LogController struct {
-	svc  *application.Service
-	base *Base
+	svc       *application.Service
+	lifecycle *app.Lifecycle
 }
 
-func NewLogController(service *application.Service, base *Base) *LogController {
-	return &LogController{svc: service, base: base}
+func NewLogController(service *application.Service, lifecycle *app.Lifecycle) *LogController {
+	return &LogController{svc: service, lifecycle: lifecycle}
 }
 
 // ListLogs returns the most recent log lines rendered for the console. The
@@ -73,7 +74,11 @@ func (controller *LogController) WriteLog(level string, message string, attrs ma
 		}
 		args = append(args, key, value)
 	}
-	slog.Log(context.Background(), slogLevel, message, args...)
+	ctx := context.Background()
+	if controller.lifecycle != nil {
+		ctx = controller.lifecycle.Context()
+	}
+	slog.Log(ctx, slogLevel, message, args...)
 	return nil
 }
 
@@ -116,12 +121,9 @@ func (controller *LogController) OpenLogsDirectory() error {
 // values never reach the file: the log buffer is redacted on write and the
 // summary carries no credentials or machine-specific paths.
 func (controller *LogController) ExportLogs() (string, error) {
-	if controller.base.ctx == nil {
-		return "", nil
-	}
 	suggested := "waxlight-logs-" + time.Now().UTC().Format("20060102-150405") + ".txt"
 	path, err := wruntime.SaveFileDialog(
-		controller.base.ctx,
+		controller.lifecycle.Context(),
 		wruntime.SaveDialogOptions{
 			Title:           "Export Waxlight launcher logs",
 			DefaultFilename: suggested,
@@ -136,7 +138,7 @@ func (controller *LogController) ExportLogs() (string, error) {
 	if err != nil || path == "" {
 		return "", nil
 	}
-	report, err := controller.buildSupportLog(context.Background())
+	report, err := controller.buildSupportLog(controller.lifecycle.Context())
 	if err != nil {
 		return "", err
 	}

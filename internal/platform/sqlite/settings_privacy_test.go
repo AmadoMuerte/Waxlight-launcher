@@ -1,4 +1,4 @@
-package database_test
+package sqlite_test
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 func TestTelemetryDefaultsToDisabled(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "privacy-default.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "privacy-default.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestTelemetryDefaultsToDisabled(t *testing.T) {
 
 func TestLegacySettingsWithoutTelemetryPreferenceRemainDisabled(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy-settings.db")
-	store, err := database.Open(path)
+	store, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}

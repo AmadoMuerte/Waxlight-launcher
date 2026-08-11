@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 var prohibitedPublicNames = []string{"password", "totpcode", "prelogintoken", "sessionkey", "sessionsignature", "credentialstorepath"}
@@ -27,7 +27,7 @@ func TestPublicAuthenticationDTOsAreAllowListed(t *testing.T) {
 			}
 		}
 	}
-	sentinel := domain.Account{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK"}
+	sentinel := accounts.Account{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "WAXLIGHT_TEST_SIGNATURE_DO_NOT_LEAK"}
 	encoded, err := json.Marshal(accountDTO(sentinel))
 	if err != nil {
 		t.Fatal(err)

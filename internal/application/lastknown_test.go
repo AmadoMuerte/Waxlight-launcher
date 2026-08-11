@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 // The Last Known Good tests live in the application package so they can
@@ -119,7 +119,7 @@ func (recorder *lkgEventRecorder) has(name string) bool {
 
 type lkgFixture struct {
 	service  *Service
-	store    *database.SQLiteStore
+	store    *sqlite.SQLiteStore
 	root     string
 	launcher *lkgTestLauncher
 	events   *lkgEventRecorder
@@ -128,7 +128,7 @@ type lkgFixture struct {
 func newLKGFixture(t *testing.T) lkgFixture {
 	t.Helper()
 	root := t.TempDir()
-	store, err := database.Open(filepath.Join(root, "test.db"))
+	store, err := sqlite.Open(filepath.Join(root, "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -844,7 +844,7 @@ func TestLastKnownGoodSurvivesLauncherRestart(t *testing.T) {
 	}
 
 	// Reopen the same database: the marker must still be there.
-	reopened, err := database.Open(filepath.Join(fixture.root, "test.db"))
+	reopened, err := sqlite.Open(filepath.Join(fixture.root, "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 )
 
@@ -38,10 +38,10 @@ type migrationState struct {
 type Migrator struct {
 	legacyPath string
 	statePath  string
-	store      application.SecretStore
+	store      accounts.Credentials
 }
 
-func NewMigrator(dataRoot string, store application.SecretStore) *Migrator {
+func NewMigrator(dataRoot string, store accounts.Credentials) *Migrator {
 	return &Migrator{
 		legacyPath: filepath.Join(dataRoot, "account-secrets.json"),
 		statePath:  filepath.Join(dataRoot, "security", "credential-migration.json"),
@@ -76,7 +76,7 @@ func (m *Migrator) Run(ctx context.Context, accountIDs []string) error {
 
 	imported := 0
 	for id, legacy := range data.Secrets {
-		secret := application.Secret{SessionKey: legacy.SessionKey, SessionSignature: legacy.SessionSignature}
+		secret := accounts.Credential{SessionKey: legacy.SessionKey, SessionSignature: legacy.SessionSignature}
 		if err := m.store.Set(ctx, id, secret); err != nil {
 			_ = m.writeState("retry_required", imported)
 			return secretStoreErrorForMigration(err)
@@ -120,7 +120,7 @@ func decodeLegacy(contents []byte) (legacyFileData, error) {
 	return data, nil
 }
 
-func sameSecret(left, right application.Secret) bool {
+func sameSecret(left, right accounts.Credential) bool {
 	return subtle.ConstantTimeCompare([]byte(left.SessionKey), []byte(right.SessionKey)) == 1 &&
 		subtle.ConstantTimeCompare([]byte(left.SessionSignature), []byte(right.SessionSignature)) == 1
 }
@@ -142,12 +142,12 @@ func (m *Migrator) writeState(status string, imported int) error {
 
 func secretStoreErrorForMigration(err error) error {
 	switch {
-	case errors.Is(err, application.ErrStoreLocked):
-		return fmt.Errorf("legacy credential migration requires an unlocked operating-system credential store; source file was retained: %w", application.ErrStoreLocked)
-	case errors.Is(err, application.ErrPermissionDenied):
-		return fmt.Errorf("operating-system credential store denied the legacy migration; source file was retained: %w", application.ErrPermissionDenied)
+	case errors.Is(err, accounts.ErrStoreLocked):
+		return fmt.Errorf("legacy credential migration requires an unlocked operating-system credential store; source file was retained: %w", accounts.ErrStoreLocked)
+	case errors.Is(err, accounts.ErrPermissionDenied):
+		return fmt.Errorf("operating-system credential store denied the legacy migration; source file was retained: %w", accounts.ErrPermissionDenied)
 	default:
-		return fmt.Errorf("operating-system credential store is unavailable for legacy migration; source file was retained: %w", application.ErrStoreUnavailable)
+		return fmt.Errorf("operating-system credential store is unavailable for legacy migration; source file was retained: %w", accounts.ErrStoreUnavailable)
 	}
 }
 

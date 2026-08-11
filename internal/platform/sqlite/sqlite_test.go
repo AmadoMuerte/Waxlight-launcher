@@ -1,4 +1,4 @@
-package database_test
+package sqlite_test
 
 import (
 	"context"
@@ -10,8 +10,9 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/database"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
@@ -34,19 +35,19 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store, err := database.Open(path)
+	store, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
 	now := time.Now().UTC()
-	account := domain.Account{
+	account := accounts.Account{
 		ID:          "account-id",
 		Username:    "Waxlighter",
 		DisplayName: "Waxlighter",
 		Email:       "player@example.com",
 		UID:         "server-uid",
-		Status:      domain.AccountStatusValid,
+		Status:      accounts.StatusValid,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -63,7 +64,7 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 }
 
 func TestFavoriteServersPersistAndDelete(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "favorites.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "favorites.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +104,7 @@ func TestFavoriteServersPersistAndDelete(t *testing.T) {
 func TestDatabaseRejectsSymlinkAndUsesOwnerOnlyPermissions(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "waxlight.db")
-	store, err := database.Open(path)
+	store, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,13 +125,13 @@ func TestDatabaseRejectsSymlinkAndUsesOwnerOnlyPermissions(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	if _, err := database.Open(link); err == nil {
+	if _, err := sqlite.Open(link); err == nil {
 		t.Fatal("database symlink was accepted")
 	}
 }
 
 func TestOperationTitleLocalizationSurvivesPersistence(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "operations.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "operations.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +174,7 @@ func TestOperationTitleLocalizationSurvivesPersistence(t *testing.T) {
 }
 
 func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "operations.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "operations.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +217,7 @@ func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
 }
 
 func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "waxlight.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +289,7 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 }
 
 func TestRelocatePathsIsIdempotent(t *testing.T) {
-	store, err := database.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "waxlight.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

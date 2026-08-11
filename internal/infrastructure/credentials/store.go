@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -35,19 +35,19 @@ func NewStore(dataRoot string) *Store {
 
 func newStoreWithBackend(backend keyringBackend) *Store { return &Store{backend: backend} }
 
-func (store *Store) Get(ctx context.Context, accountID string) (application.Secret, error) {
+func (store *Store) Get(ctx context.Context, accountID string) (accounts.Credential, error) {
 	if err := validateRequest(ctx, accountID); err != nil {
-		return application.Secret{}, err
+		return accounts.Credential{}, err
 	}
 	value, err := store.backend.Get(ServiceNamespace, accountID)
 	if err != nil {
 		slog.Warn("credential store read failed", "error", err)
-		return application.Secret{}, mapStoreError(err)
+		return accounts.Credential{}, mapStoreError(err)
 	}
 	return decodeSecret(value)
 }
 
-func (store *Store) Set(ctx context.Context, accountID string, secret application.Secret) error {
+func (store *Store) Set(ctx context.Context, accountID string, secret accounts.Credential) error {
 	if err := validateRequest(ctx, accountID); err != nil {
 		return err
 	}
@@ -74,10 +74,10 @@ func (store *Store) Delete(ctx context.Context, accountID string) error {
 
 func validateRequest(ctx context.Context, accountID string) error {
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("%w: operation cancelled", application.ErrStoreUnavailable)
+		return fmt.Errorf("%w: operation cancelled", accounts.ErrStoreUnavailable)
 	}
 	if accountID == "" || len(accountID) > 128 || strings.ContainsAny(accountID, "\x00\r\n") {
-		return fmt.Errorf("%w: invalid account identifier", application.ErrPermissionDenied)
+		return fmt.Errorf("%w: invalid account identifier", accounts.ErrPermissionDenied)
 	}
 	return nil
 }
@@ -87,18 +87,18 @@ func mapStoreError(err error) error {
 		return nil
 	}
 	if errors.Is(err, keyring.ErrNotFound) {
-		return application.ErrSecretNotFound
+		return accounts.ErrCredentialsNotFound
 	}
 	if errors.Is(err, keyring.ErrUnsupportedPlatform) {
-		return application.ErrStoreUnavailable
+		return accounts.ErrStoreUnavailable
 	}
 	message := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(message, "locked"), strings.Contains(message, "islocked"):
-		return fmt.Errorf("%w: native credential store is locked", application.ErrStoreLocked)
+		return fmt.Errorf("%w: native credential store is locked", accounts.ErrStoreLocked)
 	case strings.Contains(message, "denied"), strings.Contains(message, "permission"), strings.Contains(message, "access is denied"):
-		return fmt.Errorf("%w: native credential store denied access", application.ErrPermissionDenied)
+		return fmt.Errorf("%w: native credential store denied access", accounts.ErrPermissionDenied)
 	default:
-		return fmt.Errorf("%w: native credential store operation failed", application.ErrStoreUnavailable)
+		return fmt.Errorf("%w: native credential store operation failed", accounts.ErrStoreUnavailable)
 	}
 }

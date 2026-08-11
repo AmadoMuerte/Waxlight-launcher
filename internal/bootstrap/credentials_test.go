@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestCredentialStoreUnavailable(t *testing.T) {
@@ -13,10 +13,10 @@ func TestCredentialStoreUnavailable(t *testing.T) {
 		err  error
 		want bool
 	}{
-		"locked":      {fmt.Errorf("wrapped: %w", application.ErrStoreLocked), true},
-		"unavailable": {fmt.Errorf("wrapped: %w", application.ErrStoreUnavailable), true},
-		"denied":      {fmt.Errorf("wrapped: %w", application.ErrPermissionDenied), true},
-		"corrupt":     {application.ErrCorruptSecret, false},
+		"locked":      {fmt.Errorf("wrapped: %w", accounts.ErrStoreLocked), true},
+		"unavailable": {fmt.Errorf("wrapped: %w", accounts.ErrStoreUnavailable), true},
+		"denied":      {fmt.Errorf("wrapped: %w", accounts.ErrPermissionDenied), true},
+		"corrupt":     {accounts.ErrCorruptCredentials, false},
 		"other":       {errors.New("database failure"), false},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 )
 
@@ -76,7 +76,7 @@ type injectionJournal struct {
 // Inject records a non-secret crash-recovery marker before atomically writing
 // the four fields required by Vintage Story. The returned cleanup is
 // idempotent and removes those fields after exit or launch failure.
-func (ClientSettingsService) Inject(path string, account domain.Account) (func() error, error) {
+func (ClientSettingsService) Inject(path string, account accounts.Account) (func() error, error) {
 	journalPath := path + injectionJournalSuffix
 	journal, err := json.Marshal(injectionJournal{Version: 1, InjectedAt: time.Now().UTC().Format(time.RFC3339Nano)})
 	if err != nil {
@@ -171,7 +171,7 @@ func SanitizeClientSettings(contents []byte) ([]byte, error) {
 	return append(output, '\n'), nil
 }
 
-func patchClientSettings(path string, account *domain.Account) error {
+func patchClientSettings(path string, account *accounts.Account) error {
 	root := map[string]json.RawMessage{}
 	contents, err := readRegularFile(path, maxClientSettingsBytes)
 	if err == nil {
