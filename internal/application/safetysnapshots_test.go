@@ -11,9 +11,10 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -119,15 +120,15 @@ func updateModTo(t *testing.T, fixture testFixture, instanceID, modID, releaseID
 
 // listAutomaticSnapshots returns the automatic snapshots of an instance,
 // newest first.
-func listAutomaticSnapshots(t *testing.T, fixture testFixture, instanceID string) []domain.InstanceSnapshot {
+func listAutomaticSnapshots(t *testing.T, fixture testFixture, instanceID string) []snapshots.InstanceSnapshot {
 	t.Helper()
-	snapshots, err := fixture.service.ListInstanceSnapshots(context.Background(), instanceID)
+	listed, err := fixture.service.Snapshots().List(context.Background(), instanceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var automatic []domain.InstanceSnapshot
-	for _, snapshot := range snapshots {
-		if snapshot.Type == domain.SnapshotTypeAutomatic {
+	var automatic []snapshots.InstanceSnapshot
+	for _, snapshot := range listed {
+		if snapshot.Type == snapshots.TypeAutomatic {
 			automatic = append(automatic, snapshot)
 		}
 	}
@@ -136,13 +137,13 @@ func listAutomaticSnapshots(t *testing.T, fixture testFixture, instanceID string
 
 // newestAutomaticSnapshotManifest finds the latest automatic snapshot of an
 // instance and reads its manifest.
-func newestAutomaticSnapshotManifest(t *testing.T, fixture testFixture, instanceID string) domain.SnapshotManifest {
+func newestAutomaticSnapshotManifest(t *testing.T, fixture testFixture, instanceID string) snapshots.Manifest {
 	t.Helper()
 	automatic := listAutomaticSnapshots(t, fixture, instanceID)
 	if len(automatic) == 0 {
 		t.Fatal("no automatic snapshot was created")
 	}
-	dir, err := snapshotstore.New(fixture.root).SnapshotDir(instanceID, automatic[0].ID)
+	dir, err := platformsnapshots.New(fixture.root).SnapshotDir(instanceID, automatic[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,10 +196,10 @@ func TestAutomaticSnapshotCreatedBeforeSingleModUpdate(t *testing.T) {
 		t.Fatalf("expected exactly 1 automatic snapshot, got %d", len(automatic))
 	}
 	manifest := newestAutomaticSnapshotManifest(t, fixture, instance.ID)
-	if manifest.Type != domain.SnapshotTypeAutomatic {
+	if manifest.Type != snapshots.TypeAutomatic {
 		t.Fatalf("unexpected snapshot type %q", manifest.Type)
 	}
-	if manifest.Reason != domain.SnapshotReasonBeforeModUpdate {
+	if manifest.Reason != snapshots.ReasonBeforeModUpdate {
 		t.Fatalf("unexpected snapshot reason %q", manifest.Reason)
 	}
 	if manifest.Context["affectedMods"] != "1" {
@@ -208,7 +209,7 @@ func TestAutomaticSnapshotCreatedBeforeSingleModUpdate(t *testing.T) {
 		t.Fatalf("expected 1 mod in the snapshot, got %d", len(manifest.Mods))
 	}
 	entry := manifest.Mods[0]
-	if entry.Source != domain.SnapshotModSourceModDB || entry.ModID != "100" || entry.ReleaseID != "1000" {
+	if entry.Source != snapshots.ModSourceModDB || entry.ModID != "100" || entry.ReleaseID != "1000" {
 		t.Fatalf("snapshot does not contain the old release: %#v", entry)
 	}
 	if entry.Version != "1.0.0" {
@@ -247,7 +248,7 @@ func TestBulkUpdateCreatesExactlyOneSnapshot(t *testing.T) {
 		t.Fatalf("bulk update created %d automatic snapshots, want exactly 1", len(automatic))
 	}
 	manifest := newestAutomaticSnapshotManifest(t, fixture, instance.ID)
-	if manifest.Reason != domain.SnapshotReasonBeforeModUpdate {
+	if manifest.Reason != snapshots.ReasonBeforeModUpdate {
 		t.Fatalf("unexpected snapshot reason %q", manifest.Reason)
 	}
 	if manifest.Context["affectedMods"] != "20" {
@@ -283,7 +284,7 @@ func TestUpdateWithNoChangesSkipsSnapshot(t *testing.T) {
 	if result.Updated != 0 {
 		t.Fatalf("expected no updates, got %d", result.Updated)
 	}
-	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+	if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 		t.Fatalf("a snapshot was created without changes: %d, %v", len(snapshots), listErr)
 	}
 }
@@ -322,13 +323,13 @@ func TestAutomaticSnapshotCreatedBeforeModRemoval(t *testing.T) {
 		t.Fatalf("mod 200 was not removed: %q", source)
 	}
 	manifest := newestAutomaticSnapshotManifest(t, fixture, instance.ID)
-	if manifest.Reason != domain.SnapshotReasonBeforeModRemoval {
+	if manifest.Reason != snapshots.ReasonBeforeModRemoval {
 		t.Fatalf("unexpected snapshot reason %q", manifest.Reason)
 	}
 	if manifest.ModCount != 3 || len(manifest.Mods) != 3 {
 		t.Fatalf("snapshot must contain all three mods, got %d entries", len(manifest.Mods))
 	}
-	byModID := make(map[string]domain.SnapshotMod, len(manifest.Mods))
+	byModID := make(map[string]snapshots.Mod, len(manifest.Mods))
 	for _, entry := range manifest.Mods {
 		byModID[entry.ModID] = entry
 	}
@@ -370,7 +371,7 @@ func TestBulkRemovalCreatesExactlyOneSnapshot(t *testing.T) {
 		t.Fatalf("bulk removal created %d automatic snapshots, want exactly 1", len(automatic))
 	}
 	manifest := newestAutomaticSnapshotManifest(t, fixture, instance.ID)
-	if manifest.Reason != domain.SnapshotReasonBeforeModRemoval {
+	if manifest.Reason != snapshots.ReasonBeforeModRemoval {
 		t.Fatalf("unexpected snapshot reason %q", manifest.Reason)
 	}
 	if manifest.ModCount != 3 {
@@ -399,7 +400,7 @@ func TestAutomaticSnapshotCreatedBeforeGameVersionChange(t *testing.T) {
 	}
 
 	manifest := newestAutomaticSnapshotManifest(t, fixture, instance.ID)
-	if manifest.Reason != domain.SnapshotReasonBeforeGameVersionChange {
+	if manifest.Reason != snapshots.ReasonBeforeGameVersionChange {
 		t.Fatalf("unexpected snapshot reason %q", manifest.Reason)
 	}
 	if manifest.GameVersion != "1.20" {
@@ -449,7 +450,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		if source := installedSource(t, fixture, instance.ID, "100"); source != "moddb:100:1000" {
 			t.Fatalf("mod was modified despite the failed snapshot: %q", source)
 		}
-		if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+		if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 			t.Fatalf("a snapshot appeared despite the failure: %d, %v", len(snapshots), listErr)
 		}
 	})
@@ -517,7 +518,7 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	if result.Updated != 1 {
 		t.Fatalf("expected 1 updated mod, got %d", result.Updated)
 	}
-	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+	if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 		t.Fatalf("disabled setting still created snapshots: %d, %v", len(snapshots), listErr)
 	}
 
@@ -531,7 +532,7 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	if remaining, listErr := fixture.store.ListMods(ctx, instance.ID); listErr != nil || len(remaining) != 0 {
 		t.Fatalf("disabled setting blocked removal: %d, %v", len(remaining), listErr)
 	}
-	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+	if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 		t.Fatalf("disabled setting still created snapshots: %d, %v", len(snapshots), listErr)
 	}
 
@@ -540,12 +541,12 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err != nil {
 		t.Fatal(err)
 	}
-	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+	if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 		t.Fatalf("disabled setting still created snapshots: %d, %v", len(snapshots), listErr)
 	}
 
 	// Manual snapshots stay available while the automatic ones are off.
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -622,10 +623,10 @@ func TestConcurrentDestructiveOperationsRejectedPerInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = fixture.mods.DeleteMod(ctx, mods[0].ID, false)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotInProgress {
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotInProgress {
 		t.Fatalf("expected SNAPSHOT_IN_PROGRESS for a concurrent removal, got %s", code)
 	}
-	if _, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID); err == nil {
+	if _, err := fixture.service.Snapshots().Create(ctx, instance.ID); err == nil {
 		t.Fatal("a manual snapshot must not run concurrently with a mutation")
 	}
 
@@ -669,15 +670,15 @@ func TestAutomaticRetentionKeepsLatestTen(t *testing.T) {
 		}
 	}
 
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != automaticSnapshotRetentionCount {
-		t.Fatalf("expected %d snapshots after retention, got %d", automaticSnapshotRetentionCount, len(snapshots))
+	if len(listed) != automaticSnapshotRetentionCount {
+		t.Fatalf("expected %d snapshots after retention, got %d", automaticSnapshotRetentionCount, len(listed))
 	}
-	for _, snapshot := range snapshots {
-		if snapshot.Type != domain.SnapshotTypeAutomatic {
+	for _, snapshot := range listed {
+		if snapshot.Type != snapshots.TypeAutomatic {
 			t.Fatalf("retention kept a non-automatic snapshot: %#v", snapshot)
 		}
 		if snapshot.ID == firstSnapshotID {
@@ -697,7 +698,7 @@ func TestAutomaticRetentionNeverRemovesManualSnapshots(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "r1", "1.0.0", true)
 
 	for index := 0; index < 5; index++ {
-		if _, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID); err != nil {
+		if _, err := fixture.service.Snapshots().Create(ctx, instance.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -705,17 +706,17 @@ func TestAutomaticRetentionNeverRemovesManualSnapshots(t *testing.T) {
 		updateModTo(t, fixture, instance.ID, "100", fmt.Sprintf("r%d", index))
 	}
 
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	manual := 0
 	automatic := 0
-	for _, snapshot := range snapshots {
+	for _, snapshot := range listed {
 		switch snapshot.Type {
-		case domain.SnapshotTypeManual:
+		case snapshots.TypeManual:
 			manual++
-		case domain.SnapshotTypeAutomatic:
+		case snapshots.TypeAutomatic:
 			automatic++
 		default:
 			t.Fatalf("unexpected snapshot type %q", snapshot.Type)
@@ -747,7 +748,7 @@ func TestAutomaticSnapshotRestoresThroughExistingSystem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, automatic[0].ID); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, automatic[0].ID); err != nil {
 		t.Fatal(err)
 	}
 	contents, err := os.ReadFile(filepath.Join(instance.Directory, "file.txt"))
@@ -786,7 +787,7 @@ func TestAutomaticSnapshotRejectedWhileGameRunning(t *testing.T) {
 	if source := installedSource(t, fixture, instance.ID, "100"); source != "moddb:100:1000" {
 		t.Fatalf("mod was modified while the game was running: %q", source)
 	}
-	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
+	if snapshots, listErr := fixture.service.Snapshots().List(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
 		t.Fatalf("a snapshot was created while the game was running: %d, %v", len(snapshots), listErr)
 	}
 }

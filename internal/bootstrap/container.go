@@ -38,6 +38,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
+	"github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
@@ -175,6 +176,10 @@ func New() (*Container, error) {
 		store,
 		filesystem.ModFileManager{},
 		dataRoot,
+		snapshots.New(dataRoot),
+		dataroot.TotalSizeContext,
+		filesystem.SanitizeClientSettings,
+		instancedirectory.HardenLogs,
 		operationManager,
 		sessionService,
 		instanceQueries,
@@ -232,7 +237,7 @@ func New() (*Container, error) {
 		instancedirectory.LaunchLogs{},
 		eventPublisher,
 		telemetryService,
-		service,
+		service.Recovery(),
 		lifecycle,
 		operationManager,
 		time.Now,
@@ -337,8 +342,8 @@ func New() (*Container, error) {
 		presentation.NewLaunchController(launchCoordinator, lifecycle),
 		presentation.NewStatisticsController(sessionService, lifecycle),
 		presentation.NewOperationController(operationManager, lifecycle),
-		presentation.NewSnapshotController(service, lifecycle),
-		presentation.NewLastKnownGoodController(service, lifecycle),
+		presentation.NewSnapshotController(service.Snapshots(), lifecycle),
+		presentation.NewLastKnownGoodController(service.Recovery(), lifecycle),
 		presentation.NewLogController(service, service.Mods(), versionService, lifecycle),
 		presentation.NewSettingsController(
 			settingsReader,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"os"
 	"path/filepath"
 	"sync"
@@ -121,7 +122,7 @@ type testInstanceLock struct {
 func (lock testInstanceLock) Lock(instanceID string, marker string) (func(), error) {
 	release, holder := lock.slot.TryAcquire(instanceID, marker)
 	if holder != "" {
-		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
+		return nil, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	return release, nil
 }
@@ -131,7 +132,7 @@ type recordingSnapshotter struct {
 	created int
 }
 
-func (snapshotter *recordingSnapshotter) Create(ctx context.Context, instanceID string, reason domain.SnapshotReason, snapshotContext map[string]string) error {
+func (snapshotter *recordingSnapshotter) Create(ctx context.Context, instanceID string, reason snapshots.Reason, snapshotContext map[string]string) error {
 	snapshotter.mu.Lock()
 	defer snapshotter.mu.Unlock()
 	snapshotter.created++

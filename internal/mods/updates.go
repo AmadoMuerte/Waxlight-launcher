@@ -2,12 +2,12 @@ package mods
 
 import (
 	"context"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"strconv"
 	"strings"
 
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 // ModUpdateReport describes the update state of every installed mod of an
@@ -162,7 +162,7 @@ func (service *CatalogService) UpdateInstanceMods(
 	}
 	defer instanceRelease()
 
-	if err := service.snapshots.Create(ctx, instanceID, domain.SnapshotReasonBeforeModUpdate, map[string]string{
+	if err := service.snapshotter.Create(ctx, instanceID, snapshots.ReasonBeforeModUpdate, map[string]string{
 		"affectedMods": strconv.Itoa(len(pending)),
 	}); err != nil {
 		return result, err

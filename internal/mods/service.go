@@ -12,6 +12,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 // operationTitleInstallingMod is the i18n key of the mod-install operation
@@ -22,18 +23,18 @@ const operationTitleInstallingMod = "operation_installing_mod"
 // reconciliation, local file installation, enable/disable, removal with
 // dependency previews, and binding local files to their catalog entries.
 type Service struct {
-	repository Repository
-	files      FileManager
-	catalog    Catalog
-	downloads  DownloadedStore
-	operations *operations.Manager
-	gate       MutationGate
-	lock       InstanceLock
-	snapshots  SafetySnapshotter
-	events     Publisher
-	telemetry  Telemetry
-	now        Clock
-	newID      IDGenerator
+	repository  Repository
+	files       FileManager
+	catalog     Catalog
+	downloads   DownloadedStore
+	operations  *operations.Manager
+	gate        MutationGate
+	lock        InstanceLock
+	snapshotter snapshots.SafetySnapshotter
+	events      Publisher
+	telemetry   Telemetry
+	now         Clock
+	newID       IDGenerator
 }
 
 // NewService wires the installed-mod service with immutable dependencies.
@@ -45,25 +46,25 @@ func NewService(
 	operationManager *operations.Manager,
 	gate MutationGate,
 	lock InstanceLock,
-	snapshots SafetySnapshotter,
+	snapshotter snapshots.SafetySnapshotter,
 	events Publisher,
 	telemetry Telemetry,
 	now Clock,
 	newID IDGenerator,
 ) *Service {
 	return &Service{
-		repository: repository,
-		files:      files,
-		catalog:    catalog,
-		downloads:  downloads,
-		operations: operationManager,
-		gate:       gate,
-		lock:       lock,
-		snapshots:  snapshots,
-		events:     events,
-		telemetry:  telemetry,
-		now:        now,
-		newID:      newID,
+		repository:  repository,
+		files:       files,
+		catalog:     catalog,
+		downloads:   downloads,
+		operations:  operationManager,
+		gate:        gate,
+		lock:        lock,
+		snapshotter: snapshotter,
+		events:      events,
+		telemetry:   telemetry,
+		now:         now,
+		newID:       newID,
 	}
 }
 
@@ -373,7 +374,7 @@ func (service *Service) DeleteMod(ctx context.Context, id string, deleteDependen
 		return err
 	}
 	defer instanceRelease()
-	if err := service.snapshots.Create(ctx, mod.InstanceID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
+	if err := service.snapshotter.Create(ctx, mod.InstanceID, snapshots.ReasonBeforeModRemoval, map[string]string{
 		"affectedMods": strconv.Itoa(len(toDelete)),
 	}); err != nil {
 		return err
@@ -443,7 +444,7 @@ func (service *Service) RemoveMods(
 		return err
 	}
 	defer instanceRelease()
-	if err := service.snapshots.Create(ctx, instance.ID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
+	if err := service.snapshotter.Create(ctx, instance.ID, snapshots.ReasonBeforeModRemoval, map[string]string{
 		"affectedMods": strconv.Itoa(len(toDelete)),
 	}); err != nil {
 		return err

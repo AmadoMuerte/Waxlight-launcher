@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 const (
@@ -21,21 +22,21 @@ const (
 // resolution, the downloaded-mod cache, local-mod linking, and update
 // analysis and application.
 type CatalogService struct {
-	repository Repository
-	files      FileManager
-	catalog    Catalog
-	downloads  DownloadedStore
-	downloader Downloader
-	versions   VersionReader
-	lister     InstalledModLister
-	gate       MutationGate
-	lock       InstanceLock
-	snapshots  SafetySnapshotter
-	events     Publisher
-	telemetry  Telemetry
-	tasks      *ModTaskManager
-	now        Clock
-	newID      IDGenerator
+	repository  Repository
+	files       FileManager
+	catalog     Catalog
+	downloads   DownloadedStore
+	downloader  Downloader
+	versions    VersionReader
+	lister      InstalledModLister
+	gate        MutationGate
+	lock        InstanceLock
+	snapshotter snapshots.SafetySnapshotter
+	events      Publisher
+	telemetry   Telemetry
+	tasks       *ModTaskManager
+	now         Clock
+	newID       IDGenerator
 }
 
 // NewCatalogService wires the catalog service with immutable dependencies.
@@ -49,7 +50,7 @@ func NewCatalogService(
 	lister InstalledModLister,
 	gate MutationGate,
 	lock InstanceLock,
-	snapshots SafetySnapshotter,
+	snapshotter snapshots.SafetySnapshotter,
 	events Publisher,
 	telemetry Telemetry,
 	tasks *ModTaskManager,
@@ -57,21 +58,21 @@ func NewCatalogService(
 	newID IDGenerator,
 ) *CatalogService {
 	return &CatalogService{
-		repository: repository,
-		files:      files,
-		catalog:    catalog,
-		downloads:  downloads,
-		downloader: downloader,
-		versions:   versions,
-		lister:     lister,
-		gate:       gate,
-		lock:       lock,
-		snapshots:  snapshots,
-		events:     events,
-		telemetry:  telemetry,
-		tasks:      tasks,
-		now:        now,
-		newID:      newID,
+		repository:  repository,
+		files:       files,
+		catalog:     catalog,
+		downloads:   downloads,
+		downloader:  downloader,
+		versions:    versions,
+		lister:      lister,
+		gate:        gate,
+		lock:        lock,
+		snapshotter: snapshotter,
+		events:      events,
+		telemetry:   telemetry,
+		tasks:       tasks,
+		now:         now,
+		newID:       newID,
 	}
 }
 

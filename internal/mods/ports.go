@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -66,21 +65,6 @@ const MutationLockMarker = "instance-mutation"
 // and launches of the same instance never overlap.
 type InstanceLock interface {
 	Lock(instanceID string, marker string) (func(), error)
-}
-
-// SafetySnapshotter creates the automatic snapshot protecting an instance
-// before a destructive mod change. A nil error without a snapshot means no
-// snapshot was needed; any error must abort the destructive operation.
-type SafetySnapshotter interface {
-	Create(context.Context, string, domain.SnapshotReason, map[string]string) error
-}
-
-// SafetySnapshotterFunc adapts a snapshot-creation function to the
-// SafetySnapshotter port.
-type SafetySnapshotterFunc func(context.Context, string, domain.SnapshotReason, map[string]string) error
-
-func (fn SafetySnapshotterFunc) Create(ctx context.Context, instanceID string, reason domain.SnapshotReason, context map[string]string) error {
-	return fn(ctx, instanceID, reason, context)
 }
 
 // Publisher forwards launcher events to the frontend.

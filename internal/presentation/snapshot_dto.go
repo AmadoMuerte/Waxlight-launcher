@@ -1,7 +1,7 @@
 package presentation
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 type InstanceSnapshotDTO struct {
@@ -18,7 +18,7 @@ type InstanceSnapshotDTO struct {
 	WorldCount   int               `json:"worldCount"`
 }
 
-func instanceSnapshotDTO(snapshot domain.InstanceSnapshot) InstanceSnapshotDTO {
+func instanceSnapshotDTO(snapshot snapshots.InstanceSnapshot) InstanceSnapshotDTO {
 	return InstanceSnapshotDTO{
 		ID:           snapshot.ID,
 		InstanceID:   snapshot.InstanceID,

@@ -17,6 +17,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
@@ -224,7 +225,7 @@ func (coordinator *Coordinator) launch(
 	releaseLaunch := coordinator.registry.BeginLaunch()
 	defer releaseLaunch()
 	if coordinator.registry.Busy(instanceID) {
-		return sessions.PlaySession{}, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return sessions.PlaySession{}, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	validation, err := coordinator.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {

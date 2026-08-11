@@ -20,6 +20,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
@@ -30,6 +31,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
+	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
@@ -398,6 +400,10 @@ func newTestFixtureFull(
 		store,
 		filesystem.ModFileManager{},
 		root,
+		platformsnapshots.New(root),
+		dataroot.TotalSizeContext,
+		filesystem.SanitizeClientSettings,
+		instancedirectory.HardenLogs,
 		operationManager,
 		sessionService,
 		instanceQueries,
@@ -430,7 +436,7 @@ func newTestFixtureFull(
 		instancedirectory.LaunchLogs{},
 		nil,
 		nil,
-		service,
+		service.Recovery(),
 		lifecycle,
 		operationManager,
 		time.Now,

@@ -2,6 +2,7 @@ package launching
 
 import (
 	"errors"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -46,7 +47,7 @@ func TestCloneAndSnapshotReservationsAreMutuallyExclusive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := registry.Guard("instance", SnapshotReservationMarker, "Stop the game before modifying this instance"); !isAppErrorCode(err, domain.ErrSnapshotInProgress) {
+	if _, err := registry.Guard("instance", SnapshotReservationMarker, "Stop the game before modifying this instance"); !isAppErrorCode(err, snapshots.ErrSnapshotInProgress) {
 		t.Fatalf("snapshot reservation error = %v", err)
 	}
 	cloneRelease()
@@ -55,7 +56,7 @@ func TestCloneAndSnapshotReservationsAreMutuallyExclusive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := registry.Guard("instance", MutationLockMarker, "Stop the game before cloning this instance"); !isAppErrorCode(err, domain.ErrSnapshotInProgress) {
+	if _, err := registry.Guard("instance", MutationLockMarker, "Stop the game before cloning this instance"); !isAppErrorCode(err, snapshots.ErrSnapshotInProgress) {
 		t.Fatalf("clone reservation error = %v", err)
 	}
 	snapshotRelease()
@@ -67,7 +68,7 @@ func TestRegistryLockMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := registry.Lock("instance", MutationLockMarker); !isAppErrorCode(err, domain.ErrSnapshotInProgress) {
+	if _, err := registry.Lock("instance", MutationLockMarker); !isAppErrorCode(err, snapshots.ErrSnapshotInProgress) {
 		t.Fatalf("Lock() error = %v", err)
 	} else {
 		var appError *domain.AppError

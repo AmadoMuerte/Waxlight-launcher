@@ -3,12 +3,11 @@ package instances
 import (
 	"context"
 	"errors"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 type mutationRepository struct {
@@ -131,7 +130,7 @@ type testSnapshotter struct {
 	err      error
 }
 
-func (snapshotter *testSnapshotter) Create(_ context.Context, _ string, _ domain.SnapshotReason, _ map[string]string) error {
+func (snapshotter *testSnapshotter) Create(_ context.Context, _ string, _ snapshots.Reason, _ map[string]string) error {
 	if snapshotter.onCreate != nil {
 		snapshotter.onCreate()
 	}
