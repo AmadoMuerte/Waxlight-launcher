@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // CloneInstance creates a new, independent instance that duplicates the source
@@ -20,32 +21,32 @@ func (s *Service) CloneInstance(
 	ctx context.Context,
 	sourceID string,
 	name string,
-) (domain.Instance, error) {
+) (instances.Instance, error) {
 	release, err := s.beginMutation()
 	if err != nil {
-		return domain.Instance{}, err
+		return instances.Instance{}, err
 	}
 	defer release()
 	s.runningMu.Lock()
 	_, running := s.running[sourceID]
 	s.runningMu.Unlock()
 	if running {
-		return domain.Instance{}, domain.NewError(
-			domain.ErrInstanceRunning,
+		return instances.Instance{}, domain.NewError(
+			instances.ErrInstanceRunning,
 			"Stop the game before cloning this instance",
 		)
 	}
 	if err := s.ensureNoSnapshotOperation(sourceID); err != nil {
-		return domain.Instance{}, err
+		return instances.Instance{}, err
 	}
 
 	source, err := s.store.GetInstance(ctx, sourceID)
 	if err != nil {
-		return domain.Instance{}, err
+		return instances.Instance{}, err
 	}
 	slog.Info("cloning instance", "source", source.Name)
 
-	clone, err := s.CreateInstance(ctx, CreateInstanceInput{
+	clone, err := s.CreateInstance(ctx, instances.CreateInput{
 		Name:             name,
 		Description:      source.Description,
 		GameVersionID:    source.GameVersionID,
@@ -53,17 +54,17 @@ func (s *Service) CloneInstance(
 		LaunchArguments:  append([]string(nil), source.LaunchArguments...),
 	})
 	if err != nil {
-		return domain.Instance{}, err
+		return instances.Instance{}, err
 	}
 
-	cleanup := func(cause error) (domain.Instance, error) {
+	cleanup := func(cause error) (instances.Instance, error) {
 		if err := safeRemoveAll(clone.Directory, s.dataRoot, ".waxlight-instance"); err != nil {
 			slog.Warn("could not remove the failed clone directory", "instance", clone.Name, "error", err)
 		}
 		if err := s.store.DeleteInstance(ctx, clone.ID); err != nil {
 			slog.Warn("could not delete the failed clone record", "instance", clone.Name, "error", err)
 		}
-		return domain.Instance{}, cause
+		return instances.Instance{}, cause
 	}
 
 	if err := copyCloneDirectory(ctx, source.Directory, clone.Directory); err != nil {
@@ -103,8 +104,8 @@ func (s *Service) CloneInstance(
 // catalog source markers need to be carried over so updates keep working.
 func (s *Service) replicateMods(
 	ctx context.Context,
-	source domain.Instance,
-	clone domain.Instance,
+	source instances.Instance,
+	clone instances.Instance,
 ) error {
 	mods, err := s.store.ListMods(ctx, source.ID)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func TestIsGameErrorLine(t *testing.T) {
@@ -65,7 +65,7 @@ func TestWatchGameLogLogsOnlyErrorLines(t *testing.T) {
 	records := captureSlog(t)
 	service := &Service{}
 
-	instance := domain.Instance{ID: "instance-1", Name: "Test World"}
+	instance := instances.Instance{ID: "instance-1", Name: "Test World"}
 	stop := service.watchGameLog(instance, logPath)
 
 	appendToFile(t, logPath, "[Warning] something odd\n[Error] second problem\n")
@@ -100,7 +100,7 @@ func TestWatchGameLogHandlesTruncation(t *testing.T) {
 	records := captureSlog(t)
 	service := &Service{}
 
-	stop := service.watchGameLog(domain.Instance{ID: "i", Name: "W"}, logPath)
+	stop := service.watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
 	waitFor(t, func() bool { return len(records()) >= 1 })
 
 	// Simulate a crash restart that replaces the file: smaller and new content.
@@ -134,7 +134,7 @@ func TestWatchGameLogCapturesMainGameLogAppends(t *testing.T) {
 
 	records := captureSlog(t)
 	service := &Service{}
-	stop := service.watchGameLog(domain.Instance{ID: "i", Name: "W"}, logPath)
+	stop := service.watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
 
 	appendToFile(t, mainLog, "[Error] fresh main.log error\n")
 	waitFor(t, func() bool { return len(records()) >= 1 })
@@ -159,7 +159,7 @@ func TestWatchGameLogForwardsNewCrashReportWhole(t *testing.T) {
 
 	records := captureSlog(t)
 	service := &Service{}
-	stop := service.watchGameLog(domain.Instance{ID: "i", Name: "W"}, logPath)
+	stop := service.watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
 
 	// A crash report is written after the game starts; every line is an error,
 	// even without severity markers.
@@ -206,7 +206,7 @@ func TestWatchGameLogIgnoresStaleCrashReport(t *testing.T) {
 
 	records := captureSlog(t)
 	service := &Service{}
-	stop := service.watchGameLog(domain.Instance{ID: "i", Name: "W"}, logPath)
+	stop := service.watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
 	time.Sleep(60 * time.Millisecond)
 	stop()
 

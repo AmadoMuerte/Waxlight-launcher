@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // gameStartupWindow is how long a game process must survive for its launch to
@@ -26,7 +27,7 @@ var gameStartupWindow = 60 * time.Second
 // because waitForGame removes the running entry when the process exits.
 // startupWindow is the value captured by Launch so this goroutine never reads
 // the mutable package variable.
-func (s *Service) markLaunchEstablished(ctx context.Context, instance domain.Instance, sessionID string, startupWindow time.Duration) {
+func (s *Service) markLaunchEstablished(ctx context.Context, instance instances.Instance, sessionID string, startupWindow time.Duration) {
 	timer := time.NewTimer(startupWindow)
 	defer timer.Stop()
 	select {
@@ -74,7 +75,7 @@ func (s *Service) recordEstablishedLaunches() {
 // (typically the automatic safety snapshot taken before the changes that led
 // to this launch), the marker references it instead of creating any new
 // filesystem backup.
-func (s *Service) recordLastKnownGood(ctx context.Context, instance domain.Instance) {
+func (s *Service) recordLastKnownGood(ctx context.Context, instance instances.Instance) {
 	release, err := s.beginMutation()
 	if err != nil {
 		slog.Warn("could not record last known good state during data folder relocation", "instance", instance.Name)
@@ -165,7 +166,7 @@ func sameModSet(left, right []domain.SnapshotMod) bool {
 // currentConfiguration resolves the live instance state in the same exact
 // release representation the snapshot manifest uses. The returned name map
 // keys mod identity to the display name of the installed mod record.
-func (s *Service) currentConfiguration(ctx context.Context, instance domain.Instance) (string, []domain.SnapshotMod, map[string]string, error) {
+func (s *Service) currentConfiguration(ctx context.Context, instance instances.Instance) (string, []domain.SnapshotMod, map[string]string, error) {
 	installedMods, err := s.ListMods(ctx, instance.ID)
 	if err != nil {
 		return "", nil, nil, err
@@ -300,7 +301,7 @@ func configurationSignature(mods []domain.SnapshotMod, gameVersion string) strin
 // handleFailedLaunch assesses a startup failure against the Last Known Good
 // state and emits a recovery suggestion when the configuration changed. It
 // never rolls anything back and never claims a specific mod caused the crash.
-func (s *Service) handleFailedLaunch(instance domain.Instance) {
+func (s *Service) handleFailedLaunch(instance instances.Instance) {
 	ctx := context.Background()
 	lkg, err := s.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {

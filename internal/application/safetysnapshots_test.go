@@ -14,6 +14,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -752,7 +753,7 @@ func TestAutomaticSnapshotRejectedWhileGameRunning(t *testing.T) {
 		[]application.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 		false,
 	)
-	if code := appErrorCode(t, err); code != domain.ErrInstanceRunning {
+	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
 	if source := installedSource(t, fixture, instance.ID, "100"); source != "moddb:100:1000" {

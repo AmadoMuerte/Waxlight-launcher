@@ -7,7 +7,9 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -168,11 +170,33 @@ func (controller *GameVersionController) RemoveVersion(
 
 type InstanceController struct {
 	svc       *application.Service
+	creator   instanceCreator
+	queries   instanceQueries
+	sessions  instancePlaytime
 	lifecycle *app.Lifecycle
 }
 
-func NewInstanceController(service *application.Service, lifecycle *app.Lifecycle) *InstanceController {
-	return &InstanceController{svc: service, lifecycle: lifecycle}
+type instanceCreator interface {
+	Create(context.Context, instances.CreateInput) (instances.Instance, error)
+}
+
+type instanceQueries interface {
+	List(context.Context) ([]instances.Instance, error)
+	Get(context.Context, string) (instances.Instance, error)
+}
+
+type instancePlaytime interface {
+	GetInstancePlaytime(context.Context, string) (int64, error)
+}
+
+func NewInstanceController(
+	service *application.Service,
+	creator instanceCreator,
+	queries instanceQueries,
+	sessionQueries instancePlaytime,
+	lifecycle *app.Lifecycle,
+) *InstanceController {
+	return &InstanceController{svc: service, creator: creator, queries: queries, sessions: sessionQueries, lifecycle: lifecycle}
 }
 
 type CreateInstanceRequest struct {
@@ -200,10 +224,10 @@ type CloneInstanceRequest struct {
 
 func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 	ctx := controller.lifecycle.Context()
-	instances, err := controller.svc.ListInstances(ctx)
-	result := make([]InstanceDTO, 0, len(instances))
+	storedInstances, err := controller.queries.List(ctx)
+	result := make([]InstanceDTO, 0, len(storedInstances))
 
-	for _, instance := range instances {
+	for _, instance := range storedInstances {
 		dto := instanceDTO(instance)
 		mods, modsErr := controller.svc.ListMods(ctx, instance.ID)
 		if modsErr != nil {
@@ -215,7 +239,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 				dto.EnabledModCount++
 			}
 		}
-		playtime, playtimeErr := controller.svc.GetInstancePlaytime(
+		playtime, playtimeErr := controller.sessions.GetInstancePlaytime(
 			ctx,
 			instance.ID,
 		)
@@ -230,16 +254,16 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 }
 
 func (controller *InstanceController) GetInstance(id string) (InstanceDTO, error) {
-	instance, err := controller.svc.GetInstance(controller.lifecycle.Context(), id)
+	instance, err := controller.queries.Get(controller.lifecycle.Context(), id)
 	return instanceDTO(instance), err
 }
 
 func (controller *InstanceController) CreateInstance(
 	request CreateInstanceRequest,
 ) (InstanceDTO, error) {
-	instance, err := controller.svc.CreateInstance(
+	instance, err := controller.creator.Create(
 		controller.lifecycle.Context(),
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:             request.Name,
 			Description:      request.Description,
 			GameVersionID:    request.GameVersionID,
@@ -255,7 +279,7 @@ func (controller *InstanceController) UpdateInstance(
 	request UpdateInstanceRequest,
 ) (InstanceDTO, error) {
 	ctx := controller.lifecycle.Context()
-	instance, err := controller.svc.GetInstance(ctx, request.ID)
+	instance, err := controller.queries.Get(ctx, request.ID)
 	if err != nil {
 		return InstanceDTO{}, err
 	}
@@ -595,11 +619,15 @@ func (controller *LaunchController) GetRunningInstances() []string {
 }
 
 type StatisticsController struct {
-	svc       *application.Service
+	svc       statisticsQueries
 	lifecycle *app.Lifecycle
 }
 
-func NewStatisticsController(service *application.Service, lifecycle *app.Lifecycle) *StatisticsController {
+type statisticsQueries interface {
+	GetStatistics(context.Context) (sessions.Statistics, error)
+}
+
+func NewStatisticsController(service statisticsQueries, lifecycle *app.Lifecycle) *StatisticsController {
 	return &StatisticsController{svc: service, lifecycle: lifecycle}
 }
 

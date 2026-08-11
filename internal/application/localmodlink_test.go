@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func writeLocalModZip(t *testing.T, path, modID, name, version string) {
@@ -58,7 +58,7 @@ func corpseCatalog() staticModCatalog {
 func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Linked", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -112,7 +112,7 @@ func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 func TestLinkLocalModsReportsUnmatchedMod(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Unmatched", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -141,7 +141,7 @@ func TestLinkLocalModsReportsUnmatchedMod(t *testing.T) {
 func TestLinkLocalModsSkipsModWithoutCatalogModID(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "ByName", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -210,7 +210,7 @@ func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
 func TestLinkLocalModsBindsModAlreadyInLibrary(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Fresh", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -250,7 +250,7 @@ func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "AlreadyInstalled", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -309,7 +309,7 @@ func TestInstallModFileBindsToExistingLibraryMod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "NewInstance", GameVersionID: "1.20",
 	})
 	if err != nil {

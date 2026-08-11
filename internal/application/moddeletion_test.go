@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func TestDeleteModRemovesUnusedDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Cascade", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestDeleteModRemovesUnusedDependencies(t *testing.T) {
 func TestDeleteModKeepsDependencyUsedByAnotherMod(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Shared", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -96,7 +96,7 @@ func TestDeleteModKeepsDependencyUsedByAnotherMod(t *testing.T) {
 func TestDeleteModRemovesTransitiveDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Transitive", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -132,7 +132,7 @@ func TestDeleteModRemovesTransitiveDependencies(t *testing.T) {
 func TestModDeletePreviewListsUnusedDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Preview", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -178,7 +178,7 @@ func TestModDeletePreviewListsUnusedDependencies(t *testing.T) {
 func TestDeleteModWithoutDependenciesKeepsSiblings(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Siblings", GameVersionID: "1.20",
 	})
 	if err != nil {

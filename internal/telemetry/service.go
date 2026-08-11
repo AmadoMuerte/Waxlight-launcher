@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
@@ -22,7 +23,7 @@ const lastHeartbeatKey = "telemetry_last_heartbeat"
 
 // Store contains only authoritative instance and mod count sources.
 type Store interface {
-	ListInstances(context.Context) ([]domain.Instance, error)
+	ListInstances(context.Context) ([]instances.Instance, error)
 	ListMods(context.Context, string) ([]domain.InstalledMod, error)
 }
 

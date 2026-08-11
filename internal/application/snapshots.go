@@ -18,6 +18,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -365,7 +366,7 @@ func (s *Service) RestoreInstanceSnapshot(
 // physically contains the instance's Mods. Every file is copied back verbatim.
 func (s *Service) restoreInstanceSnapshotV1(
 	ctx context.Context,
-	instance domain.Instance,
+	instance instances.Instance,
 	snapshotDir string,
 	manifest domain.SnapshotManifest,
 ) error {
@@ -420,7 +421,7 @@ func (s *Service) restoreInstanceSnapshotV1(
 // anything is touched.
 func (s *Service) restoreInstanceSnapshotV2(
 	ctx context.Context,
-	instance domain.Instance,
+	instance instances.Instance,
 	snapshotDir string,
 	manifest domain.SnapshotManifest,
 ) error {
@@ -523,7 +524,7 @@ func (s *Service) restoreInstanceSnapshotV2(
 
 // beginSnapshotRestore creates the persisted operation record for a restore.
 func (s *Service) beginSnapshotRestore(
-	instance domain.Instance,
+	instance instances.Instance,
 	size int64,
 ) operations.Operation {
 	now := time.Now().UTC()
@@ -551,7 +552,7 @@ func (s *Service) beginSnapshotRestore(
 // returned error wraps errRestoreStaging when the copy itself failed.
 func prepareRestoreStaging(
 	ctx context.Context,
-	instance domain.Instance,
+	instance instances.Instance,
 	snapshotDir string,
 	progress func(int64),
 ) (string, error) {
@@ -592,7 +593,7 @@ func restoreStagingCause(err error) error {
 // swapRestoredInstance atomically replaces the live instance directory with
 // the prepared staging directory. On failure the previous directory is moved
 // back so the instance stays intact.
-func swapRestoredInstance(ctx context.Context, instance domain.Instance, staging string, dataRoot string) error {
+func swapRestoredInstance(ctx context.Context, instance instances.Instance, staging string, dataRoot string) error {
 	parent := filepath.Dir(instance.Directory)
 	previous := filepath.Join(parent, ".waxlight-restore-old-"+newID()[:12])
 	if err := os.Rename(instance.Directory, previous); err != nil {
@@ -618,7 +619,7 @@ func swapRestoredInstance(ctx context.Context, instance domain.Instance, staging
 }
 
 // finalizeRestore applies the post-swap hardening and completes the operation.
-func (s *Service) finalizeRestore(instance domain.Instance, operation operations.Operation, size int64) {
+func (s *Service) finalizeRestore(instance instances.Instance, operation operations.Operation, size int64) {
 	if s.clientSettings != nil {
 		if err := s.clientSettings.Clear(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
 			slog.Warn("could not clear authentication from the restored instance", "instance", instance.Name, "error", err)
@@ -845,7 +846,7 @@ func (s *Service) validateRestoredMods(staging string, restored []restoredSnapsh
 // restored from the snapshot. The restored files on disk are authoritative.
 func (s *Service) rebuildInstanceMods(
 	ctx context.Context,
-	instance domain.Instance,
+	instance instances.Instance,
 	staging string,
 	restored []restoredSnapshotMod,
 ) error {
@@ -946,7 +947,7 @@ func (s *Service) ensureInstanceNotRunning(instanceID string) error {
 	_, running := s.running[instanceID]
 	s.runningMu.Unlock()
 	if running {
-		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before modifying this instance")
+		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before modifying this instance")
 	}
 	return nil
 }
@@ -990,7 +991,7 @@ func (s *Service) ensureSnapshotSpace(required int64) error {
 
 // instanceGameVersionName resolves the display name of the game version an
 // instance runs, falling back to the version ID when it is no longer installed.
-func (s *Service) instanceGameVersionName(ctx context.Context, instance domain.Instance) string {
+func (s *Service) instanceGameVersionName(ctx context.Context, instance instances.Instance) string {
 	version, err := s.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
 		return instance.GameVersionID

@@ -2,21 +2,6 @@ package domain
 
 import "time"
 
-type Instance struct {
-	ID               string
-	Name             string
-	Description      string
-	GameVersionID    string
-	DefaultAccountID *string
-	Directory        string
-	CoverPath        *string
-	Status           string
-	LaunchArguments  []string
-	LastPlayedAt     *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-}
-
 // FavoriteServer is a locally saved server address. Credentials are never
 // stored here; Vintage Story owns its own authenticated connection flow.
 type FavoriteServer struct {
@@ -65,18 +50,4 @@ type DiscoveredMod struct {
 	Enabled    bool
 	SizeBytes  int64
 	ModifiedAt time.Time
-}
-
-type PlaySession struct {
-	ID          string
-	InstanceID  string
-	AccountID   *string
-	VersionID   string
-	ProcessID   *int
-	StartedAt   time.Time
-	EndedAt     *time.Time
-	DurationSec int64
-	ExitCode    *int
-	Crashed     bool
-	Recovered   bool
 }

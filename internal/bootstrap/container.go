@@ -21,6 +21,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
@@ -31,11 +32,13 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/waxlight/waxlight-launcher/internal/transport/wails"
@@ -105,7 +108,8 @@ func New() (*Container, error) {
 		slog.Warn("bootstrap: could not apply installer telemetry choice", "error", err)
 	}
 
-	if err := store.RecoverOpenSessions(context.Background(), time.Now().UTC()); err != nil {
+	sessionService := sessions.NewService(store, time.Now)
+	if err := sessionService.RecoverOpen(context.Background()); err != nil {
 		slog.Warn("bootstrap: could not recover interrupted game sessions", "error", err)
 	}
 	lifecycle := app.NewLifecycle()
@@ -137,12 +141,38 @@ func New() (*Container, error) {
 		versions.NewCatalogInstallService(store, versionQueries, downloadManager, gameversion.NewInstaller(), filesystem.DiskSpace{}, versionRuntime, eventPublisher, dataRoot),
 		versions.NewRemovalService(store, store, versionFilesystem, mutationGate, eventPublisher),
 	)
+	instanceQueries := instances.NewQueryService(store)
+	telemetryService := telemetry.NewService(
+		telemetry.NewClient(telemetry.ProductionEndpoint()),
+		settingsReader,
+		store,
+		store,
+	)
+	instanceCreator := instances.NewCreateService(
+		store,
+		versionService,
+		store,
+		func(ctx context.Context) (string, error) {
+			settings, err := settingsReader.Get(ctx)
+			return settings.Language, err
+		},
+		mutationGate,
+		instancedirectory.New(filesystem.ModFileManager{}),
+		eventPublisher,
+		telemetryService.Event,
+		dataRoot,
+		time.Now,
+		newVersionID,
+	)
 	service := application.NewService(
 		store,
 		filesystem.ModFileManager{},
 		processinfra.Launcher{},
 		dataRoot,
 		operationManager,
+		sessionService,
+		instanceQueries,
+		instanceCreator,
 		versionService,
 		downloadManager,
 		filesystem.DiskSpace{},
@@ -177,12 +207,6 @@ func New() (*Container, error) {
 		slog.Warn("bootstrap: credential store unavailable; legacy credential migration will retry later", "error", err)
 	}
 	slog.Info("bootstrap: credential recovery checks finished")
-	telemetryService := telemetry.NewService(
-		telemetry.NewClient(telemetry.ProductionEndpoint()),
-		settingsReader,
-		store,
-		store,
-	)
 	settingsService := settingscore.NewService(store, settingsReader, telemetryService, telemetryService, downloadManager)
 	dataRootService := settingscore.NewDataRootService(
 		dataRootManager,
@@ -238,13 +262,13 @@ func New() (*Container, error) {
 		presentation.NewAppController(),
 		presentation.NewAccountController(accountService, lifecycle),
 		presentation.NewGameVersionController(versionService, lifecycle),
-		presentation.NewInstanceController(service, lifecycle),
+		presentation.NewInstanceController(service, instanceCreator, instanceQueries, sessionService, lifecycle),
 		presentation.NewServerController(service, lifecycle),
 		presentation.NewModManagerController(service, lifecycle),
 		presentation.NewModCatalogController(service, lifecycle),
 		presentation.NewInstancePackageController(service, lifecycle),
 		presentation.NewLaunchController(service, lifecycle),
-		presentation.NewStatisticsController(service, lifecycle),
+		presentation.NewStatisticsController(sessionService, lifecycle),
 		presentation.NewOperationController(operationManager, lifecycle),
 		presentation.NewSnapshotController(service, lifecycle),
 		presentation.NewLastKnownGoodController(service, lifecycle),

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // TassFactions ships its modinfo.json with a UTF-8 byte order mark, which the
@@ -84,7 +84,7 @@ func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
 		"60":             library,
 		"playermodellib": library,
 	}}, modstorage.New(fixture.root))
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "I", GameVersionID: "1.20"})
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "I", GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func runModinfoDownloadTest(t *testing.T, name, version, modinfo string) {
 		}},
 	}
 	fixture.service.ConfigureMods(staticModCatalog{details: details}, modstorage.New(fixture.root))
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "I", GameVersionID: "1.20"})
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "I", GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}

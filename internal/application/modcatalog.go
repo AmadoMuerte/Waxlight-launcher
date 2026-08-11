@@ -20,6 +20,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"golang.org/x/mod/semver"
 )
@@ -254,7 +255,7 @@ func (s *Service) DownloadCatalogMod(
 	}
 	slog.Info("downloading catalog mod", "mod", details.Name, "version", selected.Version, "instances", len(request.InstanceIDs))
 
-	instances := make([]domain.Instance, 0, len(request.InstanceIDs))
+	targetInstances := make([]instances.Instance, 0, len(request.InstanceIDs))
 	gameVersions := make([]string, 0, len(request.InstanceIDs))
 	seenInstances := make(map[string]struct{}, len(request.InstanceIDs))
 	seenGameVersions := make(map[string]struct{}, len(request.InstanceIDs))
@@ -286,7 +287,7 @@ func (s *Service) DownloadCatalogMod(
 			seenGameVersions[gameVersion] = struct{}{}
 			gameVersions = append(gameVersions, gameVersion)
 		}
-		instances = append(instances, instance)
+		targetInstances = append(targetInstances, instance)
 	}
 
 	key := modDownloadKey(details.ID, selected.ID)
@@ -339,13 +340,13 @@ func (s *Service) DownloadCatalogMod(
 
 	result := domain.ModInstallResult{TaskID: taskID, Downloaded: downloaded}
 	defer s.emitModDownloadsChanged(taskID, details.ID, newlyDownloadedDependencies(plan))
-	if request.DownloadOnly || len(instances) == 0 {
+	if request.DownloadOnly || len(targetInstances) == 0 {
 		s.emitModProgress(taskID, details.ID, "complete", downloaded.FileSize, downloaded.FileSize, 1, "Download complete")
 		return result, nil
 	}
 
 	allInstalled := true
-	for _, instance := range instances {
+	for _, instance := range targetInstances {
 		installation := s.installModPlan(downloadCtx, plan, instance)
 		result.Installations = append(result.Installations, installation)
 		allInstalled = allInstalled && installation.Installed
@@ -725,7 +726,7 @@ func downloadHTTPStatus(err error) int {
 func (s *Service) installModPlan(
 	ctx context.Context,
 	plan []modInstallPlanItem,
-	instance domain.Instance,
+	instance instances.Instance,
 ) domain.ModInstallationResult {
 	result := domain.ModInstallationResult{
 		InstanceID:   instance.ID,
@@ -1737,7 +1738,7 @@ func (s *Service) CancelModTask(taskID string) error {
 func (s *Service) installDownloadedMod(
 	ctx context.Context,
 	downloaded domain.DownloadedMod,
-	instance domain.Instance,
+	instance instances.Instance,
 ) domain.ModInstallationResult {
 	result := domain.ModInstallationResult{InstanceID: instance.ID, InstanceName: instance.Name}
 	mods, err := s.store.ListMods(ctx, instance.ID)

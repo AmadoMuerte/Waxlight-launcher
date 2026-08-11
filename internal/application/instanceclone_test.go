@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
@@ -33,7 +33,7 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 	}
 	accountID := account.ID
 
-	source, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	source, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:             "Warm home",
 		Description:      "A cozy base",
 		GameVersionID:    "1.20",

@@ -21,10 +21,13 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/events"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
@@ -54,6 +57,9 @@ type Service struct {
 	mutationGate       *mutations.Gate
 	settings           *settingscore.Reader
 	operations         *operations.Manager
+	sessions           *sessions.Service
+	instanceQueries    *instances.QueryService
+	instanceCreator    *instances.CreateService
 	modTasksMu         sync.Mutex
 	modTaskCancels     map[string]context.CancelFunc
 	activeModDownloads map[string]string
@@ -82,6 +88,9 @@ func NewService(
 	launcher ProcessLauncher,
 	dataRoot string,
 	operationManager *operations.Manager,
+	sessionService *sessions.Service,
+	instanceQueries *instances.QueryService,
+	instanceCreator *instances.CreateService,
 	versionService VersionCapabilities,
 	downloader downloads.Downloader,
 	diskSpace DiskSpaceChecker,
@@ -95,6 +104,9 @@ func NewService(
 		dataRoot:           dataRoot,
 		snapshots:          snapshotstore.New(dataRoot),
 		operations:         operationManager,
+		sessions:           sessionService,
+		instanceQueries:    instanceQueries,
+		instanceCreator:    instanceCreator,
 		versions:           versionService,
 		downloader:         downloader,
 		diskSpace:          diskSpace,
@@ -154,7 +166,7 @@ func (s *Service) CheckDataRootRelocation(ctx context.Context) error {
 	gameRunning := len(s.running) > 0
 	s.runningMu.Unlock()
 	if gameRunning {
-		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before moving the data folder")
+		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before moving the data folder")
 	}
 	tracked, err := s.operations.ListLimit(ctx, 1000)
 	if err != nil {
@@ -276,147 +288,15 @@ func isAppErrorCode(err error, code string) bool {
 	return errors.As(err, &appError) && appError.Code == code
 }
 
-type CreateInstanceInput struct {
-	Name             string
-	Description      string
-	GameVersionID    string
-	Directory        string
-	DefaultAccountID *string
-	LaunchArguments  []string
+func (s *Service) CreateInstance(ctx context.Context, input instances.CreateInput) (instances.Instance, error) {
+	return s.instanceCreator.Create(ctx, input)
 }
 
-func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (domain.Instance, error) {
-	release, err := s.beginMutation()
-	if err != nil {
-		return domain.Instance{}, err
-	}
-	defer release()
-	var e error
-	name := strings.TrimSpace(in.Name)
-	if name == "" {
-		if name, e = s.defaultInstanceName(ctx); e != nil {
-			return domain.Instance{}, e
-		}
-	} else if name, e = cleanName(name); e != nil {
-		return domain.Instance{}, e
-	}
-	slog.Info("creating instance", "name", name, "version", in.GameVersionID)
-	if _, e = s.versions.Get(ctx, in.GameVersionID); e != nil {
-		return domain.Instance{}, e
-	}
-	if in.DefaultAccountID != nil {
-		if s.accounts == nil {
-			return domain.Instance{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
-		}
-		if _, e = s.accounts.GetAccount(ctx, *in.DefaultAccountID); e != nil {
-			return domain.Instance{}, e
-		}
-	}
-	now := time.Now().UTC()
-	id := newID()
-	dir := strings.TrimSpace(in.Directory)
-	if dir == "" {
-		dir = filepath.Join(s.dataRoot, "instances", id)
-	}
-	dir, e = filepath.Abs(dir)
-	if e != nil {
-		return domain.Instance{}, e
-	}
-	used, e := s.store.IsDirectoryUsed(ctx, dir, "")
-	if e != nil {
-		return domain.Instance{}, e
-	}
-	if used {
-		return domain.Instance{}, domain.NewError(domain.ErrDirectoryConflict, "The directory is already used by another instance")
-	}
-	if e = os.MkdirAll(dir, 0o755); e != nil {
-		return domain.Instance{}, &domain.AppError{Code: domain.ErrFilePermission, Message: "Failed to create the instance directory", Cause: e}
-	}
-	if e = s.modFiles.EnsureLayout(dir); e != nil {
-		return domain.Instance{}, e
-	}
-	if e = hardenLogs(filepath.Join(dir, "Logs")); e != nil {
-		return domain.Instance{}, e
-	}
-	if e = os.WriteFile(filepath.Join(dir, ".waxlight-instance"), []byte(id), 0o600); e != nil {
-		return domain.Instance{}, e
-	}
-	instance := domain.Instance{
-		ID:               id,
-		Name:             name,
-		Description:      strings.TrimSpace(in.Description),
-		GameVersionID:    in.GameVersionID,
-		DefaultAccountID: in.DefaultAccountID,
-		Directory:        dir,
-		Status:           "ready",
-		LaunchArguments:  in.LaunchArguments,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-	}
-	if e = s.store.SaveInstance(ctx, instance); e == nil {
-		s.emit("instance:created", instance)
-		s.reportEvent(ctx, telemetry.EventInstanceCreated)
-	}
-	return instance, e
+func (s *Service) ListInstances(ctx context.Context) ([]instances.Instance, error) {
+	return s.instanceQueries.List(ctx)
 }
-
-// defaultInstanceName produces a localized name for an unnamed instance and
-// appends an incrementing suffix until it collides with nothing.
-func (s *Service) defaultInstanceName(ctx context.Context) (string, error) {
-	settings, err := s.settings.Get(ctx)
-	if err != nil {
-		return "", err
-	}
-	base := localizedInstanceName(settings.Language)
-
-	instances, err := s.store.ListInstances(ctx)
-	if err != nil {
-		return "", err
-	}
-	taken := make(map[string]bool, len(instances))
-	for _, instance := range instances {
-		taken[strings.ToLower(strings.TrimSpace(instance.Name))] = true
-	}
-
-	candidate := base
-	for index := 2; ; index++ {
-		if !taken[strings.ToLower(candidate)] {
-			return candidate, nil
-		}
-		candidate = fmt.Sprintf("%s-%d", base, index)
-	}
-}
-
-func localizedInstanceName(language string) string {
-	switch strings.ToLower(strings.TrimSpace(language)) {
-	case "ru":
-		return "Сборка"
-	case "be":
-		return "Зборка"
-	case "de":
-		return "Instanz"
-	case "es":
-		return "Instancia"
-	case "fr":
-		return "Instance"
-	case "kk":
-		return "Жинақ"
-	case "pl":
-		return "Instancja"
-	case "pt":
-		return "Instância"
-	case "sv":
-		return "Instans"
-	default:
-		return "Instance"
-	}
-}
-
-func (s *Service) ListInstances(ctx context.Context) ([]domain.Instance, error) {
-	return s.store.ListInstances(ctx)
-}
-func (s *Service) GetInstance(ctx context.Context, id string) (domain.Instance, error) {
-	return s.store.GetInstance(ctx, id)
+func (s *Service) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
+	return s.instanceQueries.Get(ctx, id)
 }
 
 type SaveFavoriteServerInput struct {
@@ -482,7 +362,7 @@ func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
 	s.emit("favorite-server:removed", map[string]string{"id": id})
 	return nil
 }
-func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domain.Instance, error) {
+func (s *Service) UpdateInstance(ctx context.Context, in instances.Instance) (instances.Instance, error) {
 	mutationRelease, mutationErr := s.beginMutation()
 	if mutationErr != nil {
 		return in, mutationErr
@@ -542,7 +422,7 @@ func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles boo
 	_, running := s.running[id]
 	s.runningMu.Unlock()
 	if running {
-		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before deleting this instance")
+		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before deleting this instance")
 	}
 	if err := s.ensureNoSnapshotOperation(id); err != nil {
 		return err
@@ -756,7 +636,7 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	return s.installModFile(ctx, i, sourcePath, name, version)
 }
 
-func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourcePath, name, version string) (operations.Operation, error) {
+func (s *Service) installModFile(ctx context.Context, i instances.Instance, sourcePath, name, version string) (operations.Operation, error) {
 	slog.Info("installing mod file", "instance", i.Name, "mod", name)
 	if sourcePath == "" {
 		return operations.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
@@ -1191,7 +1071,7 @@ func (s *Service) Launch(
 	ctx context.Context,
 	instanceID string,
 	accountID *string,
-) (domain.PlaySession, error) {
+) (sessions.PlaySession, error) {
 	return s.launch(ctx, instanceID, accountID, "")
 }
 
@@ -1201,10 +1081,10 @@ func (s *Service) LaunchServer(
 	instanceID string,
 	accountID *string,
 	address string,
-) (domain.PlaySession, error) {
+) (sessions.PlaySession, error) {
 	address = strings.TrimSpace(address)
 	if address == "" || len(address) > 255 || strings.ContainsAny(address, " \t\r\n/?#") {
-		return domain.PlaySession{}, domain.NewError(domain.ErrValidation, "Enter a valid server address")
+		return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Enter a valid server address")
 	}
 	return s.launch(ctx, instanceID, accountID, address)
 }
@@ -1214,10 +1094,10 @@ func (s *Service) launch(
 	instanceID string,
 	accountID *string,
 	serverAddress string,
-) (domain.PlaySession, error) {
+) (sessions.PlaySession, error) {
 	release, err := s.beginMutation()
 	if err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	releaseOnReturn := true
 	defer func() {
@@ -1228,14 +1108,14 @@ func (s *Service) launch(
 	s.launchMu.Lock()
 	defer s.launchMu.Unlock()
 	if err := s.ensureNoSnapshotOperation(instanceID); err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	validation, err := s.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	if !validation.Valid {
-		return domain.PlaySession{}, domain.NewError(
+		return sessions.PlaySession{}, domain.NewError(
 			domain.ErrValidation,
 			strings.Join(validation.Issues, "; "),
 		)
@@ -1243,31 +1123,31 @@ func (s *Service) launch(
 
 	instance, err := s.store.GetInstance(ctx, instanceID)
 	if err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	version, err := s.versions.ResolveExecutable(ctx, instance.GameVersionID)
 	if err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	slog.Info("launching instance", "instance", instance.Name, "version", version.Name)
 	accountID, err = s.resolveAccountID(ctx, instance, accountID)
 	if err != nil {
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 
 	clientSettingsPath := filepath.Join(instance.Directory, "clientsettings.json")
 	cleanupCredentials := func() error { return nil }
 	if accountID != nil {
 		if s.accounts == nil || s.clientSettings == nil {
-			return domain.PlaySession{}, domain.NewError(domain.ErrValidation, "Account authentication is unavailable")
+			return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Account authentication is unavailable")
 		}
 		account, validateErr := s.accounts.ValidateAuthorizedAccount(ctx, *accountID)
 		if validateErr != nil {
-			return domain.PlaySession{}, validateErr
+			return sessions.PlaySession{}, validateErr
 		}
 		cleanup, patchErr := s.clientSettings.Inject(clientSettingsPath, account)
 		if patchErr != nil {
-			return domain.PlaySession{}, &domain.AppError{
+			return sessions.PlaySession{}, &domain.AppError{
 				Code:    domain.ErrClientSettings,
 				Message: "Could not write authentication to the instance settings",
 				Cause:   patchErr,
@@ -1276,7 +1156,7 @@ func (s *Service) launch(
 		cleanupCredentials = cleanup
 	} else if s.clientSettings != nil {
 		if clearErr := s.clientSettings.Clear(clientSettingsPath); clearErr != nil {
-			return domain.PlaySession{}, &domain.AppError{
+			return sessions.PlaySession{}, &domain.AppError{
 				Code:    domain.ErrClientSettings,
 				Message: "Could not clear authentication from the instance settings",
 				Cause:   clearErr,
@@ -1286,18 +1166,18 @@ func (s *Service) launch(
 
 	if err := s.modFiles.EnsureLayout(instance.Directory); err != nil {
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	logsDirectory := filepath.Join(instance.Directory, "Logs")
 	if err := hardenLogs(logsDirectory); err != nil {
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 
 	settings, err := s.settings.Get(ctx)
 	if err != nil {
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	arguments := append([]string{}, settings.GlobalLaunchArguments...)
 	arguments = append(arguments, instance.LaunchArguments...)
@@ -1317,12 +1197,12 @@ func (s *Service) launch(
 	)
 	if err != nil {
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 	if err := securefs.Apply(logPath, 0o600, false); err != nil {
 		closeLaunchLog(logFile, instance.Name)
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, err
+		return sessions.PlaySession{}, err
 	}
 
 	// Record the exact launch command so issues like a wrong data path can be
@@ -1335,7 +1215,7 @@ func (s *Service) launch(
 	); writeErr != nil {
 		closeLaunchLog(logFile, instance.Name)
 		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return domain.PlaySession{}, &domain.AppError{
+		return sessions.PlaySession{}, &domain.AppError{
 			Code:    domain.ErrFilePermission,
 			Message: "Could not write the launch command to the instance log",
 			Cause:   writeErr,
@@ -1356,7 +1236,7 @@ func (s *Service) launch(
 		s.clearInjectedCredentials(cleanupCredentials, instance)
 		s.reportEvent(ctx, telemetry.EventGameLaunchFailed)
 		s.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
-		return domain.PlaySession{}, &domain.AppError{
+		return sessions.PlaySession{}, &domain.AppError{
 			Code:    domain.ErrProcessStart,
 			Message: "Failed to start Vintage Story",
 			Cause:   err,
@@ -1365,7 +1245,7 @@ func (s *Service) launch(
 
 	now := time.Now().UTC()
 	processID := process.PID()
-	session := domain.PlaySession{
+	session := sessions.PlaySession{
 		ID:         newID(),
 		InstanceID: instance.ID,
 		AccountID:  accountID,
@@ -1373,7 +1253,7 @@ func (s *Service) launch(
 		ProcessID:  &processID,
 		StartedAt:  now,
 	}
-	if err := s.store.SaveSession(ctx, session); err != nil {
+	if err := s.sessions.Create(ctx, session); err != nil {
 		if killErr := process.Kill(); killErr != nil {
 			slog.Debug("could not kill the game process after a failed session save", "error", killErr)
 		}
@@ -1382,7 +1262,7 @@ func (s *Service) launch(
 		return session, err
 	}
 
-	instance.Status = "running"
+	instance.Status = instances.StatusRunning
 	instance.LastPlayedAt = &now
 	instance.UpdatedAt = now
 	if err := s.store.SaveInstance(ctx, instance); err != nil {
@@ -1427,29 +1307,12 @@ func quoteLaunchArguments(arguments []string) []string {
 }
 
 func hardenLogs(logsDirectory string) error {
-	if err := os.MkdirAll(logsDirectory, 0o700); err != nil {
-		return err
-	}
-	return filepath.Walk(logsDirectory, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("log path contains a symlink")
-		}
-		if info.IsDir() {
-			return securefs.Apply(path, 0o700, true)
-		}
-		if !info.Mode().IsRegular() {
-			return errors.New("log path contains a non-regular file")
-		}
-		return securefs.Apply(path, 0o600, false)
-	})
+	return instancedirectory.HardenLogs(logsDirectory)
 }
 
 func (s *Service) resolveAccountID(
 	ctx context.Context,
-	instance domain.Instance,
+	instance instances.Instance,
 	requested *string,
 ) (*string, error) {
 	if requested != nil && strings.TrimSpace(*requested) != "" {
@@ -1499,14 +1362,14 @@ func closeLaunchLog(logFile io.Closer, instanceName string) {
 // clearInjectedCredentials removes the session credentials injected into the
 // instance client settings. A failure leaves credentials on disk, so it is
 // logged as an error.
-func (s *Service) clearInjectedCredentials(cleanup func() error, instance domain.Instance) {
+func (s *Service) clearInjectedCredentials(cleanup func() error, instance instances.Instance) {
 	if err := cleanup(); err != nil {
 		slog.Error("could not remove injected credentials", "instance", instance.Name, "error", err)
 	}
 }
 
 func (s *Service) waitForGame(
-	instance domain.Instance,
+	instance instances.Instance,
 	process RunningProcess,
 	sessionID string,
 	startedAt time.Time,
@@ -1540,7 +1403,7 @@ func (s *Service) waitForGame(
 	if crashed && time.Since(startedAt) < startupWindow {
 		s.handleFailedLaunch(instance)
 	}
-	if err := s.store.FinishSession(
+	if err := s.sessions.Finish(
 		context.Background(),
 		sessionID,
 		exitCode,
@@ -1550,7 +1413,7 @@ func (s *Service) waitForGame(
 		slog.Warn("could not persist the finished session", "instance", instance.Name, "sessionId", sessionID, "error", err)
 	}
 
-	instance.Status = "ready"
+	instance.Status = instances.StatusReady
 	instance.UpdatedAt = time.Now().UTC()
 	if err := s.store.SaveInstance(context.Background(), instance); err != nil {
 		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
@@ -1596,55 +1459,4 @@ func (s *Service) RunningInstanceIDs() []string {
 	}
 	sort.Strings(ids)
 	return ids
-}
-
-type Statistics struct {
-	TotalPlaytimeSeconds  int64
-	LaunchCount           int
-	AverageSessionSeconds int64
-	MostPlayedInstanceID  *string
-	RecentSessions        []domain.PlaySession
-}
-
-func (s *Service) GetStatistics(ctx context.Context) (Statistics, error) {
-	sessions, e := s.store.ListSessions(ctx, "", 5000)
-	if e != nil {
-		return Statistics{}, e
-	}
-	st := Statistics{LaunchCount: len(sessions)}
-	byInstance := map[string]int64{}
-	for _, p := range sessions {
-		st.TotalPlaytimeSeconds += p.DurationSec
-		byInstance[p.InstanceID] += p.DurationSec
-	}
-	if len(sessions) > 0 {
-		st.AverageSessionSeconds = st.TotalPlaytimeSeconds / int64(len(sessions))
-	}
-	var best string
-	var bestValue int64
-	for id, value := range byInstance {
-		if value > bestValue {
-			best = id
-			bestValue = value
-		}
-	}
-	if best != "" {
-		st.MostPlayedInstanceID = &best
-	}
-	if len(sessions) > 10 {
-		sessions = sessions[:10]
-	}
-	st.RecentSessions = sessions
-	return st, nil
-}
-func (s *Service) GetInstancePlaytime(ctx context.Context, instanceID string) (int64, error) {
-	sessions, err := s.store.ListSessions(ctx, instanceID, 5000)
-	if err != nil {
-		return 0, err
-	}
-	var total int64
-	for _, session := range sessions {
-		total += session.DurationSec
-	}
-	return total, nil
 }

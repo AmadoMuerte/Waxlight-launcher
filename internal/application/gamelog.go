@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // Game errors captured from a running game are forwarded through the regular
@@ -58,7 +58,7 @@ func isGameErrorLine(line string) bool {
 // forwards error lines through the launcher log pipeline while the game runs.
 // It returns a stop function that blocks until the tailer has drained the
 // remaining output; call it once the game exits.
-func (s *Service) watchGameLog(instance domain.Instance, logPath string) func() {
+func (s *Service) watchGameLog(instance instances.Instance, logPath string) func() {
 	tailer := newGameLogTailer(instance, logPath)
 	stop := make(chan struct{})
 	var once sync.Once
@@ -78,7 +78,7 @@ func (s *Service) watchGameLog(instance domain.Instance, logPath string) func() 
 // gameLogTailer keeps the incremental read state of every followed game output
 // file inside one instance Logs directory.
 type gameLogTailer struct {
-	instance domain.Instance
+	instance instances.Instance
 	logPath  string
 	dir      string
 	files    map[string]*gameLogFile
@@ -96,7 +96,7 @@ type gameLogFile struct {
 	raw     bool
 }
 
-func newGameLogTailer(instance domain.Instance, logPath string) *gameLogTailer {
+func newGameLogTailer(instance instances.Instance, logPath string) *gameLogTailer {
 	tailer := &gameLogTailer{
 		instance: instance,
 		logPath:  logPath,
