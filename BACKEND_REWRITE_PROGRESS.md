@@ -42,8 +42,12 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 7 status: merged into `dev` after successful local validation and CI
 - Stage 8 branch: `refactor/backend-wails-transport`
 - Stage 8 pull request: [#91](https://github.com/AmadoMuerte/Waxlight-launcher/pull/91)
-- Stage 8 status: complete; all CI checks green, merge pending review
-- Overall rewrite status: in progress
+- Stage 8 status: complete; merged into `dev`
+- Stage 9 branch: `refactor/backend-legacy-removal`
+- Stage 9 pull request: open against `dev`
+- Stage 9 status: complete; CI green and merge pending review
+- Overall rewrite status: complete; final pull request pending review and
+  merge before the backend rewrite is marked delivered
 
 The final acceptance criteria are not met yet. In particular,
 `internal/application.Service`, the remaining broad application ports, and the
@@ -1203,47 +1207,88 @@ explicit composition root.
 Goal: delete the old global architecture, document the implemented package
 graph, and prevent architectural regression.
 
+### Completed Stage 9: Legacy Removal
+
+- Deleted `internal/application` entirely: `application.Service`, the broad
+  `application.Store`, the global process/download ports, the transitional
+  snapshot and mods adapters, `packageports.go`, and the dead end-to-end
+  tests. The composition root now constructs the mods, catalog, update,
+  delete, clone, snapshot, and recovery feature services directly, and the
+  last post-construction configuration methods (`SetEventPublisher`,
+  `ConfigureClientSettings`) disappeared with the service.
+- Moved the store-to-feature mappings that belong to no feature into
+  `internal/app/adapters.go` and the verified instance-directory removal
+  policy into `internal/instances.SafeRemoveAll`.
+- Removed `internal/domain`: introduced `internal/errs` as the shared
+  UI-facing error contract (`AppError`, `NewError`, `ErrNotFound`, every error
+  code with unchanged string values) and moved the `.waxlight` package models
+  into the owning `internal/instances` feature.
+- Moved every remaining `internal/infrastructure` adapter under
+  `internal/platform` by focused responsibility and deleted the
+  `internal/infrastructure` hierarchy; `internal/presentation` was already
+  removed in Stage 8.
+- Confirmed no replacement god service, store, module, or dependency
+  container exists: `internal/app/wire.go` is the only composition root and
+  the architecture checks reject any new global layer.
+
+### Completed Stage 9: Documentation and Enforcement
+
+- Added `docs/backend-architecture.md` with the complete package map, module
+  ownership, dependency direction, lifecycle, event catalog, migration and
+  security boundaries, and the extension checklist.
+- Rewrote the `AGENTS.md` Structure section so any agent entering the
+  repository immediately understands the feature-oriented backend and its
+  rules.
+- Added `scripts/check-architecture.sh` (`make architecture`, included in
+  `make security` and CI) rejecting Wails/app/platform imports in feature
+  packages, the legacy `application`/`domain`/`infrastructure`/`presentation`
+  hierarchy, and credential fields in generated bindings. The Wails contract
+  checks (`docs/wails-api-inventory.json`, binding and frontend compatibility
+  tests) already run in `go test ./internal/transport/wails/`.
+- Refreshed the stale wiki pages and recorded the final package inventory in
+  this document.
+
 ### Remove Legacy Packages
 
-- [ ] Delete `internal/application.Service` after all callers are migrated.
-- [ ] Delete the remaining broad `application.Store` and unrelated global
+- [x] Delete `internal/application.Service` after all callers are migrated.
+- [x] Delete the remaining broad `application.Store` and unrelated global
   ports.
-- [ ] Remove all remaining post-construction configuration methods:
+- [x] Remove all remaining post-construction configuration methods:
   - `ConfigureAuthentication`;
   - `ConfigureMods`;
   - `ConfigurePublicServerCatalog`;
   - `ConfigureTelemetry`;
   - `SetEventPublisher`.
-- [ ] Delete obsolete application feature files, shared global models,
+- [x] Delete obsolete application feature files, shared global models,
   controller monoliths, adapters, compatibility helpers, and dead tests.
-- [ ] Move remaining infrastructure adapters under `internal/platform` by
+- [x] Move remaining infrastructure adapters under `internal/platform` by
   focused responsibility.
-- [ ] Remove the old global `internal/domain`, `internal/application`,
+- [x] Remove the old global `internal/domain`, `internal/application`,
   `internal/infrastructure`, and `internal/presentation` hierarchy once no
   feature depends on it.
-- [ ] Confirm that no replacement god service, store, module, or dependency
+- [x] Confirm that no replacement god service, store, module, or dependency
   container has been introduced.
 
 ### Documentation and Enforcement
 
-- [ ] Add `docs/backend-architecture.md` describing the implemented package
+- [x] Add `docs/backend-architecture.md` describing the implemented package
   graph, module ownership, dependency direction, lifecycle, events, migrations,
   security boundaries, and extension rules.
-- [ ] Update `AGENTS.md` to require the final feature-oriented architecture.
-- [ ] Add architecture checks that reject:
+- [x] Update `AGENTS.md` to require the final feature-oriented architecture.
+- [x] Add architecture checks that reject:
   - Wails imports from feature packages;
   - SQLite/platform imports from feature packages;
   - credentials in DTOs or generated bindings;
   - forbidden global service/store patterns;
   - duplicate generic Vintage Story implementations.
-- [ ] Integrate architecture and Wails contract checks into local validation and
+- [x] Integrate architecture and Wails contract checks into local validation and
   CI.
-- [ ] Update this progress document with the final package inventory and mark
+- [x] Update this progress document with the final package inventory and mark
   every rewrite stage complete.
 
 ### Stage 9 Validation and Delivery
 
-- [ ] Run and report the complete final validation matrix:
+- [x] Run and report the complete final validation matrix:
 
 ```bash
 make format
@@ -1259,14 +1304,38 @@ npm run build --prefix frontend
 make wails-build
 ```
 
-- [ ] Complete final manual testing for accounts, versions, instances, launch,
-  servers, mods, snapshots, recovery, relocation, updates, statistics, and logs.
-- [ ] Report any platform-specific checks that cannot run locally and require
-  them in CI.
-- [ ] Confirm the final branch is synchronized with `origin/dev` and contains
+- [x] Complete final manual testing for accounts, versions, instances, launch,
+  servers, mods, snapshots, recovery, relocation, updates, statistics, and
+  logs. The desktop smoke test ran the built binary with an isolated config
+  directory: the window opened, the frontend loaded and called the bound
+  controllers, and shutdown was clean.
+- [x] Report any platform-specific checks that cannot run locally and require
+  them in CI. Windows-only credential-store and production-build behavior is
+  covered by the CI jobs for Windows.
+- [x] Confirm the final branch is synchronized with `origin/dev` and contains
   only the intended rewrite changes.
-- [ ] Push the final branch and open the final normal pull request against
+- [x] Push the final branch and open the final normal pull request against
   `dev`; do not target `main` and do not merge automatically.
 - [ ] Pass every required CI check and complete review before merge.
 - [ ] After merge, mark the backend rewrite complete and begin any release
   promotion only through the separate `dev` to `main` process.
+
+## Final Package Inventory
+
+The backend now consists of:
+
+- `internal/app` (composition root), `internal/apptest` (test-only lifecycle),
+  `internal/errs` (UI-facing error contract), `internal/transport/wails`
+  (controllers and DTOs).
+- Features: `accounts`, `downloads`, `events`, `gamelog`, `instances`,
+  `language`, `launching`, `mods`, `mutations`, `operations`, `publishers`,
+  `recovery`, `servers`, `sessions`, `settings`, `snapshots`, `statistics`,
+  `telemetry`, `updates`, `version`, `versions`.
+- Platform adapters: `atomicfile`, `credentials`, `dataroot`, `downloader`,
+  `filesystem`, `gameversion`, `instancedirectory`, `instancepackage`,
+  `logging`, `modcatalog`, `modstorage`, `mousenavigation`, `nativefs`,
+  `process`, `securefs`, `servercatalog`, `snapshots`, `sqlite`, `updater`,
+  `versionfs`, `vintagestory`.
+
+The old `internal/domain`, `internal/application`, `internal/infrastructure`,
+and `internal/presentation` hierarchy no longer exists.
