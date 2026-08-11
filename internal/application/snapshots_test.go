@@ -13,6 +13,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
@@ -387,7 +388,7 @@ func TestCreateInstanceSnapshotRejectsInsufficientSpace(t *testing.T) {
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Full disk")
 	writeTestInstanceFiles(t, instance)
-	fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(0))
+	fixture.setDiskSpace(fixedDiskSpace(0))
 
 	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
 	if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
@@ -566,9 +567,9 @@ func TestRestoreInstanceSnapshotReproducesExactState(t *testing.T) {
 func configureRestoreTestInfrastructure(
 	fixture *testFixture,
 	catalog domain.ModDetails,
-	downloader application.Downloader,
+	downloader downloads.Downloader,
 ) {
-	fixture.service.ConfigureVersionDownloads(nil, downloader, nil)
+	fixture.setDownloader(downloader)
 	fixture.service.ConfigureMods(staticModCatalog{details: catalog}, modstorage.New(fixture.root))
 }
 
@@ -610,7 +611,7 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 			},
 		},
 	}}
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
 
 	installManagedMod(t, fixture, instance, "Mod C", "mod-c.zip", "300", "3000", "5.1.0", true)
@@ -733,7 +734,7 @@ func TestRestoreInstanceSnapshotFailsWhenReleaseUnavailable(t *testing.T) {
 			{ID: "1100", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_2.0.0.zip", DownloadURL: "https://mods.example/mod-a_2.0.0.zip"},
 		},
 	}}
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
 
 	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
@@ -1056,8 +1057,8 @@ type failingDownloader struct{}
 
 func (failingDownloader) Download(
 	context.Context,
-	application.DownloadRequest,
-	chan<- application.DownloadProgress,
+	downloads.Request,
+	chan<- downloads.Progress,
 ) error {
 	return errors.New("network unavailable")
 }
@@ -1072,8 +1073,8 @@ type refusingDownloader struct{}
 
 func (refusingDownloader) Download(
 	context.Context,
-	application.DownloadRequest,
-	chan<- application.DownloadProgress,
+	downloads.Request,
+	chan<- downloads.Progress,
 ) error {
 	return errors.New("the downloader must not be used")
 }

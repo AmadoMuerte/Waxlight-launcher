@@ -247,7 +247,7 @@ func TestLinkLocalModsBindsModAlreadyInLibrary(t *testing.T) {
 func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
 	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
@@ -299,7 +299,7 @@ func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 func TestInstallModFileBindsToExistingLibraryMod(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
 	// The mod is already in the library.

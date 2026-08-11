@@ -6,22 +6,22 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
 type fakeTelemetryConsentStore struct {
 	persisted string
-	settings  domain.Settings
+	settings  settingscore.Settings
 	saved     bool
 }
 
 func (f *fakeTelemetryConsentStore) GetSettingValue(context.Context, string) (string, error) {
 	return f.persisted, nil
 }
-func (f *fakeTelemetryConsentStore) GetSettings(context.Context) (domain.Settings, error) {
+func (f *fakeTelemetryConsentStore) GetSettings(context.Context) (settingscore.Settings, error) {
 	return f.settings, nil
 }
-func (f *fakeTelemetryConsentStore) SaveSettings(_ context.Context, settings domain.Settings) error {
+func (f *fakeTelemetryConsentStore) SaveSettings(_ context.Context, settings settingscore.Settings) error {
 	f.settings = settings
 	f.saved = true
 	return nil
@@ -39,7 +39,7 @@ func writeTelemetryMarker(t *testing.T, home, value string) string {
 func TestInstallerTelemetryOptInEnablesTelemetryForFreshSettings(t *testing.T) {
 	home := t.TempDir()
 	marker := writeTelemetryMarker(t, home, "1")
-	store := &fakeTelemetryConsentStore{settings: domain.Settings{TelemetryEnabled: false}}
+	store := &fakeTelemetryConsentStore{settings: settingscore.Settings{TelemetryEnabled: false}}
 	if err := applyInstallerTelemetryConsent(context.Background(), store, home); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestInstallerTelemetryOptInEnablesTelemetryForFreshSettings(t *testing.T) {
 func TestInstallerTelemetryOptInDoesNotOverrideExistingSettings(t *testing.T) {
 	home := t.TempDir()
 	marker := writeTelemetryMarker(t, home, "1")
-	store := &fakeTelemetryConsentStore{persisted: `{"telemetryEnabled":false}`, settings: domain.Settings{TelemetryEnabled: false}}
+	store := &fakeTelemetryConsentStore{persisted: `{"telemetryEnabled":false}`, settings: settingscore.Settings{TelemetryEnabled: false}}
 	if err := applyInstallerTelemetryConsent(context.Background(), store, home); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestInstallerTelemetryOptInDoesNotOverrideExistingSettings(t *testing.T) {
 func TestInstallerTelemetryChoiceFailsClosed(t *testing.T) {
 	home := t.TempDir()
 	writeTelemetryMarker(t, home, "unexpected")
-	store := &fakeTelemetryConsentStore{settings: domain.Settings{TelemetryEnabled: false}}
+	store := &fakeTelemetryConsentStore{settings: settingscore.Settings{TelemetryEnabled: false}}
 	if err := applyInstallerTelemetryConsent(context.Background(), store, home); err != nil {
 		t.Fatal(err)
 	}

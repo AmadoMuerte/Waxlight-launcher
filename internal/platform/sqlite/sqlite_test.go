@@ -12,7 +12,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
@@ -138,7 +140,7 @@ func TestOperationTitleLocalizationSurvivesPersistence(t *testing.T) {
 	defer store.Close()
 
 	now := time.Now().UTC()
-	operation := domain.Operation{
+	operation := operations.Operation{
 		ID:          "snapshot-1",
 		Type:        "snapshot_create",
 		Title:       "Creating snapshot",
@@ -181,13 +183,13 @@ func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
 	defer store.Close()
 
 	now := time.Now().UTC()
-	operations := []domain.Operation{
+	tracked := []operations.Operation{
 		{ID: "running", Type: "download", Title: "Running", Status: "running", CreatedAt: now},
 		{ID: "completed", Type: "download", Title: "Completed", Status: "completed", CreatedAt: now},
 		{ID: "failed", Type: "download", Title: "Failed", Status: "failed", CreatedAt: now},
 		{ID: "cancelled", Type: "download", Title: "Cancelled", Status: "cancelled", CreatedAt: now},
 	}
-	for _, operation := range operations {
+	for _, operation := range tracked {
 		if err := store.SaveOperation(context.Background(), operation); err != nil {
 			t.Fatal(err)
 		}
@@ -216,6 +218,68 @@ func TestFinishedOperationsCanBeDeletedWithoutTouchingActiveOnes(t *testing.T) {
 	}
 }
 
+type operationOwner struct{}
+
+func (operationOwner) Go(func(context.Context)) bool { return false }
+
+func TestInterruptedOperationsReconcileAcrossRestartAndRemainManageable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "operations-restart.db")
+	store, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := time.Now().UTC().Add(-time.Minute)
+	for _, operation := range []operations.Operation{
+		{ID: "queued", Type: "download", Title: "Queued", Status: operations.StatusQueued, CreatedAt: created},
+		{ID: "running", Type: "install", Title: "Running", Status: operations.StatusRunning, CreatedAt: created},
+		{ID: "complete", Type: "install", Title: "Complete", Status: operations.StatusCompleted, CreatedAt: created},
+	} {
+		if err := store.SaveOperation(context.Background(), operation); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err = sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := operations.NewManager(store, operationOwner{}, nil)
+	finished := time.Now().UTC().Round(0)
+	count, err := manager.ReconcileInterrupted(context.Background(), finished)
+	if err != nil || count != 2 {
+		t.Fatalf("reconciled (%d, %v), want (2, nil)", count, err)
+	}
+	listed, err := manager.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, operation := range listed {
+		if operation.ID == "complete" {
+			continue
+		}
+		if operation.Status != operations.StatusFailed || operation.FinishedAt == nil || !operation.FinishedAt.Equal(finished) {
+			t.Fatalf("interrupted operation not terminal: %+v", operation)
+		}
+		if operation.ErrorCode == nil || *operation.ErrorCode != domain.ErrOperationInterrupted || operation.ErrorMessage == nil || *operation.ErrorMessage == "" {
+			t.Fatalf("interrupted operation lacks user-facing error: %+v", operation)
+		}
+	}
+	if err := manager.Delete(context.Background(), "queued"); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := manager.Clear(context.Background())
+	if err != nil || removed != 2 {
+		t.Fatalf("clear removed (%d, %v), want (2, nil)", removed, err)
+	}
+	remaining, err := manager.List(context.Background())
+	if err != nil || len(remaining) != 0 {
+		t.Fatalf("operations remained after reconciliation cleanup: %+v, %v", remaining, err)
+	}
+}
+
 func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 	store, err := sqlite.Open(filepath.Join(t.TempDir(), "waxlight.db"))
 	if err != nil {
@@ -228,7 +292,7 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
 
 	now := time.Now().UTC()
-	if err := store.SaveVersion(ctx, domain.GameVersion{
+	if err := store.SaveVersion(ctx, versions.GameVersion{
 		ID:              "v1",
 		Name:            "Test",
 		Platform:        "linux",
@@ -299,7 +363,7 @@ func TestRelocatePathsIsIdempotent(t *testing.T) {
 	oldRoot := filepath.Join(string(filepath.Separator), "old", "waxlight")
 	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
 	now := time.Now().UTC()
-	if err := store.SaveVersion(ctx, domain.GameVersion{
+	if err := store.SaveVersion(ctx, versions.GameVersion{
 		ID:              "v1",
 		Name:            "Test",
 		Platform:        "linux",

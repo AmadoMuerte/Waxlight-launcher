@@ -12,14 +12,22 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 type recordingLauncher struct {
@@ -64,34 +72,70 @@ type controllableProcess struct {
 }
 
 type staticVersionCatalog struct {
-	versions []domain.AvailableGameVersion
+	versions []versions.AvailableGameVersion
 }
 
 func (catalog staticVersionCatalog) List(
 	_ context.Context,
-) ([]domain.AvailableGameVersion, error) {
-	return append([]domain.AvailableGameVersion(nil), catalog.versions...), nil
+) ([]versions.AvailableGameVersion, error) {
+	return append([]versions.AvailableGameVersion(nil), catalog.versions...), nil
 }
 
 type recordingDownloader struct {
 	waitForCancellation bool
+	cleanupFailure      bool
+}
+
+type switchingDownloader struct {
+	mu      sync.RWMutex
+	current downloads.Downloader
+}
+
+func (downloader *switchingDownloader) Set(current downloads.Downloader) {
+	downloader.mu.Lock()
+	downloader.current = current
+	downloader.mu.Unlock()
+}
+
+func (downloader *switchingDownloader) Download(ctx context.Context, request downloads.Request, progress chan<- downloads.Progress) error {
+	downloader.mu.RLock()
+	current := downloader.current
+	downloader.mu.RUnlock()
+	return current.Download(ctx, request, progress)
+}
+
+func (downloader *switchingDownloader) ContentLength(ctx context.Context, url string) (int64, error) {
+	downloader.mu.RLock()
+	current := downloader.current
+	downloader.mu.RUnlock()
+	return current.ContentLength(ctx, url)
 }
 
 func (downloader recordingDownloader) Download(
 	ctx context.Context,
-	request application.DownloadRequest,
-	progress chan<- application.DownloadProgress,
+	request downloads.Request,
+	progress chan<- downloads.Progress,
 ) error {
 	if downloader.waitForCancellation {
 		if err := os.MkdirAll(filepath.Dir(request.DestinationPath), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(
-			request.DestinationPath+".partial",
-			[]byte("unfinished package"),
-			0o644,
-		); err != nil {
-			return err
+		if downloader.cleanupFailure {
+			partial := request.DestinationPath + ".partial"
+			if err := os.Mkdir(partial, 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(partial, "busy"), []byte("busy"), 0o644); err != nil {
+				return err
+			}
+		} else {
+			if err := os.WriteFile(
+				request.DestinationPath+".partial",
+				[]byte("unfinished package"),
+				0o644,
+			); err != nil {
+				return err
+			}
 		}
 		<-ctx.Done()
 		return ctx.Err()
@@ -102,7 +146,7 @@ func (downloader recordingDownloader) Download(
 	if err := os.WriteFile(request.DestinationPath, []byte("package"), 0o644); err != nil {
 		return err
 	}
-	progress <- application.DownloadProgress{
+	progress <- downloads.Progress{
 		DownloadedBytes: 7,
 		TotalBytes:      7,
 		BytesPerSecond:  7,
@@ -120,6 +164,24 @@ type fixedDiskSpace int64
 
 func (space fixedDiskSpace) Available(string) (int64, error) {
 	return int64(space), nil
+}
+
+type switchingDiskSpace struct {
+	mu      sync.RWMutex
+	current application.DiskSpaceChecker
+}
+
+func (space *switchingDiskSpace) Set(current application.DiskSpaceChecker) {
+	space.mu.Lock()
+	space.current = current
+	space.mu.Unlock()
+}
+
+func (space *switchingDiskSpace) Available(path string) (int64, error) {
+	space.mu.RLock()
+	current := space.current
+	space.mu.RUnlock()
+	return current.Available(path)
 }
 
 func (fakeGamePackageInstaller) Install(
@@ -172,9 +234,26 @@ type testFixture struct {
 	root       string
 	executable string
 	launcher   *recordingLauncher
+	lifecycle  *app.Lifecycle
+	operations *operations.Manager
+	versions   *versions.Capabilities
+	downloader *switchingDownloader
+	diskSpace  *switchingDiskSpace
+	settings   *settingscore.Reader
+	updates    *settingscore.Service
+	gate       *mutations.Gate
 }
 
 func newTestFixture(t *testing.T) testFixture {
+	return newTestFixtureWithVersionDependencies(t, nil, recordingDownloader{}, fakeGamePackageInstaller{})
+}
+
+func newTestFixtureWithVersionDependencies(
+	t *testing.T,
+	catalog versions.Catalog,
+	downloader downloads.Downloader,
+	packageInstaller versions.PackageInstaller,
+) testFixture {
 	t.Helper()
 
 	root := t.TempDir()
@@ -184,14 +263,38 @@ func newTestFixture(t *testing.T) testFixture {
 	}
 
 	launcher := &recordingLauncher{}
+	lifecycle := app.NewLifecycle()
+	lifecycle.Startup(context.Background())
+	operationManager := operations.NewManager(store, lifecycle, nil)
+	gate := &mutations.Gate{}
+	downloadSwitch := &switchingDownloader{current: downloader}
+	diskSpace := &switchingDiskSpace{current: fixedDiskSpace(1 << 62)}
+	settingsReader := settingscore.NewReader(store)
+	settingsService := settingscore.NewService(store, settingsReader, nil, nil, nil)
+	versionFilesystem := versionfs.New(root)
+	archiveInstaller := filesystem.ArchiveInstaller{}
+	versionRuntime := versions.NewInstallRuntime(versionFilesystem, gate, operationManager, time.Now, func() string { return fmt.Sprintf("version-%d", time.Now().UnixNano()) })
+	versionQueries := versions.NewQueryService(store, catalog, archiveInstaller, versionFilesystem, time.Now)
+	versionService := versions.NewCapabilities(
+		versionQueries,
+		versions.NewLocalInstallService(store, archiveInstaller, versionRuntime, runtime.GOOS, runtime.GOARCH),
+		versions.NewCatalogInstallService(store, versionQueries, downloadSwitch, packageInstaller, diskSpace, versionRuntime, nil, root),
+		versions.NewRemovalService(store, store, versionFilesystem, gate, nil),
+	)
 	service := application.NewService(
 		store,
-		filesystem.ArchiveInstaller{},
 		filesystem.ModFileManager{},
 		launcher,
 		root,
+		operationManager,
+		versionService,
+		downloadSwitch,
+		diskSpace,
+		gate,
+		settingsReader,
 	)
 	t.Cleanup(func() {
+		lifecycle.Shutdown()
 		_ = service.Close()
 	})
 
@@ -206,7 +309,7 @@ func newTestFixture(t *testing.T) testFixture {
 	}
 
 	now := time.Now().UTC()
-	version := domain.GameVersion{
+	version := versions.GameVersion{
 		ID:              "1.20",
 		Name:            "1.20",
 		Channel:         "stable",
@@ -227,7 +330,23 @@ func newTestFixture(t *testing.T) testFixture {
 		root:       root,
 		executable: executable,
 		launcher:   launcher,
+		lifecycle:  lifecycle,
+		operations: operationManager,
+		versions:   versionService,
+		downloader: downloadSwitch,
+		diskSpace:  diskSpace,
+		settings:   settingsReader,
+		updates:    settingsService,
+		gate:       gate,
 	}
+}
+
+func (fixture testFixture) setDownloader(downloader downloads.Downloader) {
+	fixture.downloader.Set(downloader)
+}
+
+func (fixture testFixture) setDiskSpace(space application.DiskSpaceChecker) {
+	fixture.diskSpace.Set(space)
 }
 
 func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
@@ -315,7 +434,7 @@ func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	if err := fixture.store.SaveSettings(ctx, domain.Settings{
+	if err := fixture.store.SaveSettings(ctx, settingscore.Settings{
 		Language:              "ru",
 		DownloadsParallel:     3,
 		ConfirmDeletion:       true,
@@ -387,7 +506,7 @@ func TestDeleteVersionRemovesFilesAndEmptyLibraryDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.DeleteVersion(ctx, "1.20", true); err != nil {
+	if err := fixture.versions.Remove(ctx, "1.20", true); err != nil {
 		t.Fatal(err)
 	}
 	versionDirectory := filepath.Dir(fixture.executable)
@@ -966,7 +1085,7 @@ func TestValidationRepairsLegacyExecutablePath(t *testing.T) {
 func TestInstallingAnExistingVersionIsRejected(t *testing.T) {
 	fixture := newTestFixture(t)
 
-	_, err := fixture.service.InstallVersion(
+	_, err := fixture.versions.InstallLocal(
 		context.Background(),
 		"1.20",
 		"Renamed version",
@@ -992,134 +1111,6 @@ func TestInstallingAnExistingVersionIsRejected(t *testing.T) {
 	}
 	if version.Name != "1.20" {
 		t.Fatalf("the existing version was modified: %+v", version)
-	}
-}
-
-func TestAvailableVersionDownloadIsInstalledAndTracked(t *testing.T) {
-	fixture := newTestFixture(t)
-	release := domain.AvailableGameVersion{
-		ID:                "1.22.6",
-		Name:              "1.22.6",
-		Channel:           "stable",
-		Platform:          "linux",
-		Architecture:      "amd64",
-		Filename:          "vs_client_linux-x64_1.22.6.tar.gz",
-		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/stable/vs_client_linux-x64_1.22.6.tar.gz",
-		DownloadSize:      7,
-		Checksum:          "0123456789abcdef0123456789abcdef",
-		ChecksumAlgorithm: "md5",
-	}
-	fixture.service.ConfigureVersionDownloads(
-		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
-		recordingDownloader{},
-		fakeGamePackageInstaller{},
-	)
-
-	operation, err := fixture.service.InstallAvailableVersion(
-		context.Background(),
-		release.ID,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitForOperationStatus(t, fixture.store, operation.ID, "completed")
-
-	installed, err := fixture.store.GetVersion(context.Background(), release.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if installed.Channel != "stable" || installed.Status != "installed" {
-		t.Fatalf("unexpected installed version: %+v", installed)
-	}
-	if _, err := os.Stat(installed.ExecutablePath); err != nil {
-		t.Fatalf("expected installed executable: %v", err)
-	}
-}
-
-func TestAvailableVersionDownloadCanBeCancelled(t *testing.T) {
-	fixture := newTestFixture(t)
-	release := domain.AvailableGameVersion{
-		ID:                "1.22.0-rc.1",
-		Name:              "1.22.0-rc.1",
-		Channel:           "unstable",
-		Platform:          "linux",
-		Architecture:      "amd64",
-		Filename:          "preview.tar.gz",
-		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/unstable/preview.tar.gz",
-		Checksum:          "0123456789abcdef0123456789abcdef",
-		ChecksumAlgorithm: "md5",
-	}
-	fixture.service.ConfigureVersionDownloads(
-		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
-		recordingDownloader{waitForCancellation: true},
-		fakeGamePackageInstaller{},
-	)
-
-	operation, err := fixture.service.InstallAvailableVersion(
-		context.Background(),
-		release.ID,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, duplicateErr := fixture.service.InstallAvailableVersion(
-		context.Background(),
-		release.ID,
-	); !isErrorCode(duplicateErr, domain.ErrVersionExists) {
-		t.Fatalf("expected duplicate active install to be rejected, got %v", duplicateErr)
-	}
-	if err := fixture.service.CancelOperation(operation.ID); err != nil {
-		t.Fatal(err)
-	}
-	operations, err := fixture.store.ListOperations(context.Background(), 100)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, stored := range operations {
-		if stored.ID == operation.ID {
-			t.Fatalf("cancelled operation was retained: %+v", stored)
-		}
-	}
-	partialPath := filepath.Join(
-		fixture.root,
-		"downloads",
-		release.Filename+".partial",
-	)
-	if _, err := os.Stat(partialPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("partial download was not removed: %v", err)
-	}
-	if _, err := fixture.service.InstallAvailableVersion(
-		context.Background(),
-		release.ID,
-	); err != nil {
-		t.Fatalf("version remained locked after cancellation: %v", err)
-	}
-}
-
-func TestAvailableVersionChecksDiskSpaceBeforeStarting(t *testing.T) {
-	fixture := newTestFixture(t)
-	release := domain.AvailableGameVersion{
-		ID:                "1.22.5",
-		Name:              "1.22.5",
-		Filename:          "game.tar.gz",
-		DownloadURL:       "https://cdn.vintagestory.at/gamefiles/stable/game.tar.gz",
-		DownloadSize:      1_000,
-		Checksum:          "0123456789abcdef0123456789abcdef",
-		ChecksumAlgorithm: "md5",
-	}
-	fixture.service.ConfigureVersionDownloads(
-		staticVersionCatalog{versions: []domain.AvailableGameVersion{release}},
-		recordingDownloader{},
-		fakeGamePackageInstaller{},
-	)
-	fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(1_999))
-
-	_, err := fixture.service.InstallAvailableVersion(
-		context.Background(),
-		release.ID,
-	)
-	if !isErrorCode(err, domain.ErrInsufficientSpace) {
-		t.Fatalf("expected insufficient disk space error, got %v", err)
 	}
 }
 
@@ -1213,13 +1204,13 @@ func TestSettingsLanguageNormalization(t *testing.T) {
 		t.Run(input, func(t *testing.T) {
 			fixture := newTestFixture(t)
 			ctx := context.Background()
-			settings, err := fixture.service.GetSettings(ctx)
+			settings, err := fixture.settings.Get(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
 			settings.Language = input
 			settings.DownloadsParallel = 4
-			saved, err := fixture.service.SaveSettings(ctx, settings)
+			saved, err := fixture.updates.Update(ctx, settings)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1245,7 +1236,7 @@ func TestGetSettingsRepairsAndPersistsInvalidLanguage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repaired, err := fixture.service.GetSettings(ctx)
+	repaired, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1264,7 +1255,7 @@ func TestGetSettingsRepairsAndPersistsInvalidLanguage(t *testing.T) {
 func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	settings, err := fixture.service.GetSettings(ctx)
+	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1272,7 +1263,7 @@ func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 		t.Fatalf("unexpected update defaults: %+v", settings)
 	}
 	settings.UpdateChannel = "nightly"
-	if _, err := fixture.service.SaveSettings(ctx, settings); err == nil {
+	if _, err := fixture.updates.Update(ctx, settings); err == nil {
 		t.Fatal("expected invalid update channel to be rejected")
 	}
 }
@@ -1280,7 +1271,7 @@ func TestSettingsUpdatePreferencesDefaultAndValidate(t *testing.T) {
 func TestTelemetrySettingDefaultsDisabled(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	settings, err := fixture.service.GetSettings(ctx)
+	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1292,15 +1283,15 @@ func TestTelemetrySettingDefaultsDisabled(t *testing.T) {
 func TestTelemetryExplicitEnableSurvivesReload(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	settings, err := fixture.service.GetSettings(ctx)
+	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings.TelemetryEnabled = true
-	if _, err := fixture.service.SaveSettings(ctx, settings); err != nil {
+	if _, err := fixture.updates.Update(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	reloaded, err := fixture.service.GetSettings(ctx)
+	reloaded, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1312,19 +1303,19 @@ func TestTelemetryExplicitEnableSurvivesReload(t *testing.T) {
 func TestTelemetrySettingPersistsAcrossSaves(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	settings, err := fixture.service.GetSettings(ctx)
+	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings.TelemetryEnabled = true
-	saved, err := fixture.service.SaveSettings(ctx, settings)
+	saved, err := fixture.updates.Update(ctx, settings)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !saved.TelemetryEnabled {
 		t.Fatal("telemetry setting was not persisted")
 	}
-	reloaded, err := fixture.service.GetSettings(ctx)
+	reloaded, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1333,10 +1324,10 @@ func TestTelemetrySettingPersistsAcrossSaves(t *testing.T) {
 	}
 
 	reloaded.TelemetryEnabled = false
-	if _, err := fixture.service.SaveSettings(ctx, reloaded); err != nil {
+	if _, err := fixture.updates.Update(ctx, reloaded); err != nil {
 		t.Fatal(err)
 	}
-	final, err := fixture.service.GetSettings(ctx)
+	final, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1372,13 +1363,15 @@ func TestSettingValuesRoundtrip(t *testing.T) {
 func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 	fixture := newTestFixture(t)
 
-	if err := fixture.service.CanRelocateDataFolder(); err != nil {
+	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
 		t.Fatalf("relocation should be allowed initially: %v", err)
 	}
 
-	fixture.service.SetDataFolderRelocating(true)
+	if err := fixture.gate.BeginRelocation(); err != nil {
+		t.Fatal(err)
+	}
 
-	if err := fixture.service.CanRelocateDataFolder(); err == nil {
+	if err := fixture.gate.BeginRelocation(); err == nil {
 		t.Fatal("expected relocation to be rejected while busy")
 	}
 
@@ -1398,8 +1391,72 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 		t.Fatal("expected mod deletion to be rejected while relocating")
 	}
 
-	fixture.service.SetDataFolderRelocating(false)
-	if err := fixture.service.CanRelocateDataFolder(); err != nil {
+	fixture.gate.EndRelocation()
+	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
 		t.Fatalf("relocation should be allowed again: %v", err)
+	}
+}
+
+type blockingClientSettings struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (settings blockingClientSettings) Inject(string, accounts.Account) (func() error, error) {
+	return func() error { return nil }, nil
+}
+
+func (settings blockingClientSettings) Clear(string) error {
+	close(settings.started)
+	<-settings.release
+	return nil
+}
+
+func (blockingClientSettings) Reconcile(string) error { return nil }
+
+func TestRelocationCannotBeginDuringAccountClientSettingsCleanup(t *testing.T) {
+	fixture := newTestFixture(t)
+	if _, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+		Name: "cleanup race", GameVersionID: "1.20",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	settings := blockingClientSettings{started: make(chan struct{}), release: make(chan struct{})}
+	fixture.service.ConfigureAuthentication(nil, settings)
+	done := make(chan error, 1)
+	go func() {
+		done <- fixture.service.ClearAccountFromInstances(context.Background(), "account")
+	}()
+	<-settings.started
+	if err := fixture.gate.BeginRelocation(); err == nil {
+		fixture.gate.EndRelocation()
+		t.Fatal("relocation began while client settings were being cleared")
+	}
+	close(settings.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.gate.BeginRelocation(); err != nil {
+		t.Fatalf("relocation remained blocked after cleanup: %v", err)
+	}
+	fixture.gate.EndRelocation()
+}
+
+func TestInterruptedOperationReconciliationUnblocksRelocation(t *testing.T) {
+	fixture := newTestFixture(t)
+	now := time.Now().UTC()
+	if err := fixture.store.SaveOperation(context.Background(), operations.Operation{
+		ID: "stale", Type: "snapshot_create", Title: "Creating snapshot", Status: operations.StatusRunning, CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.CheckDataRootRelocation(context.Background()); err == nil {
+		t.Fatal("stale running operation did not initially block relocation")
+	}
+	if count, err := fixture.operations.ReconcileInterrupted(context.Background(), now.Add(time.Second)); err != nil || count != 1 {
+		t.Fatalf("reconcile = (%d, %v), want (1, nil)", count, err)
+	}
+	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
+		t.Fatalf("reconciled operation still blocked relocation: %v", err)
 	}
 }

@@ -3,20 +3,13 @@ package presentation
 import (
 	"context"
 	"log/slog"
-	"os"
-	"os/exec"
-	"runtime"
-	"time"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/version"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 type AppController struct{}
@@ -94,11 +87,19 @@ func (controller *AccountController) ReauthenticateAccount(
 }
 
 type GameVersionController struct {
-	svc       *application.Service
+	svc       gameVersionCapabilities
 	lifecycle *app.Lifecycle
 }
 
-func NewGameVersionController(service *application.Service, lifecycle *app.Lifecycle) *GameVersionController {
+type gameVersionCapabilities interface {
+	List(context.Context) ([]versions.GameVersion, error)
+	ListAvailable(context.Context) ([]versions.AvailableGameVersion, error)
+	InstallCatalog(context.Context, string) (versions.Install, error)
+	InstallLocal(context.Context, string, string, string, string, string) (operations.Operation, error)
+	Remove(context.Context, string, bool) error
+}
+
+func NewGameVersionController(service gameVersionCapabilities, lifecycle *app.Lifecycle) *GameVersionController {
 	return &GameVersionController{svc: service, lifecycle: lifecycle}
 }
 
@@ -114,7 +115,7 @@ func (controller *GameVersionController) ListInstalledVersions() (
 	[]GameVersionDTO,
 	error,
 ) {
-	versions, err := controller.svc.ListVersions(controller.lifecycle.Context())
+	versions, err := controller.svc.List(controller.lifecycle.Context())
 	result := make([]GameVersionDTO, 0, len(versions))
 	for _, version := range versions {
 		result = append(result, versionDTO(version))
@@ -126,7 +127,7 @@ func (controller *GameVersionController) ListAvailableVersions() (
 	[]AvailableGameVersionDTO,
 	error,
 ) {
-	versions, err := controller.svc.ListAvailableVersions(controller.lifecycle.Context())
+	versions, err := controller.svc.ListAvailable(controller.lifecycle.Context())
 	result := make([]AvailableGameVersionDTO, 0, len(versions))
 	for _, version := range versions {
 		result = append(result, availableVersionDTO(version))
@@ -137,17 +138,17 @@ func (controller *GameVersionController) ListAvailableVersions() (
 func (controller *GameVersionController) InstallVersion(
 	versionID string,
 ) (OperationDTO, error) {
-	operation, err := controller.svc.InstallAvailableVersion(
+	install, err := controller.svc.InstallCatalog(
 		controller.lifecycle.Context(),
 		versionID,
 	)
-	return operationDTO(operation), err
+	return operationDTO(install.Operation), err
 }
 
 func (controller *GameVersionController) InstallLocalVersion(
 	request InstallVersionRequest,
 ) (OperationDTO, error) {
-	operation, err := controller.svc.InstallVersion(
+	operation, err := controller.svc.InstallLocal(
 		controller.lifecycle.Context(),
 		request.ID,
 		request.Name,
@@ -162,7 +163,7 @@ func (controller *GameVersionController) RemoveVersion(
 	id string,
 	deleteFiles bool,
 ) error {
-	return controller.svc.DeleteVersion(controller.lifecycle.Context(), id, deleteFiles)
+	return controller.svc.Remove(controller.lifecycle.Context(), id, deleteFiles)
 }
 
 type InstanceController struct {
@@ -611,249 +612,33 @@ func (controller *StatisticsController) GetOverviewStatistics() (
 }
 
 type OperationController struct {
-	svc       *application.Service
-	lifecycle *app.Lifecycle
+	operations *operations.Manager
+	lifecycle  *app.Lifecycle
 }
 
-func NewOperationController(service *application.Service, lifecycle *app.Lifecycle) *OperationController {
-	return &OperationController{svc: service, lifecycle: lifecycle}
+func NewOperationController(manager *operations.Manager, lifecycle *app.Lifecycle) *OperationController {
+	return &OperationController{operations: manager, lifecycle: lifecycle}
 }
 
 func (controller *OperationController) ListOperations() ([]OperationDTO, error) {
-	operations, err := controller.svc.ListOperations(controller.lifecycle.Context())
-	result := make([]OperationDTO, 0, len(operations))
-	for _, operation := range operations {
+	tracked, err := controller.operations.List(controller.lifecycle.Context())
+	result := make([]OperationDTO, 0, len(tracked))
+	for _, operation := range tracked {
 		result = append(result, operationDTO(operation))
 	}
 	return result, err
 }
 
 func (controller *OperationController) CancelOperation(id string) error {
-	return controller.svc.CancelOperation(id)
+	return controller.operations.Cancel(id)
 }
 
 func (controller *OperationController) DeleteOperation(id string) error {
-	return controller.svc.DeleteFinishedOperation(controller.lifecycle.Context(), id)
+	return controller.operations.Delete(controller.lifecycle.Context(), id)
 }
 
 func (controller *OperationController) ClearOperationHistory() (int64, error) {
-	return controller.svc.ClearFinishedOperations(controller.lifecycle.Context())
-}
-
-type SettingsController struct {
-	svc       *application.Service
-	lifecycle *app.Lifecycle
-	events    events.Publisher
-	dataRoot  *dataroot.Manager
-	downloads *downloader.Manager
-}
-
-func NewSettingsController(
-	service *application.Service,
-	lifecycle *app.Lifecycle,
-	eventPublisher events.Publisher,
-	dataRoot *dataroot.Manager,
-	downloads *downloader.Manager,
-) *SettingsController {
-	return &SettingsController{svc: service, lifecycle: lifecycle, events: eventPublisher, dataRoot: dataRoot, downloads: downloads}
-}
-
-func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
-	settings, err := controller.svc.GetSettings(controller.lifecycle.Context())
-	return settingsDTO(settings), err
-}
-
-func (controller *SettingsController) UpdateSettings(
-	request SettingsDTO,
-) (SettingsDTO, error) {
-	settings, err := controller.svc.SaveSettings(
-		controller.lifecycle.Context(),
-		domain.Settings{
-			Language:                 request.Language,
-			DownloadsParallel:        request.DownloadsParallel,
-			ConfirmDeletion:          request.ConfirmDeletion,
-			GlobalLaunchArguments:    request.GlobalLaunchArguments,
-			CheckForUpdates:          request.CheckForUpdates,
-			UpdateChannel:            request.UpdateChannel,
-			SkippedUpdateVersion:     request.SkippedUpdateVersion,
-			TelemetryEnabled:         request.TelemetryEnabled,
-			AutomaticSafetySnapshots: request.AutomaticSafetySnapshots,
-		},
-	)
-	if err != nil {
-		return settingsDTO(settings), err
-	}
-	controller.downloads.SetLimit(request.DownloadsParallel)
-	return settingsDTO(settings), nil
-}
-
-// GetDataFolder returns the current data folder, the default folder, and any
-// error left behind by a failed relocation from a previous run.
-func (controller *SettingsController) GetDataFolder() (DataFolderDTO, error) {
-	current, err := controller.dataRoot.Current()
-	if err != nil {
-		return DataFolderDTO{}, err
-	}
-	lastError, err := controller.dataRoot.ReadError()
-	if err != nil {
-		return DataFolderDTO{}, err
-	}
-	return DataFolderDTO{
-		CurrentPath: current,
-		DefaultPath: controller.dataRoot.Home(),
-		LastError:   lastError,
-	}, nil
-}
-
-// SelectDataFolder opens a native directory picker for the data folder target.
-func (controller *SettingsController) SelectDataFolder() (string, error) {
-	ctx := controller.lifecycle.Context()
-	return wruntime.OpenDirectoryDialog(
-		ctx,
-		wruntime.OpenDialogOptions{Title: "Select the launcher data folder"},
-	)
-}
-
-// MoveDataFolder starts a background relocation of the launcher data folder to
-// target. Progress is emitted through the "data-folder:progress" event; the
-// application relaunches itself when the copy finishes.
-func (controller *SettingsController) MoveDataFolder(target string) error {
-	if err := controller.svc.CanRelocateDataFolder(); err != nil {
-		return err
-	}
-	controller.svc.SetDataFolderRelocating(true)
-	controller.events.Publish("data-folder:progress", DataFolderProgressDTO{Phase: "preparing"})
-	lastProgressEmit := time.Time{}
-	err := controller.dataRoot.StartRelocation(
-		target,
-		func(copied, total int64) {
-			progress := 0.0
-			if total > 0 {
-				progress = float64(copied) / float64(total)
-			}
-			now := time.Now()
-			if now.Sub(lastProgressEmit) < 150*time.Millisecond && progress < 1 {
-				return
-			}
-			lastProgressEmit = now
-			controller.events.Publish("data-folder:progress", DataFolderProgressDTO{
-				CopiedBytes: copied,
-				TotalBytes:  total,
-				Progress:    progress,
-				Phase:       "moving",
-			})
-		},
-		func(err error) {
-			controller.svc.SetDataFolderRelocating(false)
-			if err != nil {
-				controller.events.Publish("data-folder:error", map[string]string{"message": err.Error()})
-				return
-			}
-			controller.events.Publish("data-folder:progress", DataFolderProgressDTO{
-				Progress: 1,
-				Phase:    "relaunching",
-			})
-			controller.lifecycle.Go(func(workerCtx context.Context) {
-				select {
-				case <-time.After(500 * time.Millisecond):
-					wruntime.Quit(workerCtx)
-				case <-workerCtx.Done():
-				}
-			})
-		},
-	)
-	if err != nil {
-		controller.svc.SetDataFolderRelocating(false)
-		return err
-	}
-	return nil
-}
-
-func (controller *SettingsController) SelectGameArchive() (string, error) {
-	return wruntime.OpenFileDialog(
-		controller.lifecycle.Context(),
-		wruntime.OpenDialogOptions{
-			Title: "Select a Vintage Story archive",
-			Filters: []wruntime.FileFilter{
-				{
-					DisplayName: "Game archives (*.zip, *.tar.gz, *.tgz)",
-					Pattern:     "*.zip;*.tar.gz;*.tgz",
-				},
-			},
-		},
-	)
-}
-
-func (controller *SettingsController) SelectGameDirectory() (string, error) {
-	return wruntime.OpenDirectoryDialog(
-		controller.lifecycle.Context(),
-		wruntime.OpenDialogOptions{Title: "Select a Vintage Story directory"},
-	)
-}
-
-func (controller *SettingsController) SelectModFile() (string, error) {
-	return wruntime.OpenFileDialog(
-		controller.lifecycle.Context(),
-		wruntime.OpenDialogOptions{
-			Title: "Select a mod file",
-			Filters: []wruntime.FileFilter{
-				{
-					DisplayName: "Vintage Story mods",
-					Pattern:     "*.zip;*.cs;*.dll",
-				},
-			},
-		},
-	)
-}
-
-func (controller *SettingsController) SelectModFiles() ([]string, error) {
-	return wruntime.OpenMultipleFilesDialog(
-		controller.lifecycle.Context(),
-		wruntime.OpenDialogOptions{
-			Title: "Select mod files",
-			Filters: []wruntime.FileFilter{
-				{
-					DisplayName: "Vintage Story mods",
-					Pattern:     "*.zip;*.cs;*.dll",
-				},
-			},
-		},
-	)
-}
-
-func (controller *SettingsController) OpenDirectory(path string) error {
-	info, err := os.Stat(path)
-	if err != nil || !info.IsDir() {
-		return domain.NewError(domain.ErrValidation, "Directory not found")
-	}
-
-	// Wails rejects file:// URLs on Linux ("scheme not allowed"), so open the
-	// directory through the platform file manager directly.
-	if err := openDirectoryNative(path); err != nil {
-		return &domain.AppError{
-			Code:    domain.ErrFilePermission,
-			Message: "Could not open the directory",
-			Cause:   err,
-		}
-	}
-	return nil
-}
-
-func openDirectoryNative(path string) error {
-	var command string
-	var args []string
-	switch runtime.GOOS {
-	case "windows":
-		command = "explorer.exe"
-		args = []string{path}
-	case "darwin":
-		command = "open"
-		args = []string{path}
-	default:
-		command = "xdg-open"
-		args = []string{path}
-	}
-	return exec.Command(command, args...).Start()
+	return controller.operations.Clear(controller.lifecycle.Context())
 }
 
 func nonNilStrings(values []string) []string {

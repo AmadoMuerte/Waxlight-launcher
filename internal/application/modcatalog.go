@@ -19,6 +19,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"golang.org/x/mod/semver"
 )
@@ -197,6 +198,11 @@ func (s *Service) CheckModUpdates(
 	ctx context.Context,
 	modID string,
 ) ([]domain.DownloadedMod, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if s.modCatalog == nil || s.modDownloads == nil {
 		return nil, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
 	}
@@ -226,6 +232,11 @@ func (s *Service) DownloadCatalogMod(
 	ctx context.Context,
 	request domain.DownloadModRequest,
 ) (domain.ModInstallResult, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return domain.ModInstallResult{}, err
+	}
+	defer release()
 	if s.modCatalog == nil || s.modDownloads == nil || s.downloader == nil {
 		return domain.ModInstallResult{}, domain.NewError(domain.ErrModCatalog, "Mod downloads are not configured")
 	}
@@ -257,7 +268,7 @@ func (s *Service) DownloadCatalogMod(
 		if getErr != nil {
 			return domain.ModInstallResult{}, getErr
 		}
-		version, versionErr := s.store.GetVersion(ctx, instance.GameVersionID)
+		version, versionErr := s.versions.Get(ctx, instance.GameVersionID)
 		if versionErr != nil {
 			return domain.ModInstallResult{}, versionErr
 		}
@@ -283,26 +294,26 @@ func (s *Service) DownloadCatalogMod(
 	downloadCtx, cancel := context.WithCancel(ctx)
 	reservedKeys := map[string]struct{}{key: {}}
 
-	s.operationsMu.Lock()
+	s.modTasksMu.Lock()
 	if existingTask, active := s.activeModDownloads[key]; active {
-		s.operationsMu.Unlock()
+		s.modTasksMu.Unlock()
 		cancel()
 		return domain.ModInstallResult{TaskID: existingTask}, domain.NewError(domain.ErrModAlreadyActive, "This mod is already downloading")
 	}
 	s.activeModDownloads[key] = taskID
-	s.operationCancels[taskID] = cancel
-	s.operationsMu.Unlock()
+	s.modTaskCancels[taskID] = cancel
+	s.modTasksMu.Unlock()
 
 	defer func() {
 		cancel()
-		s.operationsMu.Lock()
+		s.modTasksMu.Lock()
 		for reservedKey := range reservedKeys {
 			if s.activeModDownloads[reservedKey] == taskID {
 				delete(s.activeModDownloads, reservedKey)
 			}
 		}
-		delete(s.operationCancels, taskID)
-		s.operationsMu.Unlock()
+		delete(s.modTaskCancels, taskID)
+		s.modTasksMu.Unlock()
 	}()
 
 	plan := make([]modInstallPlanItem, 0, 4)
@@ -353,6 +364,15 @@ func (s *Service) DownloadCatalogModsBatch(
 	ctx context.Context,
 	request domain.BatchDownloadModsRequest,
 ) []domain.BatchModInstallResult {
+	release, err := s.beginMutation()
+	if err != nil {
+		results := make([]domain.BatchModInstallResult, 0, len(request.Targets))
+		for _, target := range request.Targets {
+			results = append(results, domain.BatchModInstallResult{ModID: target.ModID, VersionID: target.VersionID, Error: err.Error()})
+		}
+		return results
+	}
+	defer release()
 	results := make([]domain.BatchModInstallResult, 0, len(request.Targets))
 	for _, target := range request.Targets {
 		result, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
@@ -537,9 +557,9 @@ func (s *Service) downloadCatalogVersion(
 
 	key := modDownloadKey(details.ID, selected.ID)
 	if _, owned := reservedKeys[key]; !owned {
-		s.operationsMu.Lock()
+		s.modTasksMu.Lock()
 		if existingTask, active := s.activeModDownloads[key]; active {
-			s.operationsMu.Unlock()
+			s.modTasksMu.Unlock()
 			return domain.DownloadedMod{}, false, &domain.AppError{
 				Code:    domain.ErrModAlreadyActive,
 				Message: fmt.Sprintf("%s is already downloading", details.Name),
@@ -548,7 +568,7 @@ func (s *Service) downloadCatalogVersion(
 		}
 		s.activeModDownloads[key] = taskID
 		reservedKeys[key] = struct{}{}
-		s.operationsMu.Unlock()
+		s.modTasksMu.Unlock()
 
 		// Another task may have completed the same dependency before this task
 		// acquired the reservation.
@@ -560,7 +580,7 @@ func (s *Service) downloadCatalogVersion(
 	}
 
 	s.emitModProgress(taskID, details.ID, "preparing", 0, 0, 0, "Preparing download")
-	progress := make(chan DownloadProgress, 16)
+	progress := make(chan downloads.Progress, 16)
 	progressDone := make(chan struct{})
 	go func() {
 		defer close(progressDone)
@@ -581,7 +601,7 @@ func (s *Service) downloadCatalogVersion(
 		}
 	}()
 
-	err = s.downloader.Download(ctx, DownloadRequest{
+	err = s.downloader.Download(ctx, downloads.Request{
 		URL:               selected.DownloadURL,
 		DestinationPath:   destination,
 		ExpectedChecksum:  selected.Checksum,
@@ -1053,9 +1073,11 @@ func (s *Service) UpdateInstanceMods(
 	allowIncompatible bool,
 ) (ModUpdateResult, error) {
 	result := ModUpdateResult{}
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return result, err
 	}
+	defer release()
 	if len(targets) == 0 {
 		return result, nil
 	}
@@ -1075,11 +1097,11 @@ func (s *Service) UpdateInstanceMods(
 		return result, nil
 	}
 
-	release, err := s.lockInstanceMutations(instanceID)
+	instanceRelease, err := s.lockInstanceMutations(instanceID)
 	if err != nil {
 		return result, err
 	}
-	defer release()
+	defer instanceRelease()
 
 	if _, err := s.createSafetySnapshot(ctx, instanceID, domain.SnapshotReasonBeforeModUpdate, map[string]string{
 		"affectedMods": strconv.Itoa(len(pending)),
@@ -1137,6 +1159,11 @@ func pendingModUpdates(installed []domain.InstalledMod, targets []ModUpdateTarge
 }
 
 func (s *Service) RemoveDownloadedMod(ctx context.Context, modID, versionID string) error {
+	release, err := s.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if s.modDownloads == nil {
 		return domain.NewError(domain.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
@@ -1161,6 +1188,11 @@ func (s *Service) PreviewUnusedDownloadedMods(
 func (s *Service) RemoveUnusedDownloadedMods(
 	ctx context.Context,
 ) (domain.DownloadedModCleanupResult, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return domain.DownloadedModCleanupResult{}, err
+	}
+	defer release()
 	items, err := s.unusedDownloadedMods(ctx)
 	if err != nil {
 		return domain.DownloadedModCleanupResult{}, err
@@ -1205,9 +1237,9 @@ func (s *Service) unusedDownloadedMods(ctx context.Context) ([]domain.Downloaded
 			continue
 		}
 		key := modDownloadKey(item.ModID, item.VersionID)
-		s.operationsMu.Lock()
+		s.modTasksMu.Lock()
 		_, downloading := s.activeModDownloads[key]
-		s.operationsMu.Unlock()
+		s.modTasksMu.Unlock()
 		if !downloading {
 			unused = append(unused, item)
 		}
@@ -1270,6 +1302,11 @@ var (
 // apply exactly like for mods downloaded through the launcher.
 func (s *Service) LinkLocalMods(ctx context.Context, instanceID string) (domain.LinkLocalModsResult, error) {
 	result := domain.LinkLocalModsResult{}
+	release, err := s.beginMutation()
+	if err != nil {
+		return result, err
+	}
+	defer release()
 	if s.modCatalog == nil || s.modDownloads == nil {
 		return result, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
 	}
@@ -1316,6 +1353,11 @@ func (s *Service) LinkLocalMods(ctx context.Context, instanceID string) (domain.
 // its catalog entry so it behaves like a mod downloaded through the launcher.
 func (s *Service) UploadMods(ctx context.Context, sourcePaths []string) (domain.UploadModsResult, error) {
 	result := domain.UploadModsResult{}
+	release, err := s.beginMutation()
+	if err != nil {
+		return result, err
+	}
+	defer release()
 	if s.modCatalog == nil || s.modDownloads == nil {
 		return result, domain.NewError(domain.ErrModCatalog, "The mod catalog is not configured")
 	}
@@ -1682,9 +1724,9 @@ func (reader *contextReaderMod) Read(buffer []byte) (int, error) {
 func isLocalModSource(source string) bool { return source == "" || source == "local" }
 
 func (s *Service) CancelModTask(taskID string) error {
-	s.operationsMu.Lock()
-	cancel, ok := s.operationCancels[taskID]
-	s.operationsMu.Unlock()
+	s.modTasksMu.Lock()
+	cancel, ok := s.modTaskCancels[taskID]
+	s.modTasksMu.Unlock()
 	if !ok {
 		return domain.NewError(domain.ErrOperationNotFound, "Mod task not found")
 	}

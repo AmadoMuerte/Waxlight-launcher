@@ -9,6 +9,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 )
 
@@ -73,10 +74,10 @@ func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
     "playermodellib": "1.23.1",
   },
 }`
-	fixture.service.ConfigureVersionDownloads(nil, &rawModinfoDownloader{byURL: map[string]string{
+	fixture.setDownloader(&rawModinfoDownloader{byURL: map[string]string{
 		"https://cdn.test/root.zip":           trailingCommasModinfo,
 		"https://cdn.test/playermodellib.zip": `{"modid":"playermodellib","name":"Player Model Lib","version":"1.23.1","dependencies":{"game":"1.20"}}`,
-	}}, nil)
+	}})
 	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
 		"51":             root,
 		"rootmod":        root,
@@ -109,7 +110,7 @@ func runModinfoDownloadTest(t *testing.T, name, version, modinfo string) {
 	t.Helper()
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureVersionDownloads(nil, &rawModinfoDownloader{modinfo: modinfo}, nil)
+	fixture.setDownloader(&rawModinfoDownloader{modinfo: modinfo})
 	details := domain.ModDetails{
 		ModSummary: domain.ModSummary{ID: "51", Name: name, AuthorName: "Tass", LatestVersion: version},
 		Versions: []domain.ModVersion{{
@@ -140,8 +141,8 @@ type rawModinfoDownloader struct {
 
 func (downloader *rawModinfoDownloader) Download(
 	_ context.Context,
-	request application.DownloadRequest,
-	_ chan<- application.DownloadProgress,
+	request downloads.Request,
+	_ chan<- downloads.Progress,
 ) error {
 	content := downloader.modinfo
 	if byURL := downloader.byURL[request.URL]; byURL != "" {

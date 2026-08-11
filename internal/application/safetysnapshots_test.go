@@ -11,8 +11,10 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // automaticSnapshotRetentionCount mirrors the production retention constant;
@@ -22,7 +24,7 @@ const automaticSnapshotRetentionCount = 10
 // configureUpdateTestInfrastructure wires a catalog and a downloader so
 // instances can be updated.
 func configureUpdateTestInfrastructure(fixture *testFixture, catalog staticModCatalog) {
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
 }
 
@@ -376,7 +378,7 @@ func TestAutomaticSnapshotCreatedBeforeGameVersionChange(t *testing.T) {
 // saveAdditionalGameVersion registers another installed game version.
 func saveAdditionalGameVersion(t *testing.T, fixture testFixture, id string) {
 	t.Helper()
-	if err := fixture.store.SaveVersion(context.Background(), domain.GameVersion{
+	if err := fixture.store.SaveVersion(context.Background(), versions.GameVersion{
 		ID:              id,
 		Name:            id,
 		Channel:         "stable",
@@ -399,7 +401,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		writeTestInstanceFiles(t, instance)
 		installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 		configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
-		fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(0))
+		fixture.setDiskSpace(fixedDiskSpace(0))
 
 		_, err := fixture.service.UpdateInstanceMods(
 			ctx,
@@ -424,7 +426,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		instance := createSnapshotTestInstance(t, fixture, "Blocked removal")
 		writeTestInstanceFiles(t, instance)
 		installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-		fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(0))
+		fixture.setDiskSpace(fixedDiskSpace(0))
 
 		mods, err := fixture.store.ListMods(ctx, instance.ID)
 		if err != nil {
@@ -445,7 +447,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		instance := createSnapshotTestInstance(t, fixture, "Blocked version")
 		writeTestInstanceFiles(t, instance)
 		saveAdditionalGameVersion(t, fixture, "1.21.6")
-		fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(0))
+		fixture.setDiskSpace(fixedDiskSpace(0))
 
 		instance.GameVersionID = "1.21.6"
 		if _, err := fixture.service.UpdateInstance(ctx, instance); err == nil {
@@ -464,12 +466,12 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	settings, err := fixture.service.GetSettings(ctx)
+	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings.AutomaticSafetySnapshots = false
-	if _, err := fixture.service.SaveSettings(ctx, settings); err != nil {
+	if _, err := fixture.updates.Update(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
 
@@ -527,8 +529,8 @@ type blockingDownloader struct {
 
 func (downloader blockingDownloader) Download(
 	ctx context.Context,
-	request application.DownloadRequest,
-	progress chan<- application.DownloadProgress,
+	request downloads.Request,
+	progress chan<- downloads.Progress,
 ) error {
 	select {
 	case <-downloader.release:
@@ -541,7 +543,7 @@ func (downloader blockingDownloader) Download(
 	if err := os.WriteFile(request.DestinationPath, []byte("package"), 0o644); err != nil {
 		return err
 	}
-	progress <- application.DownloadProgress{DownloadedBytes: 7, TotalBytes: 7}
+	progress <- downloads.Progress{DownloadedBytes: 7, TotalBytes: 7}
 	return nil
 }
 
@@ -557,7 +559,7 @@ func TestConcurrentDestructiveOperationsRejectedPerInstance(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	release := make(chan struct{})
-	fixture.service.ConfigureVersionDownloads(nil, blockingDownloader{release: release}, nil)
+	fixture.setDownloader(blockingDownloader{release: release})
 
 	updateDone := make(chan error, 1)
 	go func() {

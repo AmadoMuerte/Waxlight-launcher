@@ -29,6 +29,7 @@ type Service struct {
 	pending           PendingCredentials
 	cleanupInstances  InstanceCleanup
 	reportAuthFailure AuthFailureReporter
+	mutationGate      MutationGate
 	flowTTL           time.Duration
 	now               func() time.Time
 	flowMu            sync.Mutex
@@ -43,13 +44,25 @@ func NewService(
 	pending PendingCredentials,
 	cleanupInstances InstanceCleanup,
 	reportAuthFailure AuthFailureReporter,
+	mutationGate MutationGate,
 ) *Service {
 	return &Service{
 		repository: repository, authenticator: authenticator, credentials: credentials,
 		pending: pending, cleanupInstances: cleanupInstances, reportAuthFailure: reportAuthFailure,
-		flowTTL: defaultLoginFlowTTL, now: func() time.Time { return time.Now().UTC() },
+		mutationGate: mutationGate,
+		flowTTL:      defaultLoginFlowTTL, now: func() time.Time { return time.Now().UTC() },
 		loginFlow: make(map[string]*pendingLogin),
 	}
+}
+
+func (service *Service) beginMutation() (func(), error) {
+	if service.mutationGate == nil {
+		return func() {}, nil
+	}
+	if err := service.mutationGate.Begin(); err != nil {
+		return nil, err
+	}
+	return service.mutationGate.End, nil
 }
 
 func (service *Service) Login(ctx context.Context, email, password string) (LoginResult, error) {

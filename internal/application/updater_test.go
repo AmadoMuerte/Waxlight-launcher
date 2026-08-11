@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
 )
 
 type updateSourceStub struct {
@@ -21,18 +23,18 @@ func (stub updateSourceStub) Check(context.Context, string, string) (domain.Laun
 }
 
 type updateDownloaderStub struct {
-	request DownloadRequest
+	request downloads.Request
 	err     error
 }
 
 func (stub *updateDownloaderStub) Download(
 	_ context.Context,
-	request DownloadRequest,
-	progress chan<- DownloadProgress,
+	request downloads.Request,
+	progress chan<- downloads.Progress,
 ) error {
 	stub.request = request
 	if progress != nil {
-		progress <- DownloadProgress{DownloadedBytes: 50, TotalBytes: 100}
+		progress <- downloads.Progress{DownloadedBytes: 50, TotalBytes: 100}
 	}
 	return stub.err
 }
@@ -70,7 +72,7 @@ func TestLauncherUpdateDownloadsVerifiedOfficialAsset(t *testing.T) {
 		AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL:      "https://github.com/AmadoMuerte/Waxlight-launcher/releases/download/v0.1.5/Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	var phases []string
 	err := service.Install(context.Background(), "stable", func(progress domain.LauncherUpdateProgress) {
@@ -102,7 +104,7 @@ func TestLauncherUpdatePreservesInstallationOnVerificationFailure(t *testing.T) 
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	if err := service.Install(context.Background(), "stable", nil); err == nil {
 		t.Fatal("expected verification failure")
@@ -121,7 +123,7 @@ func TestLauncherUpdateRejectsUnsafeFilename(t *testing.T) {
 		AssetName:   "../../etc/passwd",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -141,7 +143,7 @@ func TestLauncherUpdateRejectsInvalidChecksumLength(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "tooshort",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -161,7 +163,7 @@ func TestLauncherUpdateRejectsSignatureFailure(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -181,7 +183,7 @@ func TestLauncherUpdateRejectsInstallerFailure(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -198,7 +200,7 @@ func TestLauncherUpdateRejectsConcurrentInstall(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	service.mu.Lock()
 	service.installing = true
@@ -214,7 +216,7 @@ func TestLauncherUpdateRejectsInvalidChannel(t *testing.T) {
 	downloader := &updateDownloaderStub{}
 	installer := &updateInstallerStub{}
 	signatureVerifier := &signatureVerifierStub{}
-	service := NewLauncherUpdateService(updateSourceStub{}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	service := NewLauncherUpdateService(updateSourceStub{}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "invalid", nil)
 	if err == nil {
@@ -228,7 +230,7 @@ func TestLauncherUpdateRejectsNoUpdateAvailable(t *testing.T) {
 	signatureVerifier := &signatureVerifierStub{}
 	service := NewLauncherUpdateService(updateSourceStub{update: domain.LauncherUpdate{
 		Available: false,
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -258,6 +260,7 @@ func TestLauncherUpdateAllowsPortableModeOnLinux(t *testing.T) {
 		downloader,
 		installer,
 		signatureVerifier,
+		&mutations.Gate{},
 		t.TempDir(),
 		"0.1.4",
 	)
@@ -306,6 +309,7 @@ func TestLauncherUpdateRejectsPortableModeOnWindows(t *testing.T) {
 		downloader,
 		installer,
 		signatureVerifier,
+		&mutations.Gate{},
 		t.TempDir(),
 		"0.1.4",
 	)
@@ -346,7 +350,7 @@ func TestLauncherUpdatePublishesProgressPhases(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, t.TempDir(), "0.1.4")
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	var phases []string
 	err := service.Install(context.Background(), "stable", func(progress domain.LauncherUpdateProgress) {

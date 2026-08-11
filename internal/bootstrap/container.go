@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,17 +24,23 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
 	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/servercatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/waxlight/waxlight-launcher/internal/transport/wails"
 	"github.com/waxlight/waxlight-launcher/internal/version"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 type Container struct {
@@ -100,12 +108,46 @@ func New() (*Container, error) {
 	if err := store.RecoverOpenSessions(context.Background(), time.Now().UTC()); err != nil {
 		slog.Warn("bootstrap: could not recover interrupted game sessions", "error", err)
 	}
+	lifecycle := app.NewLifecycle()
+	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
+	operationManager := operations.NewManager(store, lifecycle, eventPublisher)
+	if _, err := operationManager.ReconcileInterrupted(context.Background(), time.Now().UTC()); err != nil {
+		closeStoreOnError(store)
+		return nil, fmt.Errorf("reconcile interrupted operations: %w", err)
+	}
+	settingsReader := settingscore.NewReader(store)
+	launcherSettings, err := settingsReader.Get(context.Background())
+	if err != nil {
+		closeStoreOnError(store)
+		return nil, fmt.Errorf("load settings: %w", err)
+	}
+	downloadManager := downloader.NewManager(
+		downloader.NewHTTPDownloader(),
+		launcherSettings.DownloadsParallel,
+	)
+	mutationGate := &mutations.Gate{}
+	versionFilesystem := versionfs.New(dataRoot)
+	versionCatalog := vintagestory.NewVersionCatalog(nil)
+	archiveInstaller := filesystem.ArchiveInstaller{}
+	versionRuntime := versions.NewInstallRuntime(versionFilesystem, mutationGate, operationManager, time.Now, newVersionID)
+	versionQueries := versions.NewQueryService(store, versionCatalog, archiveInstaller, versionFilesystem, time.Now)
+	versionService := versions.NewCapabilities(
+		versionQueries,
+		versions.NewLocalInstallService(store, archiveInstaller, versionRuntime, runtime.GOOS, runtime.GOARCH),
+		versions.NewCatalogInstallService(store, versionQueries, downloadManager, gameversion.NewInstaller(), filesystem.DiskSpace{}, versionRuntime, eventPublisher, dataRoot),
+		versions.NewRemovalService(store, store, versionFilesystem, mutationGate, eventPublisher),
+	)
 	service := application.NewService(
 		store,
-		filesystem.ArchiveInstaller{},
 		filesystem.ModFileManager{},
 		processinfra.Launcher{},
 		dataRoot,
+		operationManager,
+		versionService,
+		downloadManager,
+		filesystem.DiskSpace{},
+		mutationGate,
+		settingsReader,
 	)
 	// Do not probe with a write here: a temporarily locked native store must not
 	// prevent the launcher from opening. Credential operations report failures
@@ -137,7 +179,18 @@ func New() (*Container, error) {
 	slog.Info("bootstrap: credential recovery checks finished")
 	telemetryService := telemetry.NewService(
 		telemetry.NewClient(telemetry.ProductionEndpoint()),
+		settingsReader,
+		store,
+		store,
+	)
+	settingsService := settingscore.NewService(store, settingsReader, telemetryService, telemetryService, downloadManager)
+	dataRootService := settingscore.NewDataRootService(
+		dataRootManager,
+		mutationGate,
 		service,
+		lifecycle,
+		eventPublisher,
+		wailstransport.QuitAdapter{},
 	)
 	accountService := accounts.NewService(
 		store,
@@ -153,6 +206,7 @@ func New() (*Container, error) {
 				telemetry.OperationAuthenticate,
 			)
 		},
+		mutationGate,
 	)
 	service.ConfigureTelemetry(telemetryService)
 	service.ConfigureAuthentication(
@@ -163,23 +217,8 @@ func New() (*Container, error) {
 		closeStoreOnError(store)
 		return nil, err
 	}
-	settings, err := store.GetSettings(context.Background())
-	if err != nil {
-		closeStoreOnError(store)
-		return nil, fmt.Errorf("load settings: %w", err)
-	}
-	downloadManager := downloader.NewManager(
-		downloader.NewHTTPDownloader(),
-		settings.DownloadsParallel,
-	)
-	service.ConfigureVersionDownloads(
-		vintagestory.NewVersionCatalog(nil),
-		downloadManager,
-		gameversion.NewInstaller(),
-	)
 	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
 	service.ConfigurePublicServerCatalog(servercatalog.NewClient(nil))
-	service.ConfigureDiskSpaceChecker(filesystem.DiskSpace{})
 	updateHTTPClient := updater.NewHTTPClient()
 	updateDownloader := downloader.NewManager(
 		&downloader.HTTPDownloader{Client: updateHTTPClient},
@@ -190,16 +229,15 @@ func New() (*Container, error) {
 		updateDownloader,
 		updater.NewInstaller(),
 		updater.NewSignatureVerifier(publishers.GetTrustedWindowsPublishers()),
+		mutationGate,
 		dataRoot,
 		version.Version(),
 	)
 	updateService.ConfigureTelemetry(telemetryService)
-	lifecycle := app.NewLifecycle()
-	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
 	controllers := []any{
 		presentation.NewAppController(),
 		presentation.NewAccountController(accountService, lifecycle),
-		presentation.NewGameVersionController(service, lifecycle),
+		presentation.NewGameVersionController(versionService, lifecycle),
 		presentation.NewInstanceController(service, lifecycle),
 		presentation.NewServerController(service, lifecycle),
 		presentation.NewModManagerController(service, lifecycle),
@@ -207,11 +245,18 @@ func New() (*Container, error) {
 		presentation.NewInstancePackageController(service, lifecycle),
 		presentation.NewLaunchController(service, lifecycle),
 		presentation.NewStatisticsController(service, lifecycle),
-		presentation.NewOperationController(service, lifecycle),
+		presentation.NewOperationController(operationManager, lifecycle),
 		presentation.NewSnapshotController(service, lifecycle),
 		presentation.NewLastKnownGoodController(service, lifecycle),
-		presentation.NewLogController(service, lifecycle),
-		presentation.NewSettingsController(service, lifecycle, eventPublisher, dataRootManager, downloadManager),
+		presentation.NewLogController(service, versionService, lifecycle),
+		presentation.NewSettingsController(
+			settingsReader,
+			settingsService,
+			dataRootService,
+			lifecycle,
+			wailstransport.NewDialogAdapter(lifecycle),
+			nativefs.Opener{},
+		),
 		presentation.NewLauncherUpdateController(updateService, lifecycle, eventPublisher),
 	}
 
@@ -224,6 +269,14 @@ func New() (*Container, error) {
 		Controllers:    controllers,
 		telemetry:      telemetryService,
 	}, nil
+}
+
+func newVersionID() string {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(value)
 }
 
 func credentialStoreUnavailable(err error) bool {

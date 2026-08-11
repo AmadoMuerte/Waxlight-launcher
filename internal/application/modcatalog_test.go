@@ -11,6 +11,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 )
 
@@ -95,8 +96,8 @@ type modArchiveDownloader struct {
 
 func (downloader modArchiveDownloader) Download(
 	_ context.Context,
-	request application.DownloadRequest,
-	progress chan<- application.DownloadProgress,
+	request downloads.Request,
+	progress chan<- downloads.Progress,
 ) error {
 	if err := os.MkdirAll(filepath.Dir(request.DestinationPath), 0o755); err != nil {
 		return err
@@ -136,7 +137,7 @@ func (downloader modArchiveDownloader) Download(
 	if err != nil {
 		return err
 	}
-	progress <- application.DownloadProgress{
+	progress <- downloads.Progress{
 		DownloadedBytes: info.Size(),
 		TotalBytes:      info.Size(),
 		BytesPerSecond:  info.Size(),
@@ -163,7 +164,7 @@ func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 		ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
 		FileName: "playercorpse.zip", DownloadURL: "https://cdn.test/playercorpse.zip",
 	}}}
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(staticModCatalog{details: details}, modstorage.New(fixture.root))
 	result, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
 		ModID: "51", VersionID: "7", InstanceIDs: []string{first.ID, second.ID},
@@ -210,7 +211,7 @@ func TestDownloadCatalogModsBatchContinuesAfterTargetFailure(t *testing.T) {
 	second := domain.ModDetails{ModSummary: domain.ModSummary{ID: "second", Name: "Second"}, Versions: []domain.ModVersion{{
 		ID: "2", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "second.zip", DownloadURL: "https://cdn.test/second.zip",
 	}}}
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
 		"first": first, "second": second,
 	}}, modstorage.New(fixture.root))
@@ -362,7 +363,7 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 		}},
 	}
 
-	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{
+	fixture.setDownloader(modArchiveDownloader{
 		manifests: map[string]map[string]any{
 			"https://cdn.test/rootmod.zip": {
 				"modid":   "rootmod",
@@ -389,7 +390,7 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 				"dependencies": map[string]string{},
 			},
 		},
-	}, nil)
+	})
 	fixture.service.ConfigureMods(staticModCatalog{
 		detailsByID: map[string]domain.ModDetails{
 			"51":        rootMod,
@@ -512,13 +513,13 @@ func TestDownloadCatalogModUpgradesSharedDependencyVersion(t *testing.T) {
 		{ID: "library-9", Version: "2.0.9", GameVersions: []string{"1.20"}, FileName: "library-9.zip", DownloadURL: "https://cdn.test/library-9.zip"},
 		{ID: "library-10", Version: "2.0.10", GameVersions: []string{"1.20"}, FileName: "library-10.zip", DownloadURL: "https://cdn.test/library-10.zip"},
 	}}
-	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{manifests: map[string]map[string]any{
+	fixture.setDownloader(modArchiveDownloader{manifests: map[string]map[string]any{
 		"https://cdn.test/root.zip":       {"modid": "root", "version": "1.0.0", "dependencies": map[string]string{"first": "1.0.0", "second": "1.0.0"}},
 		"https://cdn.test/first.zip":      {"modid": "first", "version": "1.0.0", "dependencies": map[string]string{"library": "2.0.9"}},
 		"https://cdn.test/second.zip":     {"modid": "second", "version": "1.0.0", "dependencies": map[string]string{"library": "2.0.10"}},
 		"https://cdn.test/library-9.zip":  {"modid": "library", "version": "2.0.9", "dependencies": map[string]string{}},
 		"https://cdn.test/library-10.zip": {"modid": "library", "version": "2.0.10", "dependencies": map[string]string{}},
-	}}, nil)
+	}})
 	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
 		"root": root, "first": first, "second": second, "library": library,
 	}}, modstorage.New(fixture.root))
@@ -563,7 +564,7 @@ func twoVersionCorpseCatalog() staticModCatalog {
 func TestUpdateModRemovesSupersededCacheVersion(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{}, nil)
+	fixture.setDownloader(modArchiveDownloader{})
 	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
 	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
 		Name: "Updater", GameVersionID: "1.20",
@@ -598,7 +599,7 @@ func TestUpdateModRemovesSupersededCacheVersion(t *testing.T) {
 func TestUpdateKeepsCacheVersionUsedByAnotherInstance(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureVersionDownloads(nil, modArchiveDownloader{}, nil)
+	fixture.setDownloader(modArchiveDownloader{})
 	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
 	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
 		Name: "Old", GameVersionID: "1.20",

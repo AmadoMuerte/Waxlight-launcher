@@ -26,12 +26,12 @@ var gameStartupWindow = 60 * time.Second
 // because waitForGame removes the running entry when the process exits.
 // startupWindow is the value captured by Launch so this goroutine never reads
 // the mutable package variable.
-func (s *Service) markLaunchEstablished(instance domain.Instance, sessionID string, startupWindow time.Duration) {
+func (s *Service) markLaunchEstablished(ctx context.Context, instance domain.Instance, sessionID string, startupWindow time.Duration) {
 	timer := time.NewTimer(startupWindow)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-	case <-s.shutdownCtx.Done():
+	case <-ctx.Done():
 		return
 	}
 	s.runningMu.Lock()
@@ -75,6 +75,12 @@ func (s *Service) recordEstablishedLaunches() {
 // to this launch), the marker references it instead of creating any new
 // filesystem backup.
 func (s *Service) recordLastKnownGood(ctx context.Context, instance domain.Instance) {
+	release, err := s.beginMutation()
+	if err != nil {
+		slog.Warn("could not record last known good state during data folder relocation", "instance", instance.Name)
+		return
+	}
+	defer release()
 	installedMods, err := s.ListMods(ctx, instance.ID)
 	if err != nil {
 		slog.Warn("could not read the installed mods for the last known good state", "instance", instance.Name, "error", err)
@@ -363,6 +369,12 @@ func (s *Service) snapshotIsRestorable(ctx context.Context, instanceID, snapshot
 // Known Good marker after the referenced snapshot is deleted. The metadata
 // stays intact so change comparison keeps working without one-click recovery.
 func (s *Service) ClearLastKnownGoodSnapshotReference(ctx context.Context, instanceID, snapshotID string) {
+	release, gateErr := s.beginMutation()
+	if gateErr != nil {
+		slog.Warn("could not clear last known good snapshot during data folder relocation", "instanceId", instanceID)
+		return
+	}
+	defer release()
 	lkg, err := s.store.GetLastKnownGood(ctx, instanceID)
 	if err != nil || lkg.SnapshotID != snapshotID {
 		return

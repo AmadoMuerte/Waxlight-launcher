@@ -15,7 +15,9 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
 	"github.com/waxlight/waxlight-launcher/internal/version"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // maxFrontendLogMessage caps how large a single frontend-provided log message
@@ -30,11 +32,16 @@ const maxFrontendLogAttrs = 16
 // export the recent logs plus a system summary for support.
 type LogController struct {
 	svc       *application.Service
+	versions  versionLister
 	lifecycle *app.Lifecycle
 }
 
-func NewLogController(service *application.Service, lifecycle *app.Lifecycle) *LogController {
-	return &LogController{svc: service, lifecycle: lifecycle}
+type versionLister interface {
+	List(context.Context) ([]versions.GameVersion, error)
+}
+
+func NewLogController(service *application.Service, versionService versionLister, lifecycle *app.Lifecycle) *LogController {
+	return &LogController{svc: service, versions: versionService, lifecycle: lifecycle}
 }
 
 // ListLogs returns the most recent log lines rendered for the console. The
@@ -109,7 +116,7 @@ func (controller *LogController) OpenLogsDirectory() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not create the log directory", Cause: err}
 	}
-	if err := openDirectoryNative(dir); err != nil {
+	if err := (nativefs.Opener{}).OpenDirectory(dir); err != nil {
 		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not open the log directory", Cause: err}
 	}
 	return nil
@@ -160,7 +167,7 @@ type supportLogData struct {
 	Version     string
 	Platform    string
 	GoVersion   string
-	Versions    []domain.GameVersion
+	Versions    []versions.GameVersion
 	Instances   []supportLogInstance
 }
 
@@ -172,7 +179,7 @@ func (controller *LogController) gatherSupportLogData(ctx context.Context) (supp
 		GoVersion:   runtime.Version(),
 	}
 	var err error
-	data.Versions, err = controller.svc.ListVersions(ctx)
+	data.Versions, err = controller.versions.List(ctx)
 	if err != nil {
 		return data, err
 	}

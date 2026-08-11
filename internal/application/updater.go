@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
@@ -31,9 +33,10 @@ const (
 
 type LauncherUpdateService struct {
 	source            LauncherUpdateSource
-	downloader        Downloader
+	downloader        downloads.Downloader
 	installer         LauncherUpdateInstaller
 	signatureVerifier SignatureVerifier
+	mutationGate      *mutations.Gate
 	dataRoot          string
 	currentVersion    string
 	telemetry         *telemetry.Service
@@ -43,9 +46,10 @@ type LauncherUpdateService struct {
 
 func NewLauncherUpdateService(
 	source LauncherUpdateSource,
-	downloader Downloader,
+	downloader downloads.Downloader,
 	installer LauncherUpdateInstaller,
 	signatureVerifier SignatureVerifier,
+	mutationGate *mutations.Gate,
 	dataRoot string,
 	currentVersion string,
 ) *LauncherUpdateService {
@@ -54,6 +58,7 @@ func NewLauncherUpdateService(
 		downloader:        downloader,
 		installer:         installer,
 		signatureVerifier: signatureVerifier,
+		mutationGate:      mutationGate,
 		dataRoot:          dataRoot,
 		currentVersion:    currentVersion,
 	}
@@ -111,6 +116,10 @@ func (service *LauncherUpdateService) Install(
 	channel string,
 	publish func(domain.LauncherUpdateProgress),
 ) error {
+	if err := service.mutationGate.Begin(); err != nil {
+		return err
+	}
+	defer service.mutationGate.End()
 	service.mu.Lock()
 	if service.installing {
 		service.mu.Unlock()
@@ -170,7 +179,7 @@ func (service *LauncherUpdateService) Install(
 
 	destination := filepath.Join(updateRoot, update.AssetName)
 
-	progress := make(chan DownloadProgress, 1)
+	progress := make(chan downloads.Progress, 1)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -188,7 +197,7 @@ func (service *LauncherUpdateService) Install(
 		}
 	}()
 	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "downloading"})
-	err = service.downloader.Download(ctx, DownloadRequest{
+	err = service.downloader.Download(ctx, downloads.Request{
 		URL:               update.DownloadURL,
 		DestinationPath:   destination,
 		ExpectedChecksum:  strings.ToLower(update.SHA256),

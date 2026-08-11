@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 )
 
 func TestDownloaderVerifiesOfficialMD5AndReportsProgress(t *testing.T) {
@@ -26,11 +26,11 @@ func TestDownloaderVerifiesOfficialMD5AndReportsProgress(t *testing.T) {
 	defer server.Close()
 
 	destination := filepath.Join(t.TempDir(), "game.tar.gz")
-	progress := make(chan application.DownloadProgress, 2)
+	progress := make(chan downloads.Progress, 2)
 	downloader := &HTTPDownloader{Client: server.Client()}
 	err := downloader.Download(
 		context.Background(),
-		application.DownloadRequest{
+		downloads.Request{
 			URL:               server.URL,
 			DestinationPath:   destination,
 			ExpectedChecksum:  fmt.Sprintf("%x", md5.Sum(content)),
@@ -116,7 +116,7 @@ func TestDownloaderAcceptsURLWithRawSpacesInQuery(t *testing.T) {
 	downloader := &HTTPDownloader{Client: server.Client()}
 	err := downloader.Download(
 		context.Background(),
-		application.DownloadRequest{
+		downloads.Request{
 			URL:             server.URL + "/mod.zip?dl=Immersive Light_0.2.5.zip",
 			DestinationPath: destination,
 		},
@@ -147,7 +147,7 @@ func TestDownloaderRejectsChecksumMismatch(t *testing.T) {
 	downloader := &HTTPDownloader{Client: server.Client()}
 	err := downloader.Download(
 		context.Background(),
-		application.DownloadRequest{
+		downloads.Request{
 			URL:               server.URL,
 			DestinationPath:   destination,
 			ExpectedChecksum:  "0123456789abcdef0123456789abcdef",

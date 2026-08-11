@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
 // automaticSnapshotRetentionCount is how many automatic snapshots per
@@ -46,15 +47,15 @@ func (s *Service) createSafetySnapshot(
 	instanceID string,
 	reason domain.SnapshotReason,
 	snapshotContext map[string]string,
-) (domain.Operation, error) {
-	settings, err := s.store.GetSettings(ctx)
+) (operations.Operation, error) {
+	settings, err := s.settings.Get(ctx)
 	if err != nil {
 		slog.Warn("could not read the automatic snapshot setting", "instanceId", instanceID, "error", err)
-		return domain.Operation{}, err
+		return operations.Operation{}, err
 	}
 	if !settings.AutomaticSafetySnapshots {
 		slog.Debug("automatic safety snapshots are disabled; skipping the snapshot", "instanceId", instanceID, "reason", reason)
-		return domain.Operation{}, nil
+		return operations.Operation{}, nil
 	}
 
 	slog.Info("automatic safety snapshot requested", "instanceId", instanceID, "reason", reason)

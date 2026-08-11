@@ -2,39 +2,6 @@ package domain
 
 import "time"
 
-type GameVersion struct {
-	ID              string
-	Name            string
-	Channel         string
-	Platform        string
-	Architecture    string
-	InstallationDir string
-	ExecutablePath  string
-	Status          string
-	InstalledAt     time.Time
-	VerifiedAt      *time.Time
-	SizeBytes       int64
-}
-
-// AvailableGameVersion describes a client distribution published by the
-// upstream game version catalog. It is deliberately separate from
-// GameVersion, which represents an installation owned by Waxlight.
-type AvailableGameVersion struct {
-	ID                string
-	Name              string
-	Channel           string
-	Platform          string
-	Architecture      string
-	Filename          string
-	DownloadURL       string
-	DownloadSize      int64
-	Checksum          string
-	ChecksumAlgorithm string
-	Latest            bool
-	Installed         bool
-	InstallStatus     *string
-}
-
 type Instance struct {
 	ID               string
 	Name             string
@@ -112,35 +79,4 @@ type PlaySession struct {
 	ExitCode    *int
 	Crashed     bool
 	Recovered   bool
-}
-
-type Operation struct {
-	ID             string            `json:"id"`
-	Type           string            `json:"type"`
-	ResourceID     *string           `json:"resourceId,omitempty"`
-	Title          string            `json:"title"`
-	TitleKey       string            `json:"titleKey,omitempty"`
-	TitleParams    map[string]string `json:"titleParams,omitempty"`
-	Status         string            `json:"status"`
-	Progress       float64           `json:"progress"`
-	CurrentBytes   int64             `json:"currentBytes"`
-	TotalBytes     int64             `json:"totalBytes"`
-	BytesPerSecond int64             `json:"bytesPerSecond"`
-	ErrorCode      *string           `json:"errorCode,omitempty"`
-	ErrorMessage   *string           `json:"errorMessage,omitempty"`
-	CreatedAt      time.Time         `json:"createdAt"`
-	StartedAt      *time.Time        `json:"startedAt,omitempty"`
-	FinishedAt     *time.Time        `json:"finishedAt,omitempty"`
-}
-
-type Settings struct {
-	Language                 string
-	DownloadsParallel        int
-	ConfirmDeletion          bool
-	GlobalLaunchArguments    []string
-	CheckForUpdates          bool
-	UpdateChannel            string
-	SkippedUpdateVersion     string
-	TelemetryEnabled         bool
-	AutomaticSafetySnapshots bool
 }

@@ -1,6 +1,7 @@
 package dataroot
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"os"
@@ -28,7 +29,12 @@ var reservedNames = map[string]bool{
 // reserved files, and reports byte progress through progress(copied, total).
 // The destination directory is created if missing.
 func CopyData(src, dst string, progress func(copied, total int64)) error {
-	total, err := TotalSize(src)
+	return CopyDataContext(context.Background(), src, dst, progress)
+}
+
+// CopyDataContext is CopyData with caller-owned cancellation.
+func CopyDataContext(ctx context.Context, src, dst string, progress func(copied, total int64)) error {
+	total, err := TotalSizeContext(ctx, src)
 	if err != nil {
 		return err
 	}
@@ -56,7 +62,7 @@ func CopyData(src, dst string, progress func(copied, total int64)) error {
 			return depth == 0 && reservedNames[info.Name()], nil
 		},
 		WrapReader: func(reader io.Reader) io.Reader {
-			return &countingReader{reader: reader, counter: counter}
+			return &countingReader{ctx: ctx, reader: reader, counter: counter}
 		},
 		Sync:         true,
 		NumOfWorkers: int64(runtime.NumCPU()),
@@ -67,8 +73,24 @@ func CopyData(src, dst string, progress func(copied, total int64)) error {
 // TotalSize returns the number of bytes that CopyData would copy, excluding
 // the launcher's reserved files at the top level.
 func TotalSize(root string) (int64, error) {
+	return TotalSizeContext(context.Background(), root)
+}
+
+// TotalSizeContext is TotalSize with cancellation checked throughout directory
+// enumeration, including before potentially expensive metadata reads.
+func TotalSizeContext(ctx context.Context, root string) (int64, error) {
+	return totalSizeContext(ctx, root, nil)
+}
+
+func totalSizeContext(ctx context.Context, root string, beforeEntry func()) (int64, error) {
 	var total int64
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if beforeEntry != nil {
+			beforeEntry()
+		}
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
 		if err != nil {
 			return err
 		}
@@ -115,11 +137,15 @@ func (counter *progressCounter) add(n int64) {
 }
 
 type countingReader struct {
+	ctx     context.Context
 	reader  io.Reader
 	counter *progressCounter
 }
 
 func (reader *countingReader) Read(p []byte) (int, error) {
+	if err := reader.ctx.Err(); err != nil {
+		return 0, err
+	}
 	n, err := reader.reader.Read(p)
 	if n > 0 {
 		reader.counter.add(int64(n))

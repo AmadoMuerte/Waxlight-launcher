@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 )
 
 type HTTPDownloader struct{ Client *http.Client }
@@ -25,7 +25,7 @@ func NewHTTPDownloader() *HTTPDownloader {
 	return &HTTPDownloader{Client: &http.Client{Timeout: 30 * time.Minute}}
 }
 
-func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRequest, progress chan<- application.DownloadProgress) error {
+func (d *HTTPDownloader) Download(ctx context.Context, in downloads.Request, progress chan<- downloads.Progress) error {
 	if !strings.HasPrefix(in.URL, "https://") {
 		return fmt.Errorf("only HTTPS downloads are allowed")
 	}
@@ -108,7 +108,7 @@ func (d *HTTPDownloader) Download(ctx context.Context, in application.DownloadRe
 			}
 			if progress != nil {
 				select {
-				case progress <- application.DownloadProgress{DownloadedBytes: downloaded, TotalBytes: total, BytesPerSecond: speed}:
+				case progress <- downloads.Progress{DownloadedBytes: downloaded, TotalBytes: total, BytesPerSecond: speed}:
 				default:
 				}
 			}

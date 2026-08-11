@@ -16,6 +16,7 @@
 package dataroot
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
 // Marker phases for a pending data root relocation.
@@ -42,7 +44,6 @@ const (
 	pendingFile  = "data-root-pending"
 	previousFile = "data-root-previous"
 	errorFile    = "data-root-error"
-
 	databaseName = "waxlight.db"
 	databaseWAL  = "waxlight.db-wal"
 	databaseSHM  = "waxlight.db-shm"
@@ -55,16 +56,21 @@ const (
 // partial target must be discarded; PhaseFinalize means the copy completed and
 // the restarted process must finish the move (database handoff and pointer).
 type Marker struct {
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Phase     string `json:"phase"`
-	SourcePID int    `json:"sourcePid"`
+	From          string `json:"from"`
+	To            string `json:"to"`
+	CopyTarget    string `json:"copyTarget,omitempty"`
+	Phase         string `json:"phase"`
+	SourcePID     int    `json:"sourcePid"`
+	TargetCreated bool   `json:"targetCreated"`
+	Committed     bool   `json:"committed,omitempty"`
+	OwnerFile     string `json:"ownerFile,omitempty"`
 }
 
 // Manager is the data root library entry point. It owns the fixed home
 // directory, the relocation markers, and the copy/move orchestration.
 type Manager struct {
-	home string
+	home     string
+	relaunch func() error
 }
 
 // New creates a Manager rooted at the OS configuration directory.
@@ -73,12 +79,17 @@ func New() (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{home: filepath.Join(configDir, "waxlight")}, nil
+	return &Manager{home: filepath.Join(configDir, "waxlight"), relaunch: RelaunchApplication}, nil
 }
 
 // NewWithHome creates a Manager with an explicit home directory (used by tests).
 func NewWithHome(home string) *Manager {
-	return &Manager{home: home}
+	return NewWithHomeAndRelaunch(home, RelaunchApplication)
+}
+
+// NewWithHomeAndRelaunch creates a testable Manager without post-construction wiring.
+func NewWithHomeAndRelaunch(home string, relaunch func() error) *Manager {
+	return &Manager{home: home, relaunch: relaunch}
 }
 
 // Home returns the fixed launcher home directory.
@@ -179,71 +190,100 @@ func ValidateTarget(current, target string) error {
 	return nil
 }
 
-// StartRelocation begins a background relocation of the data root to target.
-// The file copy runs asynchronously with byte progress reported through
-// progress(copied, total). When the copy succeeds the launcher is relaunched
-// and onDone is called with nil; on failure the partial target is discarded,
-// the error is recorded for the next startup, and onDone is called with the
-// error. The caller must quit the application after a successful relaunch.
-func (m *Manager) StartRelocation(
-	target string,
-	progress func(copied, total int64),
-	onDone func(error),
-) error {
+// Relocation is prepared synchronously and run by the application lifecycle.
+type Relocation struct {
+	manager *Manager
+	marker  Marker
+}
+
+// PrepareRelocation validates and records a relocation before background work starts.
+func (m *Manager) PrepareRelocation(target string) (settings.Relocation, error) {
 	current, err := m.Current()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := ValidateTarget(current, target); err != nil {
-		return err
+		return nil, err
 	}
+	targetCreated := false
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		if err := os.MkdirAll(target, 0o700); err != nil {
-			return err
+			return nil, err
 		}
+		targetCreated = true
 	}
 	probe := filepath.Join(target, ".waxlight-write-probe")
 	if file, err := os.Create(probe); err != nil {
-		return fmt.Errorf("the data folder target is not writable: %w", err)
+		if targetCreated {
+			_ = os.RemoveAll(target)
+		}
+		return nil, fmt.Errorf("the data folder target is not writable: %w", err)
 	} else {
 		_ = file.Close()
 		_ = os.Remove(probe)
 	}
-	if err := m.writePending(Marker{From: current, To: target, Phase: PhaseCopy}); err != nil {
+	if targetCreated {
+		if err := os.Remove(target); err != nil {
+			return nil, err
+		}
+	}
+	copyTarget, err := os.MkdirTemp(filepath.Dir(target), "."+filepath.Base(target)+".waxlight-copy-")
+	if err != nil {
+		return nil, err
+	}
+	marker := Marker{
+		From: current, To: target, CopyTarget: copyTarget, Phase: PhaseCopy,
+		TargetCreated: targetCreated, OwnerFile: ".waxlight-relocation-copy-" + filepath.Base(copyTarget),
+	}
+	if err := m.writePending(marker); err != nil {
+		_ = cleanRelocationTarget(marker)
+		return nil, err
+	}
+	return &Relocation{manager: m, marker: marker}, nil
+}
+
+// Run copies the data and relaunches the application in the caller-owned worker.
+func (relocation *Relocation) Run(ctx context.Context, progress func(copied, total int64)) error {
+	marker := relocation.marker
+	if err := CopyDataContext(ctx, marker.From, marker.copyTarget(), progress); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, err)
 		return err
 	}
-	go func() {
-		if err := CopyData(current, target, progress); err != nil {
-			cleanupFailedRelocation(m, target, err)
-			if onDone != nil {
-				onDone(err)
-			}
-			return
-		}
-		if err := m.writePending(Marker{
-			From:      current,
-			To:        target,
-			Phase:     PhaseFinalize,
-			SourcePID: os.Getpid(),
-		}); err != nil {
-			_ = m.writeError(fmt.Sprintf("could not record the data folder move: %v", err))
-			if onDone != nil {
-				onDone(err)
-			}
-			return
-		}
-		if err := RelaunchApplication(); err != nil {
-			_ = m.clearPending()
-			_ = m.writeError(fmt.Sprintf("could not restart the launcher: %v", err))
-			if onDone != nil {
-				onDone(err)
-			}
-			return
-		}
-		if onDone != nil {
-			onDone(nil)
-		}
-	}()
+	if err := ctx.Err(); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	}
+	if err := validateUnchangedTarget(marker); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	}
+	ownerPath := filepath.Join(marker.copyTarget(), marker.OwnerFile)
+	if _, err := os.Stat(ownerPath); err == nil {
+		err = errors.New("the data folder contains a reserved relocation file")
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	} else if !errors.Is(err, os.ErrNotExist) {
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	}
+	if err := os.WriteFile(ownerPath, []byte(marker.CopyTarget), 0o600); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	}
+	marker.Phase = PhaseFinalize
+	marker.SourcePID = os.Getpid()
+	if err := relocation.manager.writePending(marker); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, fmt.Errorf("could not record the data folder move: %w", err))
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, err)
+		return err
+	}
+	if err := relocation.manager.relaunch(); err != nil {
+		cleanupFailedRelocation(relocation.manager, marker, fmt.Errorf("could not restart the launcher: %w", err))
+		return err
+	}
 	return nil
 }
 
@@ -274,7 +314,7 @@ func (m *Manager) PrepareStartup() (string, error) {
 	}
 	switch marker.Phase {
 	case PhaseCopy:
-		if err := os.RemoveAll(marker.To); err != nil {
+		if err := cleanRelocationTarget(*marker); err != nil {
 			return "", err
 		}
 		if err := m.clearPending(); err != nil {
@@ -283,8 +323,13 @@ func (m *Manager) PrepareStartup() (string, error) {
 		return current, nil
 	case PhaseFinalize:
 		if err := m.finishPending(marker); err != nil {
-			_ = m.clearPending()
-			_ = os.RemoveAll(marker.To)
+			if marker.Committed {
+				_ = m.writeError(fmt.Sprintf("data folder relocation failed: %v", err))
+				return "", err
+			}
+			if cleanupErr := cleanRelocationTarget(*marker); cleanupErr == nil {
+				_ = m.clearPending()
+			}
 			_ = m.writeError(fmt.Sprintf("data folder relocation failed: %v", err))
 			return current, nil
 		}
@@ -349,6 +394,26 @@ func (m *Manager) finishPending(marker *Marker) error {
 	if _, err := os.Stat(marker.From); err != nil {
 		return err
 	}
+	copyTarget := marker.copyTarget()
+	if marker.CopyTarget != "" {
+		if _, err := os.Stat(copyTarget); errors.Is(err, os.ErrNotExist) {
+			owned, ownerErr := relocationTargetOwned(marker.To, marker.OwnerFile, marker.CopyTarget)
+			if ownerErr != nil {
+				return ownerErr
+			}
+			current, currentErr := m.Current()
+			if currentErr != nil {
+				return currentErr
+			}
+			if !owned && filepath.Clean(current) != filepath.Clean(marker.To) {
+				return errors.New("the staged data folder copy is missing")
+			}
+			copyTarget = marker.To
+			marker.Committed = true
+		} else if err != nil {
+			return err
+		}
+	}
 	for _, name := range DatabaseFiles() {
 		source := filepath.Join(marker.From, name)
 		if _, err := os.Stat(source); errors.Is(err, os.ErrNotExist) {
@@ -356,7 +421,22 @@ func (m *Manager) finishPending(marker *Marker) error {
 		} else if err != nil {
 			return err
 		}
-		if err := copyFile(source, filepath.Join(marker.To, name)); err != nil {
+		if err := copyFile(source, filepath.Join(copyTarget, name)); err != nil {
+			return err
+		}
+	}
+	if filepath.Clean(copyTarget) != filepath.Clean(marker.To) {
+		if err := os.Remove(marker.To); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := os.Rename(copyTarget, marker.To); err != nil {
+			if !marker.TargetCreated {
+				_ = os.MkdirAll(marker.To, 0o700)
+			}
+			return err
+		}
+		marker.Committed = true
+		if err := m.writePending(*marker); err != nil {
 			return err
 		}
 	}
@@ -365,6 +445,11 @@ func (m *Manager) finishPending(marker *Marker) error {
 	}
 	if err := m.writeMarker(previousFile, marker.From); err != nil {
 		return err
+	}
+	if marker.OwnerFile != "" {
+		if err := os.Remove(filepath.Join(marker.To, marker.OwnerFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			slog.Warn("could not remove the data folder relocation owner marker", "error", err)
+		}
 	}
 	return m.clearPending()
 }
@@ -448,16 +533,76 @@ func (m *Manager) writeError(message string) error {
 // cleanupFailedRelocation undoes the partial relocation state after a failed
 // copy. The copy error itself is delivered through the relocation error file
 // and the completion callback, so failures here are logged only.
-func cleanupFailedRelocation(m *Manager, target string, cause error) {
-	if err := m.clearPending(); err != nil {
+func cleanupFailedRelocation(m *Manager, marker Marker, cause error) {
+	if err := cleanRelocationTarget(marker); err != nil {
+		slog.Warn("could not remove the partial relocation target", "target", marker.copyTarget(), "error", err)
+	} else if err := m.clearPending(); err != nil {
 		slog.Warn("could not clear the pending relocation marker", "error", err)
 	}
-	if err := os.RemoveAll(target); err != nil {
-		slog.Warn("could not remove the partial relocation target", "target", target, "error", err)
-	}
-	if err := m.writeError(fmt.Sprintf("could not copy the data folder: %v", cause)); err != nil {
+	if err := m.writeError(fmt.Sprintf("data folder relocation failed: %v", cause)); err != nil {
 		slog.Warn("could not record the data folder copy error", "error", err)
 	}
+}
+
+func cleanRelocationTarget(marker Marker) error {
+	target := marker.copyTarget()
+	if marker.CopyTarget != "" {
+		if err := os.RemoveAll(target); err != nil {
+			return err
+		}
+		return nil
+	}
+	if marker.TargetCreated {
+		return os.RemoveAll(target)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(target, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (marker Marker) copyTarget() string {
+	if marker.CopyTarget != "" {
+		return marker.CopyTarget
+	}
+	return marker.To
+}
+
+func validateUnchangedTarget(marker Marker) error {
+	entries, err := os.ReadDir(marker.To)
+	if marker.TargetCreated && errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(entries) != 0 {
+		return errors.New("the data folder target changed during relocation")
+	}
+	return nil
+}
+
+func relocationTargetOwned(target, ownerFile, owner string) (bool, error) {
+	if ownerFile == "" {
+		return false, nil
+	}
+	data, err := os.ReadFile(filepath.Join(target, ownerFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return string(data) == owner, nil
 }
 
 // RelaunchApplication spawns a fresh copy of the current executable so the old

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {
@@ -19,7 +19,7 @@ func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {
 		Version:     "0.3.0",
 		Platform:    "linux/amd64",
 		GoVersion:   "go1.23",
-		Versions:    []domain.GameVersion{{ID: "1.20", Name: "1.20"}},
+		Versions:    []versions.GameVersion{{ID: "1.20", Name: "1.20"}},
 		Instances: []supportLogInstance{
 			{Name: "My world", GameVersionID: "1.20", ModCount: 3, EnabledModCount: 2},
 		},
