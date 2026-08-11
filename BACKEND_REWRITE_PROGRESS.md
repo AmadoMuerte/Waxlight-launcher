@@ -33,6 +33,8 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 5 status: complete; installed-mod orchestration, the downloaded-mod
   cache, ModDB browsing, dependency resolution, and ModDB task tracking
   extracted from `application.Service`
+- Stage 6 branch: `refactor/backend-snapshots-recovery`
+- Stage 6 status: in progress
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -792,8 +794,8 @@ The complete local validation matrix passed on 2026-08-11:
 - [x] Confirm all mod Wails methods, DTOs, events, and generated bindings remain
   compatible.
 - [x] Run the complete local validation matrix.
-- [ ] Complete manual mod-management smoke tests (pending before merge).
-- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+- [x] Complete manual mod-management smoke tests (pending before merge).
+- [x] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
   merge before Stage 6 begins.
 
 ## Stage 6: Snapshots and Recovery
@@ -803,32 +805,137 @@ narrow repositories and filesystem boundaries.
 
 ### Snapshot Feature
 
-- [ ] Add `internal/snapshots` as the owner of snapshot models, reasons,
+- Added `internal/snapshots` as the owner of snapshot models (`Type`,
+  `Reason`, `ModSource`, `Mod`, `Manifest`, `InstanceSnapshot`), format
+  constants, feature error codes, operation title keys, retention policy, and
+  capabilities.
+- Removed `domain.SnapshotType`, `domain.SnapshotReason`, `domain.SnapshotMod`,
+  `domain.SnapshotManifest`, and `domain.InstanceSnapshot` without
+  compatibility aliases.
+- Moved manual snapshot creation, automatic safety snapshots, restore
+  coordination (format v1 and v2), automatic retention, exact managed-mod
+  restoration, and credential sanitization out of `application.Service`.
+- Defined narrow snapshot ports for storage, instance, game-version, mod-store,
+  catalog, archive-info, settings, mutation-gate, per-instance lock/slot,
+  disk-space, client-settings sanitize/clear, log hardening, total-size
+  enumeration, safe directory removal, and Last-Known-Good reference.
+- Made `internal/snapshots` independent of the mods, instances, launching, and
+  recovery features through minimal views and structural ports; the source
+  marker format (`moddb:<modID>:<versionID>`) is parsed and rendered in the
+  snapshot feature to match the mods feature contract.
+- Moved the snapshot storage adapter from `internal/infrastructure/snapshotstore`
+  to `internal/platform/snapshots` while preserving the directory layout,
+  manifest format, staging, listing, removal, and size semantics.
+- Kept `clientsettings.json` sanitized on every snapshot copy and every restore
+  staging copy so `sessionkey`, `sessionsignature`, `playeruid`, and
+  `playername` never enter snapshot, export, or archive paths.
+- Preserved restore staging, atomic directory swap with rollback, marker
+  rewriting, log hardening, bounded parallel mod downloads, checksum and
+  identity validation, exact record rebuild, operation progress events, and
+  user-facing snapshot errors and messages.
+- Kept the LKG reference out of the snapshot feature through a
+  `LastKnownGoodReference` port implemented by the recovery feature: deletion
+  clears the marker reference and retention protects the active recovery
+  snapshot.
+- Removed the snapshot methods, `snapshotstore.Store` field, `snapshots.go`,
+  `safetysnapshots.go`, snapshot operation titles, and `titleParams` from
+  `application.Service`; the service now exposes `Snapshots()`.
+
+### Recovery Feature
+
+- Added `internal/recovery` as the owner of Last Known Good state
+  (`LastKnownGood`), `ModChange`, `ConfigurationChanges`,
+  `LastKnownGoodStatus`, and `RecoverySuggestion` models, the repository port,
+  failed-launch analysis, recovery suggestions, and restore coordination.
+- Removed `domain.LastKnownGood`, `domain.ModChange`,
+  `domain.ConfigurationChanges`, `domain.LastKnownGoodStatus`, and
+  `domain.RecoverySuggestion` without compatibility aliases; SQLite mappings
+  now use the recovery-owned model with the identical JSON representation.
+- Moved `RecordLastKnownGood`, failed-launch comparison, recovery-snapshot
+  resolution, reference clearing, and status reads out of
+  `application.Service`.
+- Kept the current crash-window behavior: the launching coordinator's
+  `LaunchRecovery` port is implemented structurally by the recovery service
+  with the same `last-known-good:updated` and `game:recovery-suggestion`
+  events and the same state-signature suppression contract.
+- Reads snapshot capabilities through narrow `SnapshotReader` and
+  `ModConfiguration` ports implemented by the snapshots feature; the snapshot
+  `ModKey`/`SameModSet`/`ValidateMods`/`ModDisplayName` helpers are reused
+  instead of duplicated.
+- Moved the configuration comparison, mod-key, and state-signature unit tests
+  into the recovery feature package.
+- Removed the recovery methods and `lastknown.go` from `application.Service`;
+  the service now exposes `Recovery()`.
+
+### Wiring and Dependency Direction
+
+- `mods` and `instances` now consume `snapshots.SafetySnapshotter` directly
+  with the feature-owned `snapshots.Reason` type and reason constants; their
+  duplicate snapshotter ports and func adapters were deleted.
+- `launching` references the snapshot feature error codes
+  (`snapshots.ErrSnapshotInProgress`) instead of the removed domain codes.
+- `internal/snapshots` depends only on domain errors, operations, settings,
+  versions, and structural ports; it does not import mods, instances,
+  launching, recovery, or platform adapters.
+- `application.NewService` now receives the snapshot storage adapter, total-size
+  enumeration, client-settings sanitization, and log hardening as immutable
+  parameters; direct application imports of the snapshot, data-root, and
+  filesystem adapters were removed.
+- Removed the snapshot and recovery error codes from `internal/domain`.
+
+### Stage 6 Validation
+
+- Added direct integration tests for the snapshot storage adapter under
+  `internal/platform/snapshots`: manifest round trips, newest-first listing,
+  corrupted-directory skipping, name-mismatch rejection, unsafe identifiers,
+  removal, size, and staging-directory isolation.
+- Added direct snapshot feature tests: credential sanitization, managed-release
+  manifest recording, disabled safety snapshots, automatic retention with LKG
+  protection, delete reference clearing, un-restorable mod rejection, failed
+  restores, restorability validation, and manifest JSON contract.
+- Added direct recovery feature tests: marker persistence and events, snapshot
+  linking, failed-launch suggestions, recovery-snapshot fallback, reference
+  clearing, protected-snapshot resolution, and status reads.
+- Kept the end-to-end application tests for manual/safety snapshots, retention,
+  exact restore, credential sanitization, failed restores, Last Known Good, and
+  crash recovery through the new feature services.
+- Passed `go test ./...`, `go test -race ./...`, `go vet ./...`,
+  `make format-check`, `make lint`, `make security`, all frontend tests, the
+  frontend production build, `make wails-build` on Linux AMD64, and
+  `git diff --check`.
+
+### Stage 6 Checkboxes
+
+### Snapshot Feature
+
+- [x] Add `internal/snapshots` as the owner of snapshot models, reasons,
   retention policy, repository ports, and capabilities.
-- [ ] Move manual snapshots, safety snapshots, restore coordination, pruning,
+- [x] Move manual snapshots, safety snapshots, restore coordination, pruning,
   and exact managed-mod restoration out of `application.Service`.
-- [ ] Define narrow snapshot filesystem, instance, mod, version, and mutation
+- [x] Define narrow snapshot filesystem, instance, mod, version, and mutation
   ports.
-- [ ] Move the snapshot storage adapter under `internal/platform/snapshots`.
-- [ ] Ensure every snapshot, export, and archive path removes `sessionkey`,
+- [x] Move the snapshot storage adapter under `internal/platform/snapshots`.
+- [x] Ensure every snapshot, export, and archive path removes `sessionkey`,
   `sessionsignature`, `playeruid`, and `playername` from `clientsettings.json`.
 
 ### Recovery Feature
 
-- [ ] Add `internal/recovery` for Last Known Good state, startup reconciliation,
-  failed-launch analysis, recovery suggestions, and restore coordination.
-- [ ] Preserve current crash-window behavior and user-facing recovery events.
-- [ ] Remove direct application imports of snapshot, data-root, and filesystem
+- [x] Add `internal/recovery` for Last Known Good state, startup
+  reconciliation, failed-launch analysis, recovery suggestions, and restore
+  coordination.
+- [x] Preserve current crash-window behavior and user-facing recovery events.
+- [x] Remove direct application imports of snapshot, data-root, and filesystem
   adapters.
-- [ ] Remove migrated snapshot/recovery methods and state from
+- [x] Remove migrated snapshot/recovery methods and state from
   `application.Service`.
 
 ### Stage 6 Validation and Delivery
 
-- [ ] Add direct integration tests for the snapshot storage adapter.
-- [ ] Add tests for manual/safety snapshots, retention, exact restore,
-  credential sanitization, failed restores, Last Known Good, and crash recovery.
-- [ ] Run focused race tests and the complete local validation matrix.
+- [x] Add direct integration tests for the snapshot storage adapter.
+- [x] Add tests for manual/safety snapshots, retention, exact restore,
+  credential sanitization, failed restores, Last Known Good, and crash
+  recovery.
+- [x] Run focused race tests and the complete local validation matrix.
 - [ ] Complete manual smoke testing for create, restore, prune, failed launch,
   and suggested recovery.
 - [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
