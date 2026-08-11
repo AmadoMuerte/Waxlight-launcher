@@ -9,6 +9,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/version"
@@ -170,14 +171,15 @@ func (controller *GameVersionController) RemoveVersion(
 }
 
 type InstanceController struct {
-	svc       *application.Service
-	creator   instanceCreator
-	queries   instanceQueries
-	updater   instanceUpdater
-	deleter   instanceDeleter
-	cloner    instanceCloner
-	sessions  instancePlaytime
-	lifecycle *app.Lifecycle
+	svc        *application.Service
+	creator    instanceCreator
+	queries    instanceQueries
+	updater    instanceUpdater
+	deleter    instanceDeleter
+	cloner     instanceCloner
+	sessions   instancePlaytime
+	modCounter instanceModCounter
+	lifecycle  *app.Lifecycle
 }
 
 type instanceCreator interface {
@@ -205,6 +207,10 @@ type instancePlaytime interface {
 	GetInstancePlaytime(context.Context, string) (int64, error)
 }
 
+type instanceModCounter interface {
+	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+}
+
 func NewInstanceController(
 	service *application.Service,
 	creator instanceCreator,
@@ -213,11 +219,13 @@ func NewInstanceController(
 	deleter instanceDeleter,
 	cloner instanceCloner,
 	sessionQueries instancePlaytime,
+	modCounter instanceModCounter,
 	lifecycle *app.Lifecycle,
 ) *InstanceController {
 	return &InstanceController{
 		svc: service, creator: creator, queries: queries, updater: updater,
 		deleter: deleter, cloner: cloner, sessions: sessionQueries, lifecycle: lifecycle,
+		modCounter: modCounter,
 	}
 }
 
@@ -251,7 +259,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 
 	for _, instance := range storedInstances {
 		dto := instanceDTO(instance)
-		mods, modsErr := controller.svc.ListMods(ctx, instance.ID)
+		mods, modsErr := controller.modCounter.ListMods(ctx, instance.ID)
 		if modsErr != nil {
 			slog.Warn("could not count mods for the instance list", "instance", instance.ID, "error", modsErr)
 		}
@@ -335,12 +343,13 @@ func (controller *InstanceController) CloneInstance(
 }
 
 type ModManagerController struct {
-	svc       *application.Service
+	svc       *mods.Service
+	catalog   *mods.CatalogService
 	lifecycle *app.Lifecycle
 }
 
-func NewModManagerController(service *application.Service, lifecycle *app.Lifecycle) *ModManagerController {
-	return &ModManagerController{svc: service, lifecycle: lifecycle}
+func NewModManagerController(service *mods.Service, catalog *mods.CatalogService, lifecycle *app.Lifecycle) *ModManagerController {
+	return &ModManagerController{svc: service, catalog: catalog, lifecycle: lifecycle}
 }
 
 type InstallModFileRequest struct {
@@ -380,14 +389,14 @@ func (controller *ModManagerController) ListInstalledMods(
 func (controller *ModManagerController) LinkLocalMods(
 	instanceID string,
 ) (LinkLocalModsResultDTO, error) {
-	result, err := controller.svc.LinkLocalMods(controller.lifecycle.Context(), instanceID)
+	result, err := controller.catalog.LinkLocalMods(controller.lifecycle.Context(), instanceID)
 	return linkLocalModsResultDTO(result), err
 }
 
 func (controller *ModManagerController) CheckInstanceModUpdates(
 	instanceID string,
 ) (InstanceModUpdateReportDTO, error) {
-	report, err := controller.svc.CheckInstanceModUpdates(
+	report, err := controller.catalog.CheckInstanceModUpdates(
 		controller.lifecycle.Context(),
 		instanceID,
 	)
@@ -415,14 +424,14 @@ type ModUpdateResultDTO struct {
 func (controller *ModManagerController) UpdateInstanceMods(
 	request UpdateInstanceModsRequest,
 ) (ModUpdateResultDTO, error) {
-	targets := make([]application.ModUpdateTarget, 0, len(request.Mods))
+	targets := make([]mods.ModUpdateTarget, 0, len(request.Mods))
 	for _, mod := range request.Mods {
-		targets = append(targets, application.ModUpdateTarget{
+		targets = append(targets, mods.ModUpdateTarget{
 			ModID:     mod.ModID,
 			VersionID: mod.VersionID,
 		})
 	}
-	result, err := controller.svc.UpdateInstanceMods(
+	result, err := controller.catalog.UpdateInstanceMods(
 		controller.lifecycle.Context(),
 		request.InstanceID,
 		targets,

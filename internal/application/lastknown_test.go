@@ -22,6 +22,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
@@ -199,6 +200,10 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		settingsReader,
 		instanceSlot,
 		launchRegistry,
+		nil,
+		modstorage.New(root),
+		nil,
+		nil,
 	)
 	launchCoordinator := launching.NewCoordinator(
 		launchRegistry,
@@ -302,7 +307,7 @@ func (fixture lkgFixture) installManagedMod(
 	if err := os.WriteFile(path, []byte(modID+"-bytes"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	record := domain.InstalledMod{
+	record := mods.InstalledMod{
 		ID:          "lkg-mod-" + modID + "-" + releaseID,
 		InstanceID:  instance.ID,
 		Name:        "Mod " + modID,
@@ -331,12 +336,12 @@ func (fixture lkgFixture) changeInstalledMod(
 	newVersion string,
 ) {
 	t.Helper()
-	mods, err := fixture.store.ListMods(context.Background(), instance.ID)
+	installedMods, err := fixture.store.ListMods(context.Background(), instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, mod := range mods {
-		if found, _, ok := parseModDBSource(mod.Source); ok && found == modID {
+	for _, mod := range installedMods {
+		if found, _, ok := mods.ParseModDBSource(mod.Source); ok && found == modID {
 			path := filepath.Join(instance.Directory, "Mods", modID+"-"+newReleaseID+".zip")
 			if err := os.WriteFile(path, []byte(modID+"-bytes"), 0o644); err != nil {
 				t.Fatal(err)
@@ -376,7 +381,7 @@ func (fixture lkgFixture) cacheModRelease(
 	if err := os.WriteFile(path, []byte(modID+"-cached-"+releaseID), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	downloaded := domain.DownloadedMod{
+	downloaded := mods.DownloadedMod{
 		SchemaVersion:     1,
 		ModID:             modID,
 		Slug:              strings.ToLower(modID),
@@ -444,13 +449,13 @@ func (fixture lkgFixture) waitForGameExit(t *testing.T) {
 
 func installedVersions(t *testing.T, fixture lkgFixture, instanceID string) map[string]string {
 	t.Helper()
-	mods, err := fixture.store.ListMods(context.Background(), instanceID)
+	installed, err := fixture.store.ListMods(context.Background(), instanceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := make(map[string]string, len(mods))
-	for _, mod := range mods {
-		if modID, _, ok := parseModDBSource(mod.Source); ok {
+	result := make(map[string]string, len(installed))
+	for _, mod := range installed {
+		if modID, _, ok := mods.ParseModDBSource(mod.Source); ok {
 			result[modID] = mod.Version
 		}
 	}
@@ -745,7 +750,6 @@ func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
 	setStartupWindow(t, time.Hour)
 	fixture := newLKGFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureMods(nil, modstorage.New(fixture.root))
 	instance := fixture.createInstance(t, "Restore")
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
 	fixture.cacheModRelease(t, "A", "r1", "1.0.0", "checksum-1")

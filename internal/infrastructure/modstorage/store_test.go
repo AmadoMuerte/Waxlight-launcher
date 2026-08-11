@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 func TestStorePersistsMetadataAndRejectsTraversal(t *testing.T) {
@@ -20,7 +20,7 @@ func TestStorePersistsMetadataAndRejectsTraversal(t *testing.T) {
 	if filepath.Ext(filePath) != ".zip" {
 		t.Fatalf("unexpected file path %s", filePath)
 	}
-	value := domain.DownloadedMod{
+	value := mods.DownloadedMod{
 		SchemaVersion: 1, ModID: "51", VersionID: "7", Name: "Player Corpse",
 		DownloadedVersion: "2.0.0", FileName: "playercorpse.zip",
 		FilePath: filePath, DownloadedAt: time.Now().UTC(),

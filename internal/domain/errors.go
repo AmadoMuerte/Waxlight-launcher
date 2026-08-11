@@ -22,10 +22,6 @@ func NewError(code, message string) error {
 	return &AppError{Code: code, Message: message}
 }
 
-// ErrModFileExists is returned when a mod file with the same name already
-// exists in the target Mods directory.
-var ErrModFileExists = errors.New("mod file already exists")
-
 // ErrNotFound is returned when a stored record does not exist and its absence
 // is a regular state (for example a Last Known Good marker that was never
 // recorded), not an error.
@@ -49,7 +45,6 @@ const (
 	ErrSnapshotNotFound     = "SNAPSHOT_NOT_FOUND"
 	ErrSnapshotInvalid      = "SNAPSHOT_INVALID"
 	ErrSnapshotInProgress   = "SNAPSHOT_IN_PROGRESS"
-	ErrModNotFound          = "MOD_NOT_FOUND"
 	ErrModVersionNotFound   = "MOD_VERSION_NOT_FOUND"
 	ErrModCatalog           = "MOD_CATALOG_UNAVAILABLE"
 	ErrModIncompatible      = "MOD_INCOMPATIBLE"

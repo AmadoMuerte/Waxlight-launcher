@@ -3,12 +3,11 @@ module github.com/waxlight/waxlight-launcher
 go 1.25.0
 
 require (
-	github.com/AmadoMuerte/vintagestory-go v0.1.0
+	github.com/AmadoMuerte/vintagestory-go v0.2.1
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/otiai10/copy v1.14.1
-	github.com/tidwall/gjson v1.19.0
 	github.com/wailsapp/wails/v2 v2.11.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/mod v0.37.0
@@ -35,6 +34,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.49.1 // indirect
+	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect

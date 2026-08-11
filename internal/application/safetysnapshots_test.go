@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -22,23 +21,59 @@ import (
 // tests assert against the documented default of 10.
 const automaticSnapshotRetentionCount = 10
 
-// configureUpdateTestInfrastructure wires a catalog and a downloader so
-// instances can be updated.
-func configureUpdateTestInfrastructure(fixture *testFixture, catalog staticModCatalog) {
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
+// staticModCatalog serves fixed catalog details.
+type staticModCatalog struct {
+	details     mods.ModDetails
+	detailsByID map[string]mods.ModDetails
+}
+
+func (catalog staticModCatalog) List(context.Context) ([]mods.ModSummary, error) {
+	if len(catalog.detailsByID) > 0 {
+		items := make([]mods.ModSummary, 0, len(catalog.detailsByID))
+		for _, details := range catalog.detailsByID {
+			items = append(items, details.ModSummary)
+		}
+		return items, nil
+	}
+	return []mods.ModSummary{catalog.details.ModSummary}, nil
+}
+
+func (catalog staticModCatalog) Search(
+	context.Context,
+	mods.ModSearchQuery,
+) (mods.ModSearchResult, error) {
+	return mods.ModSearchResult{Items: []mods.ModSummary{catalog.details.ModSummary}, Page: 1, PageSize: 24, TotalItems: 1}, nil
+}
+
+func (catalog staticModCatalog) Get(_ context.Context, modID string) (mods.ModDetails, error) {
+	if len(catalog.detailsByID) == 0 {
+		return catalog.details, nil
+	}
+	if details, ok := catalog.detailsByID[modID]; ok {
+		return details, nil
+	}
+	for _, details := range catalog.detailsByID {
+		if details.ID == modID || details.Slug == modID {
+			return details, nil
+		}
+	}
+	return mods.ModDetails{}, domain.NewError(mods.ErrModNotFound, "Mod not found")
+}
+
+func (catalog staticModCatalog) ListTags(context.Context) ([]mods.ModTag, error) {
+	return []mods.ModTag{}, nil
 }
 
 // twoReleaseMod builds catalog details for a mod with an old and a new
 // release.
-func twoReleaseMod(modID string, oldRelease, oldVersion, newRelease, newVersion string) domain.ModDetails {
-	return domain.ModDetails{
-		ModSummary: domain.ModSummary{
+func twoReleaseMod(modID string, oldRelease, oldVersion, newRelease, newVersion string) mods.ModDetails {
+	return mods.ModDetails{
+		ModSummary: mods.ModSummary{
 			ID:            modID,
 			Name:          "Mod " + modID,
 			LatestVersion: newVersion,
 		},
-		Versions: []domain.ModVersion{
+		Versions: []mods.ModVersion{
 			{ID: oldRelease, Version: oldVersion, FileName: modID + "_" + oldVersion + ".zip", DownloadURL: "https://mods.example/" + modID + "_" + oldVersion + ".zip"},
 			{ID: newRelease, Version: newVersion, FileName: modID + "_" + newVersion + ".zip", DownloadURL: "https://mods.example/" + modID + "_" + newVersion + ".zip"},
 		},
@@ -47,14 +82,14 @@ func twoReleaseMod(modID string, oldRelease, oldVersion, newRelease, newVersion 
 
 // manyReleaseMod builds catalog details for a mod with count releases named
 // r1..rN.
-func manyReleaseMod(modID string, count int) domain.ModDetails {
-	details := domain.ModDetails{
-		ModSummary: domain.ModSummary{ID: modID, Name: "Mod " + modID},
+func manyReleaseMod(modID string, count int) mods.ModDetails {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: modID, Name: "Mod " + modID},
 	}
 	for index := 1; index <= count; index++ {
 		releaseID := fmt.Sprintf("r%d", index)
 		version := fmt.Sprintf("%d.0.0", index)
-		details.Versions = append(details.Versions, domain.ModVersion{
+		details.Versions = append(details.Versions, mods.ModVersion{
 			ID:           releaseID,
 			Version:      version,
 			FileName:     modID + "_" + releaseID + ".zip",
@@ -68,12 +103,12 @@ func manyReleaseMod(modID string, count int) domain.ModDetails {
 }
 
 // updateModTo requests an update of one mod and fails the test on error.
-func updateModTo(t *testing.T, fixture testFixture, instanceID, modID, releaseID string) application.ModUpdateResult {
+func updateModTo(t *testing.T, fixture testFixture, instanceID, modID, releaseID string) mods.ModUpdateResult {
 	t.Helper()
-	result, err := fixture.service.UpdateInstanceMods(
+	result, err := fixture.modsCatalog.UpdateInstanceMods(
 		context.Background(),
 		instanceID,
-		[]application.ModUpdateTarget{{ModID: modID, VersionID: releaseID}},
+		[]mods.ModUpdateTarget{{ModID: modID, VersionID: releaseID}},
 		false,
 	)
 	if err != nil {
@@ -139,11 +174,10 @@ func parseTestModDBSource(source string) (string, string, bool) {
 }
 
 func TestAutomaticSnapshotCreatedBeforeSingleModUpdate(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	instance := createSnapshotTestInstance(t, fixture, "Single update")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
 	result := updateModTo(t, fixture, instance.ID, "100", "1001")
 	if result.Updated != 1 {
@@ -183,24 +217,25 @@ func TestAutomaticSnapshotCreatedBeforeSingleModUpdate(t *testing.T) {
 }
 
 func TestBulkUpdateCreatesExactlyOneSnapshot(t *testing.T) {
-	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance := createSnapshotTestInstance(t, fixture, "Bulk update")
-	writeTestInstanceFiles(t, instance)
-
-	detailsByID := make(map[string]domain.ModDetails, 20)
-	targets := make([]application.ModUpdateTarget, 0, 20)
+	detailsByID := make(map[string]mods.ModDetails, 20)
+	targets := make([]mods.ModUpdateTarget, 0, 20)
 	for index := 0; index < 20; index++ {
 		modID := fmt.Sprintf("100-%02d", index)
 		detailsByID[modID] = twoReleaseMod(modID, "r0", "1.0.0", "r1", "2.0.0")
-		installManagedMod(t, fixture, instance, "Mod "+modID, modID+".zip", modID, "r0", "1.0.0", true)
-		targets = append(targets, application.ModUpdateTarget{ModID: modID, VersionID: "r1"})
+		targets = append(targets, mods.ModUpdateTarget{ModID: modID, VersionID: "r1"})
 	}
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{detailsByID: detailsByID})
+	fixture := newTestFixtureWithMods(t, staticModCatalog{detailsByID: detailsByID})
+	instance := createSnapshotTestInstance(t, fixture, "Bulk update")
+	writeTestInstanceFiles(t, instance)
+	for index := 0; index < 20; index++ {
+		modID := fmt.Sprintf("100-%02d", index)
+		installManagedMod(t, fixture, instance, "Mod "+modID, modID+".zip", modID, "r0", "1.0.0", true)
+	}
 
 	// The bulk use case internally drives one mod update per target; it must
 	// still produce exactly ONE safety snapshot for the whole operation.
-	result, err := fixture.service.UpdateInstanceMods(ctx, instance.ID, targets, false)
+	result, err := fixture.modsCatalog.UpdateInstanceMods(ctx, instance.ID, targets, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,18 +264,17 @@ func TestBulkUpdateCreatesExactlyOneSnapshot(t *testing.T) {
 }
 
 func TestUpdateWithNoChangesSkipsSnapshot(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "No changes")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
 	// The instance is already at the requested release: no update, no snapshot.
-	result, err := fixture.service.UpdateInstanceMods(
+	result, err := fixture.modsCatalog.UpdateInstanceMods(
 		ctx,
 		instance.ID,
-		[]application.ModUpdateTarget{{ModID: "100", VersionID: "1000"}},
+		[]mods.ModUpdateTarget{{ModID: "100", VersionID: "1000"}},
 		false,
 	)
 	if err != nil {
@@ -265,12 +299,12 @@ func TestAutomaticSnapshotCreatedBeforeModRemoval(t *testing.T) {
 		installManagedMod(t, fixture, instance, "Mod "+mod.modID, mod.modID+".zip", mod.modID, mod.releaseID, "1.0.0", true)
 	}
 
-	mods, err := fixture.store.ListMods(ctx, instance.ID)
+	installedMods, err := fixture.store.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var removed domain.InstalledMod
-	for _, mod := range mods {
+	var removed mods.InstalledMod
+	for _, mod := range installedMods {
 		if modID, _, ok := parseTestModDBSource(mod.Source); ok && modID == "200" {
 			removed = mod
 		}
@@ -279,7 +313,7 @@ func TestAutomaticSnapshotCreatedBeforeModRemoval(t *testing.T) {
 		t.Fatal("mod to remove was not installed")
 	}
 
-	if err := fixture.service.DeleteMod(ctx, removed.ID, false); err != nil {
+	if err := fixture.mods.DeleteMod(ctx, removed.ID, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -324,7 +358,7 @@ func TestBulkRemovalCreatesExactlyOneSnapshot(t *testing.T) {
 		ids = append(ids, mod.ID)
 	}
 
-	if err := fixture.service.RemoveMods(ctx, instance.ID, ids, false); err != nil {
+	if err := fixture.mods.RemoveMods(ctx, instance.ID, ids, false); err != nil {
 		t.Fatal(err)
 	}
 	remaining, err := fixture.store.ListMods(ctx, instance.ID)
@@ -396,18 +430,17 @@ func saveAdditionalGameVersion(t *testing.T, fixture testFixture, id string) {
 
 func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 	t.Run("mod update", func(t *testing.T) {
-		fixture := newTestFixture(t)
+		fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 		ctx := context.Background()
 		instance := createSnapshotTestInstance(t, fixture, "Blocked update")
 		writeTestInstanceFiles(t, instance)
 		installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-		configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 		fixture.setDiskSpace(fixedDiskSpace(0))
 
-		_, err := fixture.service.UpdateInstanceMods(
+		_, err := fixture.modsCatalog.UpdateInstanceMods(
 			ctx,
 			instance.ID,
-			[]application.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
+			[]mods.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 			false,
 		)
 		if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
@@ -422,7 +455,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 	})
 
 	t.Run("mod removal", func(t *testing.T) {
-		fixture := newTestFixture(t)
+		fixture := newTestFixtureWithMods(t, nil)
 		ctx := context.Background()
 		instance := createSnapshotTestInstance(t, fixture, "Blocked removal")
 		writeTestInstanceFiles(t, instance)
@@ -433,7 +466,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = fixture.service.DeleteMod(ctx, mods[0].ID, false)
+		err = fixture.mods.DeleteMod(ctx, mods[0].ID, false)
 		if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
 			t.Fatalf("expected INSUFFICIENT_DISK_SPACE, got %s", code)
 		}
@@ -465,7 +498,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 }
 
 func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	ctx := context.Background()
 	settings, err := fixture.settings.Get(ctx)
 	if err != nil {
@@ -479,7 +512,6 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	instance := createSnapshotTestInstance(t, fixture, "Disabled backups")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
 	result := updateModTo(t, fixture, instance.ID, "100", "1001")
 	if result.Updated != 1 {
@@ -493,7 +525,7 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.DeleteMod(ctx, mods[0].ID, false); err != nil {
+	if err := fixture.mods.DeleteMod(ctx, mods[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if remaining, listErr := fixture.store.ListMods(ctx, instance.ID); listErr != nil || len(remaining) != 0 {
@@ -553,21 +585,20 @@ func (blockingDownloader) ContentLength(context.Context, string) (int64, error) 
 }
 
 func TestConcurrentDestructiveOperationsRejectedPerInstance(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Concurrent")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	release := make(chan struct{})
-	fixture.setDownloader(blockingDownloader{release: release})
+	fixture.downloader.Set(blockingDownloader{release: release})
 
 	updateDone := make(chan error, 1)
 	go func() {
-		_, err := fixture.service.UpdateInstanceMods(
+		_, err := fixture.modsCatalog.UpdateInstanceMods(
 			context.Background(),
 			instance.ID,
-			[]application.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
+			[]mods.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 			false,
 		)
 		updateDone <- err
@@ -590,7 +621,7 @@ func TestConcurrentDestructiveOperationsRejectedPerInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = fixture.service.DeleteMod(ctx, mods[0].ID, false)
+	err = fixture.mods.DeleteMod(ctx, mods[0].ID, false)
 	if code := appErrorCode(t, err); code != domain.ErrSnapshotInProgress {
 		t.Fatalf("expected SNAPSHOT_IN_PROGRESS for a concurrent removal, got %s", code)
 	}
@@ -612,18 +643,17 @@ func TestConcurrentDestructiveOperationsRejectedPerInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.DeleteMod(ctx, mods[0].ID, false); err != nil {
+	if err := fixture.mods.DeleteMod(ctx, mods[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestAutomaticRetentionKeepsLatestTen(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: manyReleaseMod("100", 12)})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Retention")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "r1", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: manyReleaseMod("100", 12)})
 
 	// Update the same mod eleven times (r1 -> r2 -> ... -> r12); every update
 	// creates one automatic snapshot and retention trims the oldest ones.
@@ -660,12 +690,11 @@ func TestAutomaticRetentionKeepsLatestTen(t *testing.T) {
 }
 
 func TestAutomaticRetentionNeverRemovesManualSnapshots(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: manyReleaseMod("100", 12)})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Mixed retention")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "r1", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: manyReleaseMod("100", 12)})
 
 	for index := 0; index < 5; index++ {
 		if _, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID); err != nil {
@@ -701,12 +730,11 @@ func TestAutomaticRetentionNeverRemovesManualSnapshots(t *testing.T) {
 }
 
 func TestAutomaticSnapshotRestoresThroughExistingSystem(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Restorable automatic")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
 	// The automatic snapshot is created by the update; it must restore exactly
 	// like a manual one through the shared restore pipeline.
@@ -735,22 +763,21 @@ func TestAutomaticSnapshotRestoresThroughExistingSystem(t *testing.T) {
 }
 
 func TestAutomaticSnapshotRejectedWhileGameRunning(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Running")
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
-	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
 	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
-	_, err := fixture.service.UpdateInstanceMods(
+	_, err := fixture.modsCatalog.UpdateInstanceMods(
 		ctx,
 		instance.ID,
-		[]application.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
+		[]mods.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 		false,
 	)
 	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 // sentinel must never appear in any telemetry payload. The test store injects
@@ -26,7 +26,7 @@ func TestSentinelNeverEntersTelemetryBodies(t *testing.T) {
 	store.instances = []instances.Instance{
 		{ID: sentinel, Name: sentinel},
 	}
-	store.mods[sentinel] = []domain.InstalledMod{
+	store.mods[sentinel] = []mods.InstalledMod{
 		{ID: sentinel, Name: sentinel, FilePath: sentinel, FileName: sentinel},
 	}
 

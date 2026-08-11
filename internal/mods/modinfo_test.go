@@ -1,4 +1,4 @@
-package application_test
+package mods_test
 
 import (
 	"archive/zip"
@@ -7,10 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 // TassFactions ships its modinfo.json with a UTF-8 byte order mark, which the
@@ -49,18 +47,16 @@ func TestDownloadModWithTrailingCommasInModinfo(t *testing.T) {
 // Lenient modinfo must keep the string dependencies it can read, so the
 // launcher still resolves them instead of dropping them silently.
 func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-	root := domain.ModDetails{
-		ModSummary: domain.ModSummary{ID: "51", Name: "Root Mod", AuthorName: "Tass", LatestVersion: "1.0.0"},
-		Versions: []domain.ModVersion{{
+	root := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Root Mod", AuthorName: "Tass", LatestVersion: "1.0.0"},
+		Versions: []mods.ModVersion{{
 			ID: "9", Version: "1.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
 			FileName: "root.zip", DownloadURL: "https://cdn.test/root.zip",
 		}},
 	}
-	library := domain.ModDetails{
-		ModSummary: domain.ModSummary{ID: "60", Slug: "playermodellib", Name: "Player Model Lib", AuthorName: "Sekel", LatestVersion: "1.23.1"},
-		Versions: []domain.ModVersion{{
+	library := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "60", Slug: "playermodellib", Name: "Player Model Lib", AuthorName: "Sekel", LatestVersion: "1.23.1"},
+		Versions: []mods.ModVersion{{
 			ID: "12", Version: "1.23.1", GameVersions: []string{"1.20"}, ReleaseType: "stable",
 			FileName: "playermodellib.zip", DownloadURL: "https://cdn.test/playermodellib.zip",
 		}},
@@ -74,21 +70,18 @@ func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
     "playermodellib": "1.23.1",
   },
 }`
-	fixture.setDownloader(&rawModinfoDownloader{byURL: map[string]string{
-		"https://cdn.test/root.zip":           trailingCommasModinfo,
-		"https://cdn.test/playermodellib.zip": `{"modid":"playermodellib","name":"Player Model Lib","version":"1.23.1","dependencies":{"game":"1.20"}}`,
-	}})
-	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{detailsByID: map[string]mods.ModDetails{
 		"51":             root,
 		"rootmod":        root,
 		"60":             library,
 		"playermodellib": library,
-	}}, modstorage.New(fixture.root))
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "I", GameVersionID: "1.20"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+	}}, &rawModinfoDownloader{byURL: map[string]string{
+		"https://cdn.test/root.zip":           trailingCommasModinfo,
+		"https://cdn.test/playermodellib.zip": `{"modid":"playermodellib","name":"Player Model Lib","version":"1.23.1","dependencies":{"game":"1.20"}}`,
+	}})
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Lenient")
+	result, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
 		ModID: "51", VersionID: "9", InstanceIDs: []string{instance.ID},
 	})
 	if err != nil {
@@ -97,7 +90,7 @@ func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
 	if len(result.Installations) != 1 || !result.Installations[0].Installed {
 		t.Fatalf("unexpected installation result: %#v", result.Installations)
 	}
-	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,22 +101,17 @@ func TestLenientModinfoKeepsStringDependencies(t *testing.T) {
 
 func runModinfoDownloadTest(t *testing.T, name, version, modinfo string) {
 	t.Helper()
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-	fixture.setDownloader(&rawModinfoDownloader{modinfo: modinfo})
-	details := domain.ModDetails{
-		ModSummary: domain.ModSummary{ID: "51", Name: name, AuthorName: "Tass", LatestVersion: version},
-		Versions: []domain.ModVersion{{
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: name, AuthorName: "Tass", LatestVersion: version},
+		Versions: []mods.ModVersion{{
 			ID: "9", Version: version, GameVersions: []string{"1.20"}, ReleaseType: "stable",
 			FileName: "mod.zip", DownloadURL: "https://cdn.test/mod.zip",
 		}},
 	}
-	fixture.service.ConfigureMods(staticModCatalog{details: details}, modstorage.New(fixture.root))
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "I", GameVersionID: "1.20"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, &rawModinfoDownloader{modinfo: modinfo})
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Modinfo")
+	result, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
 		ModID: "51", VersionID: "9", InstanceIDs: []string{instance.ID},
 	})
 	if err != nil {

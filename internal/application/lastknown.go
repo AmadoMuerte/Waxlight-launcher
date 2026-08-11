@@ -12,6 +12,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 // recordLastKnownGood persists the current configuration of an instance as the
@@ -28,7 +29,7 @@ func (s *Service) RecordLastKnownGood(ctx context.Context, instance instances.In
 		return
 	}
 	defer release()
-	installedMods, err := s.ListMods(ctx, instance.ID)
+	installedMods, err := s.mods.ListMods(ctx, instance.ID)
 	if err != nil {
 		slog.Warn("could not read the installed mods for the last known good state", "instance", instance.Name, "error", err)
 		return
@@ -113,7 +114,7 @@ func sameModSet(left, right []domain.SnapshotMod) bool {
 // release representation the snapshot manifest uses. The returned name map
 // keys mod identity to the display name of the installed mod record.
 func (s *Service) currentConfiguration(ctx context.Context, instance instances.Instance) (string, []domain.SnapshotMod, map[string]string, error) {
-	installedMods, err := s.ListMods(ctx, instance.ID)
+	installedMods, err := s.mods.ListMods(ctx, instance.ID)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -142,8 +143,8 @@ func snapshotModKey(mod domain.SnapshotMod) string {
 
 // installedModKey derives the stable identity of an installed mod record,
 // matching snapshotModKey for the same mod.
-func installedModKey(mod domain.InstalledMod) string {
-	if modID, _, ok := parseModDBSource(mod.Source); ok {
+func installedModKey(mod mods.InstalledMod) string {
+	if modID, _, ok := mods.ParseModDBSource(mod.Source); ok {
 		return "moddb:" + modID
 	}
 	name := strings.TrimSpace(mod.Name)

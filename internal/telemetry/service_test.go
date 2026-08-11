@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
@@ -20,13 +20,13 @@ type fakeStore struct {
 	enabled   bool
 	values    map[string]string
 	instances []instances.Instance
-	mods      map[string][]domain.InstalledMod
+	mods      map[string][]mods.InstalledMod
 	err       error
 }
 
 func newFakeStore(t *testing.T, values map[string]string) *fakeStore {
 	t.Helper()
-	return &fakeStore{values: values, mods: map[string][]domain.InstalledMod{}}
+	return &fakeStore{values: values, mods: map[string][]mods.InstalledMod{}}
 }
 
 func (s *fakeStore) Get(context.Context) (settings.Settings, error) {
@@ -66,13 +66,13 @@ func (s *fakeStore) ListInstances(context.Context) ([]instances.Instance, error)
 	return append([]instances.Instance(nil), s.instances...), nil
 }
 
-func (s *fakeStore) ListMods(_ context.Context, instanceID string) ([]domain.InstalledMod, error) {
+func (s *fakeStore) ListMods(_ context.Context, instanceID string) ([]mods.InstalledMod, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return nil, s.err
 	}
-	return append([]domain.InstalledMod(nil), s.mods[instanceID]...), nil
+	return append([]mods.InstalledMod(nil), s.mods[instanceID]...), nil
 }
 
 func (s *fakeStore) setEnabled(enabled bool) {
@@ -191,7 +191,7 @@ func TestFirstEligibleHeartbeatIsSent(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	store.instances = []instances.Instance{{ID: "a"}, {ID: "b"}}
-	store.mods["a"] = []domain.InstalledMod{{ID: "m1"}, {ID: "m2"}}
+	store.mods["a"] = []mods.InstalledMod{{ID: "m1"}, {ID: "m2"}}
 	sender := &fakeSender{}
 	service := NewService(sender, store, store, store)
 
@@ -422,7 +422,7 @@ func TestHeartbeatPayloadContainsOnlyApprovedFields(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	store.instances = []instances.Instance{{ID: "a", Name: "secret-instance-name"}}
-	store.mods["a"] = []domain.InstalledMod{{ID: "m1", Name: "secret-mod-name", FilePath: "/home/user/.waxlight/instances/a/Mods/secret.zip"}}
+	store.mods["a"] = []mods.InstalledMod{{ID: "m1", Name: "secret-mod-name", FilePath: "/home/user/.waxlight/instances/a/Mods/secret.zip"}}
 	sender := &fakeSender{}
 	service := NewService(sender, store, store, store)
 

@@ -20,6 +20,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -106,7 +107,7 @@ func (s *Service) createInstanceSnapshotCore(
 		return operations.Operation{}, err
 	}
 
-	installedMods, err := s.ListMods(ctx, input.instanceID)
+	installedMods, err := s.mods.ListMods(ctx, input.instanceID)
 	if err != nil {
 		return operations.Operation{}, err
 	}
@@ -254,12 +255,12 @@ func (s *Service) createInstanceSnapshotCore(
 func (s *Service) snapshotModManifest(
 	ctx context.Context,
 	instanceID string,
-	installedMods []domain.InstalledMod,
+	installedMods []mods.InstalledMod,
 ) ([]domain.SnapshotMod, map[string]struct{}) {
 	manifestMods := make([]domain.SnapshotMod, 0, len(installedMods))
 	skipPaths := make(map[string]struct{}, len(installedMods))
 	for _, mod := range installedMods {
-		if modID, versionID, ok := parseModDBSource(mod.Source); ok {
+		if modID, versionID, ok := mods.ParseModDBSource(mod.Source); ok {
 			entry := domain.SnapshotMod{
 				Source:     domain.SnapshotModSourceModDB,
 				ModID:      modID,
@@ -269,19 +270,17 @@ func (s *Service) snapshotModManifest(
 				FileName:   mod.FileName,
 				Enabled:    mod.Enabled,
 			}
-			if s.modDownloads != nil {
-				if cached, cacheErr := s.modDownloads.Get(ctx, modID, versionID); cacheErr == nil {
-					if strings.TrimSpace(cached.Slug) != "" {
-						entry.Identifier = cached.Slug
-					}
-					if strings.TrimSpace(cached.DownloadedVersion) != "" {
-						entry.Version = cached.DownloadedVersion
-					}
-					if strings.TrimSpace(cached.FileName) != "" {
-						entry.FileName = cached.FileName
-					}
-					entry.SHA256 = cached.Checksum
+			if cached, cacheErr := s.modsCatalog.GetDownloadedMod(ctx, modID, versionID); cacheErr == nil {
+				if strings.TrimSpace(cached.Slug) != "" {
+					entry.Identifier = cached.Slug
 				}
+				if strings.TrimSpace(cached.DownloadedVersion) != "" {
+					entry.Version = cached.DownloadedVersion
+				}
+				if strings.TrimSpace(cached.FileName) != "" {
+					entry.FileName = cached.FileName
+				}
+				entry.SHA256 = cached.Checksum
 			}
 			manifestMods = append(manifestMods, entry)
 		} else {
@@ -692,7 +691,7 @@ func snapshotModRestoreMessage(err error) string {
 		return "Snapshot could not be restored: " + err.Error()
 	}
 	mod := downloadError.mod
-	if isAppErrorCode(downloadError.cause, domain.ErrModVersionNotFound) {
+	if isAppErrorCode(downloadError.cause, mods.ErrModVersionNotFound) {
 		return fmt.Sprintf(
 			"Snapshot could not be restored. The following mod release is no longer available: %s %s",
 			snapshotModDisplayName(mod),
@@ -792,7 +791,7 @@ func (s *Service) restoreSnapshotMod(
 	staging string,
 	mod domain.SnapshotMod,
 ) (restoredSnapshotMod, error) {
-	downloaded, err := s.downloadModRelease(ctx, mod.ModID, mod.ReleaseID)
+	downloaded, err := s.modsCatalog.DownloadRelease(ctx, mod.ModID, mod.ReleaseID)
 	if err != nil {
 		return restoredSnapshotMod{}, err
 	}
@@ -801,7 +800,7 @@ func (s *Service) restoreSnapshotMod(
 			"the downloaded release does not match the snapshot checksum",
 		)
 	}
-	if info, infoErr := readModArchiveInfo(downloaded.FilePath); infoErr == nil {
+	if info, infoErr := mods.ReadModArchiveInfo(downloaded.FilePath); infoErr == nil {
 		if strings.TrimSpace(info.ModID) != "" && strings.TrimSpace(mod.Identifier) != "" &&
 			!strings.EqualFold(info.ModID, mod.Identifier) {
 			slog.Warn("snapshot mod identifier mismatch", "snapshot", mod.Identifier, "archive", info.ModID, "modId", mod.ModID)
@@ -873,9 +872,9 @@ func (s *Service) rebuildInstanceMods(
 		}
 		source := "local"
 		if restoredMod.entry.Source == domain.SnapshotModSourceModDB {
-			source = modDBSource(restoredMod.entry.ModID, restoredMod.entry.ReleaseID)
+			source = mods.ModDBSource(restoredMod.entry.ModID, restoredMod.entry.ReleaseID)
 		}
-		record := domain.InstalledMod{
+		record := mods.InstalledMod{
 			ID:          newID(),
 			InstanceID:  instance.ID,
 			Name:        restoredMod.displayName,
@@ -1143,7 +1142,7 @@ func copySnapshotFileContext(ctx context.Context, source string, destination str
 	if err != nil {
 		return 0, err
 	}
-	size, err := io.Copy(output, &contextReaderMod{ctx: ctx, reader: input})
+	size, err := io.Copy(output, &mods.ContextReader{Ctx: ctx, Reader: input})
 	if err != nil {
 		_ = output.Close()
 		return 0, err

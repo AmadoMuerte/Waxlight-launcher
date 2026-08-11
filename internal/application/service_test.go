@@ -1,7 +1,6 @@
 package application_test
 
 import (
-	"archive/zip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -23,9 +22,11 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
@@ -261,8 +262,29 @@ func (holder *accountHolder) ValidateAuthorizedAccount(ctx context.Context, id s
 	return holder.service.ValidateAuthorizedAccount(ctx, id)
 }
 
+// modTelemetryHolder forwards telemetry calls to the service wired after the
+// fixture is built, keeping the mods services immutable.
+type modTelemetryHolder struct {
+	current mods.Telemetry
+}
+
+func (holder *modTelemetryHolder) Event(ctx context.Context, name string) {
+	if holder.current != nil {
+		holder.current.Event(ctx, name)
+	}
+}
+
+func (holder *modTelemetryHolder) Error(ctx context.Context, code, component, operation string) {
+	if holder.current != nil {
+		holder.current.Error(ctx, code, component, operation)
+	}
+}
+
 type testFixture struct {
 	service            *application.Service
+	mods               *mods.Service
+	modsCatalog        *mods.CatalogService
+	modTelemetry       *modTelemetryHolder
 	store              *sqlite.SQLiteStore
 	root               string
 	executable         string
@@ -286,11 +308,38 @@ func newTestFixture(t *testing.T) testFixture {
 	return newTestFixtureWithVersionDependencies(t, nil, recordingDownloader{}, fakeGamePackageInstaller{})
 }
 
+// newTestFixtureWithMods builds a fixture whose mods subsystem is wired with
+// the given catalog and the standard downloaded-mod cache.
+func newTestFixtureWithMods(t *testing.T, catalog mods.Catalog) testFixture {
+	return newTestFixtureWithVersionDependenciesAndMods(t, nil, recordingDownloader{}, fakeGamePackageInstaller{}, catalog)
+}
+
 func newTestFixtureWithVersionDependencies(
 	t *testing.T,
 	catalog versions.Catalog,
 	downloader downloads.Downloader,
 	packageInstaller versions.PackageInstaller,
+) testFixture {
+	return newTestFixtureWithVersionDependenciesAndMods(t, catalog, downloader, packageInstaller, nil)
+}
+
+func newTestFixtureWithVersionDependenciesAndMods(
+	t *testing.T,
+	catalog versions.Catalog,
+	downloader downloads.Downloader,
+	packageInstaller versions.PackageInstaller,
+	modCatalog mods.Catalog,
+) testFixture {
+	return newTestFixtureFull(t, catalog, downloader, packageInstaller, modCatalog, nil)
+}
+
+func newTestFixtureFull(
+	t *testing.T,
+	catalog versions.Catalog,
+	downloader downloads.Downloader,
+	packageInstaller versions.PackageInstaller,
+	modCatalog mods.Catalog,
+	telemetryService mods.Telemetry,
 ) testFixture {
 	t.Helper()
 
@@ -344,6 +393,7 @@ func newTestFixtureWithVersionDependencies(
 	)
 	instanceSlot := mutations.NewSlot()
 	launchRegistry := launching.NewRegistry(instanceSlot)
+	modTelemetry := &modTelemetryHolder{current: telemetryService}
 	service := application.NewService(
 		store,
 		filesystem.ModFileManager{},
@@ -360,6 +410,10 @@ func newTestFixtureWithVersionDependencies(
 		settingsReader,
 		instanceSlot,
 		launchRegistry,
+		modCatalog,
+		modstorage.New(root),
+		nil,
+		modTelemetry,
 	)
 	launchAccountHolder := &accountHolder{}
 	launchCoordinator := launching.NewCoordinator(
@@ -414,8 +468,10 @@ func newTestFixtureWithVersionDependencies(
 		t.Fatal(err)
 	}
 
-	return testFixture{
+	fixture := testFixture{
 		service:            service,
+		mods:               service.Mods(),
+		modsCatalog:        service.ModsCatalog(),
 		store:              store,
 		root:               root,
 		executable:         executable,
@@ -434,6 +490,8 @@ func newTestFixtureWithVersionDependencies(
 		gate:               gate,
 		setCreateTelemetry: func(service *telemetry.Service) { createTelemetry = service },
 	}
+	fixture.modTelemetry = modTelemetry
+	return fixture
 }
 
 func (fixture testFixture) setDownloader(downloader downloads.Downloader) {
@@ -614,220 +672,6 @@ func TestDeleteVersionRemovesFilesAndEmptyLibraryDirectory(t *testing.T) {
 	}
 	if _, err := fixture.store.GetVersion(ctx, "1.20"); err == nil {
 		t.Fatal("deleted version is still stored")
-	}
-}
-
-func TestLocalModLifecycle(t *testing.T) {
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-
-	instance, err := fixture.service.CreateInstance(
-		ctx,
-		instances.CreateInput{
-			Name:          "Modded",
-			GameVersionID: "1.20",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sourcePath := filepath.Join(fixture.root, "sample.zip")
-	if err := os.WriteFile(sourcePath, []byte("mod"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = fixture.service.InstallModFile(
-		ctx,
-		instance.ID,
-		sourcePath,
-		"Sample",
-		"1.0",
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mods, err := fixture.service.ListMods(ctx, instance.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mods) != 1 {
-		t.Fatalf("expected one installed mod, got %d", len(mods))
-	}
-	if mods[0].Name != "Sample" || mods[0].Version != "1.0" {
-		t.Fatalf("stored mod metadata was replaced during scan: %#v", mods[0])
-	}
-
-	disabledMod, err := fixture.service.SetModEnabled(ctx, mods[0].ID, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if disabledMod.Enabled {
-		t.Fatal("the mod should be disabled")
-	}
-	if directoryName := filepath.Base(filepath.Dir(disabledMod.FilePath)); directoryName != "ModsDisabled" {
-		t.Fatalf("unexpected disabled mod directory %q", directoryName)
-	}
-
-	if err := fixture.service.DeleteMod(ctx, disabledMod.ID, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(disabledMod.FilePath); !os.IsNotExist(err) {
-		t.Fatal("the deleted mod file still exists")
-	}
-}
-
-func TestInstallModFilesBatch(t *testing.T) {
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "Batch", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	makeMod := func(name string) string {
-		path := filepath.Join(fixture.root, name+".zip")
-		if err := os.WriteFile(path, []byte("mod"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		return path
-	}
-
-	first := makeMod("first")
-	second := makeMod("second")
-	unsupported := filepath.Join(fixture.root, "not-a-mod.txt")
-	if err := os.WriteFile(unsupported, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := fixture.service.InstallModFiles(ctx, instance.ID, []string{first, second})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Installed) != 2 || len(result.Skipped) != 0 || len(result.Failed) != 0 {
-		t.Fatalf("unexpected batch result: %#v", result)
-	}
-
-	duplicateResult, err := fixture.service.InstallModFiles(
-		ctx,
-		instance.ID,
-		[]string{first, second},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(duplicateResult.Installed) != 0 {
-		t.Fatalf("expected no new installs, got %#v", duplicateResult.Installed)
-	}
-	if len(duplicateResult.Skipped) != 2 {
-		t.Fatalf("expected two skipped duplicates, got %#v", duplicateResult.Skipped)
-	}
-	if len(duplicateResult.Failed) != 0 {
-		t.Fatalf("expected no failures, got %#v", duplicateResult.Failed)
-	}
-
-	partialResult, err := fixture.service.InstallModFiles(
-		ctx,
-		instance.ID,
-		[]string{first, unsupported},
-	)
-	if err == nil {
-		t.Fatal("expected an error when nothing could be installed")
-	}
-	if len(partialResult.Installed) != 0 || len(partialResult.Skipped) != 1 ||
-		len(partialResult.Failed) != 1 || partialResult.Failed[0].Path != unsupported {
-		t.Fatalf("unexpected partial result: %#v", partialResult)
-	}
-
-	mods, err := fixture.service.ListMods(ctx, instance.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mods) != 2 {
-		t.Fatalf("expected two installed mods, got %d", len(mods))
-	}
-
-	allFailResult, err := fixture.service.InstallModFiles(ctx, instance.ID, []string{unsupported})
-	if err == nil {
-		t.Fatal("expected an error when nothing could be installed")
-	}
-	if len(allFailResult.Installed) != 0 || len(allFailResult.Failed) != 1 {
-		t.Fatalf("unexpected all-fail result: %#v", allFailResult)
-	}
-}
-
-func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "Imported", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	archivePath := filepath.Join(instance.Directory, "Mods", "smithingplus.zip")
-	writeVintageStoryMod(t, archivePath, `{"modid":"smithingplus","name":"Smithing Plus","version":"2.4.1"}`)
-	disabledPath := filepath.Join(instance.Directory, "ModsDisabled", "utility.dll")
-	if err := os.WriteFile(disabledPath, []byte("mod"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	mods, err := fixture.service.ListMods(ctx, instance.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mods) != 2 {
-		t.Fatalf("expected two imported mods, got %#v", mods)
-	}
-	if mods[0].Name != "Smithing Plus" || mods[0].Version != "2.4.1" || !mods[0].Enabled || mods[0].Managed {
-		t.Fatalf("unexpected imported archive: %#v", mods[0])
-	}
-	importedID := mods[0].ID
-
-	movedPath := filepath.Join(instance.Directory, "ModsDisabled", filepath.Base(archivePath))
-	if err := os.Rename(archivePath, movedPath); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(disabledPath); err != nil {
-		t.Fatal(err)
-	}
-	mods, err = fixture.service.ListMods(ctx, instance.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(mods) != 1 || mods[0].ID != importedID || mods[0].Enabled || mods[0].FilePath != movedPath {
-		t.Fatalf("filesystem changes were not reconciled: %#v", mods)
-	}
-	persisted, err := fixture.store.ListMods(ctx, instance.ID)
-	if err != nil || len(persisted) != 1 {
-		t.Fatalf("unexpected persisted mods: %#v, %v", persisted, err)
-	}
-}
-
-func writeVintageStoryMod(t *testing.T, path, metadata string) {
-	t.Helper()
-	file, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive := zip.NewWriter(file)
-	entry, err := archive.Create("modinfo.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := entry.Write([]byte(metadata)); err != nil {
-		t.Fatal(err)
-	}
-	if err := archive.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -1466,7 +1310,7 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 		t.Fatalf("expected DATA_FOLDER_BUSY, got %v", err)
 	}
 
-	if err := fixture.service.DeleteMod(context.Background(), "missing", false); err == nil {
+	if err := fixture.mods.DeleteMod(context.Background(), "missing", false); err == nil {
 		t.Fatal("expected mod deletion to be rejected while relocating")
 	}
 

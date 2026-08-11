@@ -6,7 +6,6 @@ package application
 const (
 	operationTitleInstallingGameVersion  = "operation_installing_game_version"
 	operationTitleDownloadingGameVersion = "operation_downloading_game_version"
-	operationTitleInstallingMod          = "operation_installing_mod"
 	operationTitleCreatingSnapshot       = "operation_creating_snapshot"
 	operationTitleCreatingSafetyBackup   = "operation_creating_safety_backup"
 	operationTitleRestoringSnapshot      = "operation_restoring_snapshot"

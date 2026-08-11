@@ -66,7 +66,7 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mods, err := fixture.service.ListMods(ctx, source.ID)
+	mods, err := fixture.mods.ListMods(ctx, source.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
@@ -25,18 +26,59 @@ type Store interface {
 	SaveLastKnownGood(context.Context, domain.LastKnownGood) error
 	DeleteLastKnownGood(context.Context, string) error
 
-	ListMods(context.Context, string) ([]domain.InstalledMod, error)
-	GetMod(context.Context, string) (domain.InstalledMod, error)
-	SaveMod(context.Context, domain.InstalledMod) error
+	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+	GetMod(context.Context, string) (mods.InstalledMod, error)
+	SaveMod(context.Context, mods.InstalledMod) error
 	DeleteMod(context.Context, string) error
 }
 
-type ModFileManager interface {
-	EnsureLayout(string) error
-	Scan(string) ([]domain.DiscoveredMod, error)
-	Install(context.Context, string, string) (string, int64, error)
-	InstallOrReplace(context.Context, string, string, string) (string, int64, error)
-	SetEnabled(string, string, bool) (string, error)
+// modsStoreAdapter maps the shared store to the mods repository port,
+// converting instance records into the minimal instance view of the mods
+// feature.
+type modsStoreAdapter struct {
+	store Store
+}
+
+func (adapter modsStoreAdapter) GetInstance(ctx context.Context, id string) (mods.InstanceRef, error) {
+	instance, err := adapter.store.GetInstance(ctx, id)
+	return instanceRef(instance), err
+}
+
+func (adapter modsStoreAdapter) ListInstances(ctx context.Context) ([]mods.InstanceRef, error) {
+	instances, err := adapter.store.ListInstances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]mods.InstanceRef, 0, len(instances))
+	for _, instance := range instances {
+		result = append(result, instanceRef(instance))
+	}
+	return result, nil
+}
+
+func instanceRef(instance instances.Instance) mods.InstanceRef {
+	return mods.InstanceRef{
+		ID:            instance.ID,
+		Name:          instance.Name,
+		Directory:     instance.Directory,
+		GameVersionID: instance.GameVersionID,
+	}
+}
+
+func (adapter modsStoreAdapter) ListMods(ctx context.Context, instanceID string) ([]mods.InstalledMod, error) {
+	return adapter.store.ListMods(ctx, instanceID)
+}
+
+func (adapter modsStoreAdapter) GetMod(ctx context.Context, id string) (mods.InstalledMod, error) {
+	return adapter.store.GetMod(ctx, id)
+}
+
+func (adapter modsStoreAdapter) SaveMod(ctx context.Context, mod mods.InstalledMod) error {
+	return adapter.store.SaveMod(ctx, mod)
+}
+
+func (adapter modsStoreAdapter) DeleteMod(ctx context.Context, id string) error {
+	return adapter.store.DeleteMod(ctx, id)
 }
 
 type RunningProcess interface {
@@ -71,19 +113,4 @@ type SignatureVerifier interface {
 
 type DiskSpaceChecker interface {
 	Available(path string) (int64, error)
-}
-
-type ModCatalog interface {
-	List(context.Context) ([]domain.ModSummary, error)
-	Search(context.Context, domain.ModSearchQuery) (domain.ModSearchResult, error)
-	Get(context.Context, string) (domain.ModDetails, error)
-	ListTags(context.Context) ([]domain.ModTag, error)
-}
-
-type DownloadedModStore interface {
-	List(context.Context) ([]domain.DownloadedMod, error)
-	Get(context.Context, string, string) (domain.DownloadedMod, error)
-	Save(context.Context, domain.DownloadedMod) error
-	Delete(context.Context, string, string) error
-	FilePath(string, string, string) (string, error)
 }

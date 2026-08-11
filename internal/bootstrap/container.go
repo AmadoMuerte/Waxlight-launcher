@@ -15,7 +15,6 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
@@ -35,6 +34,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
@@ -187,6 +187,10 @@ func New() (*Container, error) {
 		settingsReader,
 		instanceSlot,
 		launchRegistry,
+		modcatalog.NewClient(nil),
+		modstorage.New(dataRoot),
+		eventPublisher,
+		telemetryService,
 	)
 	clientSettingsService := filesystem.ClientSettingsService{}
 	// The account service needs the launch coordinator's account-cleanup hook,
@@ -272,13 +276,11 @@ func New() (*Container, error) {
 		eventPublisher,
 		wailstransport.QuitAdapter{},
 	)
-	service.ConfigureTelemetry(telemetryService)
 	service.ConfigureClientSettings(clientSettingsService)
 	if err := launchCoordinator.ReconcileInjectedCredentials(context.Background()); err != nil {
 		closeStoreOnError(store)
 		return nil, err
 	}
-	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
 	serverService := servers.NewService(store, store, mutationGate, eventPublisher, time.Now, newVersionID)
 	serverCatalogService := servers.NewCatalogService(servercatalog.NewClient(nil))
 	packageService := instances.NewPackageService(
@@ -286,10 +288,10 @@ func New() (*Container, error) {
 		instanceCreator,
 		versionService,
 		store,
-		packageCatalogAdapter{service: service},
-		packageDownloadedAdapter{service: service},
-		service,
-		service,
+		packageCatalogAdapter{service: service.ModsCatalog()},
+		packageDownloadedAdapter{service: service.ModsCatalog()},
+		packageCatalogModInstaller{installed: service.Mods(), catalog: service.ModsCatalog()},
+		mods.Identity{},
 		instancepackage.Store{},
 		mutationGate,
 		eventPublisher,
@@ -325,18 +327,19 @@ func New() (*Container, error) {
 			service.InstanceDeleter(),
 			service.InstanceCloner(),
 			sessionService,
+			service.Mods(),
 			lifecycle,
 		),
 		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
-		presentation.NewModManagerController(service, lifecycle),
-		presentation.NewModCatalogController(service, lifecycle),
+		presentation.NewModManagerController(service.Mods(), service.ModsCatalog(), lifecycle),
+		presentation.NewModCatalogController(service.ModsCatalog(), lifecycle),
 		presentation.NewInstancePackageController(packageService, lifecycle),
 		presentation.NewLaunchController(launchCoordinator, lifecycle),
 		presentation.NewStatisticsController(sessionService, lifecycle),
 		presentation.NewOperationController(operationManager, lifecycle),
 		presentation.NewSnapshotController(service, lifecycle),
 		presentation.NewLastKnownGoodController(service, lifecycle),
-		presentation.NewLogController(service, versionService, lifecycle),
+		presentation.NewLogController(service, service.Mods(), versionService, lifecycle),
 		presentation.NewSettingsController(
 			settingsReader,
 			settingsService,
@@ -374,29 +377,43 @@ func credentialStoreUnavailable(err error) bool {
 		errors.Is(err, accounts.ErrPermissionDenied)
 }
 
-// packageCatalogAdapter maps the application catalog method names to the
-// instance package port until the mods feature owns them.
+// packageCatalogAdapter maps the catalog service method names to the instance
+// package port.
 type packageCatalogAdapter struct {
-	service *application.Service
+	service *mods.CatalogService
 }
 
-func (adapter packageCatalogAdapter) Get(ctx context.Context, modID string) (domain.ModDetails, error) {
+func (adapter packageCatalogAdapter) Get(ctx context.Context, modID string) (mods.ModDetails, error) {
 	return adapter.service.GetCatalogMod(ctx, modID)
 }
 
-// packageDownloadedAdapter maps the application download-store method names to
-// the instance package port until the mods feature owns them.
+// packageDownloadedAdapter maps the catalog download-store method names to the
+// instance package port.
 type packageDownloadedAdapter struct {
-	service *application.Service
+	service *mods.CatalogService
 }
 
-func (adapter packageDownloadedAdapter) Get(ctx context.Context, modID, versionID string) (domain.DownloadedMod, error) {
+func (adapter packageDownloadedAdapter) Get(ctx context.Context, modID, versionID string) (mods.DownloadedMod, error) {
 	return adapter.service.GetDownloadedMod(ctx, modID, versionID)
+}
+
+// packageCatalogModInstaller combines the installed-mod and catalog services
+// for the instance package port.
+type packageCatalogModInstaller struct {
+	installed *mods.Service
+	catalog   *mods.CatalogService
+}
+
+func (adapter packageCatalogModInstaller) DownloadCatalogMod(ctx context.Context, request mods.DownloadModRequest) (mods.ModInstallResult, error) {
+	return adapter.catalog.DownloadCatalogMod(ctx, request)
+}
+
+func (adapter packageCatalogModInstaller) SetModEnabled(ctx context.Context, id string, enabled bool) (mods.InstalledMod, error) {
+	return adapter.installed.SetModEnabled(ctx, id, enabled)
 }
 
 func (container *Container) Startup(ctx context.Context) {
 	container.Lifecycle.Startup(ctx)
-	container.Service.SetEventPublisher(container.Events)
 	// Push every new log line to the UI console as it is produced. The logging
 	// package stays framework-free; the Wails binding lives here.
 	logging.SetEmitter(func(entry logging.Entry) {

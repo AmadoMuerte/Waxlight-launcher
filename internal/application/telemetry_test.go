@@ -9,9 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
@@ -92,11 +91,16 @@ func (recorder *telemetryRecorder) counts() (events int, errors int) {
 }
 
 func newTelemetryFixture(t *testing.T) (testFixture, *telemetryRecorder) {
+	return newTelemetryFixtureWithCatalog(t, nil)
+}
+
+func newTelemetryFixtureWithCatalog(t *testing.T, modCatalog mods.Catalog) (testFixture, *telemetryRecorder) {
 	t.Helper()
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, modCatalog)
 	recorder := &telemetryRecorder{}
 	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
 	fixture.service.ConfigureTelemetry(telemetryService)
+	fixture.modTelemetry.current = telemetryService
 	fixture.setCreateTelemetry(telemetryService)
 	fixture.launching.SetTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
@@ -132,26 +136,25 @@ func TestTelemetryInstanceEventsAtSuccessBoundaries(t *testing.T) {
 }
 
 func TestTelemetryModEventsAtSuccessBoundaries(t *testing.T) {
-	fixture, recorder := newTelemetryFixture(t)
+	details := mods.ModDetails{ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse", AuthorName: "Ada", LatestVersion: "2.0.0"}, Versions: []mods.ModVersion{{
+		ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
+		FileName: "playercorpse.zip", DownloadURL: "https://cdn.test/playercorpse.zip",
+	}}}
+	fixture, recorder := newTelemetryFixtureWithCatalog(t, staticModCatalog{details: details})
 	ctx := context.Background()
 
 	// Catalog download stores the mod in the library: mod_downloaded fires at
 	// the authoritative storage boundary. No network is involved; the
 	// recording downloader writes local bytes.
-	details := domain.ModDetails{ModSummary: domain.ModSummary{ID: "51", Name: "Player Corpse", AuthorName: "Ada", LatestVersion: "2.0.0"}, Versions: []domain.ModVersion{{
-		ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
-		FileName: "playercorpse.zip", DownloadURL: "https://cdn.test/playercorpse.zip",
-	}}}
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(staticModCatalog{details: details}, modstorage.New(fixture.root))
-	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+	fixture.downloader.Set(recordingDownloader{})
+	if _, err := fixture.modsCatalog.DownloadCatalogMod(ctx, mods.DownloadModRequest{
 		ModID: "51", VersionID: "7", DownloadOnly: true,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventModDownloaded)
 
-	if err := fixture.service.RemoveDownloadedMod(ctx, "51", "7"); err != nil {
+	if err := fixture.modsCatalog.RemoveDownloadedMod(ctx, "51", "7"); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventModRemoved)
@@ -167,17 +170,17 @@ func TestTelemetryModEventsAtSuccessBoundaries(t *testing.T) {
 	if err := os.WriteFile(sourcePath, []byte("mod"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.service.InstallModFile(ctx, instance.ID, sourcePath, "Sample Mod", "1.0.0"); err != nil {
+	if _, err := fixture.mods.InstallModFile(ctx, instance.ID, sourcePath, "Sample Mod", "1.0.0"); err != nil {
 		t.Fatal(err)
 	}
-	mods, err := fixture.service.ListMods(ctx, instance.ID)
+	mods, err := fixture.mods.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(mods) != 1 {
 		t.Fatalf("expected one installed mod, got %d", len(mods))
 	}
-	if err := fixture.service.DeleteMod(ctx, mods[0].ID, false); err != nil {
+	if err := fixture.mods.DeleteMod(ctx, mods[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventModRemoved)
@@ -219,6 +222,7 @@ func TestTelemetryDisabledEmitsNothing(t *testing.T) {
 	recorder := &telemetryRecorder{}
 	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
 	fixture.service.ConfigureTelemetry(telemetryService)
+	fixture.modTelemetry.current = telemetryService
 	fixture.setCreateTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 

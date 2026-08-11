@@ -28,6 +28,11 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 4 pull request: [#87](https://github.com/AmadoMuerte/Waxlight-launcher/pull/87)
 - Stage 4 status: complete; favorite-server persistence, validation, and
   public-catalog browsing extracted from `application.Service`
+- Stage 5 branch: `refactor/backend-mods-moddb`
+- Stage 5 pull request: (open against `dev`)
+- Stage 5 status: complete; installed-mod orchestration, the downloaded-mod
+  cache, ModDB browsing, dependency resolution, and ModDB task tracking
+  extracted from `application.Service`
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -656,51 +661,138 @@ the remaining mod state in `application.Service`.
 
 ### Upstream Vintage Story Work
 
-- [ ] Inventory remaining local `modinfo.json`, dependency, compatibility, and
-  modpack behavior against the released `vintagestory-go` API.
-- [ ] Contribute missing generic parsing or compatibility capabilities to
-  `vintagestory-go` with upstream tests.
-- [ ] Release and consume the required library version before deleting any
-  temporary local generic implementation.
-- [ ] Keep only Waxlight-specific mapping, persistence, filesystem policy,
+- Inventoried the local `modinfo.json` parsing, dependency, compatibility, and
+  modpack behavior against the released `vintagestory-go` API. The library
+  already owned modpack analysis (`modpack.Analyze`) but had no modinfo
+  parsing; Waxlight duplicated BOM-tolerant, lenient JSON parsing in two
+  places.
+- Contributed the generic `modinfo` package to `vintagestory-go`
+  (`Parse` with byte-order-mark and trailing-comma tolerance plus
+  `ReadArchive` for ZIP-based mod archives, size-capped) with upstream tests,
+  released as `v0.2.0` (sentinel error refinement in `v0.2.1`), and consumed
+  the new version in Waxlight.
+- Removed the duplicated local modinfo implementations from
+  `internal/infrastructure/filesystem` and `internal/application`.
+- Kept only Waxlight-specific mapping, persistence, filesystem policy,
   orchestration, and user-facing errors in this repository.
 
 ### Installed Mods
 
-- [ ] Add `internal/mods` as the owner of installed/downloaded mod models,
+- Added `internal/mods` as the owner of installed/downloaded mod models,
+  repository ports, mutation coordination, feature errors, and identity
+  helpers.
+- Removed `domain.InstalledMod`, `domain.DiscoveredMod`, and every
+  `domain/modcatalog.go` model without compatibility aliases.
+- Moved the mod error codes (`ErrModNotFound`, `ErrModVersionNotFound`,
+  `ErrModCatalog`, `ErrModIncompatible`, `ErrModAlreadyActive`,
+  `ErrInvalidModFile`, `ErrModFileExists`) into the feature.
+- Moved the mod telemetry constants into the feature; `internal/telemetry`
+  references them so the allowlist can never drift from the emitted events.
+- Added `internal/mods.Service` for installed-mod discovery and
+  reconciliation, local file installation, enable/disable, removal with
+  dependency previews, and binding local files to their catalog entries.
+- Added `internal/mods.CatalogService` for ModDB browsing, catalog downloads
+  with recursive dependency resolution, the downloaded-mod cache and cleanup,
+  local-mod linking and upload, and update analysis and application.
+- Added `internal/mods.ModTaskManager` as the dedicated ModDB task manager
+  separate from the persistent operations subsystem: per-release
+  reservations, cancellation, and the `mods:task-progress` and
+  `mods:downloads-changed` events.
+- Kept the mods feature independent of the instances feature through a minimal
+  `InstanceRef` view; bootstrap maps the shared store to the feature's
+  repository port.
+- Kept safety snapshots behind the narrow `SafetySnapshotter` port until the
+  snapshot feature owns them in Stage 6.
+- Removed migrated mod methods, mutexes, task maps, and `ConfigureMods` from
+  `application.Service`; the mods services are constructed inside
+  `application.NewService` with immutable dependencies and exposed through
+  `Service.Mods()` and `Service.ModsCatalog()`.
+- Removed the transitional package-import adapters and `ModIdentity` delegate;
+  the instance package service now receives the mods services and
+  `mods.Identity` directly.
+- Preserved installed-mod rows, reconciliation, install/update/removal
+  behavior, dependency installation and previews, library cleanup,
+  link/upload matching, update analysis through `vintagestory-go/modpack`, and
+  every mod event name and payload.
+
+### ModDB Browsing and Tasks
+
+- Kept ModDB browsing behind the existing thin `vintagestory-go` adapter in
+  `internal/infrastructure/modcatalog`, which now maps into `mods` models.
+- Moved ModDB task tracking, cancellation, progress, and completion into
+  `ModTaskManager`, separate from persistent launcher operations; the
+  namespace test proves the two cancellation domains cannot cross.
+- Removed `ConfigureMods`; the catalog, downloaded-store, downloader, and
+  version dependencies are immutable at construction.
+- Preserved ModDB query behavior, pagination, dependency flow, event names,
+  DTOs, and frontend task cancellation.
+- Moved the shared `modinfo.json` reading for downloaded archives and
+  dependency resolution to the released `vintagestory-go/modinfo` package.
+
+### Stage 5 Validation
+
+The complete local validation matrix passed on 2026-08-11:
+
+- `go test ./...`
+- `go test -race ./...`
+- `go vet ./...`
+- `make format-check`
+- `make lint`
+- `make security`
+- `npm test --prefix frontend` (27 files, 149 tests)
+- `npm run build --prefix frontend`
+- `make wails-build` on Linux AMD64
+- `git diff --check`
+
+### Stage 5 Checkboxes
+
+### Upstream Vintage Story Work
+
+- [x] Inventory remaining local `modinfo.json`, dependency, compatibility, and
+  modpack behavior against the released `vintagestory-go` API.
+- [x] Contribute missing generic parsing or compatibility capabilities to
+  `vintagestory-go` with upstream tests.
+- [x] Release and consume the required library version before deleting any
+  temporary local generic implementation.
+- [x] Keep only Waxlight-specific mapping, persistence, filesystem policy,
+  orchestration, and user-facing errors in this repository.
+
+### Installed Mods
+
+- [x] Add `internal/mods` as the owner of installed/downloaded mod models,
   repository ports, mutation coordination, and feature errors.
-- [ ] Split capabilities for:
+- [x] Split capabilities for:
   - installed-mod discovery and reconciliation;
   - local file installation and linking;
   - enable/disable and removal;
   - dependency installation and removal previews;
   - downloaded-mod cache and cleanup;
   - update analysis and application.
-- [ ] Define narrow filesystem, downloader, catalog, snapshot, instance, and
+- [x] Define narrow filesystem, downloader, catalog, snapshot, instance, and
   event boundaries.
-- [ ] Preserve safety snapshots before destructive mod changes.
-- [ ] Remove migrated mod methods, mutexes, task maps, and state from
+- [x] Preserve safety snapshots before destructive mod changes.
+- [x] Remove migrated mod methods, mutexes, task maps, and state from
   `application.Service`.
 
 ### ModDB Browsing and Tasks
 
-- [ ] Add a focused ModDB catalog capability backed by `vintagestory-go`.
-- [ ] Move ModDB task tracking, cancellation, progress, and completion into a
+- [x] Add a focused ModDB catalog capability backed by `vintagestory-go`.
+- [x] Move ModDB task tracking, cancellation, progress, and completion into a
   dedicated manager separate from persistent launcher operations.
-- [ ] Remove `ConfigureMods` and use immutable constructor dependencies.
-- [ ] Preserve current ModDB query behavior, pagination, dependency flow,
+- [x] Remove `ConfigureMods` and use immutable constructor dependencies.
+- [x] Preserve current ModDB query behavior, pagination, dependency flow,
   event names, DTOs, and frontend task cancellation.
 
 ### Stage 5 Validation and Delivery
 
-- [ ] Add tests for discovery, reconciliation, local linking, dependencies,
+- [x] Add tests for discovery, reconciliation, local linking, dependencies,
   updates, cancellation, cache cleanup, unsafe archives, and rollback.
-- [ ] Run focused race tests for mods, ModDB tasks, downloader, snapshots,
+- [x] Run focused race tests for mods, ModDB tasks, downloader, snapshots,
   SQLite, bootstrap, and presentation.
-- [ ] Confirm all mod Wails methods, DTOs, events, and generated bindings remain
+- [x] Confirm all mod Wails methods, DTOs, events, and generated bindings remain
   compatible.
-- [ ] Run the complete local validation matrix and manual mod-management smoke
-  tests.
+- [x] Run the complete local validation matrix.
+- [ ] Complete manual mod-management smoke tests (pending before merge).
 - [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
   merge before Stage 6 begins.
 

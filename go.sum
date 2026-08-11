@@ -1,5 +1,5 @@
-github.com/AmadoMuerte/vintagestory-go v0.1.0 h1:WRMVCJm8098/btq4Jiilg9p721BiYq03EpI81wNqnqk=
-github.com/AmadoMuerte/vintagestory-go v0.1.0/go.mod h1:+XAU28Qr29DnftcgrFRmc90XwqgcGDRqJAuTaZkQBYE=
+github.com/AmadoMuerte/vintagestory-go v0.2.1 h1:o3kvEV3OPJevngSO3AlYDUqys9HSOLVo5+JA1or3gos=
+github.com/AmadoMuerte/vintagestory-go v0.2.1/go.mod h1:A0NHkLFRSvt9cGXEtCleUh3AosKoc1fv/YAMhe7iXps=
 github.com/bep/debounce v1.2.1 h1:v67fRdBA9UQu2NhLFXrSg0Brw7CexQekrBwDMM8bzeY=
 github.com/bep/debounce v1.2.1/go.mod h1:H8yggRPQKLUhUoqrJC1bO2xNya7vanpDl7xR3ISbCJ0=
 github.com/danieljoos/wincred v1.2.3 h1:v7dZC2x32Ut3nEfRH+vhoZGvN72+dQ/snVXo/vMFLdQ=
