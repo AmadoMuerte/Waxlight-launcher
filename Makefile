@@ -200,6 +200,9 @@ wails-build:
 		-clean \
 		-trimpath \
 		-ldflags="-s -w"
+	# The generated models.ts carries whitespace-only blank lines; normalize
+	# them so the checked-in bindings stay diff-check clean.
+	sed -i 's/[[:space:]]*$$//' frontend/src/wailsjs/go/models.ts
 
 build-windows:
 	@if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then \
