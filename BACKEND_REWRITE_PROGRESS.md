@@ -38,6 +38,7 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 6 status: complete; snapshot, recovery, and Last Known Good ownership
   extracted from `application.Service`
 - Stage 7 branch: `refactor/backend-updates-telemetry-statistics`
+- Stage 7 pull request: [#90](https://github.com/AmadoMuerte/Waxlight-launcher/pull/90)
 - Stage 7 status: in progress
 - Overall rewrite status: in progress
 
