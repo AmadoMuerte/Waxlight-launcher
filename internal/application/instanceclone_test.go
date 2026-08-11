@@ -15,10 +15,7 @@ import (
 func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	fixture.service.ConfigureAuthentication(
-		newTestAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore(), fixture.service.ClearAccountFromInstances),
-		filesystem.ClientSettingsService{},
-	)
+	fixture.service.ConfigureClientSettings(filesystem.ClientSettingsService{})
 
 	account := accounts.Account{
 		ID:          "acc-1",

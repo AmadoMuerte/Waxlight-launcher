@@ -1,4 +1,4 @@
-package application
+package instances
 
 import (
 	"context"
@@ -14,40 +14,94 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
+
+// PackageService builds portable .waxlight packages from instances and
+// installs validated packages as new, isolated instances. The archive format
+// stays behind the PackageIO port.
+type PackageService struct {
+	repository PackageRepository
+	creator    InstanceCreator
+	versions   PackageVersionReader
+	mods       PackageModStore
+	catalog    PackageCatalog
+	downloads  PackageDownloadedMods
+	installer  CatalogModInstaller
+	identity   ModIdentity
+	io         PackageIO
+	gate       MutationGate
+	events     Publisher
+	remove     DirectoryRemover
+	dataRoot   string
+	now        Clock
+	newID      IDGenerator
+}
+
+func NewPackageService(
+	repository PackageRepository,
+	creator InstanceCreator,
+	versions PackageVersionReader,
+	mods PackageModStore,
+	catalog PackageCatalog,
+	downloads PackageDownloadedMods,
+	installer CatalogModInstaller,
+	identity ModIdentity,
+	io PackageIO,
+	gate MutationGate,
+	events Publisher,
+	remove DirectoryRemover,
+	dataRoot string,
+	now Clock,
+	newID IDGenerator,
+) *PackageService {
+	return &PackageService{
+		repository: repository,
+		creator:    creator,
+		versions:   versions,
+		mods:       mods,
+		catalog:    catalog,
+		downloads:  downloads,
+		installer:  installer,
+		identity:   identity,
+		io:         io,
+		gate:       gate,
+		events:     events,
+		remove:     remove,
+		dataRoot:   dataRoot,
+		now:        now,
+		newID:      newID,
+	}
+}
 
 // ExportInstance builds a portable .waxlight package describing instanceID.
 // Catalog-managed mods are stored as references; every other installed mod is
 // embedded in the archive. Game settings are sanitized so no authentication
 // data leaves the machine, and save data, logs and caches are never included.
-func (s *Service) ExportInstance(
+func (service *PackageService) ExportInstance(
 	ctx context.Context,
 	instanceID string,
 	targetPath string,
 	options domain.ExportInstanceOptions,
 ) (domain.PackageManifest, error) {
-	release, err := s.beginMutation()
+	release, err := service.beginMutation()
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
 	defer release()
-	instance, err := s.store.GetInstance(ctx, instanceID)
+	instance, err := service.repository.GetInstance(ctx, instanceID)
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
 	slog.Info("exporting instance package", "instance", instance.Name)
-	version, err := s.versions.Get(ctx, instance.GameVersionID)
+	version, err := service.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
 
-	mods, err := s.ListMods(ctx, instanceID)
+	mods, err := service.mods.ListMods(ctx, instanceID)
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
@@ -69,7 +123,7 @@ func (s *Service) ExportInstance(
 		Author:          options.Author,
 		GameVersion:     domain.PackageGameVersion{ID: version.ID, Name: version.Name},
 		LaunchArguments: append([]string(nil), instance.LaunchArguments...),
-		CreatedAt:       time.Now().UTC(),
+		CreatedAt:       service.now().UTC(),
 	}
 	if manifest.Description == "" {
 		manifest.Description = instance.Description
@@ -86,13 +140,13 @@ func (s *Service) ExportInstance(
 			Version: mod.Version,
 			Enabled: mod.Enabled,
 		}
-		if modID, versionID, ok := parseModDBSource(mod.Source); ok {
+		if modID, versionID, ok := service.identity.ParseModDBSource(mod.Source); ok {
 			packageMod.Source = domain.PackageModSourceCatalog
 			packageMod.ModID = modID
 			packageMod.VersionID = versionID
 			packageMod.FileName = mod.FileName
-			if s.modDownloads != nil {
-				if downloaded, getErr := s.modDownloads.Get(ctx, modID, versionID); getErr == nil {
+			if service.downloads != nil {
+				if downloaded, getErr := service.downloads.Get(ctx, modID, versionID); getErr == nil {
 					packageMod.Checksum = downloaded.Checksum
 					packageMod.DownloadURL = downloaded.DownloadURL
 					if packageMod.FileName == "" {
@@ -128,7 +182,7 @@ func (s *Service) ExportInstance(
 		}
 	}
 
-	if err := instancepackage.Write(ctx, targetPath, instancepackage.WriteSource{
+	if err := service.io.Write(ctx, targetPath, PackageWriteSource{
 		Manifest:     manifest,
 		InstanceDir:  instance.Directory,
 		EmbeddedMods: embedded,
@@ -261,32 +315,32 @@ func walkConfigDirectory(root string, name string) ([]string, error) {
 
 // InspectPackage validates a package and reports how it would be imported,
 // without modifying anything.
-func (s *Service) InspectPackage(ctx context.Context, packagePath string) (domain.PackageInspection, error) {
+func (service *PackageService) InspectPackage(ctx context.Context, packagePath string) (domain.PackageInspection, error) {
 	packagePath = strings.TrimSpace(packagePath)
 	if packagePath == "" {
 		return domain.PackageInspection{}, domain.NewError(domain.ErrValidation, "Select a package file")
 	}
-	pkg, err := instancepackage.Open(packagePath)
+	pkg, err := service.io.Open(packagePath)
 	if err != nil {
 		return domain.PackageInspection{}, err
 	}
 
 	inspection := domain.PackageInspection{
 		Path:            packagePath,
-		SchemaVersion:   pkg.Manifest.SchemaVersion,
-		Name:            pkg.Manifest.Name,
-		Description:     pkg.Manifest.Description,
-		Author:          pkg.Manifest.Author,
-		GameVersion:     pkg.Manifest.GameVersion,
-		LaunchArguments: append([]string(nil), pkg.Manifest.LaunchArguments...),
-		ConfigFiles:     append([]string(nil), pkg.Manifest.ConfigFiles...),
-		HasIcon:         pkg.Manifest.HasIcon,
-		TotalSize:       packageTotalSize(pkg),
+		SchemaVersion:   pkg.Manifest().SchemaVersion,
+		Name:            pkg.Manifest().Name,
+		Description:     pkg.Manifest().Description,
+		Author:          pkg.Manifest().Author,
+		GameVersion:     pkg.Manifest().GameVersion,
+		LaunchArguments: append([]string(nil), pkg.Manifest().LaunchArguments...),
+		ConfigFiles:     append([]string(nil), pkg.Manifest().ConfigFiles...),
+		HasIcon:         pkg.Manifest().HasIcon,
+		TotalSize:       pkg.TotalSize(),
 	}
 
-	inspection.VersionStatus = s.packageVersionStatus(ctx, pkg.Manifest.GameVersion)
+	inspection.VersionStatus = service.packageVersionStatus(ctx, pkg.Manifest().GameVersion)
 
-	for _, mod := range pkg.Manifest.Mods {
+	for _, mod := range pkg.Manifest().Mods {
 		check := domain.PackageModCheck{
 			ModID:     mod.ModID,
 			VersionID: mod.VersionID,
@@ -302,14 +356,14 @@ func (s *Service) InspectPackage(ctx context.Context, packagePath string) (domai
 				inspection.UnverifiedFiles++
 			}
 		default:
-			status, message := s.checkCatalogMod(ctx, mod, pkg.Manifest.GameVersion)
+			status, message := service.checkCatalogMod(ctx, mod, pkg.Manifest().GameVersion)
 			check.Status = status
 			check.Message = message
 			if status == domain.PackageModMissing && message == "" {
 				inspection.Warnings = append(inspection.Warnings, "Mod "+mod.Name+" could not be resolved in the mod catalog")
 			}
 			if status == domain.PackageModIncompatible {
-				inspection.Warnings = append(inspection.Warnings, "Mod "+mod.Name+" is not compatible with Vintage Story "+pkg.Manifest.GameVersion.Name)
+				inspection.Warnings = append(inspection.Warnings, "Mod "+mod.Name+" is not compatible with Vintage Story "+pkg.Manifest().GameVersion.Name)
 			}
 		}
 		inspection.Mods = append(inspection.Mods, check)
@@ -323,44 +377,36 @@ func (s *Service) InspectPackage(ctx context.Context, packagePath string) (domai
 	return inspection, nil
 }
 
-func packageTotalSize(pkg *instancepackage.Package) int64 {
-	var total int64
-	for _, size := range pkg.Entries {
-		total += size
-	}
-	return total
-}
-
-func (s *Service) checkCatalogMod(
+func (service *PackageService) checkCatalogMod(
 	ctx context.Context,
 	mod domain.PackageMod,
 	gameVersion domain.PackageGameVersion,
 ) (domain.PackageModStatus, string) {
-	if s.modCatalog == nil {
+	if service.catalog == nil {
 		return domain.PackageModMissing, "The mod catalog is unavailable"
 	}
-	details, err := s.modCatalog.Get(ctx, mod.ModID)
+	details, err := service.catalog.Get(ctx, mod.ModID)
 	if err != nil {
 		return domain.PackageModMissing, "This mod was not found in the mod catalog"
 	}
-	selected, ok := findModVersion(details.Versions, mod.VersionID)
+	selected, ok := service.identity.FindModVersion(details.Versions, mod.VersionID)
 	if !ok {
 		return domain.PackageModMissing, "The requested mod version is no longer available"
 	}
-	if !modSupportsVersion(selected.GameVersions, gameVersion.Name) {
+	if !service.identity.ModSupportsVersion(selected.GameVersions, gameVersion.Name) {
 		return domain.PackageModIncompatible, "This mod version does not support the required game version"
 	}
 	return domain.PackageModAvailable, ""
 }
 
-func (s *Service) packageVersionStatus(
+func (service *PackageService) packageVersionStatus(
 	ctx context.Context,
 	required domain.PackageGameVersion,
 ) domain.PackageVersionStatus {
-	if _, ok := s.findInstalledVersion(ctx, required); ok {
+	if _, ok := service.findInstalledVersion(ctx, required); ok {
 		return domain.PackageVersionInstalled
 	}
-	available, err := s.versions.ListAvailable(ctx)
+	available, err := service.versions.ListAvailable(ctx)
 	if err != nil {
 		return domain.PackageVersionMissing
 	}
@@ -372,11 +418,11 @@ func (s *Service) packageVersionStatus(
 	return domain.PackageVersionMissing
 }
 
-func (s *Service) findInstalledVersion(
+func (service *PackageService) findInstalledVersion(
 	ctx context.Context,
 	required domain.PackageGameVersion,
 ) (versions.GameVersion, bool) {
-	installed, err := s.versions.List(ctx)
+	installed, err := service.versions.List(ctx)
 	if err != nil {
 		return versions.GameVersion{}, false
 	}
@@ -395,12 +441,12 @@ func (s *Service) findInstalledVersion(
 
 // ImportPackage installs a validated package as a new, isolated instance.
 // Existing instances are never modified or overwritten.
-func (s *Service) ImportPackage(
+func (service *PackageService) ImportPackage(
 	ctx context.Context,
 	packagePath string,
 	options domain.ImportInstanceOptions,
 ) (domain.ImportReport, error) {
-	release, err := s.beginMutation()
+	release, err := service.beginMutation()
 	if err != nil {
 		return domain.ImportReport{}, err
 	}
@@ -410,30 +456,30 @@ func (s *Service) ImportPackage(
 		return domain.ImportReport{}, domain.NewError(domain.ErrValidation, "Select a package file")
 	}
 	slog.Info("importing instance package", "package", packagePath)
-	pkg, err := instancepackage.Open(packagePath)
+	pkg, err := service.io.Open(packagePath)
 	if err != nil {
 		return domain.ImportReport{}, err
 	}
 
-	versionID, err := s.resolveImportVersion(ctx, pkg.Manifest.GameVersion, options)
+	versionID, err := service.resolveImportVersion(ctx, pkg.Manifest().GameVersion, options)
 	if err != nil {
 		return domain.ImportReport{}, err
 	}
 
 	name := strings.TrimSpace(options.Name)
 	if name == "" {
-		name = pkg.Manifest.Name
+		name = pkg.Manifest().Name
 	}
 	description := strings.TrimSpace(options.Description)
 	if description == "" {
-		description = pkg.Manifest.Description
+		description = pkg.Manifest().Description
 	}
-	instance, err := s.CreateInstance(ctx, instances.CreateInput{
+	instance, err := service.creator.Create(ctx, CreateInput{
 		Name:            name,
 		Description:     description,
 		GameVersionID:   versionID,
 		Directory:       strings.TrimSpace(options.Directory),
-		LaunchArguments: append([]string(nil), pkg.Manifest.LaunchArguments...),
+		LaunchArguments: append([]string(nil), pkg.Manifest().LaunchArguments...),
 	})
 	if err != nil {
 		return domain.ImportReport{}, err
@@ -447,51 +493,51 @@ func (s *Service) ImportPackage(
 	}
 
 	if err := pkg.ExtractConfigs(ctx, instance.Directory); err != nil {
-		_ = s.cleanupFailedImport(ctx, instance)
+		_ = service.cleanupFailedImport(ctx, instance)
 		return report, err
 	}
 
-	if pkg.Manifest.HasIcon {
+	if pkg.Manifest().HasIcon {
 		iconPath := filepath.Join(instance.Directory, ".waxlight-cover.png")
 		if err := pkg.ExtractIcon(ctx, iconPath); err != nil {
-			_ = s.cleanupFailedImport(ctx, instance)
+			_ = service.cleanupFailedImport(ctx, instance)
 			return report, err
 		}
 		cover := iconPath
 		instance.CoverPath = &cover
-		instance.UpdatedAt = time.Now().UTC()
-		if err := s.store.SaveInstance(ctx, instance); err != nil {
-			_ = s.cleanupFailedImport(ctx, instance)
+		instance.UpdatedAt = service.now().UTC()
+		if err := service.repository.SaveInstance(ctx, instance); err != nil {
+			_ = service.cleanupFailedImport(ctx, instance)
 			return report, err
 		}
 	}
 
-	for _, mod := range pkg.Manifest.Mods {
-		result := s.installPackageMod(ctx, pkg, mod, instance, options.AllowIncompatible)
+	for _, mod := range pkg.Manifest().Mods {
+		result := service.installPackageMod(ctx, pkg, mod, instance, options.AllowIncompatible)
 		report.Mods = append(report.Mods, result)
 	}
-	report.Warnings = s.packageImportWarnings(report)
+	report.Warnings = service.packageImportWarnings(report)
 
 	return report, nil
 }
 
-func (s *Service) cleanupFailedImport(ctx context.Context, instance instances.Instance) error {
-	if err := safeRemoveAll(instance.Directory, s.dataRoot, ".waxlight-instance"); err != nil {
+func (service *PackageService) cleanupFailedImport(ctx context.Context, instance Instance) error {
+	if err := service.remove(instance.Directory); err != nil {
 		slog.Warn("could not remove the failed import directory", "instance", instance.Name, "error", err)
 		return err
 	}
-	if err := s.store.DeleteInstance(ctx, instance.ID); err != nil {
+	if err := service.repository.DeleteInstance(ctx, instance.ID); err != nil {
 		slog.Warn("could not delete the failed import record", "instance", instance.Name, "error", err)
 		return err
 	}
 	return nil
 }
 
-func (s *Service) installPackageMod(
+func (service *PackageService) installPackageMod(
 	ctx context.Context,
-	pkg *instancepackage.Package,
+	pkg PackageArchive,
 	mod domain.PackageMod,
-	instance instances.Instance,
+	instance Instance,
 	allowIncompatible bool,
 ) domain.ImportedModResult {
 	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}
@@ -503,9 +549,9 @@ func (s *Service) installPackageMod(
 			result.Message = err.Error()
 			return result
 		}
-		now := time.Now().UTC()
+		now := service.now().UTC()
 		installed := domain.InstalledMod{
-			ID:          newID(),
+			ID:          service.newID(),
 			InstanceID:  instance.ID,
 			Name:        mod.Name,
 			Version:     mod.Version,
@@ -517,7 +563,7 @@ func (s *Service) installPackageMod(
 			InstalledAt: now,
 			UpdatedAt:   now,
 		}
-		if err := s.store.SaveMod(ctx, installed); err != nil {
+		if err := service.mods.SaveMod(ctx, installed); err != nil {
 			result.Status = "failed"
 			result.Message = "Installed the file but could not save its metadata"
 			return result
@@ -526,7 +572,7 @@ func (s *Service) installPackageMod(
 		return result
 
 	default:
-		return s.installCatalogPackageMod(ctx, mod, instance, allowIncompatible)
+		return service.installCatalogPackageMod(ctx, mod, instance, allowIncompatible)
 	}
 }
 
@@ -537,19 +583,19 @@ func modsDirectoryFor(enabled bool) string {
 	return "ModsDisabled"
 }
 
-func (s *Service) installCatalogPackageMod(
+func (service *PackageService) installCatalogPackageMod(
 	ctx context.Context,
 	mod domain.PackageMod,
-	instance instances.Instance,
+	instance Instance,
 	allowIncompatible bool,
 ) domain.ImportedModResult {
 	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}
-	if s.modCatalog == nil {
+	if service.installer == nil {
 		result.Status = "skipped"
 		result.Message = "The mod catalog is unavailable"
 		return result
 	}
-	installResult, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+	installResult, err := service.installer.DownloadCatalogMod(ctx, domain.DownloadModRequest{
 		ModID:             mod.ModID,
 		VersionID:         mod.VersionID,
 		InstanceIDs:       []string{instance.ID},
@@ -566,7 +612,7 @@ func (s *Service) installCatalogPackageMod(
 		return result
 	}
 	if !mod.Enabled {
-		if err := s.disableInstalledCatalogMod(ctx, mod, instance.ID); err != nil {
+		if err := service.disableInstalledCatalogMod(ctx, mod, instance.ID); err != nil {
 			result.Status = "installed"
 			result.Message = "Installed but could not disable the mod"
 			return result
@@ -593,22 +639,22 @@ func friendlyPackageModError(err error) string {
 	return "Could not download the mod"
 }
 
-func (s *Service) disableInstalledCatalogMod(ctx context.Context, mod domain.PackageMod, instanceID string) error {
-	mods, err := s.store.ListMods(ctx, instanceID)
+func (service *PackageService) disableInstalledCatalogMod(ctx context.Context, mod domain.PackageMod, instanceID string) error {
+	mods, err := service.mods.ListMods(ctx, instanceID)
 	if err != nil {
 		return err
 	}
-	expected := modDBSource(mod.ModID, mod.VersionID)
+	expected := service.identity.ModDBSource(mod.ModID, mod.VersionID)
 	for _, installed := range mods {
 		if installed.Source == expected {
-			_, err := s.SetModEnabled(ctx, installed.ID, false)
+			_, err := service.installer.SetModEnabled(ctx, installed.ID, false)
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Service) packageImportWarnings(report domain.ImportReport) []string {
+func (service *PackageService) packageImportWarnings(report domain.ImportReport) []string {
 	var warnings []string
 	for _, mod := range report.Mods {
 		if mod.Status == "skipped" && mod.Message != "" {
@@ -622,23 +668,23 @@ func (s *Service) packageImportWarnings(report domain.ImportReport) []string {
 // uses. The manifest version is preferred; a caller-supplied override wins; an
 // explicitly requested install can be performed through the normal version
 // pipeline before the instance is created.
-func (s *Service) resolveImportVersion(
+func (service *PackageService) resolveImportVersion(
 	ctx context.Context,
 	required domain.PackageGameVersion,
 	options domain.ImportInstanceOptions,
 ) (string, error) {
 	override := strings.TrimSpace(options.GameVersionID)
 	if override != "" {
-		if _, err := s.versions.Get(ctx, override); err != nil {
+		if _, err := service.versions.Get(ctx, override); err != nil {
 			return "", err
 		}
 		return override, nil
 	}
-	if version, ok := s.findInstalledVersion(ctx, required); ok {
+	if version, ok := service.findInstalledVersion(ctx, required); ok {
 		return version.ID, nil
 	}
 	if options.InstallVersion {
-		available, err := s.versions.ListAvailable(ctx)
+		available, err := service.versions.ListAvailable(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -660,7 +706,7 @@ func (s *Service) resolveImportVersion(
 		if catalogVersion == nil {
 			return "", domain.NewError(domain.ErrVersionNotFound, "The required game version is not available")
 		}
-		if _, err := s.versions.InstallCatalogAndWait(ctx, catalogVersion.ID); err != nil {
+		if _, err := service.versions.InstallCatalogAndWait(ctx, catalogVersion.ID); err != nil {
 			return "", err
 		}
 		return catalogVersion.ID, nil
@@ -669,4 +715,21 @@ func (s *Service) resolveImportVersion(
 		domain.ErrVersionNotInstalled,
 		"Vintage Story "+required.Name+" is not installed",
 	)
+}
+
+func (service *PackageService) beginMutation() (func(), error) {
+	if err := service.gate.Begin(); err != nil {
+		return nil, err
+	}
+	return service.gate.End, nil
+}
+
+// ModIdentity resolves the persisted mod source format and catalog
+// compatibility during package inspection and import. It stays a narrow port
+// until the mods feature owns this behavior.
+type ModIdentity interface {
+	ParseModDBSource(source string) (modID, versionID string, ok bool)
+	ModDBSource(modID, versionID string) string
+	FindModVersion(versions []domain.ModVersion, id string) (domain.ModVersion, bool)
+	ModSupportsVersion(versions []string, requested string) bool
 }

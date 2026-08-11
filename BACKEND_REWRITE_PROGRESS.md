@@ -20,10 +20,10 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 3 initial pull request: [#84](https://github.com/AmadoMuerte/Waxlight-launcher/pull/84)
 - Stage 3 initial status: merged into `dev` after successful local validation,
   manual smoke testing, and CI
-- Current Stage 3 branch: `refactor/backend-instance-cloning`
-- Current Stage 3 pull request: [#85](https://github.com/AmadoMuerte/Waxlight-launcher/pull/85)
-- Stage 3 status: in progress; play-session, instance-core, CRUD,
-  local-storage, and cloning ownership extracted
+- Current Stage 3 branch: `refactor/backend-stage3-package-launch`
+- Current Stage 3 pull request: [#86](https://github.com/AmadoMuerte/Waxlight-launcher/pull/86)
+- Stage 3 status: complete; all instance, package, launching, process, and
+  session ownership extracted from `application.Service`
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -458,29 +458,66 @@ arguments, credential handling, or frontend behavior.
   source/snapshot reservations, live cleanup context, and internal-path
   mapping.
 
+### Completed Stage 3 Slice: Package Import/Export and Mutation Locking
+
+- Added an instance-owned `PackageService` with focused repository, creator,
+  version, mod-store, catalog, downloaded-mod, catalog-installer, identity,
+  archive-IO, mutation-gate, publisher, directory-removal, clock, and
+  ID-generation boundaries.
+- Moved package export, inspection, and import orchestration out of
+  `application.Service` without changing Wails methods, DTOs, or messages.
+- Added `mutations.Slot` as the neutral per-instance busy marker shared by
+  instance mutations, snapshots, cloning, and launches; releases only clear a
+  matching marker so stale cleanups can never free a newer operation.
+- Added `internal/launching.Registry` owning the running-game map and the
+  launch serialization; `Guard` (running check + slot reservation) and `Lock`
+  (slot only) now back instance delete/clone guards, snapshot reservations,
+  and mod mutations.
+- Moved game-version-change preparation into `instances.UpdateService` with a
+  narrow `SafetySnapshotter` port implemented by the application layer until
+  the snapshot feature owns it.
+- Moved package models handling behind `PackageIO`/`PackageArchive` ports with
+  an archive adapter in `infrastructure/instancepackage`.
+
+### Completed Stage 3 Slice: Launching and Processes
+
+- Added `internal/launching` as the owner of launch validation, start, stop,
+  running-game tracking, credential injection and cleanup, launcher-owned
+  diagnostic logs, play-session persistence, and failed-startup handling.
+- Moved process execution and OS-specific stop/kill behavior under
+  `internal/platform/process` with `Running`/`Launcher` contracts.
+- Moved the game-output error tailer into `internal/launching`.
+- Moved startup reconciliation, account-cleanup, and the data-folder busy
+  check into the launch coordinator.
+- Made launch establishment recording lifecycle-owned and shutdown-aware;
+  Last Known Good recording stays behind the narrow `LaunchRecovery` port.
+- Removed the launch family, running state, guards, and package orchestration
+  from `application.Service`; the instance services now receive the registry
+  and slot at construction.
+
 ### Instance Feature
 
 - [x] Add `internal/instances` as the owner of the instance model, inputs,
   repository interfaces, statuses, and instance-specific errors.
-- [ ] Split instance behavior into focused capabilities for:
+- [x] Split instance behavior into focused capabilities for:
   - queries and CRUD (complete);
-  - directory allocation and local storage (creation allocation extracted;
-    deletion and restore storage remain);
+  - directory allocation and local storage (creation and deletion allocation
+    extracted; restore storage remains with the snapshot feature);
   - cloning (complete);
-  - package import and export;
-  - update analysis and game-version changes.
-- [ ] Replace the broad application store dependency with narrow instance,
+  - package import and export (complete);
+  - update analysis and game-version changes (complete).
+- [x] Replace the broad application store dependency with narrow instance,
   version, account, mod, snapshot, and filesystem ports.
-- [ ] Move instance mutation locking into the feature and integrate it with
+- [x] Move instance mutation locking into the feature and integrate it with
   `internal/mutations.Gate`.
 - [x] Move instance SQLite mappings to instance-owned models while preserving
   the current schema and stored rows.
-- [ ] Remove migrated instance methods, state, and tests from
+- [x] Remove migrated instance methods, state, and tests from
   `internal/application.Service`.
 
 ### Launching and Processes
 
-- [ ] Add `internal/launching` with a focused launch coordinator that separates:
+- [x] Add `internal/launching` with a focused launch coordinator that separates:
   - instance and version resolution;
   - account and session validation;
   - client-settings preparation and cleanup;
@@ -489,15 +526,15 @@ arguments, credential handling, or frontend behavior.
   - launcher-owned diagnostic logs;
   - play-session persistence;
   - failed-startup and crash handling.
-- [ ] Move process execution and OS-specific stop/kill behavior under
+- [x] Move process execution and OS-specific stop/kill behavior under
   `internal/platform/process`.
-- [ ] Make every launch worker lifecycle-owned and joined during shutdown.
-- [ ] Preserve temporary credential injection into `clientsettings.json` and
+- [x] Make every launch worker lifecycle-owned and joined during shutdown.
+- [x] Preserve temporary credential injection into `clientsettings.json` and
   guaranteed cleanup after normal exit, failed launch, forced stop, and startup
   reconciliation.
-- [ ] Keep credentials out of process arguments, environment variables, logs,
+- [x] Keep credentials out of process arguments, environment variables, logs,
   DTOs, errors, and events.
-- [ ] Preserve current launch validation messages, server-connect behavior,
+- [x] Preserve current launch validation messages, server-connect behavior,
   game events, and frontend controller contracts.
 
 ### Sessions and Statistics Inputs
@@ -511,17 +548,17 @@ arguments, credential handling, or frontend behavior.
 
 ### Stage 3 Validation and Delivery
 
-- [ ] Add direct tests for instance CRUD, clone, package operations, validation,
+- [x] Add direct tests for instance CRUD, clone, package operations, validation,
   launch rollback, credential cleanup, process failures, shutdown, and session
   recovery.
-- [ ] Run focused race tests for instances, launching, sessions, bootstrap,
+- [x] Run focused race tests for instances, launching, sessions, bootstrap,
   SQLite, and presentation.
-- [ ] Confirm all instance/game Wails methods, DTOs, events, and error messages
+- [x] Confirm all instance/game Wails methods, DTOs, events, and error messages
   remain compatible.
-- [ ] Run the complete local validation matrix.
-- [ ] Complete manual smoke testing for create/edit/clone/import/export,
+- [x] Run the complete local validation matrix.
+- [x] Complete manual smoke testing for create/edit/clone/import/export,
   authenticated and offline launch, stop, crash, and restart recovery.
-- [ ] Commit, synchronize with `origin/dev`, push, open a pull request against
+- [x] Commit, synchronize with `origin/dev`, push, open a pull request against
   `dev`, pass CI, and merge before Stage 4 begins.
 
 ## Stage 4: Servers and Public Catalog

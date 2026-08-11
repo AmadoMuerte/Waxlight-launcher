@@ -8,6 +8,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/version"
@@ -548,11 +549,11 @@ func (controller *ModManagerController) GetModDeletePreview(id string) (ModDelet
 }
 
 type LaunchController struct {
-	svc       *application.Service
+	svc       *launching.Coordinator
 	lifecycle *app.Lifecycle
 }
 
-func NewLaunchController(service *application.Service, lifecycle *app.Lifecycle) *LaunchController {
+func NewLaunchController(service *launching.Coordinator, lifecycle *app.Lifecycle) *LaunchController {
 	return &LaunchController{svc: service, lifecycle: lifecycle}
 }
 

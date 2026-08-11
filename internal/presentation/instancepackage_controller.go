@@ -5,16 +5,16 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 type InstancePackageController struct {
-	svc       *application.Service
+	svc       *instances.PackageService
 	lifecycle *app.Lifecycle
 }
 
-func NewInstancePackageController(service *application.Service, lifecycle *app.Lifecycle) *InstancePackageController {
+func NewInstancePackageController(service *instances.PackageService, lifecycle *app.Lifecycle) *InstancePackageController {
 	return &InstancePackageController{svc: service, lifecycle: lifecycle}
 }
 

@@ -14,60 +14,6 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
-// gameStartupWindow is how long a game process must survive for its launch to
-// be considered successful. Exits after this window are treated as a started
-// game (a long play session followed by a crash is not a failed startup); a
-// crashed exit inside the window is a failed startup. It is a variable so
-// tests can shorten it. Launch snapshots the value once and hands it to the
-// goroutines, so tests may restore it without racing background readers.
-var gameStartupWindow = 60 * time.Second
-
-// markLaunchEstablished records the Last Known Good state once a game process
-// survives the startup window. The timer never fires for short-lived crashes
-// because waitForGame removes the running entry when the process exits.
-// startupWindow is the value captured by Launch so this goroutine never reads
-// the mutable package variable.
-func (s *Service) markLaunchEstablished(ctx context.Context, instance instances.Instance, sessionID string, startupWindow time.Duration) {
-	timer := time.NewTimer(startupWindow)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-	case <-ctx.Done():
-		return
-	}
-	s.runningMu.Lock()
-	running, ok := s.running[instance.ID]
-	s.runningMu.Unlock()
-	if !ok || running.sessionID != sessionID {
-		return
-	}
-	slog.Info("launch considered successful", "instance", instance.Name, "startupWindow", startupWindow.String())
-	s.recordLastKnownGood(context.Background(), instance)
-}
-
-// recordEstablishedLaunches records the Last Known Good state of every game
-// that was still running past the startup window when the launcher shut down.
-// The game itself keeps running, so its configuration is a working one.
-func (s *Service) recordEstablishedLaunches() {
-	s.runningMu.Lock()
-	var established []string
-	for id, running := range s.running {
-		if time.Since(running.started) >= gameStartupWindow {
-			established = append(established, id)
-		}
-	}
-	s.runningMu.Unlock()
-	for _, instanceID := range established {
-		instance, err := s.store.GetInstance(context.Background(), instanceID)
-		if err != nil {
-			slog.Warn("could not read an instance for the last known good state", "instanceId", instanceID, "error", err)
-			continue
-		}
-		slog.Info("launch considered successful", "instance", instance.Name, "launcherShutdown", true)
-		s.recordLastKnownGood(context.Background(), instance)
-	}
-}
-
 // recordLastKnownGood persists the current configuration of an instance as the
 // Last Known Good state. It reuses the snapshot manifest representation of the
 // installed mods, so the marker and the safety snapshots always agree on mod
@@ -75,7 +21,7 @@ func (s *Service) recordEstablishedLaunches() {
 // (typically the automatic safety snapshot taken before the changes that led
 // to this launch), the marker references it instead of creating any new
 // filesystem backup.
-func (s *Service) recordLastKnownGood(ctx context.Context, instance instances.Instance) {
+func (s *Service) RecordLastKnownGood(ctx context.Context, instance instances.Instance) {
 	release, err := s.beginMutation()
 	if err != nil {
 		slog.Warn("could not record last known good state during data folder relocation", "instance", instance.Name)
@@ -301,7 +247,7 @@ func configurationSignature(mods []domain.SnapshotMod, gameVersion string) strin
 // handleFailedLaunch assesses a startup failure against the Last Known Good
 // state and emits a recovery suggestion when the configuration changed. It
 // never rolls anything back and never claims a specific mod caused the crash.
-func (s *Service) handleFailedLaunch(instance instances.Instance) {
+func (s *Service) HandleFailedLaunch(instance instances.Instance) {
 	ctx := context.Background()
 	lkg, err := s.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
@@ -319,7 +265,7 @@ func (s *Service) handleFailedLaunch(instance instances.Instance) {
 		return
 	}
 
-	snapshotID, snapshotExists := s.resolveRecoverySnapshot(ctx, instance.ID, lkg)
+	snapshotID, snapshotExists := s.ResolveRecoverySnapshot(ctx, instance.ID, lkg)
 	suggestion := domain.RecoverySuggestion{
 		InstanceID:     instance.ID,
 		RecordedAt:     lkg.RecordedAt,
@@ -336,12 +282,12 @@ func (s *Service) handleFailedLaunch(instance instances.Instance) {
 	}
 }
 
-// resolveRecoverySnapshot returns the snapshot that captures the Last Known
+// ResolveRecoverySnapshot returns the snapshot that captures the Last Known
 // Good state and can be restored automatically. The marker's own reference is
 // preferred; when it is missing or stale, the newest snapshot whose manifest
 // matches the Last Known Good state is used, so a safety snapshot created
 // after the marker was recorded still enables one-click recovery.
-func (s *Service) resolveRecoverySnapshot(ctx context.Context, instanceID string, lkg domain.LastKnownGood) (string, bool) {
+func (s *Service) ResolveRecoverySnapshot(ctx context.Context, instanceID string, lkg domain.LastKnownGood) (string, bool) {
 	if lkg.SnapshotID != "" && s.snapshotIsRestorable(ctx, instanceID, lkg.SnapshotID) {
 		return lkg.SnapshotID, true
 	}
@@ -411,7 +357,7 @@ func (s *Service) GetLastKnownGoodStatus(ctx context.Context, instanceID string)
 		return domain.LastKnownGoodStatus{}, configErr
 	}
 	changes := compareConfigurations(lkg, currentMods, currentNames, currentGameVersion)
-	snapshotID, snapshotExists := s.resolveRecoverySnapshot(ctx, instanceID, lkg)
+	snapshotID, snapshotExists := s.ResolveRecoverySnapshot(ctx, instanceID, lkg)
 	return domain.LastKnownGoodStatus{
 		RecordedAt:     lkg.RecordedAt,
 		GameVersion:    lkg.GameVersion,

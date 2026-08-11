@@ -114,10 +114,10 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 		mods,
 		creator,
 		gate,
-		func(id string) (func(), error) {
+		&testLock{guard: func(id, marker, _ string) (func(), error) {
 			calls = append(calls, "guard")
 			return func() { calls = append(calls, "release") }, nil
-		},
+		}},
 		storage,
 		func(string) error { calls = append(calls, "remove"); return nil },
 		func() time.Time { return time.Date(2026, 8, 11, 13, 0, 0, 0, time.FixedZone("test", 3600)) },
@@ -166,10 +166,10 @@ func TestCloneServiceRollsBackWithoutReplacingPrimaryError(t *testing.T) {
 		&cloneModRepository{calls: &calls},
 		creator,
 		&testGate{},
-		func(string) (func(), error) {
+		&testLock{guard: func(id, marker, _ string) (func(), error) {
 			calls = append(calls, "guard")
 			return func() { calls = append(calls, "release") }, nil
-		},
+		}},
 		storage,
 		func(string) error { calls = append(calls, "remove"); return cleanupErr },
 		time.Now,
@@ -198,7 +198,10 @@ func TestCloneServiceRejectsBeforeReadingSource(t *testing.T) {
 		&cloneModRepository{calls: &calls},
 		&cloneCreator{calls: &calls},
 		gate,
-		func(string) (func(), error) { calls = append(calls, "guard"); return nil, want },
+		&testLock{guard: func(id, marker, _ string) (func(), error) {
+			calls = append(calls, "guard")
+			return nil, want
+		}},
 		&cloneStorage{calls: &calls},
 		func(string) error { return nil },
 		time.Now,
@@ -221,7 +224,7 @@ func TestCloneServiceCleansRecordWithLiveContextAfterCancellation(t *testing.T) 
 		&cloneModRepository{calls: &calls},
 		&cloneCreator{clone: Instance{ID: "clone", Directory: "/clone"}, calls: &calls},
 		&testGate{},
-		func(string) (func(), error) { return func() {}, nil },
+		&testLock{},
 		&cloneStorage{copyErr: context.Canceled, calls: &calls},
 		func(string) error { return nil },
 		time.Now,
@@ -248,7 +251,7 @@ func TestCloneServiceRejectsExternalModPath(t *testing.T) {
 		mods,
 		&cloneCreator{clone: Instance{ID: "clone", Directory: filepath.Join("root", "clone")}, calls: &calls},
 		&testGate{},
-		func(string) (func(), error) { return func() {}, nil },
+		&testLock{},
 		&cloneStorage{calls: &calls},
 		func(string) error { return nil },
 		time.Now,

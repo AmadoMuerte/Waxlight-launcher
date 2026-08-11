@@ -1,4 +1,4 @@
-package application
+package launching
 
 import (
 	"log/slog"
@@ -58,7 +58,7 @@ func isGameErrorLine(line string) bool {
 // forwards error lines through the launcher log pipeline while the game runs.
 // It returns a stop function that blocks until the tailer has drained the
 // remaining output; call it once the game exits.
-func (s *Service) watchGameLog(instance instances.Instance, logPath string) func() {
+func watchGameLog(instance instances.Instance, logPath string) func() {
 	tailer := newGameLogTailer(instance, logPath)
 	stop := make(chan struct{})
 	var once sync.Once

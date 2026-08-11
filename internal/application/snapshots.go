@@ -17,6 +17,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
@@ -152,17 +153,10 @@ func (s *Service) createInstanceSnapshotCore(
 		slog.Warn("could not persist the snapshot operation", "operationId", operation.ID, "error", err)
 	}
 
-	s.snapshotMu.Lock()
-	_, busy := s.snapshotBusy[instance.ID]
-	if !busy {
-		s.snapshotBusy[instance.ID] = operation.ID
+	slotRelease, holder := s.instanceSlot.TryAcquire(instance.ID, operation.ID)
+	if holder == "" && slotRelease != nil {
+		defer slotRelease()
 	}
-	s.snapshotMu.Unlock()
-	defer func() {
-		if !busy {
-			s.releaseSnapshotBusy(instance.ID, operation.ID)
-		}
-	}()
 
 	var staging string
 	defer func() {
@@ -389,10 +383,7 @@ func (s *Service) restoreInstanceSnapshotV1(
 	}
 
 	operation := s.beginSnapshotRestore(instance, size)
-	s.snapshotMu.Lock()
-	s.snapshotBusy[instance.ID] = operation.ID
-	s.snapshotMu.Unlock()
-	defer s.releaseSnapshotBusy(instance.ID, operation.ID)
+	defer s.instanceSlot.Set(instance.ID, operation.ID)()
 
 	fail := func(cause error, code string) error {
 		s.finishSnapshotOperation(operation, cause, code)
@@ -447,10 +438,7 @@ func (s *Service) restoreInstanceSnapshotV2(
 	}
 
 	operation := s.beginSnapshotRestore(instance, size)
-	s.snapshotMu.Lock()
-	s.snapshotBusy[instance.ID] = operation.ID
-	s.snapshotMu.Unlock()
-	defer s.releaseSnapshotBusy(instance.ID, operation.ID)
+	defer s.instanceSlot.Set(instance.ID, operation.ID)()
 
 	fail := func(cause error, code string) error {
 		s.finishSnapshotOperation(operation, cause, code)
@@ -579,7 +567,7 @@ func prepareRestoreStaging(
 		_ = os.RemoveAll(staging)
 		return "", err
 	}
-	if err := hardenLogs(filepath.Join(staging, "Logs")); err != nil {
+	if err := instancedirectory.HardenLogs(filepath.Join(staging, "Logs")); err != nil {
 		_ = os.RemoveAll(staging)
 		return "", err
 	}
@@ -629,7 +617,7 @@ func (s *Service) finalizeRestore(instance instances.Instance, operation operati
 			slog.Warn("could not clear authentication from the restored instance", "instance", instance.Name, "error", err)
 		}
 	}
-	if err := hardenLogs(filepath.Join(instance.Directory, "Logs")); err != nil {
+	if err := instancedirectory.HardenLogs(filepath.Join(instance.Directory, "Logs")); err != nil {
 		slog.Warn("could not harden the restored instance logs", "instance", instance.Name, "error", err)
 	}
 	finished := time.Now().UTC()
@@ -673,6 +661,15 @@ type restoredSnapshotMod struct {
 	entry         domain.SnapshotMod
 	displayName   string
 	installedPath string
+}
+
+// snapshotModsDirectoryFor maps an enabled flag to the standard instance mod
+// directory name.
+func snapshotModsDirectoryFor(enabled bool) string {
+	if enabled {
+		return "Mods"
+	}
+	return "ModsDisabled"
 }
 
 // snapshotModDownloadError carries the mod that failed during restore.
@@ -815,7 +812,7 @@ func (s *Service) restoreSnapshotMod(
 		}
 	}
 
-	targetDir := filepath.Join(staging, modsDirectoryFor(mod.Enabled))
+	targetDir := filepath.Join(staging, snapshotModsDirectoryFor(mod.Enabled))
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return restoredSnapshotMod{}, err
 	}
@@ -918,10 +915,7 @@ func (s *Service) DeleteInstanceSnapshot(
 	if err != nil {
 		return err
 	}
-	s.snapshotMu.Lock()
-	busy := s.snapshotBusy[instanceID]
-	s.snapshotMu.Unlock()
-	if busy != "" {
+	if s.instanceSlot.IsBusy(instanceID) {
 		return domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	if err := s.snapshots.Remove(instanceID, snapshotID); err != nil {
@@ -933,27 +927,13 @@ func (s *Service) DeleteInstanceSnapshot(
 }
 
 func (s *Service) reserveSnapshotOperation(instanceID string) (func(), error) {
-	s.launchMu.Lock()
-	defer s.launchMu.Unlock()
-	if err := s.ensureInstanceNotRunning(instanceID); err != nil {
-		return nil, err
-	}
-	s.snapshotMu.Lock()
-	defer s.snapshotMu.Unlock()
-	if s.snapshotBusy[instanceID] != "" {
-		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
-	}
-	s.snapshotBusy[instanceID] = snapshotReservationMarker
-	return func() { s.releaseSnapshotBusy(instanceID, snapshotReservationMarker) }, nil
+	return s.launchRegistry.Guard(instanceID, snapshotReservationMarker, "Stop the game before modifying this instance")
 }
 
 // ensureInstanceNotRunning rejects operations that must not touch an instance
 // while the game is running.
 func (s *Service) ensureInstanceNotRunning(instanceID string) error {
-	s.runningMu.Lock()
-	_, running := s.running[instanceID]
-	s.runningMu.Unlock()
-	if running {
+	if s.launchRegistry.Running(instanceID) {
 		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before modifying this instance")
 	}
 	return nil
@@ -962,21 +942,10 @@ func (s *Service) ensureInstanceNotRunning(instanceID string) error {
 // ensureNoSnapshotOperation rejects instance lifecycle operations while a
 // snapshot operation for the same instance is in progress.
 func (s *Service) ensureNoSnapshotOperation(instanceID string) error {
-	s.snapshotMu.Lock()
-	busy := s.snapshotBusy[instanceID]
-	s.snapshotMu.Unlock()
-	if busy != "" {
+	if s.instanceSlot.IsBusy(instanceID) {
 		return domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	return nil
-}
-
-func (s *Service) releaseSnapshotBusy(instanceID string, operationID string) {
-	s.snapshotMu.Lock()
-	if s.snapshotBusy[instanceID] == operationID {
-		delete(s.snapshotBusy, instanceID)
-	}
-	s.snapshotMu.Unlock()
 }
 
 // ensureSnapshotSpace rejects a snapshot operation when the free space on the

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
 type mutationRepository struct {
@@ -36,6 +38,23 @@ func (repository *mutationRepository) DeleteInstance(_ context.Context, id strin
 	return repository.deleteErr
 }
 
+// testLock implements MutationLock with a single guard callback that records
+// its calls.
+type testLock struct {
+	guard func(string, string, string) (func(), error)
+}
+
+func (lock *testLock) Guard(instanceID, marker, runningMessage string) (func(), error) {
+	if lock.guard == nil {
+		return func() {}, nil
+	}
+	return lock.guard(instanceID, marker, runningMessage)
+}
+
+func (lock *testLock) Lock(instanceID, marker string) (func(), error) {
+	return lock.Guard(instanceID, marker, "")
+}
+
 func TestUpdateServicePreservesOwnedFieldsAndOrdersSideEffects(t *testing.T) {
 	var calls []string
 	oldAccount := "old-account"
@@ -51,17 +70,17 @@ func TestUpdateServicePreservesOwnedFieldsAndOrdersSideEffects(t *testing.T) {
 	}
 	gate := &testGate{}
 	events := &eventRecorder{onPublish: func() { calls = append(calls, "publish") }}
+	lock := &testLock{guard: func(instanceID, marker, _ string) (func(), error) {
+		calls = append(calls, "lock")
+		return func() { calls = append(calls, "release") }, nil
+	}}
+	snapshotter := &testSnapshotter{onCreate: func() { calls = append(calls, "snapshot") }}
 	service := NewUpdateService(
 		repository,
 		versionReader{},
 		gate,
-		func(_ context.Context, previous, updated Instance) (func(), error) {
-			calls = append(calls, "prepare")
-			if previous.GameVersionID != "1.19" || updated.GameVersionID != "1.20" {
-				t.Fatalf("version change = %q -> %q", previous.GameVersionID, updated.GameVersionID)
-			}
-			return func() { calls = append(calls, "release") }, nil
-		},
+		lock,
+		snapshotter,
 		func(path string) error {
 			calls = append(calls, "clear")
 			if path != filepath.Join(repository.instance.Directory, "clientsettings.json") {
@@ -95,7 +114,7 @@ func TestUpdateServicePreservesOwnedFieldsAndOrdersSideEffects(t *testing.T) {
 	if repository.saved == nil || !reflect.DeepEqual(*repository.saved, updated) {
 		t.Fatalf("saved = %+v", repository.saved)
 	}
-	if !reflect.DeepEqual(calls, []string{"get", "prepare", "clear", "save", "publish", "release"}) {
+	if !reflect.DeepEqual(calls, []string{"get", "lock", "snapshot", "clear", "save", "publish", "release"}) {
 		t.Fatalf("calls = %v", calls)
 	}
 	if len(events.events) != 1 || events.events[0].name != "instance:updated" || !reflect.DeepEqual(events.events[0].payload, updated) {
@@ -106,11 +125,24 @@ func TestUpdateServicePreservesOwnedFieldsAndOrdersSideEffects(t *testing.T) {
 	}
 }
 
+// testSnapshotter records snapshot creation calls.
+type testSnapshotter struct {
+	onCreate func()
+	err      error
+}
+
+func (snapshotter *testSnapshotter) Create(_ context.Context, _ string, _ domain.SnapshotReason, _ map[string]string) error {
+	if snapshotter.onCreate != nil {
+		snapshotter.onCreate()
+	}
+	return snapshotter.err
+}
+
 func TestUpdateServiceStopsBeforeSaveOnValidationFailure(t *testing.T) {
 	var calls []string
 	repository := &mutationRepository{instance: Instance{ID: "instance"}, calls: &calls}
 	gate := &testGate{}
-	service := NewUpdateService(repository, versionReader{}, gate, nil, nil, nil, time.Now)
+	service := NewUpdateService(repository, versionReader{}, gate, &testLock{}, nil, nil, nil, time.Now)
 
 	if _, err := service.Update(context.Background(), Instance{ID: "instance", Name: "  "}); err == nil {
 		t.Fatal("Update() error = nil")
@@ -122,13 +154,13 @@ func TestUpdateServiceStopsBeforeSaveOnValidationFailure(t *testing.T) {
 
 func TestUpdateServiceRejectsMissingVersionChangeLock(t *testing.T) {
 	tests := []struct {
-		name    string
-		prepare VersionChangePreparer
+		name string
+		lock MutationLock
 	}{
-		{name: "missing preparer"},
-		{name: "missing release", prepare: func(context.Context, Instance, Instance) (func(), error) {
+		{name: "missing lock"},
+		{name: "missing release", lock: &testLock{guard: func(string, string, string) (func(), error) {
 			return nil, nil
-		}},
+		}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -137,7 +169,7 @@ func TestUpdateServiceRejectsMissingVersionChangeLock(t *testing.T) {
 				instance: Instance{ID: "instance", Name: "Old", GameVersionID: "1.19"},
 				calls:    &calls,
 			}
-			service := NewUpdateService(repository, versionReader{}, &testGate{}, test.prepare, nil, nil, time.Now)
+			service := NewUpdateService(repository, versionReader{}, &testGate{}, test.lock, nil, nil, nil, time.Now)
 
 			if _, err := service.Update(context.Background(), Instance{ID: "instance", Name: "New", GameVersionID: "1.20"}); err == nil {
 				t.Fatal("Update() error = nil")
@@ -160,10 +192,10 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 	service := NewDeleteService(
 		repository,
 		&testGate{},
-		func(id string) (func(), error) {
+		&testLock{guard: func(string, string, string) (func(), error) {
 			calls = append(calls, "guard")
 			return func() { calls = append(calls, "release") }, nil
-		},
+		}},
 		func(path string) error { calls = append(calls, "remove"); return nil },
 		func(path string) error { calls = append(calls, "clear"); return nil },
 		func(context.Context, string) error {
@@ -200,7 +232,7 @@ func TestDeleteServiceClearFailurePreservesRecord(t *testing.T) {
 	service := NewDeleteService(
 		repository,
 		gate,
-		func(string) (func(), error) { return func() {}, nil },
+		&testLock{},
 		func(string) error { calls = append(calls, "remove"); return nil },
 		func(string) error { calls = append(calls, "clear"); return want },
 		nil,
@@ -219,19 +251,21 @@ func TestDeleteServiceClearFailurePreservesRecord(t *testing.T) {
 func TestDeleteServiceRequiresSafetyDependencies(t *testing.T) {
 	tests := []struct {
 		name    string
-		guard   DeleteGuard
+		lock    MutationLock
 		remover DirectoryRemover
 		calls   []string
 	}{
 		{name: "missing guard"},
-		{name: "guard rejects", guard: func(string) (func(), error) { return nil, errors.New("running") }},
-		{name: "missing remover", guard: func(string) (func(), error) { return func() {}, nil }, calls: []string{"get"}},
+		{name: "guard rejects", lock: &testLock{guard: func(string, string, string) (func(), error) {
+			return nil, errors.New("running")
+		}}},
+		{name: "missing remover", lock: &testLock{}, calls: []string{"get"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
 			repository := &mutationRepository{instance: Instance{ID: "instance"}, calls: &calls}
-			service := NewDeleteService(repository, &testGate{}, test.guard, test.remover, nil, nil, nil, nil)
+			service := NewDeleteService(repository, &testGate{}, test.lock, test.remover, nil, nil, nil, nil)
 
 			if err := service.Delete(context.Background(), "instance", true); err == nil {
 				t.Fatal("Delete() error = nil")
@@ -249,11 +283,11 @@ func TestMutationServicesRejectWhenGateIsBusy(t *testing.T) {
 	repository := &mutationRepository{calls: &calls}
 	gate := &testGate{err: want}
 
-	updater := NewUpdateService(repository, versionReader{}, gate, nil, nil, nil, time.Now)
+	updater := NewUpdateService(repository, versionReader{}, gate, &testLock{}, nil, nil, nil, time.Now)
 	if _, err := updater.Update(context.Background(), Instance{}); !errors.Is(err, want) {
 		t.Fatalf("Update() error = %v, want %v", err, want)
 	}
-	deleter := NewDeleteService(repository, gate, func(string) (func(), error) { return func() {}, nil }, nil, nil, nil, nil, nil)
+	deleter := NewDeleteService(repository, gate, &testLock{}, nil, nil, nil, nil, nil)
 	if err := deleter.Delete(context.Background(), "instance", true); !errors.Is(err, want) {
 		t.Fatalf("Delete() error = %v, want %v", err, want)
 	}

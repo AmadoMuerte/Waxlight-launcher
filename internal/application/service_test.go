@@ -25,8 +25,10 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
@@ -50,7 +52,7 @@ func (launcher *recordingLauncher) Start(
 	workingDirectory string,
 	environment map[string]string,
 	_ io.Writer,
-) (application.RunningProcess, error) {
+) (process.Running, error) {
 	launcher.executable = executable
 	launcher.arguments = append([]string(nil), arguments...)
 	launcher.workingDirectory = workingDirectory
@@ -232,12 +234,42 @@ func (process *controllableProcess) Kill() error {
 	return nil
 }
 
+// accountHolder lets launch tests swap the account service after the
+// coordinator is constructed.
+type accountHolder struct {
+	service *accounts.Service
+}
+
+func (holder *accountHolder) GetAccount(ctx context.Context, id string) (accounts.Account, error) {
+	if holder.service == nil {
+		return accounts.Account{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+	}
+	return holder.service.GetAccount(ctx, id)
+}
+
+func (holder *accountHolder) ListAccounts(ctx context.Context) ([]accounts.Account, error) {
+	if holder.service == nil {
+		return nil, nil
+	}
+	return holder.service.ListAccounts(ctx)
+}
+
+func (holder *accountHolder) ValidateAuthorizedAccount(ctx context.Context, id string) (accounts.Account, error) {
+	if holder.service == nil {
+		return accounts.Account{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+	}
+	return holder.service.ValidateAuthorizedAccount(ctx, id)
+}
+
 type testFixture struct {
 	service            *application.Service
 	store              *sqlite.SQLiteStore
 	root               string
 	executable         string
 	launcher           *recordingLauncher
+	launching          *launching.Coordinator
+	registry           *launching.Registry
+	accountHolder      *accountHolder
 	lifecycle          *app.Lifecycle
 	operations         *operations.Manager
 	sessions           *sessions.Service
@@ -310,10 +342,11 @@ func newTestFixtureWithVersionDependencies(
 		time.Now,
 		func() string { return fmt.Sprintf("instance-%d", time.Now().UnixNano()) },
 	)
+	instanceSlot := mutations.NewSlot()
+	launchRegistry := launching.NewRegistry(instanceSlot)
 	service := application.NewService(
 		store,
 		filesystem.ModFileManager{},
-		launcher,
 		root,
 		operationManager,
 		sessionService,
@@ -325,9 +358,33 @@ func newTestFixtureWithVersionDependencies(
 		diskSpace,
 		gate,
 		settingsReader,
+		instanceSlot,
+		launchRegistry,
+	)
+	launchAccountHolder := &accountHolder{}
+	launchCoordinator := launching.NewCoordinator(
+		launchRegistry,
+		gate,
+		store,
+		versionService,
+		launchAccountHolder,
+		filesystem.ClientSettingsService{},
+		settingsReader,
+		filesystem.ModFileManager{},
+		sessionService,
+		launcher,
+		instancedirectory.LaunchLogs{},
+		nil,
+		nil,
+		service,
+		lifecycle,
+		operationManager,
+		time.Now,
+		func() string { return fmt.Sprintf("session-%d", time.Now().UnixNano()) },
 	)
 	t.Cleanup(func() {
 		lifecycle.Shutdown()
+		launchCoordinator.RecordEstablishedOnShutdown()
 		_ = service.Close()
 	})
 
@@ -363,6 +420,9 @@ func newTestFixtureWithVersionDependencies(
 		root:               root,
 		executable:         executable,
 		launcher:           launcher,
+		launching:          launchCoordinator,
+		registry:           launchRegistry,
+		accountHolder:      launchAccountHolder,
 		lifecycle:          lifecycle,
 		operations:         operationManager,
 		sessions:           sessionService,
@@ -512,9 +572,10 @@ func TestStartupReconciliationHardensExistingLogs(t *testing.T) {
 	if err := os.Chmod(logs, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	accountService := newTestAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore(), fixture.service.ClearAccountFromInstances)
-	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
-	if err := fixture.service.ReconcileInjectedCredentials(ctx); err != nil {
+	accountService := newTestAccountService(fixture.store, &fakeAuthClient{}, newMemorySecretStore(), fixture.launching.ClearAccountFromInstances)
+	fixture.accountHolder.service = accountService
+	fixture.service.ConfigureClientSettings(filesystem.ClientSettingsService{})
+	if err := fixture.launching.ReconcileInjectedCredentials(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS != "windows" {
@@ -786,7 +847,7 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validation, err := fixture.service.ValidateLaunch(ctx, instance.ID, nil)
+	validation, err := fixture.launching.ValidateLaunch(ctx, instance.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -797,7 +858,7 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 		t.Fatal("validation arrays must not be nil")
 	}
 
-	_, err = fixture.service.Launch(ctx, instance.ID, nil)
+	_, err = fixture.launching.Launch(ctx, instance.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -820,7 +881,7 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 		t.Fatal("the instance environment variable was not provided")
 	}
 
-	if err := fixture.service.Stop(ctx, instance.ID, false); err != nil {
+	if err := fixture.launching.Stop(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -836,21 +897,21 @@ func TestLaunchServerPassesConnectArgumentToSelectedInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := fixture.service.LaunchServer(ctx, instance.ID, nil, "example.org:42420"); err != nil {
+	if _, err := fixture.launching.LaunchServer(ctx, instance.ID, nil, "example.org:42420"); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"--dataPath", instance.Directory, "--connect", "example.org:42420"}
 	if !reflect.DeepEqual(fixture.launcher.arguments, want) {
 		t.Fatalf("unexpected server launch arguments: %v", fixture.launcher.arguments)
 	}
-	if err := fixture.service.Stop(ctx, instance.ID, false); err != nil {
+	if err := fixture.launching.Stop(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLaunchServerRejectsUnsafeAddress(t *testing.T) {
 	fixture := newTestFixture(t)
-	if _, err := fixture.service.LaunchServer(context.Background(), "instance", nil, "example.org/unsafe"); err == nil {
+	if _, err := fixture.launching.LaunchServer(context.Background(), "instance", nil, "example.org/unsafe"); err == nil {
 		t.Fatal("expected invalid server address error")
 	}
 }
@@ -885,12 +946,10 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 		fixture.store,
 		authClient,
 		newMemorySecretStore(),
-		fixture.service.ClearAccountFromInstances,
+		fixture.launching.ClearAccountFromInstances,
 	)
-	fixture.service.ConfigureAuthentication(
-		accountService,
-		filesystem.ClientSettingsService{},
-	)
+	fixture.accountHolder.service = accountService
+	fixture.service.ConfigureClientSettings(filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
 	if err != nil || login.Account == nil {
 		t.Fatalf("login failed: %#v, %v", login, err)
@@ -916,7 +975,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	session, err := fixture.service.Launch(ctx, instance.ID, nil)
+	session, err := fixture.launching.Launch(ctx, instance.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -942,7 +1001,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 		settings["stringsettings"]["playername"] != "Waxlighter" {
 		t.Fatalf("unexpected patched settings: %#v", settings)
 	}
-	if err := fixture.service.Stop(ctx, instance.ID, false); err != nil {
+	if err := fixture.launching.Stop(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(time.Second)
@@ -985,8 +1044,9 @@ func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 	authClient := &fakeAuthClient{session: accounts.Session{SessionKey: "WAXLIGHT_TEST_SESSION_KEY_DO_NOT_LEAK", SessionSignature: "signature", UID: "uid", PlayerName: "player"}, validateResult: true}
-	accountService := newTestAccountService(fixture.store, authClient, newMemorySecretStore(), fixture.service.ClearAccountFromInstances)
-	fixture.service.ConfigureAuthentication(accountService, filesystem.ClientSettingsService{})
+	accountService := newTestAccountService(fixture.store, authClient, newMemorySecretStore(), fixture.launching.ClearAccountFromInstances)
+	fixture.accountHolder.service = accountService
+	fixture.service.ConfigureClientSettings(filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
 	if err != nil {
 		t.Fatal(err)
@@ -996,7 +1056,7 @@ func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture.launcher.startErr = errors.New("injected process start failure")
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err == nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err == nil {
 		t.Fatal("expected launch failure")
 	}
 	contents, err := os.ReadFile(filepath.Join(instance.Directory, "clientsettings.json"))
@@ -1039,12 +1099,10 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 		fixture.store,
 		authClient,
 		newMemorySecretStore(),
-		fixture.service.ClearAccountFromInstances,
+		fixture.launching.ClearAccountFromInstances,
 	)
-	fixture.service.ConfigureAuthentication(
-		accountService,
-		filesystem.ClientSettingsService{},
-	)
+	fixture.accountHolder.service = accountService
+	fixture.service.ConfigureClientSettings(filesystem.ClientSettingsService{})
 	login, err := accountService.Login(ctx, "player@example.com", "password")
 	if err != nil || login.Account == nil {
 		t.Fatal(err)
@@ -1061,7 +1119,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err == nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err == nil {
 		t.Fatal("expired session did not block launch")
 	}
 	if fixture.launcher.executable != "" {
@@ -1097,7 +1155,7 @@ func TestValidationRepairsLegacyExecutablePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validation, err := fixture.service.ValidateLaunch(ctx, instance.ID, nil)
+	validation, err := fixture.launching.ValidateLaunch(ctx, instance.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1398,7 +1456,7 @@ func TestSettingValuesRoundtrip(t *testing.T) {
 func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 	fixture := newTestFixture(t)
 
-	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
+	if err := fixture.launching.CheckDataRootRelocation(context.Background()); err != nil {
 		t.Fatalf("relocation should be allowed initially: %v", err)
 	}
 
@@ -1427,7 +1485,7 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 	}
 
 	fixture.gate.EndRelocation()
-	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
+	if err := fixture.launching.CheckDataRootRelocation(context.Background()); err != nil {
 		t.Fatalf("relocation should be allowed again: %v", err)
 	}
 }
@@ -1457,10 +1515,11 @@ func TestRelocationCannotBeginDuringAccountClientSettingsCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := blockingClientSettings{started: make(chan struct{}), release: make(chan struct{})}
-	fixture.service.ConfigureAuthentication(nil, settings)
+	fixture.service.ConfigureClientSettings(settings)
+	fixture.launching.SetClientSettingsPatcher(settings)
 	done := make(chan error, 1)
 	go func() {
-		done <- fixture.service.ClearAccountFromInstances(context.Background(), "account")
+		done <- fixture.launching.ClearAccountFromInstances(context.Background(), "account")
 	}()
 	<-settings.started
 	if err := fixture.gate.BeginRelocation(); err == nil {
@@ -1485,13 +1544,13 @@ func TestInterruptedOperationReconciliationUnblocksRelocation(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.CheckDataRootRelocation(context.Background()); err == nil {
+	if err := fixture.launching.CheckDataRootRelocation(context.Background()); err == nil {
 		t.Fatal("stale running operation did not initially block relocation")
 	}
 	if count, err := fixture.operations.ReconcileInterrupted(context.Background(), now.Add(time.Second)); err != nil || count != 1 {
 		t.Fatalf("reconcile = (%d, %v), want (1, nil)", count, err)
 	}
-	if err := fixture.service.CheckDataRootRelocation(context.Background()); err != nil {
+	if err := fixture.launching.CheckDataRootRelocation(context.Background()); err != nil {
 		t.Fatalf("reconciled operation still blocked relocation: %v", err)
 	}
 }

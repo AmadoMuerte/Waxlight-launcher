@@ -7,24 +7,45 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-
-	"github.com/waxlight/waxlight-launcher/internal/application"
 )
 
-type Launcher struct{}
+// Running abstracts a started game process so the launching feature stays
+// independent of exec.Command and platform stop/kill behavior.
+type Running interface {
+	PID() int
+	Wait() (int, error)
+	Stop() error
+	Kill() error
+}
+
+// Launcher starts game processes with the given arguments, environment, and
+// captured output.
+type Launcher interface {
+	Start(
+		ctx context.Context,
+		executable string,
+		arguments []string,
+		workingDirectory string,
+		environment map[string]string,
+		output io.Writer,
+	) (Running, error)
+}
+
+// OSLauncher is the exec.Command-backed process launcher.
+type OSLauncher struct{}
 
 type runningProcess struct {
 	command *exec.Cmd
 }
 
-func (Launcher) Start(
+func (OSLauncher) Start(
 	ctx context.Context,
 	executable string,
 	arguments []string,
 	workingDirectory string,
 	environment map[string]string,
 	output io.Writer,
-) (application.RunningProcess, error) {
+) (Running, error) {
 	command := exec.CommandContext(ctx, executable, arguments...)
 	command.Dir = workingDirectory
 	command.Env = os.Environ()
