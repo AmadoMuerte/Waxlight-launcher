@@ -21,6 +21,7 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 3 initial status: merged into `dev` after successful local validation,
   manual smoke testing, and CI
 - Current Stage 3 branch: `refactor/backend-instance-cloning`
+- Current Stage 3 pull request: [#85](https://github.com/AmadoMuerte/Waxlight-launcher/pull/85)
 - Stage 3 status: in progress; play-session, instance-core, CRUD,
   local-storage, and cloning ownership extracted
 - Overall rewrite status: in progress
