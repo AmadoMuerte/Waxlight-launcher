@@ -113,21 +113,6 @@ type MutationLock interface {
 	Lock(instanceID string, marker string) (func(), error)
 }
 
-// SafetySnapshotter creates the automatic snapshot that protects an instance
-// before a destructive change. A nil operation with no error means no snapshot
-// was needed; any error must abort the destructive operation.
-type SafetySnapshotter interface {
-	Create(context.Context, string, domain.SnapshotReason, map[string]string) error
-}
-
-// SafetySnapshotterFunc adapts a snapshot-creation function to the
-// SafetySnapshotter port.
-type SafetySnapshotterFunc func(context.Context, string, domain.SnapshotReason, map[string]string) error
-
-func (fn SafetySnapshotterFunc) Create(ctx context.Context, instanceID string, reason domain.SnapshotReason, context map[string]string) error {
-	return fn(ctx, instanceID, reason, context)
-}
-
 // PackageRepository is the instance persistence surface used by package
 // import and export.
 type PackageRepository interface {

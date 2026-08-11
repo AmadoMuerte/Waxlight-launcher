@@ -2,15 +2,15 @@ package presentation
 
 import (
 	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 )
 
 type LastKnownGoodController struct {
-	svc       *application.Service
+	svc       *recovery.Service
 	lifecycle *app.Lifecycle
 }
 
-func NewLastKnownGoodController(service *application.Service, lifecycle *app.Lifecycle) *LastKnownGoodController {
+func NewLastKnownGoodController(service *recovery.Service, lifecycle *app.Lifecycle) *LastKnownGoodController {
 	return &LastKnownGoodController{svc: service, lifecycle: lifecycle}
 }
 
@@ -20,7 +20,7 @@ func NewLastKnownGoodController(service *application.Service, lifecycle *app.Lif
 func (controller *LastKnownGoodController) GetInstanceLastKnownGood(
 	instanceID string,
 ) (LastKnownGoodDTO, error) {
-	status, err := controller.svc.GetLastKnownGoodStatus(
+	status, err := controller.svc.Status(
 		controller.lifecycle.Context(),
 		instanceID,
 	)

@@ -1,11 +1,11 @@
-// Package snapshotstore persists instance snapshots as plain directories under
+// Package snapshots persists instance snapshots as plain directories under
 // <dataRoot>/backups/instances/<instanceID>/<snapshotID>/, each containing a
 // manifest.json and a data/ directory with the captured instance files.
 //
 // Snapshot IDs are validated as single path segments so they can never escape
 // the snapshot tree. Manifest files are the source of truth; snapshots without
 // a readable manifest are considered incomplete and are skipped by List.
-package snapshotstore
+package snapshots
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 const (
@@ -83,7 +84,7 @@ func (store *Store) SnapshotDir(instanceID string, snapshotID string) (string, e
 
 // DataDir returns the directory inside a snapshot that holds the captured
 // instance files.
-func DataDir(snapshotDir string) string {
+func (store *Store) DataDir(snapshotDir string) string {
 	return filepath.Join(snapshotDir, dataDirectory)
 }
 
@@ -102,23 +103,24 @@ func (store *Store) TempDir(instanceID string) (string, error) {
 	return temporary, nil
 }
 
-// List returns every readable snapshot of an instance, newest first. Directories
-// that cannot be parsed (interrupted creations, corrupted manifests) are logged
-// and skipped so one damaged snapshot never breaks the whole list.
-func (store *Store) List(ctx context.Context, instanceID string) ([]domain.InstanceSnapshot, error) {
+// List returns every readable snapshot of an instance, newest first.
+// Directories that cannot be parsed (interrupted creations, corrupted
+// manifests) are logged and skipped so one damaged snapshot never breaks the
+// whole list.
+func (store *Store) List(ctx context.Context, instanceID string) ([]snapshots.InstanceSnapshot, error) {
 	instanceDir, err := store.InstancePath(instanceID)
 	if err != nil {
 		return nil, err
 	}
 	entries, err := os.ReadDir(instanceDir)
 	if errors.Is(err, os.ErrNotExist) {
-		return []domain.InstanceSnapshot{}, nil
+		return []snapshots.InstanceSnapshot{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	result := []domain.InstanceSnapshot{}
+	result := []snapshots.InstanceSnapshot{}
 	for _, entry := range entries {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -136,7 +138,7 @@ func (store *Store) List(ctx context.Context, instanceID string) ([]domain.Insta
 			slog.Warn("skipping an instance snapshot whose manifest does not match its directory", "instanceId", instanceID, "snapshotId", name)
 			continue
 		}
-		result = append(result, domain.InstanceSnapshot{
+		result = append(result, snapshots.InstanceSnapshot{
 			ID:           manifest.ID,
 			InstanceID:   manifest.InstanceID,
 			InstanceName: manifest.InstanceName,
@@ -157,36 +159,36 @@ func (store *Store) List(ctx context.Context, instanceID string) ([]domain.Insta
 }
 
 // ReadManifest loads and validates the manifest of a snapshot directory.
-func (store *Store) ReadManifest(snapshotDir string) (domain.SnapshotManifest, error) {
+func (store *Store) ReadManifest(snapshotDir string) (snapshots.Manifest, error) {
 	data, err := os.ReadFile(filepath.Join(snapshotDir, manifestFileName))
 	if err != nil {
-		return domain.SnapshotManifest{}, err
+		return snapshots.Manifest{}, err
 	}
-	var manifest domain.SnapshotManifest
+	var manifest snapshots.Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return domain.SnapshotManifest{}, err
+		return snapshots.Manifest{}, err
 	}
-	if manifest.FormatVersion != domain.SnapshotFormatVersion1 &&
-		manifest.FormatVersion != domain.SnapshotFormatVersion {
-		return domain.SnapshotManifest{}, errors.New("unsupported snapshot format version")
+	if manifest.FormatVersion != snapshots.FormatVersion1 &&
+		manifest.FormatVersion != snapshots.FormatVersion {
+		return snapshots.Manifest{}, errors.New("unsupported snapshot format version")
 	}
 	if strings.TrimSpace(manifest.ID) == "" || strings.TrimSpace(manifest.InstanceID) == "" {
-		return domain.SnapshotManifest{}, errors.New("snapshot manifest misses its identifiers")
+		return snapshots.Manifest{}, errors.New("snapshot manifest misses its identifiers")
 	}
-	if manifest.Type != domain.SnapshotTypeManual && manifest.Type != domain.SnapshotTypeAutomatic {
-		return domain.SnapshotManifest{}, errors.New("unsupported snapshot type")
+	if manifest.Type != snapshots.TypeManual && manifest.Type != snapshots.TypeAutomatic {
+		return snapshots.Manifest{}, errors.New("unsupported snapshot type")
 	}
-	if manifest.Type == domain.SnapshotTypeAutomatic && manifest.Reason == "" {
-		return domain.SnapshotManifest{}, errors.New("automatic snapshot manifest misses its reason")
+	if manifest.Type == snapshots.TypeAutomatic && manifest.Reason == "" {
+		return snapshots.Manifest{}, errors.New("automatic snapshot manifest misses its reason")
 	}
 	if manifest.CreatedAt.IsZero() {
-		return domain.SnapshotManifest{}, errors.New("snapshot manifest misses its creation time")
+		return snapshots.Manifest{}, errors.New("snapshot manifest misses its creation time")
 	}
 	return manifest, nil
 }
 
 // WriteManifest persists a manifest into a snapshot staging directory.
-func (store *Store) WriteManifest(snapshotDir string, manifest domain.SnapshotManifest) error {
+func (store *Store) WriteManifest(snapshotDir string, manifest snapshots.Manifest) error {
 	encoded, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
@@ -203,21 +205,21 @@ func (store *Store) Remove(instanceID string, snapshotID string) error {
 	}
 	info, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return domain.NewError(domain.ErrSnapshotNotFound, "Snapshot not found")
+		return domain.NewError(snapshots.ErrSnapshotNotFound, "Snapshot not found")
 	}
 	if err != nil {
 		return err
 	}
 	if !info.IsDir() {
-		return domain.NewError(domain.ErrSnapshotInvalid, "Snapshot path is not a directory")
+		return domain.NewError(snapshots.ErrSnapshotInvalid, "Snapshot path is not a directory")
 	}
 	return os.RemoveAll(dir)
 }
 
 // Size returns the number of bytes stored in the data directory of a snapshot.
-func Size(snapshotDir string) (int64, error) {
+func (store *Store) Size(snapshotDir string) (int64, error) {
 	var total int64
-	err := filepath.WalkDir(DataDir(snapshotDir), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(store.DataDir(snapshotDir), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}

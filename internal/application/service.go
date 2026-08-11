@@ -16,14 +16,15 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -35,7 +36,8 @@ type Service struct {
 	diskSpace       DiskSpaceChecker
 	versions        VersionCapabilities
 	dataRoot        string
-	snapshots       *snapshotstore.Store
+	snapshots       *snapshots.Service
+	recovery        *recovery.Service
 	events          events.Publisher
 	telemetry       *telemetry.Service
 	mutationGate    *mutations.Gate
@@ -65,6 +67,10 @@ func NewService(
 	store Store,
 	modFiles mods.FileManager,
 	dataRoot string,
+	snapshotStorage snapshots.Storage,
+	totalSize snapshots.TotalSizeFunc,
+	sanitizeSettings snapshots.ClientSettingsSanitizer,
+	hardenLogs snapshots.LogsHardener,
 	operationManager *operations.Manager,
 	sessionService *sessions.Service,
 	instanceQueries *instances.QueryService,
@@ -85,7 +91,6 @@ func NewService(
 	service := &Service{
 		store:           store,
 		dataRoot:        dataRoot,
-		snapshots:       snapshotstore.New(dataRoot),
 		operations:      operationManager,
 		sessions:        sessionService,
 		instanceQueries: instanceQueries,
@@ -98,8 +103,46 @@ func NewService(
 		instanceSlot:    instanceSlot,
 		launchRegistry:  launchRegistry,
 	}
-	snapshotter := mods.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason domain.SnapshotReason, snapshotContext map[string]string) error {
-		_, err := service.createSafetySnapshot(ctx, instanceID, reason, snapshotContext)
+	clearClientSettings := func(path string) error {
+		if service.clientSettings == nil {
+			return nil
+		}
+		return service.clientSettings.Clear(path)
+	}
+	service.snapshots = snapshots.NewService(
+		snapshotStorage,
+		snapshotInstanceAdapter{service: service},
+		versionService,
+		snapshotModStoreAdapter{service: service},
+		snapshotCatalogAdapter{service: service},
+		snapshotArchiveInfoAdapter{service: service},
+		settingsReader,
+		operationManager,
+		mutationGate,
+		instanceSlot,
+		launchRegistry,
+		diskSpace,
+		totalSize,
+		sanitizeSettings,
+		hardenLogs,
+		clearClientSettings,
+		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		snapshotLKGReferenceAdapter{service: service},
+		dataRoot,
+		time.Now,
+		newID,
+	)
+	service.recovery = recovery.NewService(
+		store,
+		service.snapshots,
+		service.snapshots,
+		store,
+		mutationGate,
+		publisher,
+		time.Now,
+	)
+	snapshotter := snapshots.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason snapshots.Reason, snapshotContext map[string]string) error {
+		_, err := service.snapshots.CreateSafety(ctx, instanceID, reason, snapshotContext)
 		return err
 	})
 	repository := modsStoreAdapter{store: store}
@@ -151,16 +194,8 @@ func NewService(
 		versionService,
 		mutationGate,
 		launchRegistry,
-		instances.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason domain.SnapshotReason, snapshotContext map[string]string) error {
-			_, err := service.createSafetySnapshot(ctx, instanceID, reason, snapshotContext)
-			return err
-		}),
-		func(path string) error {
-			if service.clientSettings == nil {
-				return nil
-			}
-			return service.clientSettings.Clear(path)
-		},
+		snapshotter,
+		clearClientSettings,
 		instances.PublishFunc(service.emit),
 		time.Now,
 	)
@@ -169,12 +204,7 @@ func NewService(
 		mutationGate,
 		launchRegistry,
 		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
-		func(path string) error {
-			if service.clientSettings == nil {
-				return nil
-			}
-			return service.clientSettings.Clear(path)
-		},
+		clearClientSettings,
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(service.emit),
 		service.reportEvent,
@@ -201,6 +231,17 @@ func (s *Service) Mods() *mods.Service {
 // ModsCatalog returns the catalog service owned by the application layer.
 func (s *Service) ModsCatalog() *mods.CatalogService {
 	return s.modsCatalog
+}
+
+// Snapshots returns the snapshot service owned by the application layer.
+func (s *Service) Snapshots() *snapshots.Service {
+	return s.snapshots
+}
+
+// Recovery returns the Last Known Good recovery service owned by the
+// application layer.
+func (s *Service) Recovery() *recovery.Service {
+	return s.recovery
 }
 
 func (s *Service) SetEventPublisher(publisher events.Publisher) {

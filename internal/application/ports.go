@@ -8,6 +8,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
@@ -22,8 +23,8 @@ type Store interface {
 	servers.Repository
 	Close() error
 
-	GetLastKnownGood(context.Context, string) (domain.LastKnownGood, error)
-	SaveLastKnownGood(context.Context, domain.LastKnownGood) error
+	GetLastKnownGood(context.Context, string) (recovery.LastKnownGood, error)
+	SaveLastKnownGood(context.Context, recovery.LastKnownGood) error
 	DeleteLastKnownGood(context.Context, string) error
 
 	ListMods(context.Context, string) ([]mods.InstalledMod, error)

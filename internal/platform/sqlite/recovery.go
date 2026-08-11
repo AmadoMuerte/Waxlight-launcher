@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 )
 
-func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (domain.LastKnownGood, error) {
-	var marker domain.LastKnownGood
+func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (recovery.LastKnownGood, error) {
+	var marker recovery.LastKnownGood
 	var recorded, mods string
 	var snapshot sql.NullString
 	err := s.db.QueryRowContext(ctx, `SELECT recorded_at, game_version, snapshot_id, mods
@@ -33,7 +34,7 @@ func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (
 	return marker, nil
 }
 
-func (s *SQLiteStore) SaveLastKnownGood(ctx context.Context, marker domain.LastKnownGood) error {
+func (s *SQLiteStore) SaveLastKnownGood(ctx context.Context, marker recovery.LastKnownGood) error {
 	mods, err := json.Marshal(marker.Mods)
 	if err != nil {
 		return err

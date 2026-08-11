@@ -3,6 +3,7 @@ package instances
 import (
 	"context"
 	"fmt"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -174,7 +175,7 @@ type UpdateService struct {
 	versions            VersionReader
 	gate                MutationGate
 	lock                MutationLock
-	snapshotter         SafetySnapshotter
+	snapshotter         snapshots.SafetySnapshotter
 	clearClientSettings ClientSettingsClearer
 	events              Publisher
 	now                 Clock
@@ -185,7 +186,7 @@ func NewUpdateService(
 	versions VersionReader,
 	gate MutationGate,
 	lock MutationLock,
-	snapshotter SafetySnapshotter,
+	snapshotter snapshots.SafetySnapshotter,
 	clearClientSettings ClientSettingsClearer,
 	events Publisher,
 	now Clock,
@@ -240,7 +241,7 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 			if version, versionErr := service.versions.Get(ctx, previous.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
 				fromVersion = version.Name
 			}
-			if err := service.snapshotter.Create(ctx, updated.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
+			if err := service.snapshotter.Create(ctx, updated.ID, snapshots.ReasonBeforeGameVersionChange, map[string]string{
 				"fromGameVersion": fromVersion,
 				"toGameVersion":   toVersion,
 			}); err != nil {

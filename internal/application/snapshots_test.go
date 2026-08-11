@@ -15,9 +15,10 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 func createSnapshotTestInstance(t *testing.T, fixture testFixture, name string) instances.Instance {
@@ -159,13 +160,13 @@ func newTestModID() string {
 	return fmt.Sprintf("test-mod-%d", snapshotModCounter)
 }
 
-func snapshotManifest(t *testing.T, snapshotDir string) domain.SnapshotManifest {
+func snapshotManifest(t *testing.T, snapshotDir string) snapshots.Manifest {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(snapshotDir, "manifest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var manifest domain.SnapshotManifest
+	var manifest snapshots.Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +189,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	writeTestInstanceModFiles(t, instance)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +197,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 		t.Fatalf("unexpected operation status %q", operation.Status)
 	}
 
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +205,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 		t.Fatalf("snapshot directory was not created: %v", err)
 	}
 	manifest := snapshotManifest(t, snapshotDir)
-	if manifest.FormatVersion != domain.SnapshotFormatVersion {
+	if manifest.FormatVersion != snapshots.FormatVersion {
 		t.Fatalf("unexpected format version %d", manifest.FormatVersion)
 	}
 	if manifest.ID != operation.ID || manifest.InstanceID != instance.ID {
@@ -213,7 +214,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 	if manifest.InstanceName != "Survival" {
 		t.Fatalf("unexpected instance name %q", manifest.InstanceName)
 	}
-	if manifest.Type != domain.SnapshotTypeManual {
+	if manifest.Type != snapshots.TypeManual {
 		t.Fatalf("unexpected snapshot type %q", manifest.Type)
 	}
 	if manifest.GameVersion != "1.20" {
@@ -229,7 +230,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 		t.Fatalf("expected 2 mod entries, got %d", len(manifest.Mods))
 	}
 	for _, mod := range manifest.Mods {
-		if mod.Source != domain.SnapshotModSourceUnknown {
+		if mod.Source != snapshots.ModSourceUnknown {
 			t.Fatalf("manually installed mod has an unexpected source %q", mod.Source)
 		}
 		if mod.Identifier == "" || mod.FileName == "" {
@@ -237,7 +238,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 		}
 	}
 
-	dataDir := snapshotstore.DataDir(snapshotDir)
+	dataDir := platformsnapshots.New(fixture.root).DataDir(snapshotDir)
 	for _, relative := range []string{
 		"SaveGame/world1/Main/level.bin",
 		"SaveGame/notes.txt",
@@ -260,7 +261,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dataDir, "Logs")); err != nil {
 		t.Fatalf("snapshot misses the instance Logs directory: %v", err)
 	}
-	if size, err := snapshotstore.Size(snapshotDir); err != nil || size != manifest.SizeBytes {
+	if size, err := platformsnapshots.New(fixture.root).Size(snapshotDir); err != nil || size != manifest.SizeBytes {
 		t.Fatalf("manifest size %d does not match the stored data %d (%v)", manifest.SizeBytes, size, err)
 	}
 
@@ -304,11 +305,11 @@ func TestCreateInstanceSnapshotStoresManagedModReleases(t *testing.T) {
 	cacheModRelease(t, fixture, "100", "1000", "mod-a", "Mod A", "1.0.0", "mod-a_1.0.0.zip", "sha256:aaaa")
 	cacheModRelease(t, fixture, "200", "2000", "mod-b", "Mod B", "2.4.1", "mod-b_2.4.1.zip", "sha256:bbbb")
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,9 +318,9 @@ func TestCreateInstanceSnapshotStoresManagedModReleases(t *testing.T) {
 		t.Fatalf("expected 2 managed mod entries, got %d/%d", manifest.ModCount, len(manifest.Mods))
 	}
 
-	byID := map[string]domain.SnapshotMod{}
+	byID := map[string]snapshots.Mod{}
 	for _, mod := range manifest.Mods {
-		if mod.Source != domain.SnapshotModSourceModDB {
+		if mod.Source != snapshots.ModSourceModDB {
 			t.Fatalf("managed mod has unexpected source %q", mod.Source)
 		}
 		byID[mod.ModID] = mod
@@ -335,7 +336,7 @@ func TestCreateInstanceSnapshotStoresManagedModReleases(t *testing.T) {
 		t.Fatalf("managed mod B entry is incomplete: %#v", modB)
 	}
 
-	dataDir := snapshotstore.DataDir(snapshotDir)
+	dataDir := platformsnapshots.New(fixture.root).DataDir(snapshotDir)
 	for _, relative := range []string{"Mods/mod-a.zip", "ModsDisabled/mod-b.zip"} {
 		if _, err := os.Stat(filepath.Join(dataDir, filepath.FromSlash(relative))); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("snapshot must not contain the managed mod binary %s: %v", relative, err)
@@ -367,16 +368,16 @@ func TestCreateInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	}
 	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
-	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	_, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 0 {
-		t.Fatalf("a snapshot was created while the game was running: %d", len(snapshots))
+	if len(listed) != 0 {
+		t.Fatalf("a snapshot was created while the game was running: %d", len(listed))
 	}
 }
 
@@ -387,16 +388,16 @@ func TestCreateInstanceSnapshotRejectsInsufficientSpace(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	fixture.setDiskSpace(fixedDiskSpace(0))
 
-	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	_, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if code := appErrorCode(t, err); code != domain.ErrInsufficientSpace {
 		t.Fatalf("expected INSUFFICIENT_DISK_SPACE, got %s", code)
 	}
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 0 {
-		t.Fatalf("a snapshot was created despite the disk space check: %d", len(snapshots))
+	if len(listed) != 0 {
+		t.Fatalf("a snapshot was created despite the disk space check: %d", len(listed))
 	}
 }
 
@@ -414,11 +415,11 @@ func TestCreateInstanceSnapshotCleansUpOnFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	_, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err == nil {
 		t.Fatal("expected a failure")
 	}
-	instanceDir, err := snapshotstore.New(fixture.root).InstancePath(instance.ID)
+	instanceDir, err := platformsnapshots.New(fixture.root).InstancePath(instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,12 +432,12 @@ func TestCreateInstanceSnapshotCleansUpOnFailure(t *testing.T) {
 			t.Fatalf("staging directory was left behind: %s", entry.Name())
 		}
 	}
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 0 {
-		t.Fatalf("an incomplete snapshot is visible: %d", len(snapshots))
+	if len(listed) != 0 {
+		t.Fatalf("an incomplete snapshot is visible: %d", len(listed))
 	}
 }
 
@@ -447,28 +448,28 @@ func TestListInstanceSnapshotsNewestFirst(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	writeTestInstanceModFiles(t, instance)
 
-	first, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	first, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(5 * time.Millisecond)
-	second, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	second, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 2 {
-		t.Fatalf("expected 2 snapshots, got %d", len(snapshots))
+	if len(listed) != 2 {
+		t.Fatalf("expected 2 snapshots, got %d", len(listed))
 	}
-	if snapshots[0].ID != second.ID || snapshots[1].ID != first.ID {
-		t.Fatalf("snapshots are not sorted newest first: %s, %s", snapshots[0].ID, snapshots[1].ID)
+	if listed[0].ID != second.ID || listed[1].ID != first.ID {
+		t.Fatalf("snapshots are not sorted newest first: %s, %s", listed[0].ID, listed[1].ID)
 	}
-	if snapshots[0].ModCount != 2 || snapshots[0].WorldCount != 1 {
-		t.Fatalf("snapshot summary misses counts: %#v", snapshots[0])
+	if listed[0].ModCount != 2 || listed[0].WorldCount != 1 {
+		t.Fatalf("snapshot summary misses counts: %#v", listed[0])
 	}
 }
 
@@ -478,12 +479,12 @@ func TestListInstanceSnapshotsSkipsMalformedDirectories(t *testing.T) {
 	instance := createSnapshotTestInstance(t, fixture, "Robust")
 	writeTestInstanceFiles(t, instance)
 
-	valid, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	valid, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	instanceDir, err := snapshotstore.New(fixture.root).InstanceDir(instance.ID)
+	instanceDir, err := platformsnapshots.New(fixture.root).InstanceDir(instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,12 +509,12 @@ func TestListInstanceSnapshotsSkipsMalformedDirectories(t *testing.T) {
 		damaged.prep(dir)
 	}
 
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 1 || snapshots[0].ID != valid.ID {
-		t.Fatalf("malformed snapshots broke the listing: %#v", snapshots)
+	if len(listed) != 1 || listed[0].ID != valid.ID {
+		t.Fatalf("malformed snapshots broke the listing: %#v", listed)
 	}
 }
 
@@ -523,7 +524,7 @@ func TestRestoreInstanceSnapshotReproducesExactState(t *testing.T) {
 	instance := createSnapshotTestInstance(t, fixture, "Restorable")
 	writeTestInstanceFiles(t, instance)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -535,7 +536,7 @@ func TestRestoreInstanceSnapshotReproducesExactState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -586,11 +587,11 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 	installManagedMod(t, fixture, instance, "Mod B", "mod-b.zip", "200", "2000", "2.4.1", false)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -611,7 +612,7 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -683,14 +684,14 @@ func TestRestoreInstanceSnapshotReusesCachedRelease(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 	cacheModRelease(t, fixture, "100", "1000", "mod-a", "Mod A", "1.0.0", "mod-a_1.0.0.zip", "sha256:aaaa")
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// The downloader must never be touched: the exact release is already in
 	// the shared mod cache.
 
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(instance.Directory, "Mods", "mod-a_1.0.0.zip")); err != nil {
@@ -711,7 +712,7 @@ func TestRestoreInstanceSnapshotFailsWhenReleaseUnavailable(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -721,8 +722,8 @@ func TestRestoreInstanceSnapshotFailsWhenReleaseUnavailable(t *testing.T) {
 
 	// The catalog still knows the mod but the exact release is gone.
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotInvalid {
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotInvalid {
 		t.Fatalf("expected SNAPSHOT_INVALID, got %s", code)
 	}
 	if !strings.Contains(err.Error(), "no longer available") {
@@ -751,7 +752,7 @@ func TestRestoreInstanceSnapshotFailsWhenDownloadFails(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -761,7 +762,7 @@ func TestRestoreInstanceSnapshotFailsWhenDownloadFails(t *testing.T) {
 	fixture = newTestFixtureWithMods(t, staticModCatalog{details: mods.ModDetails{}})
 	fixture.downloader.Set(failingDownloader{})
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
 	if err == nil {
 		t.Fatal("expected a download failure")
 	}
@@ -777,7 +778,7 @@ func TestRestoreInstanceSnapshotRejectsUnknownMod(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 	writeTestInstanceModFiles(t, instance)
 
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -785,8 +786,8 @@ func TestRestoreInstanceSnapshotRejectsUnknownMod(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotInvalid {
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotInvalid {
 		t.Fatalf("expected SNAPSHOT_INVALID, got %s", code)
 	}
 	if !strings.Contains(err.Error(), "cannot download automatically") {
@@ -807,11 +808,11 @@ func TestRestoreInstanceSnapshotV1BackwardCompatible(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 
 	// Craft a legacy v1 snapshot that physically contains the Mods directory.
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, "legacy-snap")
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, "legacy-snap")
 	if err != nil {
 		t.Fatal(err)
 	}
-	dataDir := snapshotstore.DataDir(snapshotDir)
+	dataDir := platformsnapshots.New(fixture.root).DataDir(snapshotDir)
 	modsDir := filepath.Join(dataDir, "Mods")
 	if err := os.MkdirAll(modsDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -822,13 +823,13 @@ func TestRestoreInstanceSnapshotV1BackwardCompatible(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dataDir, "file.txt"), []byte("before"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := snapshotstore.New(fixture.root).WriteManifest(snapshotDir, domain.SnapshotManifest{
-		FormatVersion: domain.SnapshotFormatVersion1,
+	if err := platformsnapshots.New(fixture.root).WriteManifest(snapshotDir, snapshots.Manifest{
+		FormatVersion: snapshots.FormatVersion1,
 		ID:            "legacy-snap",
 		InstanceID:    instance.ID,
 		InstanceName:  instance.Name,
 		CreatedAt:     time.Now().UTC(),
-		Type:          domain.SnapshotTypeManual,
+		Type:          snapshots.TypeManual,
 		SizeBytes:     13,
 		ModCount:      1,
 	}); err != nil {
@@ -838,7 +839,7 @@ func TestRestoreInstanceSnapshotV1BackwardCompatible(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(instance.Directory, "file.txt"), []byte("after"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, "legacy-snap"); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, "legacy-snap"); err != nil {
 		t.Fatal(err)
 	}
 	if contents, err := os.ReadFile(filepath.Join(instance.Directory, "file.txt")); err != nil || string(contents) != "before" {
@@ -857,7 +858,7 @@ func TestRestoreInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Busy restore")
 	writeTestInstanceFiles(t, instance)
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -867,7 +868,7 @@ func TestRestoreInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	}
 	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
 	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
@@ -878,7 +879,7 @@ func TestRestoreInstanceSnapshotRejectsForeignAndUnknownSnapshots(t *testing.T) 
 	ctx := context.Background()
 	source := createSnapshotTestInstance(t, fixture, "Source")
 	writeTestInstanceFiles(t, source)
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, source.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, source.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -886,31 +887,31 @@ func TestRestoreInstanceSnapshotRejectsForeignAndUnknownSnapshots(t *testing.T) 
 
 	// A snapshot that belongs to another instance is not visible under this
 	// instance, even when the identifier matches.
-	err = fixture.service.RestoreInstanceSnapshot(ctx, other.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotNotFound {
+	err = fixture.service.Snapshots().Restore(ctx, other.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotNotFound {
 		t.Fatalf("expected SNAPSHOT_NOT_FOUND, got %s", code)
 	}
 
 	// A crafted directory whose manifest names a different instance is rejected.
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(other.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(other.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(snapshotstore.DataDir(snapshotDir), 0o700); err != nil {
+	if err := os.MkdirAll(platformsnapshots.New(fixture.root).DataDir(snapshotDir), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := snapshotstore.New(fixture.root).WriteManifest(snapshotDir, domain.SnapshotManifest{
-		FormatVersion: domain.SnapshotFormatVersion,
+	if err := platformsnapshots.New(fixture.root).WriteManifest(snapshotDir, snapshots.Manifest{
+		FormatVersion: snapshots.FormatVersion,
 		ID:            operation.ID,
 		InstanceID:    source.ID,
 		InstanceName:  "Source",
 		CreatedAt:     time.Now().UTC(),
-		Type:          domain.SnapshotTypeManual,
+		Type:          snapshots.TypeManual,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	err = fixture.service.RestoreInstanceSnapshot(ctx, other.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotInvalid {
+	err = fixture.service.Snapshots().Restore(ctx, other.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotInvalid {
 		t.Fatalf("expected SNAPSHOT_INVALID for a foreign snapshot, got %s", code)
 	}
 
@@ -925,11 +926,11 @@ func TestRestoreInstanceSnapshotRejectsCorruptManifest(t *testing.T) {
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Corrupt")
 	writeTestInstanceFiles(t, instance)
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -937,8 +938,8 @@ func TestRestoreInstanceSnapshotRejectsCorruptManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotInvalid {
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotInvalid {
 		t.Fatalf("expected SNAPSHOT_INVALID, got %s", code)
 	}
 	if contents, err := os.ReadFile(filepath.Join(instance.Directory, "file.txt")); err != nil || string(contents) != "before" {
@@ -951,7 +952,7 @@ func TestRestoreInstanceSnapshotKeepsInstanceOnSwapFailure(t *testing.T) {
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Swap safe")
 	writeTestInstanceFiles(t, instance)
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -966,7 +967,7 @@ func TestRestoreInstanceSnapshotKeepsInstanceOnSwapFailure(t *testing.T) {
 	}
 	defer func() { _ = os.Chmod(filepath.Dir(instance.Directory), 0o755) }()
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, operation.ID)
 	if err == nil {
 		t.Fatal("expected a swap failure")
 	}
@@ -980,34 +981,34 @@ func TestDeleteInstanceSnapshot(t *testing.T) {
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Deletable")
 	writeTestInstanceFiles(t, instance)
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotDir, err := snapshotstore.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
+	snapshotDir, err := platformsnapshots.New(fixture.root).SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.DeleteInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
+	if err := fixture.service.Snapshots().Delete(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(snapshotDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("snapshot directory still exists after deletion: %v", err)
 	}
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 0 {
-		t.Fatalf("snapshot still listed after deletion: %d", len(snapshots))
+	if len(listed) != 0 {
+		t.Fatalf("snapshot still listed after deletion: %d", len(listed))
 	}
 	if contents, err := os.ReadFile(filepath.Join(instance.Directory, "file.txt")); err != nil || string(contents) != "before" {
 		t.Fatalf("instance was touched by snapshot deletion: %q, %v", contents, err)
 	}
 
-	err = fixture.service.DeleteInstanceSnapshot(ctx, instance.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotNotFound {
+	err = fixture.service.Snapshots().Delete(ctx, instance.ID, operation.ID)
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotNotFound {
 		t.Fatalf("expected SNAPSHOT_NOT_FOUND for a second delete, got %s", code)
 	}
 }
@@ -1018,21 +1019,21 @@ func TestSnapshotOperationsRejectUnsafeIdentifiers(t *testing.T) {
 	instance := createSnapshotTestInstance(t, fixture, "Safe ids")
 	writeTestInstanceFiles(t, instance)
 
-	_, err := fixture.service.CreateInstanceSnapshot(ctx, "..")
+	_, err := fixture.service.Snapshots().Create(ctx, "..")
 	if code := appErrorCode(t, err); code != instances.ErrInstanceNotFound {
 		t.Fatalf("expected INSTANCE_NOT_FOUND, got %s", code)
 	}
 
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, "../escape")
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, "../escape")
 	if code := appErrorCode(t, err); code != domain.ErrValidation {
 		t.Fatalf("expected VALIDATION_ERROR for a traversal snapshot id, got %s", code)
 	}
-	err = fixture.service.DeleteInstanceSnapshot(ctx, instance.ID, "..\\escape")
+	err = fixture.service.Snapshots().Delete(ctx, instance.ID, "..\\escape")
 	if code := appErrorCode(t, err); code != domain.ErrValidation {
 		t.Fatalf("expected VALIDATION_ERROR for a traversal snapshot id, got %s", code)
 	}
-	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, "missing-snapshot")
-	if code := appErrorCode(t, err); code != domain.ErrSnapshotNotFound {
+	err = fixture.service.Snapshots().Restore(ctx, instance.ID, "missing-snapshot")
+	if code := appErrorCode(t, err); code != snapshots.ErrSnapshotNotFound {
 		t.Fatalf("expected SNAPSHOT_NOT_FOUND, got %s", code)
 	}
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
@@ -26,9 +27,12 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
+	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -188,6 +192,10 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		store,
 		filesystem.ModFileManager{},
 		root,
+		platformsnapshots.New(root),
+		dataroot.TotalSizeContext,
+		filesystem.SanitizeClientSettings,
+		instancedirectory.HardenLogs,
 		operationManager,
 		sessionService,
 		instanceQueries,
@@ -202,7 +210,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		launchRegistry,
 		nil,
 		modstorage.New(root),
-		nil,
+		events,
 		nil,
 	)
 	launchCoordinator := launching.NewCoordinator(
@@ -219,7 +227,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		instancedirectory.LaunchLogs{},
 		events,
 		nil,
-		service,
+		service.Recovery(),
 		lifecycle,
 		operationManager,
 		time.Now,
@@ -401,7 +409,7 @@ func (fixture lkgFixture) cacheModRelease(
 }
 
 // waitForLastKnownGood polls until a Last Known Good marker exists.
-func (fixture lkgFixture) waitForLastKnownGood(t *testing.T, instanceID string) domain.LastKnownGood {
+func (fixture lkgFixture) waitForLastKnownGood(t *testing.T, instanceID string) recovery.LastKnownGood {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -412,12 +420,12 @@ func (fixture lkgFixture) waitForLastKnownGood(t *testing.T, instanceID string) 
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("last known good was never recorded")
-	return domain.LastKnownGood{}
+	return recovery.LastKnownGood{}
 }
 
 // waitForLastKnownGoodMod waits until the Last Known Good marker records the
 // given version of a managed mod (a newer successful launch replaced it).
-func (fixture lkgFixture) waitForLastKnownGoodMod(t *testing.T, instanceID, modID, version string) domain.LastKnownGood {
+func (fixture lkgFixture) waitForLastKnownGoodMod(t *testing.T, instanceID, modID, version string) recovery.LastKnownGood {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -432,7 +440,7 @@ func (fixture lkgFixture) waitForLastKnownGoodMod(t *testing.T, instanceID, modI
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("last known good was never replaced with mod %s %s", modID, version)
-	return domain.LastKnownGood{}
+	return recovery.LastKnownGood{}
 }
 
 func (fixture lkgFixture) launch(t *testing.T, instanceID string) {
@@ -477,11 +485,11 @@ func TestLastKnownGoodRecordedAfterSuccessfulLaunch(t *testing.T) {
 	if len(lkg.Mods) != 2 {
 		t.Fatalf("expected 2 mods in the last known good, got %d", len(lkg.Mods))
 	}
-	byID := make(map[string]domain.SnapshotMod, len(lkg.Mods))
+	byID := make(map[string]snapshots.Mod, len(lkg.Mods))
 	for _, mod := range lkg.Mods {
 		byID[mod.ModID] = mod
 	}
-	if mod := byID["A"]; mod.Source != domain.SnapshotModSourceModDB || mod.ReleaseID != "r1" || mod.Version != "1.0.0" {
+	if mod := byID["A"]; mod.Source != snapshots.ModSourceModDB || mod.ReleaseID != "r1" || mod.Version != "1.0.0" {
 		t.Fatalf("unexpected mod A entry: %#v", mod)
 	}
 	if mod := byID["B"]; mod.Version != "2.0.0" {
@@ -552,7 +560,7 @@ func TestFailedLaunchDoesNotReplaceLastKnownGood(t *testing.T) {
 	}
 
 	payload := fixture.events.waitForEvent(t, "game:recovery-suggestion", time.Second)
-	suggestion, ok := payload.(domain.RecoverySuggestion)
+	suggestion, ok := payload.(recovery.RecoverySuggestion)
 	if !ok {
 		t.Fatalf("unexpected suggestion payload %T", payload)
 	}
@@ -624,63 +632,6 @@ func TestFailedLaunchWithoutChangesEmitsNoSuggestion(t *testing.T) {
 	}
 }
 
-func TestCompareConfigurations(t *testing.T) {
-	lkg := domain.LastKnownGood{
-		GameVersion: "1.20",
-		Mods: []domain.SnapshotMod{
-			{Source: domain.SnapshotModSourceModDB, ModID: "A", ReleaseID: "r1", Version: "1.0.0"},
-			{Source: domain.SnapshotModSourceModDB, ModID: "B", ReleaseID: "r2", Version: "2.0.0"},
-			{Source: domain.SnapshotModSourceModDB, ModID: "C", ReleaseID: "r3", Version: "3.0.0"},
-		},
-	}
-	current := []domain.SnapshotMod{
-		{Source: domain.SnapshotModSourceModDB, ModID: "A", ReleaseID: "r4", Version: "2.0.0"},
-		{Source: domain.SnapshotModSourceModDB, ModID: "B", ReleaseID: "r2", Version: "2.0.0"},
-		{Source: domain.SnapshotModSourceModDB, ModID: "D", ReleaseID: "r5", Version: "1.0.0"},
-	}
-	names := map[string]string{
-		"moddb:A": "Alpha",
-		"moddb:B": "Beta",
-		"moddb:D": "Delta",
-	}
-
-	changes := compareConfigurations(lkg, current, names, "1.20")
-	if len(changes.Updated) != 1 || changes.Updated[0].Name != "Alpha" ||
-		changes.Updated[0].From != "1.0.0" || changes.Updated[0].To != "2.0.0" {
-		t.Fatalf("unexpected updated mods: %#v", changes.Updated)
-	}
-	if len(changes.Added) != 1 || changes.Added[0].Name != "Delta" || changes.Added[0].To != "1.0.0" {
-		t.Fatalf("unexpected added mods: %#v", changes.Added)
-	}
-	if len(changes.Removed) != 1 || changes.Removed[0].Name != "C" || changes.Removed[0].From != "3.0.0" {
-		t.Fatalf("unexpected removed mods: %#v", changes.Removed)
-	}
-	if changes.GameVersionFrom != "" {
-		t.Fatalf("unexpected game version change: %#v", changes)
-	}
-	if changes.Count() != 3 {
-		t.Fatalf("expected 3 changes, got %d", changes.Count())
-	}
-	if changes.Empty() {
-		t.Fatal("changes must not be empty")
-	}
-}
-
-func TestGameVersionChangeDetection(t *testing.T) {
-	lkg := domain.LastKnownGood{GameVersion: "1.21.5"}
-	changes := compareConfigurations(lkg, nil, nil, "1.21.6")
-	if changes.GameVersionFrom != "1.21.5" || changes.GameVersionTo != "1.21.6" {
-		t.Fatalf("unexpected game version change: %#v", changes)
-	}
-	if changes.Count() != 1 {
-		t.Fatalf("expected 1 change, got %d", changes.Count())
-	}
-	unchanged := compareConfigurations(lkg, nil, nil, "1.21.5")
-	if !unchanged.Empty() {
-		t.Fatalf("same game version must not be a change: %#v", unchanged)
-	}
-}
-
 func TestRecoverySnapshotPrefersLinkedSnapshotNotNewest(t *testing.T) {
 	fixture := newLKGFixture(t)
 	ctx := context.Background()
@@ -688,15 +639,15 @@ func TestRecoverySnapshotPrefersLinkedSnapshotNotNewest(t *testing.T) {
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
 
 	// S1 captures the Last Known Good state.
-	first, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	first, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 
 	// S2 is newer but captures a different, broken state.
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
-	second, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	second, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -708,7 +659,7 @@ func TestRecoverySnapshotPrefersLinkedSnapshotNotNewest(t *testing.T) {
 	if lkg.SnapshotID != first.ID {
 		t.Fatalf("expected the last known good to reference %s, got %q", first.ID, lkg.SnapshotID)
 	}
-	snapshotID, ok := fixture.service.ResolveRecoverySnapshot(ctx, instance.ID, lkg)
+	snapshotID, ok := fixture.service.Recovery().ResolveRecoverySnapshot(ctx, instance.ID, lkg)
 	if !ok || snapshotID != first.ID {
 		t.Fatalf("recovery must prefer the linked snapshot %s, got %q (ok=%v)", first.ID, snapshotID, ok)
 	}
@@ -724,7 +675,7 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
 
 	// No snapshot exists when the marker is recorded.
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -734,13 +685,13 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 	}
 
 	// A safety snapshot of the same state is created later.
-	first, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	first, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
 
-	snapshotID, ok := fixture.service.ResolveRecoverySnapshot(ctx, instance.ID, lkg)
+	snapshotID, ok := fixture.service.Recovery().ResolveRecoverySnapshot(ctx, instance.ID, lkg)
 	if !ok || snapshotID != first.ID {
 		t.Fatalf("expected the state-matching snapshot %s to enable recovery, got %q (ok=%v)", first.ID, snapshotID, ok)
 	}
@@ -755,15 +706,11 @@ func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
 	fixture.cacheModRelease(t, "A", "r1", "1.0.0", "checksum-1")
 
 	// Working state: launch succeeds, the safety snapshot S1 is linked.
-	operation, err := fixture.service.createInstanceSnapshotLocked(ctx, createSnapshotInput{
-		instanceID:   instance.ID,
-		snapshotType: domain.SnapshotTypeAutomatic,
-		reason:       domain.SnapshotReasonBeforeModUpdate,
-	})
+	operation, err := fixture.service.Snapshots().CreateSafety(ctx, instance.ID, snapshots.ReasonBeforeModUpdate, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -778,13 +725,13 @@ func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
 	fixture.launcher.crash()
 	fixture.waitForGameExit(t)
 	payload := fixture.events.waitForEvent(t, "game:recovery-suggestion", time.Second)
-	suggestion := payload.(domain.RecoverySuggestion)
+	suggestion := payload.(recovery.RecoverySuggestion)
 	if !suggestion.SnapshotExists || suggestion.SnapshotID != operation.ID {
 		t.Fatalf("expected the recovery suggestion to reference %s, got %q", operation.ID, suggestion.SnapshotID)
 	}
 
 	// Restore Last Known Good goes through the existing snapshot restore path.
-	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, suggestion.SnapshotID); err != nil {
+	if err := fixture.service.Snapshots().Restore(ctx, instance.ID, suggestion.SnapshotID); err != nil {
 		t.Fatal(err)
 	}
 	versions := installedVersions(t, fixture, instance.ID)
@@ -805,12 +752,12 @@ func TestRecoveryWithoutSnapshotShowsChangesOnly(t *testing.T) {
 	ctx := context.Background()
 	instance := fixture.createInstance(t, "No snapshot")
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
-	fixture.service.HandleFailedLaunch(instance)
+	fixture.service.Recovery().HandleFailedLaunch(instance)
 	payload := fixture.events.waitForEvent(t, "game:recovery-suggestion", time.Second)
-	suggestion := payload.(domain.RecoverySuggestion)
+	suggestion := payload.(recovery.RecoverySuggestion)
 	if suggestion.SnapshotExists || suggestion.SnapshotID != "" {
 		t.Fatalf("no snapshot must be offered: %#v", suggestion)
 	}
@@ -818,7 +765,7 @@ func TestRecoveryWithoutSnapshotShowsChangesOnly(t *testing.T) {
 		t.Fatalf("changes must still be reported: %#v", suggestion.Changes)
 	}
 
-	status, err := fixture.service.GetLastKnownGoodStatus(ctx, instance.ID)
+	status, err := fixture.service.Recovery().Status(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -835,11 +782,11 @@ func TestSnapshotDeletionClearsLastKnownGoodReference(t *testing.T) {
 	ctx := context.Background()
 	instance := fixture.createInstance(t, "Reference")
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
-	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
+	operation, err := fixture.service.Snapshots().Create(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -848,7 +795,7 @@ func TestSnapshotDeletionClearsLastKnownGoodReference(t *testing.T) {
 		t.Fatalf("expected the snapshot to be linked, got %q", lkg.SnapshotID)
 	}
 
-	if err := fixture.service.DeleteInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
+	if err := fixture.service.Snapshots().Delete(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
 	}
 	lkg, err = fixture.store.GetLastKnownGood(ctx, instance.ID)
@@ -858,7 +805,7 @@ func TestSnapshotDeletionClearsLastKnownGoodReference(t *testing.T) {
 	if lkg.SnapshotID != "" {
 		t.Fatalf("expected the snapshot reference to be cleared, got %q", lkg.SnapshotID)
 	}
-	status, err := fixture.service.GetLastKnownGoodStatus(ctx, instance.ID)
+	status, err := fixture.service.Recovery().Status(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -874,11 +821,11 @@ func TestAutomaticRetentionKeepsLastKnownGoodRecoverySnapshot(t *testing.T) {
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
 
 	// The first automatic snapshot becomes the Last Known Good recovery point.
-	first, err := fixture.service.createSafetySnapshot(ctx, instance.ID, domain.SnapshotReasonBeforeModUpdate, nil)
+	first, err := fixture.service.Snapshots().CreateSafety(ctx, instance.ID, snapshots.ReasonBeforeModUpdate, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.RecordLastKnownGood(ctx, instance)
+	fixture.service.Recovery().RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -889,23 +836,24 @@ func TestAutomaticRetentionKeepsLastKnownGoodRecoverySnapshot(t *testing.T) {
 
 	// Ten more automatic snapshots push the protected one past the retention
 	// limit; retention must keep it and delete other snapshots instead.
-	for index := 0; index < automaticSnapshotRetentionCount; index++ {
-		if _, err := fixture.service.createSafetySnapshot(ctx, instance.ID, domain.SnapshotReasonBeforeModUpdate, nil); err != nil {
+	const retentionLimit = 10
+	for index := 0; index < retentionLimit; index++ {
+		if _, err := fixture.service.Snapshots().CreateSafety(ctx, instance.ID, snapshots.ReasonBeforeModUpdate, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
+	listed, err := fixture.service.Snapshots().List(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var automatic []domain.InstanceSnapshot
-	for _, snapshot := range snapshots {
-		if snapshot.Type == domain.SnapshotTypeAutomatic {
+	var automatic []snapshots.InstanceSnapshot
+	for _, snapshot := range listed {
+		if snapshot.Type == snapshots.TypeAutomatic {
 			automatic = append(automatic, snapshot)
 		}
 	}
-	if len(automatic) != automaticSnapshotRetentionCount+1 {
-		t.Fatalf("expected %d automatic snapshots with the protected one kept, got %d", automaticSnapshotRetentionCount+1, len(automatic))
+	if len(automatic) != retentionLimit+1 {
+		t.Fatalf("expected %d automatic snapshots with the protected one kept, got %d", retentionLimit+1, len(automatic))
 	}
 	found := false
 	for _, snapshot := range automatic {

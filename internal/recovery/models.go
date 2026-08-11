@@ -1,11 +1,19 @@
-package domain
+// Package recovery owns Last Known Good state, startup reconciliation,
+// failed-launch analysis, recovery suggestions, and restore coordination. It
+// reads snapshot capabilities through narrow ports and never touches storage
+// or filesystem adapters directly.
+package recovery
 
-import "time"
+import (
+	"time"
+
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+)
 
 // LastKnownGood records the most recent instance configuration that Waxlight
-// considers successfully launched. It deliberately reuses SnapshotMod for the
-// mod representation so change detection compares the same exact-release
-// identity the snapshot system uses, never filenames alone.
+// considers successfully launched. It deliberately reuses the snapshot mod
+// representation so change detection compares the same exact-release identity
+// the snapshot system uses, never filenames alone.
 //
 // SnapshotID references an existing snapshot that captures this configuration
 // when one exists; it is empty when no restorable snapshot matches. The
@@ -16,7 +24,7 @@ type LastKnownGood struct {
 	RecordedAt  time.Time
 	GameVersion string
 	SnapshotID  string
-	Mods        []SnapshotMod
+	Mods        []snapshots.Mod
 }
 
 // ModChange describes a single mod whose presence or version differs between
@@ -28,11 +36,11 @@ type ModChange struct {
 	To   string `json:"to,omitempty"`
 }
 
-// ConfigurationChanges is the application-layer comparison between the Last
-// Known Good state and the current instance state. It reports facts only:
-// which game version and which mods changed, without any causality claim.
-// The three mod lists are always serialized (never omitted), so consumers can
-// rely on them being arrays even when nothing changed.
+// ConfigurationChanges is the comparison between the Last Known Good state and
+// the current instance state. It reports facts only: which game version and
+// which mods changed, without any causality claim. The three mod lists are
+// always serialized (never omitted), so consumers can rely on them being
+// arrays even when nothing changed.
 type ConfigurationChanges struct {
 	GameVersionFrom string      `json:"gameVersionFrom,omitempty"`
 	GameVersionTo   string      `json:"gameVersionTo,omitempty"`
@@ -55,9 +63,9 @@ func (c ConfigurationChanges) Empty() bool {
 	return c.Count() == 0
 }
 
-// LastKnownGoodStatus is the read model served to the instance page: the
-// Last Known Good marker itself, whether the current configuration still
-// matches it, and the live availability of the recovery snapshot.
+// LastKnownGoodStatus is the read model served to the instance page: the Last
+// Known Good marker itself, whether the current configuration still matches
+// it, and the live availability of the recovery snapshot.
 type LastKnownGoodStatus struct {
 	RecordedAt     time.Time
 	GameVersion    string

@@ -1,7 +1,7 @@
 package presentation
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 )
 
 type ModChangeDTO struct {
@@ -32,7 +32,7 @@ type LastKnownGoodDTO struct {
 	Changes        ConfigurationChangesDTO `json:"changes"`
 }
 
-func lastKnownGoodDTO(status domain.LastKnownGoodStatus) LastKnownGoodDTO {
+func lastKnownGoodDTO(status recovery.LastKnownGoodStatus) LastKnownGoodDTO {
 	// No marker was recorded yet: the zero status must not render as a real
 	// marker. An empty recordedAt signals the frontend that nothing exists.
 	if status.RecordedAt.IsZero() {
@@ -52,7 +52,7 @@ func lastKnownGoodDTO(status domain.LastKnownGoodStatus) LastKnownGoodDTO {
 	}
 }
 
-func configurationChangesDTO(changes domain.ConfigurationChanges) ConfigurationChangesDTO {
+func configurationChangesDTO(changes recovery.ConfigurationChanges) ConfigurationChangesDTO {
 	return ConfigurationChangesDTO{
 		GameVersionFrom: changes.GameVersionFrom,
 		GameVersionTo:   changes.GameVersionTo,
@@ -70,7 +70,7 @@ func emptyConfigurationChangesDTO() ConfigurationChangesDTO {
 	}
 }
 
-func modChangesDTO(changes []domain.ModChange) []ModChangeDTO {
+func modChangesDTO(changes []recovery.ModChange) []ModChangeDTO {
 	if len(changes) == 0 {
 		return []ModChangeDTO{}
 	}
