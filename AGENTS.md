@@ -206,7 +206,7 @@ Before promoting `dev` to `main`:
 - Components live in `shared/ui/` as individual files (`button.tsx`, `modal.tsx`, `empty.tsx`, `field.tsx`, ...). Import directly from the file, never from a barrel.
 - Radix wrappers live in `shared/ui/` too (`dialog.tsx`, `select.tsx`, `dropdown-menu.tsx`, `toast.tsx`, `tooltip.tsx`, `progress.tsx`, `checkbox.tsx`, `confirm-dialog.tsx`).
 - Memoize list items (`ModCard`, `InstanceCard`) with `memo` and stable `useCallback` handlers; use Map indexes instead of `.find()` in render loops.
-- Follow Vercel React best practices (see `.agents/skills/vercel-react-best-practices`): no barrels, lazy-load heavy chunks (`React.lazy` for xterm/LogConsole), no waterfalls.
+- Follow Vercel React best practices: no barrels, lazy-load heavy chunks (`React.lazy` for xterm/LogConsole), no waterfalls.
 
 ### Localization
 
