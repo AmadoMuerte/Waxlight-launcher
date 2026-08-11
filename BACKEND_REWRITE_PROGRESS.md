@@ -24,6 +24,10 @@ launcher behavior while leaving the repository buildable and testable.
 - Current Stage 3 pull request: [#86](https://github.com/AmadoMuerte/Waxlight-launcher/pull/86)
 - Stage 3 status: complete; all instance, package, launching, process, and
   session ownership extracted from `application.Service`
+- Stage 4 branch: `refactor/backend-servers-public-catalog`
+- Stage 4 pull request: [#87](https://github.com/AmadoMuerte/Waxlight-launcher/pull/87)
+- Stage 4 status: complete; favorite-server persistence, validation, and
+  public-catalog browsing extracted from `application.Service`
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -566,28 +570,82 @@ arguments, credential handling, or frontend behavior.
 Goal: isolate favorite-server persistence and public-server browsing while
 keeping Vintage Story protocol behavior in `vintagestory-go`.
 
+### Completed Stage 4 Slice: Server Feature
+
+- Added `internal/servers` as the owner of favorite/public server models,
+  `SaveInput`, validation, repository ports, and the public-catalog port.
+- Removed `domain.FavoriteServer` and `domain.PublicServer` without
+  compatibility aliases.
+- Split favorite-server CRUD (`Service`) from public-catalog queries
+  (`CatalogService`); the catalog dependency is immutable at construction.
+- Kept public catalog access behind the existing thin `vintagestory-go`
+  adapter in `internal/infrastructure/servercatalog`, which now maps into
+  `servers.PublicServer` and still exposes `NewClient`/`NewClientWithURL`
+  for tests.
+- Made the broad application store compose `servers.Repository` instead of
+  redeclaring its methods, following the `instances.Repository` pattern.
+- Removed `ConfigurePublicServerCatalog`, the `serverCatalog` field, and the
+  favorite-server methods, input, and `PublicServerCatalog` port from
+  `application.Service` and `application.Store`.
+- Moved the `ServerController` with its `SaveFavoriteServerRequest`,
+  `FavoriteServerDTO`, and `PublicServerDTO` into `internal/transport/wails`
+  while preserving controller, method, argument, and JSON field names.
+- Regenerated Wails bindings; the server binding moved from the
+  `presentation` namespace to the `wails` namespace, and the frontend bridge
+  now resolves both namespaces so controllers can migrate incrementally.
+- Preserved favorite-server rows, name/address validation, instance
+  association, creation-timestamp preservation, the
+  `favorite-server:updated`/`favorite-server:removed` events, mutation-gate
+  coverage, public catalog fields, and the whitelist-listing-without-address
+  behavior.
+- Kept `ServerLaunchRequest`, connect-on-launch validation, and
+  `--connect` argument construction with the `launching.Coordinator`
+  extracted in Stage 3.
+- Added direct feature tests for favorite CRUD, trimming, validation,
+  instance association, created-at preservation, mutation gating, event
+  payloads, and repository/catalog failure propagation, plus controller and
+  DTO round-trip tests in `internal/transport/wails`.
+
+### Stage 4 Validation
+
+The complete local validation matrix passed on 2026-08-11:
+
+- `go test ./...`
+- `go test -race ./...`
+- `go vet ./...`
+- `make format-check`
+- `make lint`
+- `make security`
+- `npm test --prefix frontend` (27 files, 149 tests)
+- `npm run build --prefix frontend`
+- `make wails-build` on Linux AMD64
+- `git diff --check`
+
+### Stage 4 Checkboxes
+
 ### Server Feature
 
-- [ ] Add `internal/servers` as the owner of favorite/public server models,
-  validation, repository ports, and launch requests.
-- [ ] Split favorite-server CRUD from public-catalog queries.
-- [ ] Keep public catalog access behind a thin `vintagestory-go` adapter.
-- [ ] Remove `ConfigurePublicServerCatalog` and inject immutable dependencies at
+- [x] Add `internal/servers` as the owner of favorite/public server models,
+  validation, repository ports, and launch requests. (Launch requests and
+  connect-on-launch behavior stay with the Stage 3 `launching` coordinator.)
+- [x] Split favorite-server CRUD from public-catalog queries.
+- [x] Keep public catalog access behind a thin `vintagestory-go` adapter.
+- [x] Remove `ConfigurePublicServerCatalog` and inject immutable dependencies at
   construction.
-- [ ] Move the server controller into `internal/transport/wails` while
+- [x] Move the server controller into `internal/transport/wails` while
   preserving controller and method names.
-- [ ] Preserve favorite-server rows, address validation, instance association,
+- [x] Preserve favorite-server rows, address validation, instance association,
   public catalog fields, and connect-on-launch behavior.
 
 ### Stage 4 Validation and Delivery
 
-- [ ] Add tests for favorite-server CRUD, validation, catalog mapping, catalog
+- [x] Add tests for favorite-server CRUD, validation, catalog mapping, catalog
   failures, and server launches.
-- [ ] Confirm server DTOs, generated bindings, events, and frontend calls remain
+- [x] Confirm server DTOs, generated bindings, events, and frontend calls remain
   compatible.
-- [ ] Run focused race tests and the complete local validation matrix.
+- [x] Run focused race tests and the complete local validation matrix.
 - [ ] Complete manual smoke testing for favorites, public browsing, refresh,
-  errors, and joining a server.
+  errors, and joining a server (pending before merge).
 - [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
   merge before Stage 5 begins.
 

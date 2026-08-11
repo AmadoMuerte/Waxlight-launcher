@@ -7,6 +7,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
 type ClientSettingsPatcher interface {
@@ -17,12 +18,8 @@ type ClientSettingsPatcher interface {
 
 type Store interface {
 	instances.Repository
+	servers.Repository
 	Close() error
-
-	ListFavoriteServers(context.Context) ([]domain.FavoriteServer, error)
-	GetFavoriteServer(context.Context, string) (domain.FavoriteServer, error)
-	SaveFavoriteServer(context.Context, domain.FavoriteServer) error
-	DeleteFavoriteServer(context.Context, string) error
 
 	GetLastKnownGood(context.Context, string) (domain.LastKnownGood, error)
 	SaveLastKnownGood(context.Context, domain.LastKnownGood) error
@@ -70,10 +67,6 @@ type LauncherUpdateInstaller interface {
 
 type SignatureVerifier interface {
 	Verify(ctx context.Context, executablePath string) error
-}
-
-type PublicServerCatalog interface {
-	List(context.Context) ([]domain.PublicServer, error)
 }
 
 type DiskSpaceChecker interface {

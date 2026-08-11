@@ -41,6 +41,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	"github.com/waxlight/waxlight-launcher/internal/servers"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
@@ -278,7 +279,8 @@ func New() (*Container, error) {
 		return nil, err
 	}
 	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
-	service.ConfigurePublicServerCatalog(servercatalog.NewClient(nil))
+	serverService := servers.NewService(store, store, mutationGate, eventPublisher, time.Now, newVersionID)
+	serverCatalogService := servers.NewCatalogService(servercatalog.NewClient(nil))
 	packageService := instances.NewPackageService(
 		store,
 		instanceCreator,
@@ -325,7 +327,7 @@ func New() (*Container, error) {
 			sessionService,
 			lifecycle,
 		),
-		presentation.NewServerController(service, lifecycle),
+		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
 		presentation.NewModManagerController(service, lifecycle),
 		presentation.NewModCatalogController(service, lifecycle),
 		presentation.NewInstancePackageController(packageService, lifecycle),

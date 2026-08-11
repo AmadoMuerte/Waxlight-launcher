@@ -15,6 +15,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/servers"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -74,7 +75,7 @@ func TestFavoriteServersPersistAndDelete(t *testing.T) {
 	defer store.Close()
 
 	now := time.Now().UTC().Round(0)
-	server := domain.FavoriteServer{
+	server := servers.FavoriteServer{
 		ID:        "server-id",
 		Name:      "Cozy server",
 		Address:   "example.org:42420",

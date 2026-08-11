@@ -6,36 +6,36 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/AmadoMuerte/vintagestory-go/servers"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	vsgservers "github.com/AmadoMuerte/vintagestory-go/servers"
+	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
 type Client struct {
-	client *servers.Client
+	client *vsgservers.Client
 }
 
 func NewClient(httpClient *http.Client) *Client {
-	return &Client{client: servers.NewClient(httpClient)}
+	return &Client{client: vsgservers.NewClient(httpClient)}
 }
 
 func NewClientWithURL(httpClient *http.Client, endpoint string) *Client {
-	return &Client{client: servers.NewClientWithURL(httpClient, endpoint)}
+	return &Client{client: vsgservers.NewClientWithURL(httpClient, endpoint)}
 }
 
-func (client *Client) List(ctx context.Context) ([]domain.PublicServer, error) {
-	servers, err := client.client.List(ctx)
+func (client *Client) List(ctx context.Context) ([]servers.PublicServer, error) {
+	listings, err := client.client.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]domain.PublicServer, 0, len(servers))
-	for _, server := range servers {
+	result := make([]servers.PublicServer, 0, len(listings))
+	for _, server := range listings {
 		result = append(result, mapPublicServer(server))
 	}
 	return result, nil
 }
 
-func mapPublicServer(server servers.Server) domain.PublicServer {
-	return domain.PublicServer{
+func mapPublicServer(server vsgservers.Server) servers.PublicServer {
+	return servers.PublicServer{
 		Name:              server.Name,
 		Address:           server.Address,
 		Description:       server.Description,

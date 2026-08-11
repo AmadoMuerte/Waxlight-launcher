@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
 const favoriteServerColumns = `id, name, address, instance_id, created_at, updated_at`
 
-func (s *SQLiteStore) ListFavoriteServers(ctx context.Context) ([]domain.FavoriteServer, error) {
+func (s *SQLiteStore) ListFavoriteServers(ctx context.Context) ([]servers.FavoriteServer, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+favoriteServerColumns+` FROM favorite_servers ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	servers := []domain.FavoriteServer{}
+	servers := []servers.FavoriteServer{}
 	for rows.Next() {
 		server, err := scanFavoriteServer(rows)
 		if err != nil {
@@ -28,7 +29,7 @@ func (s *SQLiteStore) ListFavoriteServers(ctx context.Context) ([]domain.Favorit
 	return servers, rows.Err()
 }
 
-func (s *SQLiteStore) GetFavoriteServer(ctx context.Context, id string) (domain.FavoriteServer, error) {
+func (s *SQLiteStore) GetFavoriteServer(ctx context.Context, id string) (servers.FavoriteServer, error) {
 	server, err := scanFavoriteServer(s.db.QueryRowContext(ctx, `SELECT `+favoriteServerColumns+` FROM favorite_servers WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return server, domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
@@ -36,7 +37,7 @@ func (s *SQLiteStore) GetFavoriteServer(ctx context.Context, id string) (domain.
 	return server, err
 }
 
-func (s *SQLiteStore) SaveFavoriteServer(ctx context.Context, server domain.FavoriteServer) error {
+func (s *SQLiteStore) SaveFavoriteServer(ctx context.Context, server servers.FavoriteServer) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO favorite_servers(`+favoriteServerColumns+`) VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, address=excluded.address,
 		instance_id=excluded.instance_id, updated_at=excluded.updated_at`,
@@ -55,8 +56,8 @@ func (s *SQLiteStore) DeleteFavoriteServer(ctx context.Context, id string) error
 	return nil
 }
 
-func scanFavoriteServer(row scanner) (domain.FavoriteServer, error) {
-	var server domain.FavoriteServer
+func scanFavoriteServer(row scanner) (servers.FavoriteServer, error) {
+	var server servers.FavoriteServer
 	var instanceID sql.NullString
 	var created, updated string
 	err := row.Scan(&server.ID, &server.Name, &server.Address, &instanceID, &created, &updated)
