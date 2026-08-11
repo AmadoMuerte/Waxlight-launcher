@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/app"
+	"github.com/waxlight/waxlight-launcher/internal/apptest"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -71,9 +71,9 @@ func (repository *memoryRepository) ClearFinishedOperations(context.Context) (in
 	return count, nil
 }
 
-func newManager(t *testing.T, publisher func(string, any)) (*operations.Manager, *app.Lifecycle) {
+func newManager(t *testing.T, publisher func(string, any)) (*operations.Manager, *apptest.Lifecycle) {
 	t.Helper()
-	lifecycle := app.NewLifecycle()
+	lifecycle := apptest.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	manager := operations.NewManager(newMemoryRepository(), lifecycle, publisherFunc(publisher))
 	return manager, lifecycle

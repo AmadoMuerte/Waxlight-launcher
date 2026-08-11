@@ -4,22 +4,21 @@ import (
 	"context"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/app"
 )
 
 type emitFunc func(context.Context, string, ...any)
 
 // EventAdapter publishes semantic application events through Wails.
 type EventAdapter struct {
-	lifecycle *app.Lifecycle
+	lifecycle lifecycle
 	emit      emitFunc
 }
 
-func NewEventAdapter(lifecycle *app.Lifecycle) *EventAdapter {
+func NewEventAdapter(lifecycle lifecycle) *EventAdapter {
 	return newEventAdapter(lifecycle, wruntime.EventsEmit)
 }
 
-func newEventAdapter(lifecycle *app.Lifecycle, emit emitFunc) *EventAdapter {
+func newEventAdapter(lifecycle lifecycle, emit emitFunc) *EventAdapter {
 	return &EventAdapter{lifecycle: lifecycle, emit: emit}
 }
 

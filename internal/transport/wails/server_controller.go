@@ -1,7 +1,6 @@
 package wails
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
@@ -10,13 +9,13 @@ import (
 type ServerController struct {
 	favorites *servers.Service
 	catalog   *servers.CatalogService
-	lifecycle *app.Lifecycle
+	lifecycle lifecycle
 }
 
 func NewServerController(
 	favorites *servers.Service,
 	catalog *servers.CatalogService,
-	lifecycle *app.Lifecycle,
+	lifecycle lifecycle,
 ) *ServerController {
 	return &ServerController{favorites: favorites, catalog: catalog, lifecycle: lifecycle}
 }

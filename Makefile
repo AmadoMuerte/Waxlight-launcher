@@ -45,6 +45,7 @@ RELEASE_TAG = v$(VERSION)
 	security \
 	security-patterns \
 	vulncheck \
+	api-inventory \
 	package-linux \
 	release-check \
 	check-version-argument \
@@ -90,6 +91,9 @@ help:
 	@echo
 	@echo "  make security"
 	@echo "      Run security-pattern and vulnerability checks."
+	@echo
+	@echo "  make api-inventory"
+	@echo "      Regenerate the checked-in Wails API inventory."
 	@echo
 	@echo "  make release-check VERSION=X.Y.Z"
 	@echo "      Run all checks for a release."
@@ -221,6 +225,9 @@ test-frontend:
 	$(NPM) --prefix frontend test
 
 test: frontend test-backend test-frontend
+
+api-inventory:
+	$(GO) run ./internal/transport/wails/inventory
 
 format:
 	$(GOFMT) -w $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done)

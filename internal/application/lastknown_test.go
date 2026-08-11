@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/app"
+	"github.com/waxlight/waxlight-launcher/internal/apptest"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
@@ -152,7 +152,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		t.Fatal(err)
 	}
 	launcher := &lkgTestLauncher{}
-	lifecycle := app.NewLifecycle()
+	lifecycle := apptest.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	operationManager := operations.NewManager(store, lifecycle, nil)
 	sessionService := sessions.NewService(store, time.Now)

@@ -4,14 +4,13 @@ import (
 	"context"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/app"
 )
 
 type DialogAdapter struct {
-	lifecycle *app.Lifecycle
+	lifecycle lifecycle
 }
 
-func NewDialogAdapter(lifecycle *app.Lifecycle) *DialogAdapter {
+func NewDialogAdapter(lifecycle lifecycle) *DialogAdapter {
 	return &DialogAdapter{lifecycle: lifecycle}
 }
 

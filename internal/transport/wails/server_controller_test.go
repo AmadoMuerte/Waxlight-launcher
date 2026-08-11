@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
@@ -69,8 +68,7 @@ func (instanceReader) GetInstance(context.Context, string) (instances.Instance, 
 
 func newServerController() (*ServerController, *favoriteRepository) {
 	repository := &favoriteRepository{}
-	lifecycle := app.NewLifecycle()
-	lifecycle.Startup(context.Background())
+	lifecycle := newTestLifecycle()
 	favorites := servers.NewService(
 		repository,
 		instanceReader{},
