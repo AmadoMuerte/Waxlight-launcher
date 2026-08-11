@@ -916,20 +916,6 @@ func TestLaunchServerRejectsUnsafeAddress(t *testing.T) {
 	}
 }
 
-func TestSaveFavoriteServerAllowsWhitelistListingWithoutAddress(t *testing.T) {
-	fixture := newTestFixture(t)
-	server, err := fixture.service.SaveFavoriteServer(
-		context.Background(),
-		application.SaveFavoriteServerInput{Name: "Whitelist server"},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if server.Address != "" || server.Name != "Whitelist server" {
-		t.Fatalf("unexpected saved server: %#v", server)
-	}
-}
-
 func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()

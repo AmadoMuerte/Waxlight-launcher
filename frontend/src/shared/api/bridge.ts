@@ -10,7 +10,10 @@ export class BackendUnavailableError extends Error {
 
 export async function call<T>(controller: string, method: string, ...args: unknown[]): Promise<T> {
   const namespaces = window.go;
-  const callable = namespaces?.presentation?.[controller]?.[method];
+  // Controllers migrate from the legacy presentation namespace into the wails
+  // transport namespace as the backend rewrite progresses; resolve both.
+  const callable =
+    namespaces?.presentation?.[controller]?.[method] ?? namespaces?.wails?.[controller]?.[method];
 
   if (typeof callable !== "function") {
     log.error("Backend call failed: backend unavailable", { controller, method });

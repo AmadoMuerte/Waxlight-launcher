@@ -334,57 +334,6 @@ func (controller *InstanceController) CloneInstance(
 	return instanceDTO(instance), err
 }
 
-type ServerController struct {
-	svc       *application.Service
-	lifecycle *app.Lifecycle
-}
-
-func NewServerController(service *application.Service, lifecycle *app.Lifecycle) *ServerController {
-	return &ServerController{svc: service, lifecycle: lifecycle}
-}
-
-type SaveFavoriteServerRequest struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	Address    string  `json:"address"`
-	InstanceID *string `json:"instanceId,omitempty"`
-}
-
-func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, error) {
-	servers, err := controller.svc.ListFavoriteServers(controller.lifecycle.Context())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]FavoriteServerDTO, 0, len(servers))
-	for _, server := range servers {
-		result = append(result, favoriteServerDTO(server))
-	}
-	return result, nil
-}
-
-func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, error) {
-	servers, err := controller.svc.ListPublicServers(controller.lifecycle.Context())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]PublicServerDTO, 0, len(servers))
-	for _, server := range servers {
-		result = append(result, publicServerDTO(server))
-	}
-	return result, nil
-}
-
-func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServerRequest) (FavoriteServerDTO, error) {
-	server, err := controller.svc.SaveFavoriteServer(controller.lifecycle.Context(), application.SaveFavoriteServerInput{
-		ID: request.ID, Name: request.Name, Address: request.Address, InstanceID: request.InstanceID,
-	})
-	return favoriteServerDTO(server), err
-}
-
-func (controller *ServerController) DeleteFavoriteServer(id string) error {
-	return controller.svc.DeleteFavoriteServer(controller.lifecycle.Context(), id)
-}
-
 type ModManagerController struct {
 	svc       *application.Service
 	lifecycle *app.Lifecycle
