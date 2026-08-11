@@ -29,7 +29,7 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 4 status: complete; favorite-server persistence, validation, and
   public-catalog browsing extracted from `application.Service`
 - Stage 5 branch: `refactor/backend-mods-moddb`
-- Stage 5 pull request: (open against `dev`)
+- Stage 5 pull request: [#88](https://github.com/AmadoMuerte/Waxlight-launcher/pull/88)
 - Stage 5 status: complete; installed-mod orchestration, the downloaded-mod
   cache, ModDB browsing, dependency resolution, and ModDB task tracking
   extracted from `application.Service`
