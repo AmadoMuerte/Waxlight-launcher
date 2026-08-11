@@ -183,7 +183,7 @@ Before promoting `dev` to `main`:
 - `features/<domain>/` — feature UI: `auth`, `instances`, `mods`, `instance-package`, `install-game-version`, `operations`.
 - `entities/<domain>/` — `model.ts` (types), `api.ts` (re-exports the api object), `queries.ts` (TanStack hooks).
 - `shared/` — `api/` (transport, types, query keys), `ui/` (components), `lib/` (formatters), `i18n/`.
-- `wailsjs/` — generated Wails bindings; never edit by hand, regenerate with `wails generate`.
+- `wailsjs/` — generated Wails bindings; never edit by hand, regenerate with `make wails-build` (the Wails CLI recreates them during the build) and refresh the API inventory with `make api-inventory`.
 
 ### Data flow principles
 
