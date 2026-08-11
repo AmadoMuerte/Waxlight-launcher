@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
@@ -178,7 +178,7 @@ type ModDeletePreviewDTO struct {
 	Dependencies []InstalledModDTO `json:"dependencies"`
 }
 
-func modDTO(mod domain.InstalledMod) InstalledModDTO {
+func modDTO(mod mods.InstalledMod) InstalledModDTO {
 	return InstalledModDTO{
 		ID:          mod.ID,
 		InstanceID:  mod.InstanceID,

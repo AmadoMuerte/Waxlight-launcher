@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 func TestInstanceModUpdateReportDTO(t *testing.T) {
-	report := application.ModUpdateReport{
+	report := mods.ModUpdateReport{
 		Build: vsmodpack.Build{GameVersion: "1.20"},
 		Mods: []vsmodpack.ModUpdate{
 			{

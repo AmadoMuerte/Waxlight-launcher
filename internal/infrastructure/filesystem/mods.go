@@ -1,9 +1,7 @@
 package filesystem
 
 import (
-	"archive/zip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,20 +9,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tidwall/gjson"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	vsmodinfo "github.com/AmadoMuerte/vintagestory-go/modinfo"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 const (
 	modsDirectory         = "Mods"
 	disabledModsDirectory = "ModsDisabled"
-	maxModInfoBytes       = 1 << 20
 )
 
 type ModFileManager struct{}
 
-func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, error) {
-	var mods []domain.DiscoveredMod
+func (ModFileManager) Scan(instanceDirectory string) ([]mods.DiscoveredMod, error) {
+	var found []mods.DiscoveredMod
 	for _, directory := range []struct {
 		name    string
 		enabled bool
@@ -63,7 +60,7 @@ func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, er
 					}
 				}
 			}
-			mods = append(mods, domain.DiscoveredMod{
+			found = append(found, mods.DiscoveredMod{
 				Name:       name,
 				Version:    version,
 				ModID:      modID,
@@ -75,61 +72,17 @@ func (ModFileManager) Scan(instanceDirectory string) ([]domain.DiscoveredMod, er
 			})
 		}
 	}
-	return mods, nil
+	return found, nil
 }
 
-type modInfo struct {
-	ModID   string `json:"modid"`
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-func readModInfo(path string) (modInfo, bool) {
-	archive, err := zip.OpenReader(path)
+// readModInfo extracts the identity metadata a mod declares in its
+// modinfo.json through the shared vintagestory-go modinfo parser.
+func readModInfo(path string) (vsmodinfo.Info, bool) {
+	info, err := vsmodinfo.ReadArchive(path)
 	if err != nil {
-		return modInfo{}, false
+		return vsmodinfo.Info{}, false
 	}
-	defer archive.Close()
-
-	var candidate *zip.File
-	for _, file := range archive.File {
-		cleanName := strings.TrimPrefix(strings.ReplaceAll(file.Name, "\\", "/"), "./")
-		if strings.EqualFold(cleanName, "modinfo.json") {
-			candidate = file
-			break
-		}
-		if candidate == nil && strings.EqualFold(filepath.Base(cleanName), "modinfo.json") {
-			candidate = file
-		}
-	}
-	if candidate == nil || candidate.UncompressedSize64 > maxModInfoBytes {
-		return modInfo{}, false
-	}
-
-	file, err := candidate.Open()
-	if err != nil {
-		return modInfo{}, false
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, maxModInfoBytes+1))
-	if err != nil || int64(len(data)) > maxModInfoBytes {
-		return modInfo{}, false
-	}
-	var metadata modInfo
-	if err := json.Unmarshal(data, &metadata); err == nil {
-		return metadata, true
-	}
-	// Some mods publish modinfo.json with lenient JSON, such as trailing
-	// commas, that the game accepts but the standard library rejects.
-	metadata = modInfo{
-		ModID:   strings.TrimSpace(gjson.GetBytes(data, "modid").String()),
-		Name:    strings.TrimSpace(gjson.GetBytes(data, "name").String()),
-		Version: strings.TrimSpace(gjson.GetBytes(data, "version").String()),
-	}
-	if metadata.ModID == "" && metadata.Name == "" && metadata.Version == "" {
-		return modInfo{}, false
-	}
-	return metadata, true
+	return info, true
 }
 
 func isModFile(name string) bool {
@@ -197,7 +150,7 @@ func (ModFileManager) Install(
 
 	destinationPath := filepath.Join(modsPath, filepath.Base(sourcePath))
 	if _, err := os.Stat(destinationPath); err == nil {
-		return "", 0, domain.ErrModFileExists
+		return "", 0, mods.ErrModFileExists
 	}
 
 	source, err := os.Open(sourcePath)

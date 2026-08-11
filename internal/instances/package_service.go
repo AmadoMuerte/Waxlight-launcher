@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -550,7 +551,7 @@ func (service *PackageService) installPackageMod(
 			return result
 		}
 		now := service.now().UTC()
-		installed := domain.InstalledMod{
+		installed := mods.InstalledMod{
 			ID:          service.newID(),
 			InstanceID:  instance.ID,
 			Name:        mod.Name,
@@ -595,7 +596,7 @@ func (service *PackageService) installCatalogPackageMod(
 		result.Message = "The mod catalog is unavailable"
 		return result
 	}
-	installResult, err := service.installer.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+	installResult, err := service.installer.DownloadCatalogMod(ctx, mods.DownloadModRequest{
 		ModID:             mod.ModID,
 		VersionID:         mod.VersionID,
 		InstanceIDs:       []string{instance.ID},
@@ -625,13 +626,13 @@ func (service *PackageService) installCatalogPackageMod(
 func friendlyPackageModError(err error) string {
 	var appError *domain.AppError
 	if errors.As(err, &appError) {
-		if appError.Code == domain.ErrModIncompatible {
+		if appError.Code == mods.ErrModIncompatible {
 			return "This mod is not compatible with the selected game version"
 		}
-		if appError.Code == domain.ErrModVersionNotFound || appError.Code == domain.ErrModNotFound {
+		if appError.Code == mods.ErrModVersionNotFound || appError.Code == mods.ErrModNotFound {
 			return "The mod or its version is no longer available in the catalog"
 		}
-		if appError.Code == domain.ErrModCatalog {
+		if appError.Code == mods.ErrModCatalog {
 			return "The mod catalog is unavailable"
 		}
 		return appError.Message
@@ -730,6 +731,6 @@ func (service *PackageService) beginMutation() (func(), error) {
 type ModIdentity interface {
 	ParseModDBSource(source string) (modID, versionID string, ok bool)
 	ModDBSource(modID, versionID string) string
-	FindModVersion(versions []domain.ModVersion, id string) (domain.ModVersion, bool)
+	FindModVersion(versions []mods.ModVersion, id string) (mods.ModVersion, bool)
 	ModSupportsVersion(versions []string, requested string) bool
 }

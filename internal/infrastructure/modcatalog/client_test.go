@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -36,8 +36,8 @@ func TestClientMapsFiltersAndSortsCatalog(t *testing.T) {
 		]}`), nil
 	})
 	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
-	result, err := client.Search(context.Background(), domain.ModSearchQuery{
-		Text: "ada", Side: domain.ModSideServer, Sort: "downloads", Page: 1, PageSize: 24,
+	result, err := client.Search(context.Background(), mods.ModSearchQuery{
+		Text: "ada", Side: mods.ModSideServer, Sort: "downloads", Page: 1, PageSize: 24,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestSearchPreservesSummaryWhenFilteringByGameVersion(t *testing.T) {
 		}
 	})
 	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
-	result, err := client.Search(context.Background(), domain.ModSearchQuery{
+	result, err := client.Search(context.Background(), mods.ModSearchQuery{
 		GameVersion: "1.22.6", Page: 1, PageSize: 24,
 	})
 	if err != nil {

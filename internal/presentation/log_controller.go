@@ -16,6 +16,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -32,6 +33,7 @@ const maxFrontendLogAttrs = 16
 // export the recent logs plus a system summary for support.
 type LogController struct {
 	svc       *application.Service
+	mods      *mods.Service
 	versions  versionLister
 	lifecycle *app.Lifecycle
 }
@@ -40,8 +42,8 @@ type versionLister interface {
 	List(context.Context) ([]versions.GameVersion, error)
 }
 
-func NewLogController(service *application.Service, versionService versionLister, lifecycle *app.Lifecycle) *LogController {
-	return &LogController{svc: service, versions: versionService, lifecycle: lifecycle}
+func NewLogController(service *application.Service, mods *mods.Service, versionService versionLister, lifecycle *app.Lifecycle) *LogController {
+	return &LogController{svc: service, mods: mods, versions: versionService, lifecycle: lifecycle}
 }
 
 // ListLogs returns the most recent log lines rendered for the console. The
@@ -188,12 +190,12 @@ func (controller *LogController) gatherSupportLogData(ctx context.Context) (supp
 		return data, err
 	}
 	for _, instance := range instances {
-		mods, modsErr := controller.svc.ListMods(ctx, instance.ID)
+		installedMods, modsErr := controller.mods.ListMods(ctx, instance.ID)
 		if modsErr != nil {
 			slog.Warn("could not count mods for the support log", "instance", instance.Name, "error", modsErr)
 		}
 		enabled := 0
-		for _, mod := range mods {
+		for _, mod := range installedMods {
 			if mod.Enabled {
 				enabled++
 			}
@@ -201,7 +203,7 @@ func (controller *LogController) gatherSupportLogData(ctx context.Context) (supp
 		data.Instances = append(data.Instances, supportLogInstance{
 			Name:            instance.Name,
 			GameVersionID:   instance.GameVersionID,
-			ModCount:        len(mods),
+			ModCount:        len(installedMods),
 			EnabledModCount: enabled,
 		})
 	}

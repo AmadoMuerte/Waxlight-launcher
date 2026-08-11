@@ -1,7 +1,47 @@
-package domain
+// Package mods owns installed-mod orchestration, the downloaded-mod cache,
+// ModDB browsing, and mod dependency handling for the launcher.
+package mods
 
 import "time"
 
+// InstalledMod is a mod installed into a launcher instance.
+type InstalledMod struct {
+	ID          string
+	InstanceID  string
+	Name        string
+	Version     string
+	FileName    string
+	FilePath    string
+	Enabled     bool
+	Managed     bool
+	Source      string
+	SizeBytes   int64
+	InstalledAt time.Time
+	UpdatedAt   time.Time
+}
+
+// DiscoveredMod is a mod file found on disk by a directory scan.
+type DiscoveredMod struct {
+	Name       string
+	Version    string
+	ModID      string
+	FileName   string
+	FilePath   string
+	Enabled    bool
+	SizeBytes  int64
+	ModifiedAt time.Time
+}
+
+// InstanceRef is the minimal instance view used by mod orchestration. It keeps
+// the mods feature independent of the instances feature model.
+type InstanceRef struct {
+	ID            string
+	Name          string
+	Directory     string
+	GameVersionID string
+}
+
+// ModSide describes where a catalog mod runs in a Vintage Story game.
 type ModSide string
 
 const (
@@ -11,6 +51,7 @@ const (
 	ModSideUnknown ModSide = "unknown"
 )
 
+// ModSummary is the catalog listing of a mod.
 type ModSummary struct {
 	ID              string
 	Slug            string
@@ -31,11 +72,13 @@ type ModSummary struct {
 	UpdateAvailable bool
 }
 
+// ModScreenshot is a catalog screenshot of a mod.
 type ModScreenshot struct {
 	URL     string
 	Caption string
 }
 
+// ModVersion is a catalog release of a mod.
 type ModVersion struct {
 	ID           string
 	Version      string
@@ -49,6 +92,7 @@ type ModVersion struct {
 	Changelog    string
 }
 
+// ModDependency is a declared catalog dependency of a mod.
 type ModDependency struct {
 	ModID       string
 	Name        string
@@ -56,6 +100,7 @@ type ModDependency struct {
 	Requirement string
 }
 
+// ModDetails is the full catalog record of a mod.
 type ModDetails struct {
 	ModSummary
 	Description  string
@@ -67,6 +112,7 @@ type ModDetails struct {
 	License      string
 }
 
+// ModSearchQuery filters the catalog search.
 type ModSearchQuery struct {
 	Text           string
 	GameVersion    string
@@ -80,11 +126,13 @@ type ModSearchQuery struct {
 	PageSize       int
 }
 
+// ModTag is a catalog tag with the number of mods using it.
 type ModTag struct {
 	Name  string
 	Count int
 }
 
+// ModSearchResult is one page of catalog search results.
 type ModSearchResult struct {
 	Items      []ModSummary
 	Page       int
@@ -94,6 +142,8 @@ type ModSearchResult struct {
 	HasNext    bool
 }
 
+// InstalledModInstance describes an instance where a downloaded mod is
+// installed.
 type InstalledModInstance struct {
 	InstanceID   string
 	InstanceName string
@@ -101,6 +151,7 @@ type InstalledModInstance struct {
 	Enabled      bool
 }
 
+// DownloadedMod is a mod cached in the launcher library.
 type DownloadedMod struct {
 	SchemaVersion      int                    `json:"schemaVersion"`
 	ModID              string                 `json:"modId"`
@@ -123,6 +174,7 @@ type DownloadedMod struct {
 	UpdateAvailable    bool                   `json:"updateAvailable"`
 }
 
+// DownloadModRequest asks for a catalog mod download and optional installs.
 type DownloadModRequest struct {
 	ModID             string
 	VersionID         string
@@ -131,22 +183,26 @@ type DownloadModRequest struct {
 	AllowIncompatible bool
 }
 
+// DownloadModTarget identifies one catalog mod release to download.
 type DownloadModTarget struct {
 	ModID     string
 	VersionID string
 }
 
+// BatchDownloadModsRequest downloads several catalog mods for one instance.
 type BatchDownloadModsRequest struct {
 	InstanceID string
 	Targets    []DownloadModTarget
 }
 
+// ModInstallResult is the outcome of a catalog mod download.
 type ModInstallResult struct {
 	TaskID        string
 	Downloaded    DownloadedMod
 	Installations []ModInstallationResult
 }
 
+// BatchModInstallResult is the per-target outcome of a batch download.
 type BatchModInstallResult struct {
 	ModID     string
 	VersionID string
@@ -154,11 +210,13 @@ type BatchModInstallResult struct {
 	Error     string
 }
 
+// DownloadedModCleanupResult summarizes unused cache cleanup.
 type DownloadedModCleanupResult struct {
 	RemovedCount int
 	FreedBytes   int64
 }
 
+// ModInstallationResult is the per-instance outcome of an install.
 type ModInstallationResult struct {
 	InstanceID   string
 	InstanceName string
@@ -166,6 +224,8 @@ type ModInstallationResult struct {
 	Message      string
 }
 
+// LocalModLink describes the outcome of binding a local mod file to its
+// catalog entry.
 type LocalModLink struct {
 	Path            string
 	Name            string
@@ -179,15 +239,49 @@ type LocalModLink struct {
 	Reason          string
 }
 
+// LinkLocalModsResult aggregates local-mod binding outcomes for an instance.
 type LinkLocalModsResult struct {
 	Linked     []LocalModLink
 	NotMatched []LocalModLink
 	Failed     []LocalModLink
 }
 
+// UploadModsResult aggregates library upload outcomes.
 type UploadModsResult struct {
 	Linked     []LocalModLink
 	NotMatched []LocalModLink
 	Skipped    []string
 	Failed     []LocalModLink
+}
+
+// InstallModFilesResult aggregates a batch local-file install.
+type InstallModFilesResult struct {
+	Installed []string
+	Skipped   []string
+	Failed    []ModFileFailure
+}
+
+// ModFileFailure is one failed file of a batch install.
+type ModFileFailure struct {
+	Path  string
+	Error string
+}
+
+// ModDeletePreview reports which dependencies a mod deletion would remove.
+type ModDeletePreview struct {
+	ModID        string
+	ModName      string
+	Dependencies []InstalledMod
+}
+
+// ModUpdateTarget identifies the exact catalog release an installed mod
+// should be updated to.
+type ModUpdateTarget struct {
+	ModID     string
+	VersionID string
+}
+
+// ModUpdateResult summarizes a bulk mod update of one instance.
+type ModUpdateResult struct {
+	Updated int
 }

@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 func TestUploadModsResultDTOSerializesEmptyArrays(t *testing.T) {
-	dto := uploadModsResultDTO(domain.UploadModsResult{})
+	dto := uploadModsResultDTO(mods.UploadModsResult{})
 	data, err := json.Marshal(dto)
 	if err != nil {
 		t.Fatal(err)

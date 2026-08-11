@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 type cloneRepository struct {
@@ -41,19 +41,19 @@ func (repository *cloneRepository) DeleteInstance(ctx context.Context, id string
 }
 
 type cloneModRepository struct {
-	mods    []domain.InstalledMod
+	mods    []mods.InstalledMod
 	listErr error
 	saveErr error
-	saved   []domain.InstalledMod
+	saved   []mods.InstalledMod
 	calls   *[]string
 }
 
-func (repository *cloneModRepository) ListMods(context.Context, string) ([]domain.InstalledMod, error) {
+func (repository *cloneModRepository) ListMods(context.Context, string) ([]mods.InstalledMod, error) {
 	*repository.calls = append(*repository.calls, "list-mods")
 	return repository.mods, repository.listErr
 }
 
-func (repository *cloneModRepository) SaveMod(_ context.Context, mod domain.InstalledMod) error {
+func (repository *cloneModRepository) SaveMod(_ context.Context, mod mods.InstalledMod) error {
 	*repository.calls = append(*repository.calls, "save-mod")
 	if repository.saveErr != nil {
 		return repository.saveErr
@@ -103,7 +103,7 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 	}
 	clone := Instance{ID: "clone", Name: "Clone", Directory: "/instances/clone"}
 	repository := &cloneRepository{source: source, calls: &calls}
-	mods := &cloneModRepository{calls: &calls, mods: []domain.InstalledMod{{
+	mods := &cloneModRepository{calls: &calls, mods: []mods.InstalledMod{{
 		ID: "source-mod", InstanceID: source.ID, FilePath: filepath.Join(source.Directory, "Mods", "test.zip"),
 	}}}
 	creator := &cloneCreator{clone: clone, calls: &calls}
@@ -245,7 +245,7 @@ func TestCloneServiceRejectsExternalModPath(t *testing.T) {
 	var calls []string
 	wantSource := Instance{ID: "source", Directory: filepath.Join("root", "source")}
 	repository := &cloneRepository{source: wantSource, calls: &calls}
-	mods := &cloneModRepository{calls: &calls, mods: []domain.InstalledMod{{FilePath: filepath.Join("root", "external.zip")}}}
+	mods := &cloneModRepository{calls: &calls, mods: []mods.InstalledMod{{FilePath: filepath.Join("root", "external.zip")}}}
 	service := NewCloneService(
 		repository,
 		mods,

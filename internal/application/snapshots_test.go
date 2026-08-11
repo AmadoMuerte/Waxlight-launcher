@@ -17,6 +17,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 func createSnapshotTestInstance(t *testing.T, fixture testFixture, name string) instances.Instance {
@@ -92,7 +93,7 @@ func installManagedMod(
 	if err := os.WriteFile(path, []byte(name+"-bytes"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	record := domain.InstalledMod{
+	record := mods.InstalledMod{
 		ID:          newTestModID(),
 		InstanceID:  instance.ID,
 		Name:        name,
@@ -132,7 +133,7 @@ func cacheModRelease(
 	if err := os.WriteFile(path, []byte(name+"-cached"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	downloaded := domain.DownloadedMod{
+	downloaded := mods.DownloadedMod{
 		SchemaVersion:     1,
 		ModID:             modID,
 		Slug:              slug,
@@ -294,7 +295,7 @@ func TestCreateInstanceSnapshotCapturesInstanceData(t *testing.T) {
 }
 
 func TestCreateInstanceSnapshotStoresManagedModReleases(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, nil)
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Managed mods")
 	writeTestInstanceFiles(t, instance)
@@ -302,10 +303,6 @@ func TestCreateInstanceSnapshotStoresManagedModReleases(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod B", "mod-b.zip", "200", "2000", "2.4.1", false)
 	cacheModRelease(t, fixture, "100", "1000", "mod-a", "Mod A", "1.0.0", "mod-a_1.0.0.zip", "sha256:aaaa")
 	cacheModRelease(t, fixture, "200", "2000", "mod-b", "Mod B", "2.4.1", "mod-b_2.4.1.zip", "sha256:bbbb")
-	// The mod download store must be wired so snapshot creation can enrich the
-	// manifest with the cached release metadata; the catalog itself is never
-	// contacted during snapshot creation.
-	fixture.service.ConfigureMods(nil, modstorage.New(fixture.root))
 
 	operation, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
 	if err != nil {
@@ -564,17 +561,25 @@ func TestRestoreInstanceSnapshotReproducesExactState(t *testing.T) {
 	}
 }
 
-func configureRestoreTestInfrastructure(
-	fixture *testFixture,
-	catalog domain.ModDetails,
-	downloader downloads.Downloader,
-) {
-	fixture.setDownloader(downloader)
-	fixture.service.ConfigureMods(staticModCatalog{details: catalog}, modstorage.New(fixture.root))
-}
-
 func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
-	fixture := newTestFixture(t)
+	catalog := staticModCatalog{detailsByID: map[string]mods.ModDetails{
+		"100": {
+			ModSummary: mods.ModSummary{ID: "100", Slug: "mod-a", Name: "Mod A"},
+			Versions: []mods.ModVersion{
+				{ID: "1000", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_1.0.0.zip", DownloadURL: "https://mods.example/mod-a_1.0.0.zip"},
+				{ID: "1100", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_2.0.0.zip", DownloadURL: "https://mods.example/mod-a_2.0.0.zip"},
+			},
+		},
+		"200": {
+			ModSummary: mods.ModSummary{ID: "200", Slug: "mod-b", Name: "Mod B"},
+			Versions: []mods.ModVersion{
+				{ID: "2000", Version: "2.4.1", GameVersions: []string{"1.20"}, FileName: "mod-b_2.4.1.zip", DownloadURL: "https://mods.example/mod-b_2.4.1.zip"},
+				{ID: "2100", Version: "3.0.0", GameVersions: []string{"1.20"}, FileName: "mod-b_3.0.0.zip", DownloadURL: "https://mods.example/mod-b_3.0.0.zip"},
+			},
+		},
+	}}
+	fixture := newTestFixtureWithMods(t, catalog)
+	fixture.downloader.Set(recordingDownloader{})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Exact releases")
 	writeTestInstanceFiles(t, instance)
@@ -595,25 +600,6 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 	}
 
 	// Change the current instance: A and B replaced by C, data modified.
-	catalog := staticModCatalog{detailsByID: map[string]domain.ModDetails{
-		"100": {
-			ModSummary: domain.ModSummary{ID: "100", Slug: "mod-a", Name: "Mod A"},
-			Versions: []domain.ModVersion{
-				{ID: "1000", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_1.0.0.zip", DownloadURL: "https://mods.example/mod-a_1.0.0.zip"},
-				{ID: "1100", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_2.0.0.zip", DownloadURL: "https://mods.example/mod-a_2.0.0.zip"},
-			},
-		},
-		"200": {
-			ModSummary: domain.ModSummary{ID: "200", Slug: "mod-b", Name: "Mod B"},
-			Versions: []domain.ModVersion{
-				{ID: "2000", Version: "2.4.1", GameVersions: []string{"1.20"}, FileName: "mod-b_2.4.1.zip", DownloadURL: "https://mods.example/mod-b_2.4.1.zip"},
-				{ID: "2100", Version: "3.0.0", GameVersions: []string{"1.20"}, FileName: "mod-b_3.0.0.zip", DownloadURL: "https://mods.example/mod-b_3.0.0.zip"},
-			},
-		},
-	}}
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
-
 	installManagedMod(t, fixture, instance, "Mod C", "mod-c.zip", "300", "3000", "5.1.0", true)
 	if err := os.Remove(filepath.Join(instance.Directory, "Mods", "mod-a.zip")); err != nil {
 		t.Fatal(err)
@@ -667,7 +653,7 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected 2 restored mod records, got %d", len(records))
 	}
-	bySource := map[string]domain.InstalledMod{}
+	bySource := map[string]mods.InstalledMod{}
 	for _, record := range records {
 		bySource[record.Source] = record
 	}
@@ -689,7 +675,8 @@ func TestRestoreInstanceSnapshotDownloadsExactReleases(t *testing.T) {
 }
 
 func TestRestoreInstanceSnapshotReusesCachedRelease(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: mods.ModDetails{}})
+	fixture.downloader.Set(refusingDownloader{})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Offline restore")
 	writeTestInstanceFiles(t, instance)
@@ -702,7 +689,6 @@ func TestRestoreInstanceSnapshotReusesCachedRelease(t *testing.T) {
 	}
 	// The downloader must never be touched: the exact release is already in
 	// the shared mod cache.
-	configureRestoreTestInfrastructure(&fixture, domain.ModDetails{}, refusingDownloader{})
 
 	if err := fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID); err != nil {
 		t.Fatal(err)
@@ -713,7 +699,13 @@ func TestRestoreInstanceSnapshotReusesCachedRelease(t *testing.T) {
 }
 
 func TestRestoreInstanceSnapshotFailsWhenReleaseUnavailable(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithMods(t, staticModCatalog{details: mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "100", Slug: "mod-a", Name: "Mod A"},
+		Versions: []mods.ModVersion{
+			{ID: "1100", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_2.0.0.zip", DownloadURL: "https://mods.example/mod-a_2.0.0.zip"},
+		},
+	}})
+	fixture.downloader.Set(recordingDownloader{})
 	ctx := context.Background()
 	instance := createSnapshotTestInstance(t, fixture, "Retracted release")
 	writeTestInstanceFiles(t, instance)
@@ -728,14 +720,6 @@ func TestRestoreInstanceSnapshotFailsWhenReleaseUnavailable(t *testing.T) {
 	}
 
 	// The catalog still knows the mod but the exact release is gone.
-	catalog := staticModCatalog{details: domain.ModDetails{
-		ModSummary: domain.ModSummary{ID: "100", Slug: "mod-a", Name: "Mod A"},
-		Versions: []domain.ModVersion{
-			{ID: "1100", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "mod-a_2.0.0.zip", DownloadURL: "https://mods.example/mod-a_2.0.0.zip"},
-		},
-	}}
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(catalog, modstorage.New(fixture.root))
 
 	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
 	if code := appErrorCode(t, err); code != domain.ErrSnapshotInvalid {
@@ -774,7 +758,8 @@ func TestRestoreInstanceSnapshotFailsWhenDownloadFails(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(instance.Directory, "file.txt"), []byte("after"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	configureRestoreTestInfrastructure(&fixture, domain.ModDetails{}, failingDownloader{})
+	fixture = newTestFixtureWithMods(t, staticModCatalog{details: mods.ModDetails{}})
+	fixture.downloader.Set(failingDownloader{})
 
 	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
 	if err == nil {

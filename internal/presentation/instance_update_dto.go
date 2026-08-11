@@ -2,7 +2,7 @@ package presentation
 
 import (
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 type ModDependencyDTO struct {
@@ -90,7 +90,7 @@ func modUpdateSummaryDTO(summary vsmodpack.Summary) ModUpdateSummaryDTO {
 	}
 }
 
-func instanceModUpdateReportDTO(report application.ModUpdateReport) InstanceModUpdateReportDTO {
+func instanceModUpdateReportDTO(report mods.ModUpdateReport) InstanceModUpdateReportDTO {
 	dto := InstanceModUpdateReportDTO{
 		GameVersion: report.Build.GameVersion,
 		Summary:     modUpdateSummaryDTO(report.Summary),

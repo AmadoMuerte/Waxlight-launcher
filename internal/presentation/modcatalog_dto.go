@@ -1,6 +1,8 @@
 package presentation
 
-import "github.com/waxlight/waxlight-launcher/internal/domain"
+import (
+	"github.com/waxlight/waxlight-launcher/internal/mods"
+)
 
 type ModSummaryDTO struct {
 	ID              string   `json:"id"`
@@ -21,7 +23,7 @@ type ModSummaryDTO struct {
 	UpdateAvailable bool     `json:"updateAvailable"`
 }
 
-func modSummaryDTO(mod domain.ModSummary) ModSummaryDTO {
+func modSummaryDTO(mod mods.ModSummary) ModSummaryDTO {
 	dto := ModSummaryDTO{
 		ID: mod.ID, Slug: mod.Slug, Name: mod.Name,
 		AuthorName: mod.AuthorName, Summary: mod.Summary,
@@ -68,7 +70,7 @@ type ModDetailsDTO struct {
 	License     string             `json:"license,omitempty"`
 }
 
-func modDetailsDTO(mod domain.ModDetails) ModDetailsDTO {
+func modDetailsDTO(mod mods.ModDetails) ModDetailsDTO {
 	dto := ModDetailsDTO{
 		ModSummaryDTO: modSummaryDTO(mod.ModSummary),
 		Description:   mod.Description,
@@ -126,7 +128,7 @@ type LocalModLinkDTO struct {
 	Reason          string `json:"reason,omitempty"`
 }
 
-func localModLinkDTO(link domain.LocalModLink) LocalModLinkDTO {
+func localModLinkDTO(link mods.LocalModLink) LocalModLinkDTO {
 	return LocalModLinkDTO{
 		Path:            link.Path,
 		Name:            link.Name,
@@ -141,7 +143,7 @@ func localModLinkDTO(link domain.LocalModLink) LocalModLinkDTO {
 	}
 }
 
-func localModLinksDTO(links []domain.LocalModLink) []LocalModLinkDTO {
+func localModLinksDTO(links []mods.LocalModLink) []LocalModLinkDTO {
 	dtos := make([]LocalModLinkDTO, 0, len(links))
 	for _, link := range links {
 		dtos = append(dtos, localModLinkDTO(link))
@@ -155,7 +157,7 @@ type LinkLocalModsResultDTO struct {
 	Failed     []LocalModLinkDTO `json:"failed"`
 }
 
-func linkLocalModsResultDTO(result domain.LinkLocalModsResult) LinkLocalModsResultDTO {
+func linkLocalModsResultDTO(result mods.LinkLocalModsResult) LinkLocalModsResultDTO {
 	return LinkLocalModsResultDTO{
 		Linked:     localModLinksDTO(result.Linked),
 		NotMatched: localModLinksDTO(result.NotMatched),
@@ -170,7 +172,7 @@ type UploadModsResultDTO struct {
 	Failed     []LocalModLinkDTO `json:"failed"`
 }
 
-func uploadModsResultDTO(result domain.UploadModsResult) UploadModsResultDTO {
+func uploadModsResultDTO(result mods.UploadModsResult) UploadModsResultDTO {
 	return UploadModsResultDTO{
 		Linked:     localModLinksDTO(result.Linked),
 		NotMatched: localModLinksDTO(result.NotMatched),
@@ -204,7 +206,7 @@ type DownloadedModDTO struct {
 	UpdateAvailable    bool                      `json:"updateAvailable"`
 }
 
-func downloadedModDTO(mod domain.DownloadedMod) DownloadedModDTO {
+func downloadedModDTO(mod mods.DownloadedMod) DownloadedModDTO {
 	dto := DownloadedModDTO{
 		ModID: mod.ModID, Slug: mod.Slug, Name: mod.Name,
 		AuthorName: mod.AuthorName, ImageURL: mod.ImageURL,
@@ -249,11 +251,11 @@ type DownloadedModCleanupResultDTO struct {
 	FreedBytes   int64 `json:"freedBytes"`
 }
 
-func downloadedModCleanupResultDTO(result domain.DownloadedModCleanupResult) DownloadedModCleanupResultDTO {
+func downloadedModCleanupResultDTO(result mods.DownloadedModCleanupResult) DownloadedModCleanupResultDTO {
 	return DownloadedModCleanupResultDTO{RemovedCount: result.RemovedCount, FreedBytes: result.FreedBytes}
 }
 
-func batchModInstallResultsDTO(results []domain.BatchModInstallResult) []BatchModInstallResultDTO {
+func batchModInstallResultsDTO(results []mods.BatchModInstallResult) []BatchModInstallResultDTO {
 	dtos := make([]BatchModInstallResultDTO, 0, len(results))
 	for _, result := range results {
 		dtos = append(dtos, BatchModInstallResultDTO{
@@ -266,7 +268,7 @@ func batchModInstallResultsDTO(results []domain.BatchModInstallResult) []BatchMo
 	return dtos
 }
 
-func modInstallResultDTO(result domain.ModInstallResult) ModInstallResultDTO {
+func modInstallResultDTO(result mods.ModInstallResult) ModInstallResultDTO {
 	dto := ModInstallResultDTO{
 		TaskID: result.TaskID, Downloaded: downloadedModDTO(result.Downloaded),
 		Installations: []ModInstallationResultDTO{},

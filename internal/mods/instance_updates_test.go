@@ -1,4 +1,4 @@
-package application_test
+package mods_test
 
 import (
 	"archive/zip"
@@ -10,8 +10,7 @@ import (
 	"time"
 
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 func mustTime(t *testing.T) time.Time {
@@ -45,16 +44,21 @@ func writeModZip(t *testing.T, path string, manifest map[string]any) {
 }
 
 func TestCheckInstanceModUpdates(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{detailsByID: map[string]mods.ModDetails{
+		"stonequarry": {
+			ModSummary: mods.ModSummary{
+				ID:            "stonequarry",
+				Name:          "Stone Quarry",
+				LatestVersion: "1.3.0",
+			},
+			Versions: []mods.ModVersion{
+				{ID: "v1", Version: "1.2.0", GameVersions: []string{"1.19", "1.20"}, ReleaseType: "stable"},
+				{ID: "v2", Version: "1.3.0", GameVersions: []string{"1.19", "1.20"}, ReleaseType: "stable", Changelog: "Fixed a crash."},
+			},
+		},
+	}}, recordingDownloader{})
 	ctx := context.Background()
-
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name:          "Warm world",
-		GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatalf("create instance: %v", err)
-	}
+	instance := fixture.createTestInstance(t, "Updates")
 
 	stoneQuarryPath := filepath.Join(instance.Directory, "Mods", "stonequarry.zip")
 	writeModZip(t, stoneQuarryPath, map[string]any{
@@ -63,7 +67,7 @@ func TestCheckInstanceModUpdates(t *testing.T) {
 		"version":      "1.2.0",
 		"dependencies": map[string]string{"olddep": ">=1.0.0"},
 	})
-	if err := fixture.store.SaveMod(ctx, domain.InstalledMod{
+	if err := fixture.repository.SaveMod(ctx, mods.InstalledMod{
 		ID:          "mod-stonequarry",
 		InstanceID:  instance.ID,
 		Name:        "Stone Quarry",
@@ -86,7 +90,7 @@ func TestCheckInstanceModUpdates(t *testing.T) {
 		"version":      "1.0.0",
 		"dependencies": map[string]string{},
 	})
-	if err := fixture.store.SaveMod(ctx, domain.InstalledMod{
+	if err := fixture.repository.SaveMod(ctx, mods.InstalledMod{
 		ID:          "mod-olddep",
 		InstanceID:  instance.ID,
 		Name:        "Old Dep",
@@ -107,21 +111,7 @@ func TestCheckInstanceModUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fixture.service.ConfigureMods(staticModCatalog{detailsByID: map[string]domain.ModDetails{
-		"stonequarry": {
-			ModSummary: domain.ModSummary{
-				ID:            "stonequarry",
-				Name:          "Stone Quarry",
-				LatestVersion: "1.3.0",
-			},
-			Versions: []domain.ModVersion{
-				{ID: "v1", Version: "1.2.0", GameVersions: []string{"1.19", "1.20"}, ReleaseType: "stable"},
-				{ID: "v2", Version: "1.3.0", GameVersions: []string{"1.19", "1.20"}, ReleaseType: "stable", Changelog: "Fixed a crash."},
-			},
-		},
-	}}, nil)
-
-	report, err := fixture.service.CheckInstanceModUpdates(ctx, instance.ID)
+	report, err := fixture.catalogService.CheckInstanceModUpdates(ctx, instance.ID)
 	if err != nil {
 		t.Fatalf("CheckInstanceModUpdates returned an error: %v", err)
 	}
@@ -165,7 +155,7 @@ func TestCheckInstanceModUpdates(t *testing.T) {
 
 func TestCheckInstanceModUpdatesUnknownInstance(t *testing.T) {
 	fixture := newTestFixture(t)
-	_, err := fixture.service.CheckInstanceModUpdates(context.Background(), "missing")
+	_, err := fixture.catalogService.CheckInstanceModUpdates(context.Background(), "missing")
 	if err == nil {
 		t.Fatal("expected an error for an unknown instance")
 	}

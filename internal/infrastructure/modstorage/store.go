@@ -12,6 +12,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 const metadataFile = "metadata.json"
@@ -24,8 +25,8 @@ func New(root string) *Store {
 	return &Store{root: filepath.Join(root, "cache", "mods")}
 }
 
-func (store *Store) List(ctx context.Context) ([]domain.DownloadedMod, error) {
-	result := []domain.DownloadedMod{}
+func (store *Store) List(ctx context.Context) ([]mods.DownloadedMod, error) {
+	result := []mods.DownloadedMod{}
 	err := filepath.WalkDir(store.root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if errors.Is(walkErr, os.ErrNotExist) {
@@ -56,19 +57,19 @@ func (store *Store) Get(
 	_ context.Context,
 	modID string,
 	versionID string,
-) (domain.DownloadedMod, error) {
+) (mods.DownloadedMod, error) {
 	path, err := store.metadataPath(modID, versionID)
 	if err != nil {
-		return domain.DownloadedMod{}, err
+		return mods.DownloadedMod{}, err
 	}
 	value, err := readMetadata(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return value, domain.NewError(domain.ErrModVersionNotFound, "Downloaded mod version not found")
+		return value, domain.NewError(mods.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
 	return value, err
 }
 
-func (store *Store) Save(_ context.Context, value domain.DownloadedMod) error {
+func (store *Store) Save(_ context.Context, value mods.DownloadedMod) error {
 	path, err := store.metadataPath(value.ModID, value.VersionID)
 	if err != nil {
 		return err
@@ -102,11 +103,11 @@ func (store *Store) FilePath(modID, versionID, fileName string) (string, error) 
 	}
 	fileName = filepath.Base(strings.TrimSpace(fileName))
 	if fileName == "." || fileName == "" {
-		return "", domain.NewError(domain.ErrInvalidModFile, "Invalid mod file name")
+		return "", domain.NewError(mods.ErrInvalidModFile, "Invalid mod file name")
 	}
 	extension := strings.ToLower(filepath.Ext(fileName))
 	if extension != ".zip" && extension != ".cs" && extension != ".dll" {
-		return "", domain.NewError(domain.ErrInvalidModFile, "Unsupported mod file type")
+		return "", domain.NewError(mods.ErrInvalidModFile, "Unsupported mod file type")
 	}
 	return filepath.Join(filepath.Dir(path), fileName), nil
 }
@@ -131,12 +132,12 @@ func safeSegment(value string) (string, error) {
 	return value, nil
 }
 
-func readMetadata(path string) (domain.DownloadedMod, error) {
+func readMetadata(path string) (mods.DownloadedMod, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return domain.DownloadedMod{}, err
+		return mods.DownloadedMod{}, err
 	}
-	var value domain.DownloadedMod
+	var value mods.DownloadedMod
 	if err := json.Unmarshal(data, &value); err != nil {
 		return value, err
 	}

@@ -10,9 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
@@ -21,6 +19,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
@@ -30,33 +29,28 @@ import (
 )
 
 type Service struct {
-	store              Store
-	clientSettings     ClientSettingsPatcher
-	downloader         downloads.Downloader
-	diskSpace          DiskSpaceChecker
-	versions           VersionCapabilities
-	modFiles           ModFileManager
-	modCatalog         ModCatalog
-	modDownloads       DownloadedModStore
-	dataRoot           string
-	snapshots          *snapshotstore.Store
-	events             events.Publisher
-	telemetry          *telemetry.Service
-	modsMu             sync.Mutex
-	mutationGate       *mutations.Gate
-	settings           *settingscore.Reader
-	operations         *operations.Manager
-	sessions           *sessions.Service
-	instanceQueries    *instances.QueryService
-	instanceCreator    *instances.CreateService
-	instanceUpdater    *instances.UpdateService
-	instanceDeleter    *instances.DeleteService
-	instanceCloner     *instances.CloneService
-	instanceSlot       *mutations.Slot
-	launchRegistry     *launching.Registry
-	modTasksMu         sync.Mutex
-	modTaskCancels     map[string]context.CancelFunc
-	activeModDownloads map[string]string
+	store           Store
+	clientSettings  ClientSettingsPatcher
+	downloader      downloads.Downloader
+	diskSpace       DiskSpaceChecker
+	versions        VersionCapabilities
+	dataRoot        string
+	snapshots       *snapshotstore.Store
+	events          events.Publisher
+	telemetry       *telemetry.Service
+	mutationGate    *mutations.Gate
+	settings        *settingscore.Reader
+	operations      *operations.Manager
+	sessions        *sessions.Service
+	instanceQueries *instances.QueryService
+	instanceCreator *instances.CreateService
+	instanceUpdater *instances.UpdateService
+	instanceDeleter *instances.DeleteService
+	instanceCloner  *instances.CloneService
+	instanceSlot    *mutations.Slot
+	launchRegistry  *launching.Registry
+	mods            *mods.Service
+	modsCatalog     *mods.CatalogService
 }
 
 type VersionCapabilities interface {
@@ -69,7 +63,7 @@ type VersionCapabilities interface {
 
 func NewService(
 	store Store,
-	modFiles ModFileManager,
+	modFiles mods.FileManager,
 	dataRoot string,
 	operationManager *operations.Manager,
 	sessionService *sessions.Service,
@@ -83,26 +77,75 @@ func NewService(
 	settingsReader *settingscore.Reader,
 	instanceSlot *mutations.Slot,
 	launchRegistry *launching.Registry,
+	modCatalog mods.Catalog,
+	modDownloads mods.DownloadedStore,
+	publisher events.Publisher,
+	telemetryService mods.Telemetry,
 ) *Service {
 	service := &Service{
-		store:              store,
-		modFiles:           modFiles,
-		dataRoot:           dataRoot,
-		snapshots:          snapshotstore.New(dataRoot),
-		operations:         operationManager,
-		sessions:           sessionService,
-		instanceQueries:    instanceQueries,
-		instanceCreator:    instanceCreator,
-		versions:           versionService,
-		downloader:         downloader,
-		diskSpace:          diskSpace,
-		mutationGate:       mutationGate,
-		settings:           settingsReader,
-		instanceSlot:       instanceSlot,
-		launchRegistry:     launchRegistry,
-		modTaskCancels:     make(map[string]context.CancelFunc),
-		activeModDownloads: make(map[string]string),
+		store:           store,
+		dataRoot:        dataRoot,
+		snapshots:       snapshotstore.New(dataRoot),
+		operations:      operationManager,
+		sessions:        sessionService,
+		instanceQueries: instanceQueries,
+		instanceCreator: instanceCreator,
+		versions:        versionService,
+		downloader:      downloader,
+		diskSpace:       diskSpace,
+		mutationGate:    mutationGate,
+		settings:        settingsReader,
+		instanceSlot:    instanceSlot,
+		launchRegistry:  launchRegistry,
 	}
+	snapshotter := mods.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason domain.SnapshotReason, snapshotContext map[string]string) error {
+		_, err := service.createSafetySnapshot(ctx, instanceID, reason, snapshotContext)
+		return err
+	})
+	repository := modsStoreAdapter{store: store}
+	service.mods = mods.NewService(
+		repository,
+		modFiles,
+		modCatalog,
+		modDownloads,
+		operationManager,
+		mutationGate,
+		launchRegistry,
+		snapshotter,
+		mods.PublishFunc(func(name string, payload any) {
+			if publisher != nil {
+				publisher.Publish(name, payload)
+			}
+		}),
+		telemetryService,
+		time.Now,
+		newID,
+	)
+	service.modsCatalog = mods.NewCatalogService(
+		repository,
+		modFiles,
+		modCatalog,
+		modDownloads,
+		downloader,
+		versionService,
+		service.mods,
+		mutationGate,
+		launchRegistry,
+		snapshotter,
+		mods.PublishFunc(func(name string, payload any) {
+			if publisher != nil {
+				publisher.Publish(name, payload)
+			}
+		}),
+		telemetryService,
+		mods.NewModTaskManager(mods.PublishFunc(func(name string, payload any) {
+			if publisher != nil {
+				publisher.Publish(name, payload)
+			}
+		})),
+		time.Now,
+		newID,
+	)
 	service.instanceUpdater = instances.NewUpdateService(
 		store,
 		versionService,
@@ -150,13 +193,14 @@ func NewService(
 	return service
 }
 
-func (s *Service) ConfigureMods(
-	catalog ModCatalog,
-	downloads DownloadedModStore,
-) {
-	s.modCatalog = catalog
-	s.modDownloads = downloads
-	slog.Info("mod subsystem configured")
+// Mods returns the installed-mod service owned by the application layer.
+func (s *Service) Mods() *mods.Service {
+	return s.mods
+}
+
+// ModsCatalog returns the catalog service owned by the application layer.
+func (s *Service) ModsCatalog() *mods.CatalogService {
+	return s.modsCatalog
 }
 
 func (s *Service) SetEventPublisher(publisher events.Publisher) {
@@ -322,481 +366,4 @@ func removeAllReliably(path string) error {
 		time.Sleep(time.Duration(attempt+1) * 50 * time.Millisecond)
 	}
 	return lastError
-}
-
-func (s *Service) ListMods(ctx context.Context, instanceID string) ([]domain.InstalledMod, error) {
-	release, err := s.beginMutation()
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-	s.modsMu.Lock()
-	defer s.modsMu.Unlock()
-
-	instance, e := s.store.GetInstance(ctx, instanceID)
-	if e != nil {
-		return nil, e
-	}
-	if e = s.modFiles.EnsureLayout(instance.Directory); e != nil {
-		return nil, e
-	}
-	mods, e := s.store.ListMods(ctx, instanceID)
-	if e != nil {
-		return nil, e
-	}
-	discovered, e := s.modFiles.Scan(instance.Directory)
-	if e != nil {
-		return nil, e
-	}
-
-	matched := make([]bool, len(discovered))
-	now := time.Now().UTC()
-	for index := range mods {
-		discoveredIndex := findDiscoveredMod(discovered, matched, mods[index])
-		if discoveredIndex < 0 {
-			if e = s.store.DeleteMod(ctx, mods[index].ID); e != nil {
-				return nil, e
-			}
-			continue
-		}
-
-		found := discovered[discoveredIndex]
-		matched[discoveredIndex] = true
-		mods[index].FileName = found.FileName
-		mods[index].FilePath = found.FilePath
-		mods[index].Enabled = found.Enabled
-		mods[index].SizeBytes = found.SizeBytes
-		mods[index].UpdatedAt = now
-		if e = s.store.SaveMod(ctx, mods[index]); e != nil {
-			return nil, e
-		}
-	}
-
-	for index, found := range discovered {
-		if matched[index] {
-			continue
-		}
-		installedAt := found.ModifiedAt.UTC()
-		if installedAt.IsZero() {
-			installedAt = now
-		}
-		mod := domain.InstalledMod{
-			ID:          newID(),
-			InstanceID:  instanceID,
-			Name:        found.Name,
-			Version:     found.Version,
-			FileName:    found.FileName,
-			FilePath:    found.FilePath,
-			Enabled:     found.Enabled,
-			Managed:     false,
-			Source:      "local",
-			SizeBytes:   found.SizeBytes,
-			InstalledAt: installedAt,
-			UpdatedAt:   now,
-		}
-		if e = s.store.SaveMod(ctx, mod); e != nil {
-			return nil, e
-		}
-	}
-
-	return s.store.ListMods(ctx, instanceID)
-}
-
-func findDiscoveredMod(
-	discovered []domain.DiscoveredMod,
-	matched []bool,
-	installed domain.InstalledMod,
-) int {
-	for index := range discovered {
-		if !matched[index] && samePath(discovered[index].FilePath, installed.FilePath) {
-			return index
-		}
-	}
-	for index := range discovered {
-		if !matched[index] && strings.EqualFold(discovered[index].FileName, installed.FileName) {
-			return index
-		}
-	}
-	return -1
-}
-func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, name, version string) (operations.Operation, error) {
-	release, err := s.beginMutation()
-	if err != nil {
-		return operations.Operation{}, err
-	}
-	defer release()
-	i, e := s.store.GetInstance(ctx, instanceID)
-	if e != nil {
-		return operations.Operation{}, e
-	}
-	instanceRelease, err := s.lockInstanceMutations(instanceID)
-	if err != nil {
-		return operations.Operation{}, err
-	}
-	defer instanceRelease()
-	return s.installModFile(ctx, i, sourcePath, name, version)
-}
-
-func (s *Service) installModFile(ctx context.Context, i instances.Instance, sourcePath, name, version string) (operations.Operation, error) {
-	slog.Info("installing mod file", "instance", i.Name, "mod", name)
-	if sourcePath == "" {
-		return operations.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
-	}
-	now := time.Now().UTC()
-	resource := i.ID
-	operation := operations.Operation{
-		ID:         newID(),
-		Type:       "mod_install",
-		ResourceID: &resource,
-		Title:      "Installing mod",
-		TitleKey:   operationTitleInstallingMod,
-		Status:     operations.StatusRunning,
-		Progress:   0.1,
-		CreatedAt:  now,
-		StartedAt:  &now,
-	}
-	if err := s.operations.Save(ctx, operation, ""); err != nil {
-		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
-	}
-
-	path, size, e := s.modFiles.Install(ctx, sourcePath, i.Directory)
-	finished := time.Now().UTC()
-	operation.FinishedAt = &finished
-	if e != nil {
-		operation.Status = operations.StatusFailed
-		msg := e.Error()
-		code := "MOD_INSTALL_FAILED"
-		operation.ErrorCode = &code
-		operation.ErrorMessage = &msg
-		s.operations.SaveBestEffort(operation, "")
-		return operation, e
-	}
-	if name == "" {
-		name = strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
-	}
-	if version == "" {
-		version = "unknown"
-	}
-	mod := domain.InstalledMod{
-		ID:          newID(),
-		InstanceID:  i.ID,
-		Name:        name,
-		Version:     version,
-		FileName:    filepath.Base(path),
-		FilePath:    path,
-		Enabled:     true,
-		Managed:     false,
-		Source:      "local",
-		SizeBytes:   size,
-		InstalledAt: finished,
-		UpdatedAt:   finished,
-	}
-	if e = s.store.SaveMod(ctx, mod); e != nil {
-		return operation, e
-	}
-	s.bindInstalledModToExistingCache(ctx, mod)
-
-	operation.Status = operations.StatusCompleted
-	operation.Progress = 1
-	operation.CurrentBytes = size
-	operation.TotalBytes = size
-	s.operations.SaveBestEffort(operation, "")
-	s.emit("mod:installed", mod)
-	return operation, nil
-}
-
-type InstallModFilesResult struct {
-	Installed []string
-	Skipped   []string
-	Failed    []ModFileFailure
-}
-
-type ModFileFailure struct {
-	Path  string
-	Error string
-}
-
-func (s *Service) InstallModFiles(ctx context.Context, instanceID string, sourcePaths []string) (InstallModFilesResult, error) {
-	result := InstallModFilesResult{}
-	release, err := s.beginMutation()
-	if err != nil {
-		return result, err
-	}
-	defer release()
-	if len(sourcePaths) == 0 {
-		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
-	}
-	i, e := s.store.GetInstance(ctx, instanceID)
-	if e != nil {
-		return result, e
-	}
-	instanceRelease, err := s.lockInstanceMutations(instanceID)
-	if err != nil {
-		return result, err
-	}
-	defer instanceRelease()
-	for _, sourcePath := range sourcePaths {
-		if sourcePath == "" {
-			result.Failed = append(result.Failed, ModFileFailure{Path: sourcePath, Error: "empty path"})
-			continue
-		}
-		_, err := s.installModFile(ctx, i, sourcePath, "", "")
-		switch {
-		case err == nil:
-			result.Installed = append(result.Installed, filepath.Base(sourcePath))
-		case errors.Is(err, domain.ErrModFileExists):
-			result.Skipped = append(result.Skipped, filepath.Base(sourcePath))
-		default:
-			result.Failed = append(result.Failed, ModFileFailure{Path: sourcePath, Error: err.Error()})
-		}
-	}
-	if len(result.Installed) == 0 && len(result.Failed) > 0 {
-		return result, domain.NewError(domain.ErrInvalidModFile, "no mods were installed")
-	}
-	return result, nil
-}
-func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (domain.InstalledMod, error) {
-	release, err := s.beginMutation()
-	if err != nil {
-		return domain.InstalledMod{}, err
-	}
-	defer release()
-	m, e := s.store.GetMod(ctx, id)
-	if e != nil {
-		return m, e
-	}
-	instanceRelease, err := s.lockInstanceMutations(m.InstanceID)
-	if err != nil {
-		return m, err
-	}
-	defer instanceRelease()
-	i, e := s.store.GetInstance(ctx, m.InstanceID)
-	if e != nil {
-		return m, e
-	}
-	path, e := s.modFiles.SetEnabled(m.FilePath, i.Directory, enabled)
-	if e != nil {
-		return m, e
-	}
-	m.FilePath = path
-	m.Enabled = enabled
-	m.UpdatedAt = time.Now().UTC()
-	e = s.store.SaveMod(ctx, m)
-	if e == nil {
-		event := "mod:disabled"
-		if enabled {
-			event = "mod:enabled"
-		}
-		s.emit(event, m)
-	}
-	return m, e
-}
-func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies bool) error {
-	release, err := s.beginMutation()
-	if err != nil {
-		return err
-	}
-	defer release()
-	m, e := s.store.GetMod(ctx, id)
-	if e != nil {
-		return e
-	}
-	toDelete := []domain.InstalledMod{m}
-	if deleteDependencies {
-		toDelete, e = s.modDeletionSet(ctx, m)
-		if e != nil {
-			return e
-		}
-	}
-	instanceRelease, err := s.lockInstanceMutations(m.InstanceID)
-	if err != nil {
-		return err
-	}
-	defer instanceRelease()
-	if _, err := s.createSafetySnapshot(ctx, m.InstanceID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
-		"affectedMods": strconv.Itoa(len(toDelete)),
-	}); err != nil {
-		return err
-	}
-	for _, mod := range toDelete {
-		if err := s.removeInstalledMod(ctx, mod); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// RemoveMods removes several installed mods of one instance in a single
-// destructive transaction. Exactly one automatic safety snapshot is created
-// before the first mod is removed; a failed snapshot aborts the removal.
-func (s *Service) RemoveMods(
-	ctx context.Context,
-	instanceID string,
-	modIDs []string,
-	deleteDependencies bool,
-) error {
-	release, err := s.beginMutation()
-	if err != nil {
-		return err
-	}
-	defer release()
-	if len(modIDs) == 0 {
-		return domain.NewError(domain.ErrValidation, "Select at least one mod to remove")
-	}
-	instance, err := s.store.GetInstance(ctx, instanceID)
-	if err != nil {
-		return err
-	}
-	seen := make(map[string]struct{}, len(modIDs))
-	var toDelete []domain.InstalledMod
-	for _, id := range modIDs {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		if _, duplicate := seen[id]; duplicate {
-			continue
-		}
-		seen[id] = struct{}{}
-		mod, getErr := s.store.GetMod(ctx, id)
-		if getErr != nil {
-			return getErr
-		}
-		if mod.InstanceID != instance.ID {
-			return domain.NewError(domain.ErrValidation, "The selected mod does not belong to this instance")
-		}
-		if deleteDependencies {
-			set, setErr := s.modDeletionSet(ctx, mod)
-			if setErr != nil {
-				return setErr
-			}
-			toDelete = append(toDelete, set...)
-		} else {
-			toDelete = append(toDelete, mod)
-		}
-	}
-	if len(toDelete) == 0 {
-		return nil
-	}
-
-	instanceRelease, err := s.lockInstanceMutations(instance.ID)
-	if err != nil {
-		return err
-	}
-	defer instanceRelease()
-	if _, err := s.createSafetySnapshot(ctx, instance.ID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
-		"affectedMods": strconv.Itoa(len(toDelete)),
-	}); err != nil {
-		return err
-	}
-	for _, mod := range toDelete {
-		if err := s.removeInstalledMod(ctx, mod); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// removeInstalledMod deletes a single installed mod file and its record.
-// Snapshot creation is the caller's responsibility; this method never
-// creates one so nested removal flows cannot produce duplicate backups.
-func (s *Service) removeInstalledMod(ctx context.Context, mod domain.InstalledMod) error {
-	if e := os.Remove(mod.FilePath); e != nil && !errors.Is(e, os.ErrNotExist) {
-		return e
-	}
-	if e := s.store.DeleteMod(ctx, mod.ID); e != nil {
-		return e
-	}
-	s.emit("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
-	s.reportEvent(ctx, telemetry.EventModRemoved)
-	slog.Info("mod removed", "mod", mod.Name)
-	return nil
-}
-
-// ModDeletePreview reports which dependencies would be removed together with
-// the given mod, so the UI can ask the user before deleting anything.
-func (s *Service) ModDeletePreview(ctx context.Context, id string) (ModDeletePreview, error) {
-	m, err := s.store.GetMod(ctx, id)
-	if err != nil {
-		return ModDeletePreview{}, err
-	}
-	toDelete, err := s.modDeletionSet(ctx, m)
-	if err != nil {
-		return ModDeletePreview{}, err
-	}
-	preview := ModDeletePreview{ModID: m.ID, ModName: m.Name, Dependencies: []domain.InstalledMod{}}
-	for _, dependency := range toDelete[1:] {
-		preview.Dependencies = append(preview.Dependencies, dependency)
-	}
-	return preview, nil
-}
-
-type ModDeletePreview struct {
-	ModID        string
-	ModName      string
-	Dependencies []domain.InstalledMod
-}
-
-// modDeletionSet returns the mod to delete followed by every dependency that
-// no remaining installed mod still requires. Dependencies that another
-// installed mod depends on are kept, so deleting one mod never breaks another.
-func (s *Service) modDeletionSet(ctx context.Context, target domain.InstalledMod) ([]domain.InstalledMod, error) {
-	mods, err := s.store.ListMods(ctx, target.InstanceID)
-	if err != nil {
-		return nil, err
-	}
-	requiredBy := make(map[string][]string, len(mods))
-	providers := make(map[string][]domain.InstalledMod)
-	for _, mod := range mods {
-		info, infoErr := readModArchiveInfo(mod.FilePath)
-		if infoErr != nil || strings.TrimSpace(info.ModID) == "" {
-			continue
-		}
-		for dependencyID := range info.Dependencies {
-			if !isBuiltInModDependency(dependencyID) {
-				requiredBy[mod.ID] = append(requiredBy[mod.ID], dependencyID)
-			}
-		}
-		key := strings.ToLower(strings.TrimSpace(info.ModID))
-		providers[key] = append(providers[key], mod)
-	}
-	ordered := []domain.InstalledMod{target}
-	deleting := map[string]struct{}{target.ID: {}}
-	for index := 0; index < len(ordered); index++ {
-		for _, dependencyID := range requiredBy[ordered[index].ID] {
-			providerKey := strings.ToLower(strings.TrimSpace(dependencyID))
-			if len(providers[providerKey]) == 0 || stillRequiredByOther(mods, deleting, requiredBy, dependencyID) {
-				continue
-			}
-			for _, provider := range providers[providerKey] {
-				if _, alreadyDeleting := deleting[provider.ID]; alreadyDeleting {
-					continue
-				}
-				deleting[provider.ID] = struct{}{}
-				ordered = append(ordered, provider)
-			}
-		}
-	}
-	return ordered, nil
-}
-
-// stillRequiredByOther reports whether an installed mod outside the deletion
-// set declares the given dependency.
-func stillRequiredByOther(
-	mods []domain.InstalledMod,
-	deleting map[string]struct{},
-	requiredBy map[string][]string,
-	dependencyID string,
-) bool {
-	for _, mod := range mods {
-		if _, willBeDeleted := deleting[mod.ID]; willBeDeleted {
-			continue
-		}
-		for _, required := range requiredBy[mod.ID] {
-			if strings.EqualFold(required, dependencyID) {
-				return true
-			}
-		}
-	}
-	return false
 }

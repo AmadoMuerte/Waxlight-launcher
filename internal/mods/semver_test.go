@@ -1,13 +1,9 @@
-package application
+package mods
 
-import (
-	"testing"
-
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-)
+import "testing"
 
 func TestFindDependencyVersionFallsBackForAnyVersionRequirement(t *testing.T) {
-	versions := []domain.ModVersion{
+	versions := []ModVersion{
 		{ID: "1", Version: "1.2.3", GameVersions: []string{"1.21.0", "1.21.5"}, ReleaseType: "stable", DownloadURL: "https://cdn.test/1.zip"},
 		{ID: "2", Version: "1.1.8", GameVersions: []string{"1.21.0"}, ReleaseType: "stable", DownloadURL: "https://cdn.test/2.zip"},
 		{ID: "3", Version: "1.0.9", GameVersions: []string{"1.20.12"}, ReleaseType: "stable", DownloadURL: "https://cdn.test/3.zip"},

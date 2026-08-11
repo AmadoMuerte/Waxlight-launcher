@@ -1,4 +1,4 @@
-package application_test
+package mods_test
 
 import (
 	"archive/zip"
@@ -7,10 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func writeLocalModZip(t *testing.T, path, modID, name, version string) {
@@ -41,34 +37,14 @@ func writeLocalModZip(t *testing.T, path, modID, name, version string) {
 	}
 }
 
-func corpseCatalog() staticModCatalog {
-	details := domain.ModDetails{
-		ModSummary: domain.ModSummary{
-			ID: "51", Slug: "playercorpse", Name: "Player Corpse", AuthorName: "Ada",
-			ModIDStrings: []string{"playercorpse"}, LatestVersion: "2.0.0",
-		},
-		Versions: []domain.ModVersion{{
-			ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
-			FileName: "playercorpse.zip", DownloadURL: "https://cdn.test/playercorpse.zip",
-		}},
-	}
-	return staticModCatalog{details: details}
-}
-
 func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "Linked", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	instance := fixture.createTestInstance(t, "Linked")
 	modPath := filepath.Join(instance.Directory, "Mods", "playercorpse.zip")
 	writeLocalModZip(t, modPath, "playercorpse", "Player Corpse", "2.0.0")
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
-	result, err := fixture.service.LinkLocalMods(ctx, instance.ID)
+	result, err := fixture.catalogService.LinkLocalMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +56,7 @@ func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 		t.Fatalf("unexpected link: %#v", link)
 	}
 
-	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +64,7 @@ func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 		t.Fatalf("installed mod was not bound: %#v", installed)
 	}
 
-	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	downloaded, err := fixture.catalogService.ListDownloadedMods(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +76,7 @@ func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 	}
 
 	// A second run must not re-link an already managed mod.
-	result, err = fixture.service.LinkLocalMods(ctx, instance.ID)
+	result, err = fixture.catalogService.LinkLocalMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,26 +86,20 @@ func TestLinkLocalModsBindsByModIDAndVersion(t *testing.T) {
 }
 
 func TestLinkLocalModsReportsUnmatchedMod(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "Unmatched", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	instance := fixture.createTestInstance(t, "Unmatched")
 	modPath := filepath.Join(instance.Directory, "Mods", "mysterymod.zip")
 	writeLocalModZip(t, modPath, "mysterymod", "Mystery Mod", "1.0.0")
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
-	result, err := fixture.service.LinkLocalMods(ctx, instance.ID)
+	result, err := fixture.catalogService.LinkLocalMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Linked) != 0 || len(result.NotMatched) != 1 || len(result.Failed) != 0 {
 		t.Fatalf("unexpected link result: %#v", result)
 	}
-	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,21 +109,15 @@ func TestLinkLocalModsReportsUnmatchedMod(t *testing.T) {
 }
 
 func TestLinkLocalModsSkipsModWithoutCatalogModID(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "ByName", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	instance := fixture.createTestInstance(t, "ByName")
 	// The modid is not listed in the catalog; the matching name must not be
 	// used as a fallback.
 	modPath := filepath.Join(instance.Directory, "Mods", "player-corpse.zip")
 	writeLocalModZip(t, modPath, "some-other-modid", "Player Corpse", "2.0.0")
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
-	result, err := fixture.service.LinkLocalMods(ctx, instance.ID)
+	result, err := fixture.catalogService.LinkLocalMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +127,7 @@ func TestLinkLocalModsSkipsModWithoutCatalogModID(t *testing.T) {
 }
 
 func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
 	corpsePath := filepath.Join(fixture.root, "corpse.zip")
 	writeLocalModZip(t, corpsePath, "playercorpse", "Player Corpse", "2.0.0")
@@ -173,9 +137,8 @@ func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
 	if err := os.WriteFile(unsupported, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
 
-	result, err := fixture.service.UploadMods(ctx, []string{corpsePath, mysteryPath, unsupported})
+	result, err := fixture.catalogService.UploadMods(ctx, []string{corpsePath, mysteryPath, unsupported})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +146,7 @@ func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
 		t.Fatalf("unexpected upload result: %#v", result)
 	}
 
-	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	downloaded, err := fixture.catalogService.ListDownloadedMods(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +161,7 @@ func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
 	}
 
 	// Uploading the same mod again is reported as skipped.
-	result, err = fixture.service.UploadMods(ctx, []string{corpsePath})
+	result, err = fixture.catalogService.UploadMods(ctx, []string{corpsePath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,34 +171,28 @@ func TestUploadModsBindsAndCopiesIntoLibrary(t *testing.T) {
 }
 
 func TestLinkLocalModsBindsModAlreadyInLibrary(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "Fresh", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
+	second := fixture.createTestInstance(t, "Fresh")
 
 	// Import the mod into the library first, so a cache record already exists.
 	corpsePath := filepath.Join(fixture.root, "corpse.zip")
 	writeLocalModZip(t, corpsePath, "playercorpse", "Player Corpse", "2.0.0")
-	if _, err := fixture.service.UploadMods(ctx, []string{corpsePath}); err != nil {
+	if _, err := fixture.catalogService.UploadMods(ctx, []string{corpsePath}); err != nil {
 		t.Fatal(err)
 	}
 
 	// A second instance carries the same file as a plain local mod.
 	modPath := filepath.Join(second.Directory, "Mods", "playercorpse.zip")
 	writeLocalModZip(t, modPath, "playercorpse", "Player Corpse", "2.0.0")
-	result, err := fixture.service.LinkLocalMods(ctx, second.ID)
+	result, err := fixture.catalogService.LinkLocalMods(ctx, second.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Linked) != 1 || len(result.Failed) != 0 {
 		t.Fatalf("already-cached mod must be linked, not failed: %#v", result)
 	}
-	installed, err := fixture.store.ListMods(ctx, second.ID)
+	installed, err := fixture.repository.ListMods(ctx, second.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,25 +202,19 @@ func TestLinkLocalModsBindsModAlreadyInLibrary(t *testing.T) {
 }
 
 func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
+	fixture.downloader.Set(recordingDownloader{})
 
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "AlreadyInstalled", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	instance := fixture.createTestInstance(t, "AlreadyInstalled")
 	modPath := filepath.Join(instance.Directory, "Mods", "playercorpse.zip")
 	writeLocalModZip(t, modPath, "playercorpse", "Player Corpse", "2.0.0")
-	if _, err := fixture.service.ListMods(ctx, instance.ID); err != nil {
+	if _, err := fixture.modsService.ListMods(ctx, instance.ID); err != nil {
 		t.Fatal(err)
 	}
 
 	// Uploading the same local file must also bind the instance-local mod.
-	result, err := fixture.service.UploadMods(ctx, []string{modPath})
+	result, err := fixture.catalogService.UploadMods(ctx, []string{modPath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,14 +222,14 @@ func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 		t.Fatalf("expected one linked upload: %#v", result)
 	}
 
-	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	downloaded, err := fixture.catalogService.ListDownloadedMods(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(downloaded) != 1 || len(downloaded[0].InstalledInstances) != 1 {
 		t.Fatalf("downloaded mod must be recognized as installed: %#v", downloaded)
 	}
-	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +238,7 @@ func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 	}
 
 	// Installing the downloaded mod into the same instance is a no-op, not an error.
-	install, err := fixture.service.InstallDownloadedMod(ctx, "51", "7", []string{instance.ID}, false)
+	install, err := fixture.catalogService.InstallDownloadedMod(ctx, "51", "7", []string{instance.ID}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,38 +248,32 @@ func TestUploadModsRecognizesModInstalledInInstance(t *testing.T) {
 }
 
 func TestInstallModFileBindsToExistingLibraryMod(t *testing.T) {
-	fixture := newTestFixture(t)
+	fixture := newTestFixtureWithDeps(t, corpseCatalog(), recordingDownloader{})
 	ctx := context.Background()
-	fixture.setDownloader(recordingDownloader{})
-	fixture.service.ConfigureMods(corpseCatalog(), modstorage.New(fixture.root))
+	fixture.downloader.Set(recordingDownloader{})
 
 	// The mod is already in the library.
 	corpsePath := filepath.Join(fixture.root, "corpse.zip")
 	writeLocalModZip(t, corpsePath, "playercorpse", "Player Corpse", "2.0.0")
-	if _, err := fixture.service.UploadMods(ctx, []string{corpsePath}); err != nil {
+	if _, err := fixture.catalogService.UploadMods(ctx, []string{corpsePath}); err != nil {
 		t.Fatal(err)
 	}
 
-	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
-		Name: "NewInstance", GameVersionID: "1.20",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	instance := fixture.createTestInstance(t, "NewInstance")
 	localPath := filepath.Join(fixture.root, "local-copy.zip")
 	writeLocalModZip(t, localPath, "playercorpse", "Player Corpse", "2.0.0")
-	if _, err := fixture.service.InstallModFile(ctx, instance.ID, localPath, "", ""); err != nil {
+	if _, err := fixture.modsService.InstallModFile(ctx, instance.ID, localPath, "", ""); err != nil {
 		t.Fatal(err)
 	}
 
-	installed, err := fixture.store.ListMods(ctx, instance.ID)
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(installed) != 1 || !installed[0].Managed || installed[0].Source != "moddb:51:7" {
 		t.Fatalf("locally installed mod was not bound to the existing library entry: %#v", installed)
 	}
-	downloaded, err := fixture.service.ListDownloadedMods(ctx)
+	downloaded, err := fixture.catalogService.ListDownloadedMods(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

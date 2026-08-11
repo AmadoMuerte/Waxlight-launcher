@@ -8,6 +8,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -34,11 +35,11 @@ func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
 	lifecycle.Startup(context.Background())
 	t.Cleanup(lifecycle.Shutdown)
 	manager := operations.NewManager(namespaceOperationRepository{}, lifecycle, nil)
-	service := &Service{
-		operations:         manager,
-		modTaskCancels:     make(map[string]context.CancelFunc),
-		activeModDownloads: make(map[string]string),
-	}
+	taskManager := mods.NewModTaskManager(nil)
+	catalogService := mods.NewCatalogService(
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		taskManager, time.Now, func() string { return "mod-task-id" },
+	)
 
 	operationStarted := make(chan struct{})
 	_, err := operations.Start(manager, context.Background(), operations.Operation{ID: "persistent"}, "", func(ctx context.Context) (struct{}, error) {
@@ -50,10 +51,12 @@ func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-operationStarted
-	modCtx, cancelMod := context.WithCancel(context.Background())
-	service.modTaskCancels["mod-task"] = cancelMod
+	modCtx, _, err := taskManager.Begin(context.Background(), "mod-task", "some-mod", "some-version")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if err := service.CancelModTask("persistent"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
+	if err := catalogService.CancelModTask("persistent"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
 		t.Fatalf("mod cancellation accepted persistent operation ID: %v", err)
 	}
 	if err := manager.Cancel("mod-task"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
@@ -68,7 +71,7 @@ func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
 	if err := manager.Cancel("persistent"); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.CancelModTask("mod-task"); err != nil {
+	if err := catalogService.CancelModTask("mod-task"); err != nil {
 		t.Fatal(err)
 	}
 	if !errors.Is(modCtx.Err(), context.Canceled) {

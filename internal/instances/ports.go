@@ -6,6 +6,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -37,8 +38,8 @@ type CloneRepository interface {
 }
 
 type CloneModRepository interface {
-	ListMods(context.Context, string) ([]domain.InstalledMod, error)
-	SaveMod(context.Context, domain.InstalledMod) error
+	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+	SaveMod(context.Context, mods.InstalledMod) error
 }
 
 type Repository interface {
@@ -146,26 +147,26 @@ type PackageVersionReader interface {
 
 // PackageModStore persists installed mod records during package import.
 type PackageModStore interface {
-	ListMods(context.Context, string) ([]domain.InstalledMod, error)
-	SaveMod(context.Context, domain.InstalledMod) error
+	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+	SaveMod(context.Context, mods.InstalledMod) error
 }
 
 // PackageCatalog resolves catalog mod details for package inspection.
 type PackageCatalog interface {
-	Get(context.Context, string) (domain.ModDetails, error)
+	Get(context.Context, string) (mods.ModDetails, error)
 }
 
 // PackageDownloadedMods reads cached catalog mod downloads for package
 // export enrichment.
 type PackageDownloadedMods interface {
-	Get(context.Context, string, string) (domain.DownloadedMod, error)
+	Get(context.Context, string, string) (mods.DownloadedMod, error)
 }
 
 // CatalogModInstaller installs catalog mods into instances and toggles enable
 // state. It stays a transitional delegate until the mods feature owns it.
 type CatalogModInstaller interface {
-	DownloadCatalogMod(context.Context, domain.DownloadModRequest) (domain.ModInstallResult, error)
-	SetModEnabled(context.Context, string, bool) (domain.InstalledMod, error)
+	DownloadCatalogMod(context.Context, mods.DownloadModRequest) (mods.ModInstallResult, error)
+	SetModEnabled(context.Context, string, bool) (mods.InstalledMod, error)
 }
 
 // PackageIO reads and writes portable instance packages. The infrastructure

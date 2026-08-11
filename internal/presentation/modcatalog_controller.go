@@ -4,16 +4,16 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 type ModCatalogController struct {
-	svc       *application.Service
+	svc       *mods.CatalogService
 	lifecycle *app.Lifecycle
 }
 
-func NewModCatalogController(service *application.Service, lifecycle *app.Lifecycle) *ModCatalogController {
+func NewModCatalogController(service *mods.CatalogService, lifecycle *app.Lifecycle) *ModCatalogController {
 	return &ModCatalogController{svc: service, lifecycle: lifecycle}
 }
 
@@ -33,9 +33,9 @@ type ModSearchRequest struct {
 func (controller *ModCatalogController) SearchMods(
 	request ModSearchRequest,
 ) (ModSearchResultDTO, error) {
-	query := domain.ModSearchQuery{
+	query := mods.ModSearchQuery{
 		Text: request.Text, GameVersion: request.GameVersion,
-		Side: domain.ModSide(request.Side), Tags: request.Tags,
+		Side: mods.ModSide(request.Side), Tags: request.Tags,
 		CompatibleOnly: request.CompatibleOnly, InstanceID: request.InstanceID,
 		Sort: request.Sort, Page: request.Page, PageSize: request.PageSize,
 	}
@@ -94,7 +94,7 @@ func (controller *ModCatalogController) DownloadMod(
 ) (ModInstallResultDTO, error) {
 	result, err := controller.svc.DownloadCatalogMod(
 		controller.lifecycle.Context(),
-		domain.DownloadModRequest{
+		mods.DownloadModRequest{
 			ModID: request.ModID, VersionID: request.VersionID,
 			InstanceIDs: request.InstanceIDs, DownloadOnly: request.DownloadOnly,
 			AllowIncompatible: request.AllowIncompatible,
@@ -116,15 +116,15 @@ type DownloadModsBatchRequest struct {
 func (controller *ModCatalogController) DownloadModsBatch(
 	request DownloadModsBatchRequest,
 ) []BatchModInstallResultDTO {
-	targets := make([]domain.DownloadModTarget, 0, len(request.Targets))
+	targets := make([]mods.DownloadModTarget, 0, len(request.Targets))
 	for _, target := range request.Targets {
-		targets = append(targets, domain.DownloadModTarget{
+		targets = append(targets, mods.DownloadModTarget{
 			ModID: target.ModID, VersionID: target.VersionID,
 		})
 	}
 	return batchModInstallResultsDTO(controller.svc.DownloadCatalogModsBatch(
 		controller.lifecycle.Context(),
-		domain.BatchDownloadModsRequest{InstanceID: request.InstanceID, Targets: targets},
+		mods.BatchDownloadModsRequest{InstanceID: request.InstanceID, Targets: targets},
 	))
 }
 
