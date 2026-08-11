@@ -25,7 +25,7 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 3 status: complete; all instance, package, launching, process, and
   session ownership extracted from `application.Service`
 - Stage 4 branch: `refactor/backend-servers-public-catalog`
-- Stage 4 pull request: opened against `dev`
+- Stage 4 pull request: [#87](https://github.com/AmadoMuerte/Waxlight-launcher/pull/87)
 - Stage 4 status: complete; favorite-server persistence, validation, and
   public-catalog browsing extracted from `application.Service`
 - Overall rewrite status: in progress
