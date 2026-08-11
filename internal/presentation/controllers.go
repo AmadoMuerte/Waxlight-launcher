@@ -174,6 +174,7 @@ type InstanceController struct {
 	queries   instanceQueries
 	updater   instanceUpdater
 	deleter   instanceDeleter
+	cloner    instanceCloner
 	sessions  instancePlaytime
 	lifecycle *app.Lifecycle
 }
@@ -195,6 +196,10 @@ type instanceDeleter interface {
 	Delete(context.Context, string, bool) error
 }
 
+type instanceCloner interface {
+	Clone(context.Context, string, string) (instances.Instance, error)
+}
+
 type instancePlaytime interface {
 	GetInstancePlaytime(context.Context, string) (int64, error)
 }
@@ -205,12 +210,13 @@ func NewInstanceController(
 	queries instanceQueries,
 	updater instanceUpdater,
 	deleter instanceDeleter,
+	cloner instanceCloner,
 	sessionQueries instancePlaytime,
 	lifecycle *app.Lifecycle,
 ) *InstanceController {
 	return &InstanceController{
 		svc: service, creator: creator, queries: queries, updater: updater,
-		deleter: deleter, sessions: sessionQueries, lifecycle: lifecycle,
+		deleter: deleter, cloner: cloner, sessions: sessionQueries, lifecycle: lifecycle,
 	}
 }
 
@@ -319,7 +325,7 @@ func (controller *InstanceController) DeleteInstance(
 func (controller *InstanceController) CloneInstance(
 	request CloneInstanceRequest,
 ) (InstanceDTO, error) {
-	instance, err := controller.svc.CloneInstance(
+	instance, err := controller.cloner.Clone(
 		controller.lifecycle.Context(),
 		request.SourceID,
 		request.Name,

@@ -160,7 +160,10 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 	service := NewDeleteService(
 		repository,
 		&testGate{},
-		func(id string) error { calls = append(calls, "guard"); return nil },
+		func(id string) (func(), error) {
+			calls = append(calls, "guard")
+			return func() { calls = append(calls, "release") }, nil
+		},
 		func(path string) error { calls = append(calls, "remove"); return nil },
 		func(path string) error { calls = append(calls, "clear"); return nil },
 		func(context.Context, string) error {
@@ -177,7 +180,7 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 	if err := service.Delete(context.Background(), "instance", true); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(calls, []string{"guard", "get", "remove", "delete", "recovery", "publish", "telemetry"}) {
+	if !reflect.DeepEqual(calls, []string{"guard", "get", "remove", "delete", "recovery", "publish", "telemetry", "release"}) {
 		t.Fatalf("calls = %v", calls)
 	}
 	if repository.deleted != "instance" || len(telemetryEvents) != 1 || telemetryEvents[0] != telemetryEventInstanceDeleted {
@@ -197,7 +200,7 @@ func TestDeleteServiceClearFailurePreservesRecord(t *testing.T) {
 	service := NewDeleteService(
 		repository,
 		gate,
-		func(string) error { return nil },
+		func(string) (func(), error) { return func() {}, nil },
 		func(string) error { calls = append(calls, "remove"); return nil },
 		func(string) error { calls = append(calls, "clear"); return want },
 		nil,
@@ -221,8 +224,8 @@ func TestDeleteServiceRequiresSafetyDependencies(t *testing.T) {
 		calls   []string
 	}{
 		{name: "missing guard"},
-		{name: "guard rejects", guard: func(string) error { return errors.New("running") }},
-		{name: "missing remover", guard: func(string) error { return nil }, calls: []string{"get"}},
+		{name: "guard rejects", guard: func(string) (func(), error) { return nil, errors.New("running") }},
+		{name: "missing remover", guard: func(string) (func(), error) { return func() {}, nil }, calls: []string{"get"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -250,7 +253,7 @@ func TestMutationServicesRejectWhenGateIsBusy(t *testing.T) {
 	if _, err := updater.Update(context.Background(), Instance{}); !errors.Is(err, want) {
 		t.Fatalf("Update() error = %v, want %v", err, want)
 	}
-	deleter := NewDeleteService(repository, gate, func(string) error { return nil }, nil, nil, nil, nil, nil)
+	deleter := NewDeleteService(repository, gate, func(string) (func(), error) { return func() {}, nil }, nil, nil, nil, nil, nil)
 	if err := deleter.Delete(context.Background(), "instance", true); !errors.Is(err, want) {
 		t.Fatalf("Delete() error = %v, want %v", err, want)
 	}

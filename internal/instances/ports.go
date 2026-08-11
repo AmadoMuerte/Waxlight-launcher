@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -27,6 +28,17 @@ type UpdateRepository interface {
 type DeleteRepository interface {
 	GetInstance(context.Context, string) (Instance, error)
 	DeleteInstance(context.Context, string) error
+}
+
+type CloneRepository interface {
+	GetInstance(context.Context, string) (Instance, error)
+	SaveInstance(context.Context, Instance) error
+	DeleteInstance(context.Context, string) error
+}
+
+type CloneModRepository interface {
+	ListMods(context.Context, string) ([]domain.InstalledMod, error)
+	SaveMod(context.Context, domain.InstalledMod) error
 }
 
 type Repository interface {
@@ -58,6 +70,15 @@ type DirectoryAllocation interface {
 	Rollback() error
 }
 
+type InstanceCreator interface {
+	Create(context.Context, CreateInput) (Instance, error)
+}
+
+type CloneStorage interface {
+	Copy(context.Context, string, string) error
+	CopiedPath(string, string, string) (string, bool)
+}
+
 type Publisher interface {
 	Publish(string, any)
 }
@@ -70,7 +91,8 @@ func (publish PublishFunc) Publish(name string, payload any) {
 
 type VersionChangePreparer func(context.Context, Instance, Instance) (func(), error)
 type ClientSettingsClearer func(string) error
-type DeleteGuard func(string) error
+type DeleteGuard func(string) (func(), error)
+type CloneGuard func(string) (func(), error)
 type DirectoryRemover func(string) error
 type RecoveryCleaner func(context.Context, string) error
 type LanguageFunc func(context.Context) (string, error)

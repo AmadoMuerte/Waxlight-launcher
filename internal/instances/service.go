@@ -291,9 +291,14 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	if service.guard == nil {
 		return domain.NewError(domain.ErrValidation, "Instance deletion guard is unavailable")
 	}
-	if err := service.guard(id); err != nil {
+	guardRelease, err := service.guard(id)
+	if err != nil {
 		return err
 	}
+	if guardRelease == nil {
+		return domain.NewError(domain.ErrValidation, "Instance deletion reservation is unavailable")
+	}
+	defer guardRelease()
 	instance, err := service.repository.GetInstance(ctx, id)
 	if err != nil {
 		return err

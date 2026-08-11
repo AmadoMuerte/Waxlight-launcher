@@ -81,9 +81,11 @@ func (s *Service) createInstanceSnapshot(
 		return operations.Operation{}, err
 	}
 	defer release()
-	if err := s.ensureInstanceSnapshotSafe(input.instanceID); err != nil {
+	reservationRelease, err := s.reserveSnapshotOperation(input.instanceID)
+	if err != nil {
 		return operations.Operation{}, err
 	}
+	defer reservationRelease()
 	return s.createInstanceSnapshotCore(ctx, input)
 }
 
@@ -336,9 +338,11 @@ func (s *Service) RestoreInstanceSnapshot(
 	if err != nil {
 		return err
 	}
-	if err := s.ensureInstanceSnapshotSafe(instanceID); err != nil {
+	reservationRelease, err := s.reserveSnapshotOperation(instanceID)
+	if err != nil {
 		return err
 	}
+	defer reservationRelease()
 
 	snapshotDir, err := s.snapshots.SnapshotDir(instanceID, snapshotID)
 	if err != nil {
@@ -928,16 +932,19 @@ func (s *Service) DeleteInstanceSnapshot(
 	return nil
 }
 
-// ensureInstanceSnapshotSafe rejects snapshot operations while the game runs
-// or another snapshot operation is in progress for the same instance.
-func (s *Service) ensureInstanceSnapshotSafe(instanceID string) error {
-	s.snapshotMu.Lock()
-	busy := s.snapshotBusy[instanceID]
-	s.snapshotMu.Unlock()
-	if busy != "" {
-		return domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+func (s *Service) reserveSnapshotOperation(instanceID string) (func(), error) {
+	s.launchMu.Lock()
+	defer s.launchMu.Unlock()
+	if err := s.ensureInstanceNotRunning(instanceID); err != nil {
+		return nil, err
 	}
-	return s.ensureInstanceNotRunning(instanceID)
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	if s.snapshotBusy[instanceID] != "" {
+		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+	}
+	s.snapshotBusy[instanceID] = snapshotReservationMarker
+	return func() { s.releaseSnapshotBusy(instanceID, snapshotReservationMarker) }, nil
 }
 
 // ensureInstanceNotRunning rejects operations that must not touch an instance

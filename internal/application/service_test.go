@@ -319,6 +319,7 @@ func newTestFixtureWithVersionDependencies(
 		sessionService,
 		instanceQueries,
 		instanceCreator,
+		instancedirectory.NewCloneStorage(filesystem.SanitizeClientSettings),
 		versionService,
 		downloadSwitch,
 		diskSpace,

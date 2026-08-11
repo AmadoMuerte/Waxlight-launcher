@@ -18,6 +18,8 @@ const automaticSnapshotRetentionCount = 10
 // mutually exclusive without any process-global blocking.
 const mutationLockMarker = "instance-mutation"
 
+const snapshotReservationMarker = "snapshot-reservation"
+
 // lockInstanceMutations reserves the per-instance mutation slot. The returned
 // release function must be called exactly once when the operation finishes.
 // A second destructive operation or snapshot for the same instance is

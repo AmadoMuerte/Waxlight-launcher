@@ -62,6 +62,7 @@ type Service struct {
 	instanceCreator    *instances.CreateService
 	instanceUpdater    *instances.UpdateService
 	instanceDeleter    *instances.DeleteService
+	instanceCloner     *instances.CloneService
 	modTasksMu         sync.Mutex
 	modTaskCancels     map[string]context.CancelFunc
 	activeModDownloads map[string]string
@@ -93,6 +94,7 @@ func NewService(
 	sessionService *sessions.Service,
 	instanceQueries *instances.QueryService,
 	instanceCreator *instances.CreateService,
+	instanceCloneStorage instances.CloneStorage,
 	versionService VersionCapabilities,
 	downloader downloads.Downloader,
 	diskSpace DiskSpaceChecker,
@@ -147,6 +149,17 @@ func NewService(
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(service.emit),
 		service.reportEvent,
+	)
+	service.instanceCloner = instances.NewCloneService(
+		store,
+		store,
+		instanceCreator,
+		mutationGate,
+		service.guardInstanceClone,
+		instanceCloneStorage,
+		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		time.Now,
+		newID,
 	)
 	return service
 }
@@ -339,6 +352,10 @@ func (s *Service) InstanceDeleter() *instances.DeleteService {
 	return s.instanceDeleter
 }
 
+func (s *Service) InstanceCloner() *instances.CloneService {
+	return s.instanceCloner
+}
+
 type SaveFavoriteServerInput struct {
 	ID         string
 	Name       string
@@ -425,14 +442,40 @@ func (s *Service) prepareInstanceVersionChange(
 	return release, nil
 }
 
-func (s *Service) guardInstanceDeletion(id string) error {
+func (s *Service) guardInstanceDeletion(id string) (func(), error) {
+	s.launchMu.Lock()
+	defer s.launchMu.Unlock()
 	s.runningMu.Lock()
 	_, running := s.running[id]
 	s.runningMu.Unlock()
 	if running {
-		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before deleting this instance")
+		return nil, domain.NewError(instances.ErrInstanceRunning, "Stop the game before deleting this instance")
 	}
-	return s.ensureNoSnapshotOperation(id)
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	if s.snapshotBusy[id] != "" {
+		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+	}
+	s.snapshotBusy[id] = mutationLockMarker
+	return func() { s.releaseSnapshotBusy(id, mutationLockMarker) }, nil
+}
+
+func (s *Service) guardInstanceClone(id string) (func(), error) {
+	s.launchMu.Lock()
+	defer s.launchMu.Unlock()
+	s.runningMu.Lock()
+	_, running := s.running[id]
+	s.runningMu.Unlock()
+	if running {
+		return nil, domain.NewError(instances.ErrInstanceRunning, "Stop the game before cloning this instance")
+	}
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	if s.snapshotBusy[id] != "" {
+		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+	}
+	s.snapshotBusy[id] = mutationLockMarker
+	return func() { s.releaseSnapshotBusy(id, mutationLockMarker) }, nil
 }
 func safeRemoveAll(path, dataRoot, marker string) error {
 	abs, e := filepath.Abs(path)
@@ -608,6 +651,11 @@ func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, na
 	if e != nil {
 		return operations.Operation{}, e
 	}
+	instanceRelease, err := s.lockInstanceMutations(instanceID)
+	if err != nil {
+		return operations.Operation{}, err
+	}
+	defer instanceRelease()
 	return s.installModFile(ctx, i, sourcePath, name, version)
 }
 
@@ -704,6 +752,11 @@ func (s *Service) InstallModFiles(ctx context.Context, instanceID string, source
 	if e != nil {
 		return result, e
 	}
+	instanceRelease, err := s.lockInstanceMutations(instanceID)
+	if err != nil {
+		return result, err
+	}
+	defer instanceRelease()
 	for _, sourcePath := range sourcePaths {
 		if sourcePath == "" {
 			result.Failed = append(result.Failed, ModFileFailure{Path: sourcePath, Error: "empty path"})
@@ -734,6 +787,11 @@ func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (d
 	if e != nil {
 		return m, e
 	}
+	instanceRelease, err := s.lockInstanceMutations(m.InstanceID)
+	if err != nil {
+		return m, err
+	}
+	defer instanceRelease()
 	i, e := s.store.GetInstance(ctx, m.InstanceID)
 	if e != nil {
 		return m, e

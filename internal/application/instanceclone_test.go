@@ -56,7 +56,7 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(source.Directory, "Config", "mymod.json"), []byte(`{"x":1}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(source.Directory, "clientsettings.json"), []byte(`{"stringsettings":{"sessionkey":"TOP_SECRET","playername":"gasada","fov":80}}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(source.Directory, "clientsettings.json"), []byte(`{"stringsettings":{"sessionkey":"TOP_SECRET","sessionsignature":"SIG","playeruid":"UID","playername":"gasada","useremail":"gasada@example.com","mptoken":"TOKEN","entitlements":"premium","fov":80},"stringListSettings":{"multiplayerservers":["private server"],"modPaths":["/private/mods"]}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(source.Directory, "SaveGame", "world"), 0o755); err != nil {
@@ -83,7 +83,7 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 		}
 	}
 
-	clone, err := fixture.service.CloneInstance(ctx, source.ID, "Clone of Warm home")
+	clone, err := fixture.service.InstanceCloner().Clone(ctx, source.ID, "Clone of Warm home")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"TOP_SECRET", "sessionsignature", "playeruid", "playername"} {
+	for _, forbidden := range []string{"TOP_SECRET", "sessionsignature", "playeruid", "playername", "useremail", "mptoken", "entitlements", "private server", "/private/mods"} {
 		if strings.Contains(string(settings), forbidden) {
 			t.Fatalf("clone client settings leaked %q", forbidden)
 		}
