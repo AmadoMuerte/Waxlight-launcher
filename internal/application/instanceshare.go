@@ -18,6 +18,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // ExportInstance builds a portable .waxlight package describing instanceID.
@@ -30,12 +31,17 @@ func (s *Service) ExportInstance(
 	targetPath string,
 	options domain.ExportInstanceOptions,
 ) (domain.PackageManifest, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return domain.PackageManifest{}, err
+	}
+	defer release()
 	instance, err := s.store.GetInstance(ctx, instanceID)
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
 	slog.Info("exporting instance package", "instance", instance.Name)
-	version, err := s.store.GetVersion(ctx, instance.GameVersionID)
+	version, err := s.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
 		return domain.PackageManifest{}, err
 	}
@@ -353,10 +359,7 @@ func (s *Service) packageVersionStatus(
 	if _, ok := s.findInstalledVersion(ctx, required); ok {
 		return domain.PackageVersionInstalled
 	}
-	if s.versionCatalog == nil {
-		return domain.PackageVersionMissing
-	}
-	available, err := s.versionCatalog.List(ctx)
+	available, err := s.versions.ListAvailable(ctx)
 	if err != nil {
 		return domain.PackageVersionMissing
 	}
@@ -371,10 +374,10 @@ func (s *Service) packageVersionStatus(
 func (s *Service) findInstalledVersion(
 	ctx context.Context,
 	required domain.PackageGameVersion,
-) (domain.GameVersion, bool) {
-	installed, err := s.store.ListVersions(ctx)
+) (versions.GameVersion, bool) {
+	installed, err := s.versions.List(ctx)
 	if err != nil {
-		return domain.GameVersion{}, false
+		return versions.GameVersion{}, false
 	}
 	for _, version := range installed {
 		if version.ID == required.ID {
@@ -386,7 +389,7 @@ func (s *Service) findInstalledVersion(
 			return version, true
 		}
 	}
-	return domain.GameVersion{}, false
+	return versions.GameVersion{}, false
 }
 
 // ImportPackage installs a validated package as a new, isolated instance.
@@ -396,6 +399,11 @@ func (s *Service) ImportPackage(
 	packagePath string,
 	options domain.ImportInstanceOptions,
 ) (domain.ImportReport, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return domain.ImportReport{}, err
+	}
+	defer release()
 	packagePath = strings.TrimSpace(packagePath)
 	if packagePath == "" {
 		return domain.ImportReport{}, domain.NewError(domain.ErrValidation, "Select a package file")
@@ -620,7 +628,7 @@ func (s *Service) resolveImportVersion(
 ) (string, error) {
 	override := strings.TrimSpace(options.GameVersionID)
 	if override != "" {
-		if _, err := s.store.GetVersion(ctx, override); err != nil {
+		if _, err := s.versions.Get(ctx, override); err != nil {
 			return "", err
 		}
 		return override, nil
@@ -629,14 +637,11 @@ func (s *Service) resolveImportVersion(
 		return version.ID, nil
 	}
 	if options.InstallVersion {
-		if s.versionCatalog == nil {
-			return "", domain.NewError(domain.ErrVersionCatalog, "The game version catalog is unavailable")
-		}
-		available, err := s.versionCatalog.List(ctx)
+		available, err := s.versions.ListAvailable(ctx)
 		if err != nil {
 			return "", err
 		}
-		var catalogVersion *domain.AvailableGameVersion
+		var catalogVersion *versions.AvailableGameVersion
 		for index := range available {
 			if available[index].ID == required.ID || (required.Name != "" && available[index].ID == required.Name) {
 				catalogVersion = &available[index]
@@ -654,11 +659,7 @@ func (s *Service) resolveImportVersion(
 		if catalogVersion == nil {
 			return "", domain.NewError(domain.ErrVersionNotFound, "The required game version is not available")
 		}
-		operation, err := s.InstallAvailableVersion(ctx, catalogVersion.ID)
-		if err != nil {
-			return "", err
-		}
-		if err := s.waitForOperation(ctx, operation.ID); err != nil {
+		if _, err := s.versions.InstallCatalogAndWait(ctx, catalogVersion.ID); err != nil {
 			return "", err
 		}
 		return catalogVersion.ID, nil
@@ -667,26 +668,4 @@ func (s *Service) resolveImportVersion(
 		domain.ErrVersionNotInstalled,
 		"Vintage Story "+required.Name+" is not installed",
 	)
-}
-
-func (s *Service) waitForOperation(ctx context.Context, operationID string) error {
-	s.operationsMu.Lock()
-	done := s.operationDone[operationID]
-	s.operationsMu.Unlock()
-	if done == nil {
-		return domain.NewError(domain.ErrOperationNotFound, "The game version install task is no longer running")
-	}
-	select {
-	case err := <-done:
-		if err != nil {
-			return &domain.AppError{
-				Code:    domain.ErrVersionInstall,
-				Message: "Could not install the required game version",
-				Cause:   err,
-			}
-		}
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }

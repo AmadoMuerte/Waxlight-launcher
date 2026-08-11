@@ -6,6 +6,9 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 func iso(value time.Time) string {
@@ -71,7 +74,7 @@ type GameVersionDTO struct {
 	InstalledAt     string `json:"installedAt"`
 }
 
-func versionDTO(version domain.GameVersion) GameVersionDTO {
+func versionDTO(version versions.GameVersion) GameVersionDTO {
 	return GameVersionDTO{
 		ID:              version.ID,
 		Name:            version.Name,
@@ -99,7 +102,7 @@ type AvailableGameVersionDTO struct {
 }
 
 func availableVersionDTO(
-	version domain.AvailableGameVersion,
+	version versions.AvailableGameVersion,
 ) AvailableGameVersionDTO {
 	return AvailableGameVersionDTO{
 		ID:            version.ID,
@@ -240,7 +243,7 @@ type OperationDTO struct {
 	FinishedAt     *string           `json:"finishedAt,omitempty"`
 }
 
-func operationDTO(operation domain.Operation) OperationDTO {
+func operationDTO(operation operations.Operation) OperationDTO {
 	result := OperationDTO{
 		ID:             operation.ID,
 		Type:           operation.Type,
@@ -337,7 +340,7 @@ type SettingsDTO struct {
 	AutomaticSafetySnapshots bool     `json:"automaticSafetySnapshots"`
 }
 
-func settingsDTO(settings domain.Settings) SettingsDTO {
+func settingsDTO(settings settings.Settings) SettingsDTO {
 	launchArguments := settings.GlobalLaunchArguments
 	if launchArguments == nil {
 		launchArguments = []string{}

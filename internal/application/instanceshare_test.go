@@ -10,6 +10,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 func TestExportInstancePackageExcludesSensitiveData(t *testing.T) {
@@ -279,11 +280,9 @@ func TestExportInstanceRejectsInvalidAuthorLinks(t *testing.T) {
 }
 
 func TestImportPackageInstallsMissingGameVersionAndMods(t *testing.T) {
-	fixture := newTestFixture(t)
-	ctx := context.Background()
-
-	fixture.service.ConfigureVersionDownloads(
-		staticVersionCatalog{versions: []domain.AvailableGameVersion{
+	fixture := newTestFixtureWithVersionDependencies(
+		t,
+		staticVersionCatalog{versions: []versions.AvailableGameVersion{
 			{
 				ID:           "1.21",
 				Name:         "1.21",
@@ -299,7 +298,7 @@ func TestImportPackageInstallsMissingGameVersionAndMods(t *testing.T) {
 		recordingDownloader{},
 		fakeGamePackageInstaller{},
 	)
-	fixture.service.ConfigureDiskSpaceChecker(fixedDiskSpace(1 << 40))
+	ctx := context.Background()
 
 	embeddedSource := filepath.Join(fixture.root, "local.zip")
 	if err := os.WriteFile(embeddedSource, []byte("mod-contents"), 0o600); err != nil {

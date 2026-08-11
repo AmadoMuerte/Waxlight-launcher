@@ -55,5 +55,5 @@ func (store *memorySecretStore) Delete(_ context.Context, id string) error {
 }
 
 func newTestAccountService(repository accounts.Repository, auth accounts.Authenticator, credentials accounts.Credentials, cleanup accounts.InstanceCleanup) *accounts.Service {
-	return accounts.NewService(repository, auth, credentials, nil, cleanup, nil)
+	return accounts.NewService(repository, auth, credentials, nil, cleanup, nil, nil)
 }

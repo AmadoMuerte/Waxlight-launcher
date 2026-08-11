@@ -23,7 +23,7 @@ func (unusedSecrets) Set(context.Context, string, Credential) error { return nil
 func (unusedSecrets) Delete(context.Context, string) error          { return nil }
 
 func TestLoginFlowExpiresAndClearsSecrets(t *testing.T) {
-	service := NewService(unusedStore{}, expiringAuthClient{}, unusedSecrets{}, nil, nil, nil)
+	service := NewService(unusedStore{}, expiringAuthClient{}, unusedSecrets{}, nil, nil, nil, nil)
 	now := time.Now().UTC()
 	service.now = func() time.Time { return now }
 	service.flowTTL = time.Second

@@ -9,15 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
 const installerTelemetryOptInFile = "installer-telemetry-opt-in"
 
 type telemetryConsentStore interface {
 	GetSettingValue(context.Context, string) (string, error)
-	GetSettings(context.Context) (domain.Settings, error)
-	SaveSettings(context.Context, domain.Settings) error
+	settings.Repository
 }
 
 // applyInstallerTelemetryConsent consumes the one-time marker written by the

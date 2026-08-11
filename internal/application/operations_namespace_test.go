@@ -1,0 +1,77 @@
+package application
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/waxlight/waxlight-launcher/internal/app"
+	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
+)
+
+type namespaceOperationRepository struct{}
+
+func (namespaceOperationRepository) ListOperations(context.Context, int) ([]operations.Operation, error) {
+	return nil, nil
+}
+func (namespaceOperationRepository) SaveOperation(context.Context, operations.Operation) error {
+	return nil
+}
+func (namespaceOperationRepository) ReconcileInterruptedOperations(context.Context, time.Time, string, string) (int64, error) {
+	return 0, nil
+}
+func (namespaceOperationRepository) DeleteFinishedOperation(context.Context, string) error {
+	return nil
+}
+func (namespaceOperationRepository) ClearFinishedOperations(context.Context) (int64, error) {
+	return 0, nil
+}
+
+func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
+	lifecycle := app.NewLifecycle()
+	lifecycle.Startup(context.Background())
+	t.Cleanup(lifecycle.Shutdown)
+	manager := operations.NewManager(namespaceOperationRepository{}, lifecycle, nil)
+	service := &Service{
+		operations:         manager,
+		modTaskCancels:     make(map[string]context.CancelFunc),
+		activeModDownloads: make(map[string]string),
+	}
+
+	operationStarted := make(chan struct{})
+	_, err := operations.Start(manager, context.Background(), operations.Operation{ID: "persistent"}, "", func(ctx context.Context) (struct{}, error) {
+		close(operationStarted)
+		<-ctx.Done()
+		return struct{}{}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-operationStarted
+	modCtx, cancelMod := context.WithCancel(context.Background())
+	service.modTaskCancels["mod-task"] = cancelMod
+
+	if err := service.CancelModTask("persistent"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
+		t.Fatalf("mod cancellation accepted persistent operation ID: %v", err)
+	}
+	if err := manager.Cancel("mod-task"); !isAppErrorCode(err, domain.ErrOperationNotFound) {
+		t.Fatalf("operation cancellation accepted ModDB task ID: %v", err)
+	}
+	select {
+	case <-modCtx.Done():
+		t.Fatal("operation cancellation cancelled the ModDB task")
+	default:
+	}
+
+	if err := manager.Cancel("persistent"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.CancelModTask("mod-task"); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(modCtx.Err(), context.Canceled) {
+		t.Fatalf("mod task context = %v, want cancellation", modCtx.Err())
+	}
+}

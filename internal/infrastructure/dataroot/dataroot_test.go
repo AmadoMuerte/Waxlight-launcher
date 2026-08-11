@@ -1,6 +1,8 @@
 package dataroot
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -121,6 +123,126 @@ func TestCopyDataExcludesReservedFiles(t *testing.T) {
 	}
 }
 
+func TestCopyDataRelocatesEveryPersistentDirectory(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	directories := []string{"versions", "instances", "downloads", "cache", "security", "updates", "logs", "backups"}
+	for _, directory := range directories {
+		writeFile(t, filepath.Join(src, directory, "keep"), directory)
+	}
+	if err := CopyData(src, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, directory := range directories {
+		content, err := os.ReadFile(filepath.Join(dst, directory, "keep"))
+		if err != nil || string(content) != directory {
+			t.Fatalf("persistent directory %q was not relocated: %q, %v", directory, content, err)
+		}
+	}
+}
+
+func TestTotalSizeCancellationDuringEnumeration(t *testing.T) {
+	root := t.TempDir()
+	for index := 0; index < 8; index++ {
+		writeFile(t, filepath.Join(root, string(rune('a'+index)), "file"), "data")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	visited := 0
+	_, err := totalSizeContext(ctx, root, func() {
+		visited++
+		if visited == 3 {
+			cancel()
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("TotalSizeContext error = %v, want cancellation", err)
+	}
+	if visited < 3 {
+		t.Fatalf("enumeration was not in progress when cancelled: %d entries", visited)
+	}
+}
+
+func TestRelocationRunRelaunchFailureRollsBackPreexistingTarget(t *testing.T) {
+	home := t.TempDir()
+	target := t.TempDir()
+	writeFile(t, filepath.Join(home, "instances", "one", "data"), "instance")
+	relaunchErr := errors.New("relaunch failed")
+	manager := NewWithHomeAndRelaunch(home, func() error { return relaunchErr })
+	prepared, err := manager.PrepareRelocation(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relocation := prepared.(*Relocation)
+	if err := relocation.Run(context.Background(), nil); !errors.Is(err, relaunchErr) {
+		t.Fatalf("Run error = %v, want %v", err, relaunchErr)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatalf("pre-existing target root was removed: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("copied target data was retained: %v", entries)
+	}
+	if pending, err := manager.Pending(); err != nil || pending != nil {
+		t.Fatalf("pending relocation survived rollback: %#v, %v", pending, err)
+	}
+	if message, err := manager.ReadError(); err != nil || message == "" {
+		t.Fatalf("relaunch error was not retained: %q, %v", message, err)
+	}
+	if _, err := manager.PrepareRelocation(target); err != nil {
+		t.Fatalf("clean target could not be retried: %v", err)
+	}
+}
+
+func TestRelocationDoesNotDeleteConcurrentTargetData(t *testing.T) {
+	home := t.TempDir()
+	target := t.TempDir()
+	writeFile(t, filepath.Join(home, "instances", "one", "data"), "instance")
+	manager := NewWithHomeAndRelaunch(home, func() error {
+		t.Fatal("relaunch must not run after the target changes")
+		return nil
+	})
+	prepared, err := manager.PrepareRelocation(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(target, "unrelated"), "keep")
+
+	if err := prepared.(*Relocation).Run(context.Background(), nil); err == nil {
+		t.Fatal("expected relocation commit to reject a changed target")
+	}
+	data, err := os.ReadFile(filepath.Join(target, "unrelated"))
+	if err != nil || string(data) != "keep" {
+		t.Fatalf("concurrent target data was modified: %q, %v", data, err)
+	}
+}
+
+func TestRelocationCancellationAfterCopyDoesNotRelaunch(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(t.TempDir(), "data")
+	writeFile(t, filepath.Join(home, "instances", "one", "data"), "instance")
+	ctx, cancel := context.WithCancel(context.Background())
+	manager := NewWithHomeAndRelaunch(home, func() error {
+		t.Fatal("cancelled relocation must not relaunch")
+		return nil
+	})
+	prepared, err := manager.PrepareRelocation(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = prepared.(*Relocation).Run(ctx, func(copied, total int64) {
+		if copied == total {
+			cancel()
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Run error = %v, want cancellation", err)
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("cancelled target was retained: %v", err)
+	}
+}
+
 func TestPrepareStartupFinalizesCompletedCopy(t *testing.T) {
 	manager := NewWithHome(t.TempDir())
 	from := manager.Home()
@@ -157,14 +279,56 @@ func TestPrepareStartupFinalizesCompletedCopy(t *testing.T) {
 	}
 }
 
+func TestPrepareStartupRecoversAfterStagingWasCommitted(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	from := manager.Home()
+	target := t.TempDir()
+	staging, err := os.MkdirTemp(filepath.Dir(target), ".relocation-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(from, "versions", "v1", "game.bin"), "game")
+	writeFile(t, filepath.Join(from, databaseName), "database")
+	if err := CopyData(from, staging, nil); err != nil {
+		t.Fatal(err)
+	}
+	ownerFile := ".relocation-owner-test"
+	writeFile(t, filepath.Join(staging, ownerFile), staging)
+	marker := Marker{From: from, To: target, CopyTarget: staging, Phase: PhaseFinalize, OwnerFile: ownerFile}
+	if err := manager.writePending(marker); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(staging, target); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := manager.PrepareStartup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != target {
+		t.Fatalf("PrepareStartup returned %q, want %q", root, target)
+	}
+	if data, err := os.ReadFile(filepath.Join(target, databaseName)); err != nil || string(data) != "database" {
+		t.Fatalf("database handoff failed after committed staging recovery: %q, %v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(target, ownerFile)); !os.IsNotExist(err) {
+		t.Fatalf("copy owner marker survived finalization: %v", err)
+	}
+}
+
 func TestPrepareStartupDiscardsInterruptedCopy(t *testing.T) {
 	manager := NewWithHome(t.TempDir())
 	target := filepath.Join(t.TempDir(), "partial")
 	writeFile(t, filepath.Join(target, "half-file.bin"), "partial")
 	if err := manager.writePending(Marker{
-		From:  manager.Home(),
-		To:    target,
-		Phase: PhaseCopy,
+		From:          manager.Home(),
+		To:            target,
+		Phase:         PhaseCopy,
+		TargetCreated: true,
 	}); err != nil {
 		t.Fatal(err)
 	}

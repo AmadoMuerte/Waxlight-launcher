@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 )
 
 // Manager applies one shared concurrency limit to every resource using the
@@ -14,7 +14,7 @@ import (
 // running downloads until a slot frees again. Downloads that resume from a
 // .partial file are re-launched, so pausing never loses progress.
 type Manager struct {
-	downloader application.Downloader
+	downloader downloads.Downloader
 
 	mu           sync.Mutex
 	limit        int
@@ -24,14 +24,14 @@ type Manager struct {
 }
 
 type task struct {
-	request  application.DownloadRequest
-	progress chan<- application.DownloadProgress
+	request  downloads.Request
+	progress chan<- downloads.Progress
 	result   chan error
 	ctx      context.Context
 }
 
 func NewManager(
-	downloader application.Downloader,
+	downloader downloads.Downloader,
 	parallel int,
 ) *Manager {
 	if parallel < 1 {
@@ -47,8 +47,8 @@ func NewManager(
 
 func (manager *Manager) Download(
 	ctx context.Context,
-	request application.DownloadRequest,
-	progress chan<- application.DownloadProgress,
+	request downloads.Request,
+	progress chan<- downloads.Progress,
 ) error {
 	t := &task{
 		request:  request,

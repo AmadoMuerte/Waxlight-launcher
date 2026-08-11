@@ -11,6 +11,11 @@ import (
 )
 
 func (service *Service) persistSession(ctx context.Context, expectedAccountID, email string, session Session) (LoginResult, error) {
+	release, gateErr := service.beginMutation()
+	if gateErr != nil {
+		return LoginResult{}, gateErr
+	}
+	defer release()
 	service.persistMu.Lock()
 	defer service.persistMu.Unlock()
 	storedAccounts, err := service.repository.ListAccounts(ctx)
@@ -131,6 +136,11 @@ func (service *Service) ValidateStaleAccounts(ctx context.Context, maxAge time.D
 }
 
 func (service *Service) SelectAccount(ctx context.Context, accountID string) error {
+	release, err := service.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if _, err := service.repository.GetAccount(ctx, accountID); err != nil {
 		return err
 	}
@@ -139,6 +149,11 @@ func (service *Service) SelectAccount(ctx context.Context, accountID string) err
 }
 
 func (service *Service) RemoveAccount(ctx context.Context, accountID string) error {
+	release, err := service.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if _, err := service.repository.GetAccount(ctx, accountID); err != nil {
 		return err
 	}
@@ -165,6 +180,11 @@ func (service *Service) RemoveAccount(ctx context.Context, accountID string) err
 }
 
 func (service *Service) LogOutLocally(ctx context.Context, accountID string) error {
+	release, err := service.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	account, err := service.repository.GetAccount(ctx, accountID)
 	if err != nil {
 		return err
@@ -203,14 +223,14 @@ func (service *Service) ValidateAuthorizedAccount(ctx context.Context, accountID
 	account.UpdatedAt = now
 	if !valid {
 		account.Status = StatusExpired
-		if err := service.repository.SaveAccount(ctx, safeAccount(account)); err != nil {
+		if err := service.saveAccountMutation(ctx, safeAccount(account)); err != nil {
 			return account, err
 		}
 		slog.Warn("account session expired", "account", accountID)
 		return account, domain.NewError(domain.ErrSessionExpired, "The account session has expired")
 	}
 	account.Status = StatusValid
-	if err := service.repository.SaveAccount(ctx, safeAccount(account)); err != nil {
+	if err := service.saveAccountMutation(ctx, safeAccount(account)); err != nil {
 		return account, err
 	}
 	return account, nil
@@ -229,7 +249,7 @@ func (service *Service) authorizedAccount(ctx context.Context, accountID string)
 	if errors.Is(err, ErrCredentialsNotFound) {
 		account.Status = StatusNeedsReauth
 		account.UpdatedAt = service.now()
-		if saveErr := service.repository.SaveAccount(ctx, account); saveErr != nil {
+		if saveErr := service.saveAccountMutation(ctx, account); saveErr != nil {
 			slog.Warn("could not persist the reauthentication flag", "account", accountID, "error", saveErr)
 		}
 		return safeAccount(account), domain.NewError(domain.ErrSessionExpired, "The account needs to be authenticated again")
@@ -240,6 +260,15 @@ func (service *Service) authorizedAccount(ctx context.Context, accountID string)
 	account.SessionKey = credential.SessionKey
 	account.SessionSignature = credential.SessionSignature
 	return account, nil
+}
+
+func (service *Service) saveAccountMutation(ctx context.Context, account Account) error {
+	release, err := service.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
+	return service.repository.SaveAccount(ctx, account)
 }
 
 func credentialStoreError(message string, err error) error {

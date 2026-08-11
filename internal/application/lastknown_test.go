@@ -7,15 +7,22 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // The Last Known Good tests live in the application package so they can
@@ -133,14 +140,37 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		t.Fatal(err)
 	}
 	launcher := &lkgTestLauncher{}
+	lifecycle := app.NewLifecycle()
+	lifecycle.Startup(context.Background())
+	operationManager := operations.NewManager(store, lifecycle, nil)
+	gate := &mutations.Gate{}
+	settingsReader := settingscore.NewReader(store)
+	versionFilesystem := versionfs.New(root)
+	archiveInstaller := filesystem.ArchiveInstaller{}
+	versionRuntime := versions.NewInstallRuntime(versionFilesystem, gate, operationManager, time.Now, func() string { return "lkg-version-operation" })
+	versionQueries := versions.NewQueryService(store, nil, archiveInstaller, versionFilesystem, time.Now)
+	versionService := versions.NewCapabilities(
+		versionQueries,
+		versions.NewLocalInstallService(store, archiveInstaller, versionRuntime, runtime.GOOS, runtime.GOARCH),
+		versions.NewCatalogInstallService(store, versionQueries, nil, nil, nil, versionRuntime, nil, root),
+		versions.NewRemovalService(store, store, versionFilesystem, gate, nil),
+	)
 	service := NewService(
 		store,
-		filesystem.ArchiveInstaller{},
 		filesystem.ModFileManager{},
 		launcher,
 		root,
+		operationManager,
+		versionService,
+		nil,
+		nil,
+		gate,
+		settingsReader,
 	)
-	t.Cleanup(func() { _ = service.Close() })
+	t.Cleanup(func() {
+		lifecycle.Shutdown()
+		_ = service.Close()
+	})
 	events := &lkgEventRecorder{}
 	service.SetEventPublisher(events)
 
@@ -152,7 +182,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 	if err := os.WriteFile(executable, []byte("game"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVersion(context.Background(), domain.GameVersion{
+	if err := store.SaveVersion(context.Background(), versions.GameVersion{
 		ID:              "1.20",
 		Name:            "1.20",
 		Channel:         "stable",
@@ -165,7 +195,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveSettings(context.Background(), domain.Settings{AutomaticSafetySnapshots: true}); err != nil {
+	if err := store.SaveSettings(context.Background(), settingscore.Settings{AutomaticSafetySnapshots: true}); err != nil {
 		t.Fatal(err)
 	}
 	return lkgFixture{

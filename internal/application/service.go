@@ -19,23 +19,25 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
-	"github.com/waxlight/waxlight-launcher/internal/language"
+	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 type Service struct {
 	store              Store
 	accounts           *accounts.Service
 	clientSettings     ClientSettingsPatcher
-	installer          ArchiveInstaller
-	versionCatalog     GameVersionCatalog
 	serverCatalog      PublicServerCatalog
-	downloader         Downloader
-	packageInstaller   GamePackageInstaller
+	downloader         downloads.Downloader
 	diskSpace          DiskSpaceChecker
+	versions           VersionCapabilities
 	modFiles           ModFileManager
 	modCatalog         ModCatalog
 	modDownloads       DownloadedModStore
@@ -47,20 +49,23 @@ type Service struct {
 	runningMu          sync.Mutex
 	launchMu           sync.Mutex
 	modsMu             sync.Mutex
-	versionInstallMu   sync.Mutex
-	operationsMu       sync.Mutex
 	snapshotMu         sync.Mutex
 	snapshotBusy       map[string]string
-	relocatingMu       sync.Mutex
-	relocating         bool
-	operationCancels   map[string]context.CancelFunc
-	operationDone      map[string]<-chan error
-	versionOperations  map[string]string
+	mutationGate       *mutations.Gate
+	settings           *settingscore.Reader
+	operations         *operations.Manager
+	modTasksMu         sync.Mutex
+	modTaskCancels     map[string]context.CancelFunc
 	activeModDownloads map[string]string
-	operationWG        sync.WaitGroup
-	shutdownCtx        context.Context
-	shutdownCancel     context.CancelFunc
 	running            map[string]runningGame
+}
+
+type VersionCapabilities interface {
+	Get(context.Context, string) (versions.GameVersion, error)
+	List(context.Context) ([]versions.GameVersion, error)
+	ListAvailable(context.Context) ([]versions.AvailableGameVersion, error)
+	ResolveExecutable(context.Context, string) (versions.GameVersion, error)
+	InstallCatalogAndWait(context.Context, string) (versions.GameVersion, error)
 }
 
 type runningGame struct {
@@ -73,25 +78,30 @@ type runningGame struct {
 
 func NewService(
 	store Store,
-	installer ArchiveInstaller,
 	modFiles ModFileManager,
 	launcher ProcessLauncher,
 	dataRoot string,
+	operationManager *operations.Manager,
+	versionService VersionCapabilities,
+	downloader downloads.Downloader,
+	diskSpace DiskSpaceChecker,
+	mutationGate *mutations.Gate,
+	settingsReader *settingscore.Reader,
 ) *Service {
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	return &Service{
 		store:              store,
-		installer:          installer,
 		modFiles:           modFiles,
 		launcher:           launcher,
 		dataRoot:           dataRoot,
 		snapshots:          snapshotstore.New(dataRoot),
-		operationCancels:   make(map[string]context.CancelFunc),
-		operationDone:      make(map[string]<-chan error),
-		versionOperations:  make(map[string]string),
+		operations:         operationManager,
+		versions:           versionService,
+		downloader:         downloader,
+		diskSpace:          diskSpace,
+		mutationGate:       mutationGate,
+		settings:           settingsReader,
+		modTaskCancels:     make(map[string]context.CancelFunc),
 		activeModDownloads: make(map[string]string),
-		shutdownCtx:        shutdownCtx,
-		shutdownCancel:     shutdownCancel,
 		running:            make(map[string]runningGame),
 		snapshotBusy:       make(map[string]string),
 	}
@@ -106,24 +116,9 @@ func (s *Service) ConfigureMods(
 	slog.Info("mod subsystem configured")
 }
 
-func (s *Service) ConfigureVersionDownloads(
-	catalog GameVersionCatalog,
-	downloader Downloader,
-	installer GamePackageInstaller,
-) {
-	s.versionCatalog = catalog
-	s.downloader = downloader
-	s.packageInstaller = installer
-	slog.Info("version download subsystem configured")
-}
-
 func (s *Service) ConfigurePublicServerCatalog(catalog PublicServerCatalog) {
 	s.serverCatalog = catalog
 	slog.Info("public server catalog configured")
-}
-
-func (s *Service) ConfigureDiskSpaceChecker(checker DiskSpaceChecker) {
-	s.diskSpace = checker
 }
 
 func (s *Service) SetEventPublisher(publisher events.Publisher) {
@@ -153,41 +148,20 @@ func (s *Service) reportError(ctx context.Context, code, component, operation st
 	}
 }
 
-// SetDataFolderRelocating marks whether a data folder relocation is running.
-// While relocating, disk-writing operations are rejected so the file copy stays
-// consistent.
-func (s *Service) SetDataFolderRelocating(relocating bool) {
-	s.relocatingMu.Lock()
-	s.relocating = relocating
-	s.relocatingMu.Unlock()
-}
-
-// DataFolderBusy reports whether a data folder relocation is in progress.
-func (s *Service) DataFolderBusy() bool {
-	s.relocatingMu.Lock()
-	defer s.relocatingMu.Unlock()
-	return s.relocating
-}
-
-// CanRelocateDataFolder rejects a data folder move while a game is running or a
-// long-running operation is still in progress, so the file copy stays
-// consistent.
-func (s *Service) CanRelocateDataFolder() error {
-	if s.DataFolderBusy() {
-		return domain.NewError(domain.ErrDataFolderBusy, "The data folder is already being moved")
-	}
+// CheckDataRootRelocation rejects a move while a game or operation is running.
+func (s *Service) CheckDataRootRelocation(ctx context.Context) error {
 	s.runningMu.Lock()
 	gameRunning := len(s.running) > 0
 	s.runningMu.Unlock()
 	if gameRunning {
 		return domain.NewError(domain.ErrInstanceRunning, "Stop the game before moving the data folder")
 	}
-	operations, err := s.store.ListOperations(context.Background(), 1000)
+	tracked, err := s.operations.ListLimit(ctx, 1000)
 	if err != nil {
 		return err
 	}
-	for _, operation := range operations {
-		if operation.Status == "running" {
+	for _, operation := range tracked {
+		if operation.Status == operations.StatusRunning || operation.Status == operations.StatusQueued {
 			return domain.NewError(
 				domain.ErrDataFolderBusy,
 				"Wait for running operations to finish before moving the data folder",
@@ -197,17 +171,11 @@ func (s *Service) CanRelocateDataFolder() error {
 	return nil
 }
 
-// rejectIfRelocating prevents disk operations while the data folder is moving.
-func (s *Service) rejectIfRelocating() error {
-	s.relocatingMu.Lock()
-	defer s.relocatingMu.Unlock()
-	if s.relocating {
-		return domain.NewError(
-			domain.ErrDataFolderBusy,
-			"The data folder is being moved; wait for the relocation to finish",
-		)
+func (s *Service) beginMutation() (func(), error) {
+	if err := s.mutationGate.Begin(); err != nil {
+		return nil, err
 	}
-	return nil
+	return s.mutationGate.End, nil
 }
 
 func (s *Service) ConfigureAuthentication(
@@ -223,6 +191,11 @@ func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
 	if s.clientSettings == nil {
 		return nil
 	}
+	release, err := s.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	instances, err := s.store.ListInstances(ctx)
 	if err != nil {
 		return err
@@ -242,6 +215,11 @@ func (s *Service) ClearAccountFromInstances(ctx context.Context, accountID strin
 	if s.clientSettings == nil {
 		return nil
 	}
+	release, err := s.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	instances, err := s.store.ListInstances(ctx)
 	if err != nil {
 		return err
@@ -267,13 +245,11 @@ func (s *Service) emit(name string, payload any) {
 	}
 }
 func (s *Service) Close() error {
-	s.shutdownCancel()
 	// A game still running past the startup window when the launcher shuts
 	// down is evidence its configuration works; record it before the database
 	// closes. waitForGame never observes this exit because the launcher is
 	// already gone.
 	s.recordEstablishedLaunches()
-	s.operationWG.Wait()
 	return s.store.Close()
 }
 
@@ -295,246 +271,9 @@ func cleanName(v string) (string, error) {
 	return v, nil
 }
 
-func (s *Service) ListVersions(ctx context.Context) ([]domain.GameVersion, error) {
-	versions, err := s.store.ListVersions(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for index := range versions {
-		repairedVersion, repairErr := s.ensureVersionExecutable(
-			ctx,
-			versions[index],
-		)
-		if repairErr == nil {
-			versions[index] = repairedVersion
-		}
-	}
-
-	return versions, nil
-}
-
-func (s *Service) ensureVersionExecutable(
-	ctx context.Context,
-	version domain.GameVersion,
-) (domain.GameVersion, error) {
-	info, err := os.Stat(version.ExecutablePath)
-	if err == nil && !info.IsDir() {
-		return version, nil
-	}
-
-	executablePath, err := s.installer.FindExecutable(
-		version.InstallationDir,
-		"",
-	)
-	if err != nil {
-		return version, err
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(executablePath, 0o755); err != nil {
-			return version, err
-		}
-	}
-
-	version.ExecutablePath = executablePath
-	version.Status = "installed"
-	now := time.Now().UTC()
-	version.VerifiedAt = &now
-	if err := s.store.UpdateVersion(ctx, version); err != nil {
-		return version, err
-	}
-
-	return version, nil
-}
-
-func (s *Service) InstallVersion(
-	ctx context.Context,
-	id string,
-	name string,
-	sourcePath string,
-	executableRelativePath string,
-	checksum string,
-) (domain.Operation, error) {
-	if err := s.rejectIfRelocating(); err != nil {
-		return domain.Operation{}, err
-	}
-	s.versionInstallMu.Lock()
-	defer s.versionInstallMu.Unlock()
-
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return domain.Operation{}, domain.NewError(domain.ErrValidation, "Enter a version ID")
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = id
-	}
-	if sourcePath == "" {
-		return domain.Operation{}, domain.NewError(domain.ErrValidation, "Select a game archive or directory")
-	}
-	if _, existingErr := s.store.GetVersion(ctx, id); existingErr == nil {
-		return domain.Operation{}, domain.NewError(domain.ErrVersionExists, "This game version is already installed")
-	} else {
-		var appErr *domain.AppError
-		if !errors.As(existingErr, &appErr) || appErr.Code != domain.ErrVersionNotFound {
-			return domain.Operation{}, existingErr
-		}
-	}
-
-	now := time.Now().UTC()
-	resource := id
-	operation := domain.Operation{
-		ID:         newID(),
-		Type:       "game_version_install",
-		ResourceID: &resource,
-		Title:      "Installing Vintage Story " + name,
-		TitleKey:   operationTitleInstallingGameVersion,
-		TitleParams: titleParams(
-			"name", name,
-		),
-		Status:    "running",
-		Progress:  0.05,
-		CreatedAt: now,
-		StartedAt: &now,
-	}
-	if err := s.store.SaveOperation(ctx, operation); err != nil {
-		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
-	}
-	s.emit("operation:created", operation)
-
-	target := filepath.Join(s.dataRoot, "versions", safeSegment(id))
-	lastSaved := time.Now()
-	executable, size, e := s.installer.Install(
-		ctx,
-		sourcePath,
-		target,
-		executableRelativePath,
-		checksum,
-		func(copied, total int64) {
-			if total > 0 {
-				operation.Progress = 0.05 + 0.85*float64(copied)/float64(total)
-			}
-			operation.CurrentBytes = copied
-			operation.TotalBytes = total
-			operation.BytesPerSecond = 0
-			s.emit("operation:progress", operation)
-			if time.Since(lastSaved) >= snapshotProgressInterval {
-				lastSaved = time.Now()
-				s.persistOperation(operation)
-			}
-		},
-	)
-	finished := time.Now().UTC()
-	operation.FinishedAt = &finished
-	if e != nil {
-		operation.Status = "failed"
-		code := domain.ErrArchiveInvalid
-		if strings.Contains(strings.ToLower(e.Error()), "checksum") {
-			code = domain.ErrChecksumMismatch
-		}
-		operation.ErrorCode = &code
-		message := e.Error()
-		operation.ErrorMessage = &message
-		if err := s.store.SaveOperation(context.Background(), operation); err != nil {
-			slog.Warn("could not persist the failed operation", "operationId", operation.ID, "error", err)
-		}
-		s.emit("operation:failed", operation)
-		return operation, &domain.AppError{
-			Code:    code,
-			Message: "Failed to install the game version",
-			Cause:   e,
-		}
-	}
-
-	version := domain.GameVersion{
-		ID:              id,
-		Name:            name,
-		Channel:         "unknown",
-		Platform:        runtime.GOOS,
-		Architecture:    runtime.GOARCH,
-		InstallationDir: target,
-		ExecutablePath:  executable,
-		Status:          "installed",
-		InstalledAt:     finished,
-		VerifiedAt:      &finished,
-		SizeBytes:       size,
-	}
-	if e = os.WriteFile(filepath.Join(target, ".waxlight-version"), []byte(id), 0o600); e != nil {
-		return operation, e
-	}
-	if e = s.store.SaveVersion(ctx, version); e != nil {
-		return operation, e
-	}
-
-	operation.Status = "completed"
-	operation.Progress = 1
-	operation.TotalBytes = size
-	operation.CurrentBytes = size
-	if err := s.store.SaveOperation(ctx, operation); err != nil {
-		slog.Warn("could not persist the completed operation", "operationId", operation.ID, "error", err)
-	}
-	s.emit("operation:completed", operation)
-	return operation, nil
-}
-
-func safeSegment(v string) string {
-	var b strings.Builder
-	for _, r := range v {
-		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '-' || r == '_' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
-	if b.Len() == 0 {
-		return "version"
-	}
-	return b.String()
-}
-func (s *Service) DeleteVersion(ctx context.Context, id string, deleteFiles bool) error {
-	if err := s.rejectIfRelocating(); err != nil {
-		return err
-	}
-	v, e := s.store.GetVersion(ctx, id)
-	if e != nil {
-		return e
-	}
-	slog.Info("removing game version", "version", v.Name)
-	instances, e := s.store.ListInstances(ctx)
-	if e != nil {
-		return e
-	}
-	for _, i := range instances {
-		if i.GameVersionID == id {
-			return domain.NewError(domain.ErrValidation, "The version is used by instance \""+i.Name+"\"")
-		}
-	}
-	if deleteFiles {
-		if e = safeRemoveAll(v.InstallationDir, s.dataRoot, ".waxlight-version"); e != nil {
-			var appError *domain.AppError
-			if errors.As(e, &appError) {
-				return e
-			}
-			return &domain.AppError{
-				Code:    domain.ErrFilePermission,
-				Message: "Could not remove the game version files. Close the game and try again",
-				Cause:   e,
-			}
-		}
-	}
-	if e = s.store.DeleteVersion(ctx, id); e != nil {
-		return e
-	}
-	versionsRoot := filepath.Join(s.dataRoot, "versions")
-	if deleteFiles && samePath(filepath.Dir(v.InstallationDir), versionsRoot) {
-		// Keep shared roots while they contain other versions, but do not leave
-		// an empty `versions` directory after the final version is removed.
-		if err := os.Remove(versionsRoot); err != nil {
-			slog.Debug("could not remove the empty versions root", "error", err)
-		}
-	}
-	s.emit("version:removed", map[string]string{"id": id})
-	return nil
+func isAppErrorCode(err error, code string) bool {
+	var appError *domain.AppError
+	return errors.As(err, &appError) && appError.Code == code
 }
 
 type CreateInstanceInput struct {
@@ -547,9 +286,11 @@ type CreateInstanceInput struct {
 }
 
 func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (domain.Instance, error) {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return domain.Instance{}, err
 	}
+	defer release()
 	var e error
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
@@ -560,7 +301,7 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 		return domain.Instance{}, e
 	}
 	slog.Info("creating instance", "name", name, "version", in.GameVersionID)
-	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
+	if _, e = s.versions.Get(ctx, in.GameVersionID); e != nil {
 		return domain.Instance{}, e
 	}
 	if in.DefaultAccountID != nil {
@@ -622,7 +363,7 @@ func (s *Service) CreateInstance(ctx context.Context, in CreateInstanceInput) (d
 // defaultInstanceName produces a localized name for an unnamed instance and
 // appends an incrementing suffix until it collides with nothing.
 func (s *Service) defaultInstanceName(ctx context.Context) (string, error) {
-	settings, err := s.store.GetSettings(ctx)
+	settings, err := s.settings.Get(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -697,6 +438,11 @@ func (s *Service) ListPublicServers(ctx context.Context) ([]domain.PublicServer,
 }
 
 func (s *Service) SaveFavoriteServer(ctx context.Context, input SaveFavoriteServerInput) (domain.FavoriteServer, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return domain.FavoriteServer{}, err
+	}
+	defer release()
 	name := strings.TrimSpace(input.Name)
 	address := strings.TrimSpace(input.Address)
 	if name == "" || len(name) > 100 || len(address) > 255 || strings.ContainsAny(address, "\r\n\t ") {
@@ -725,6 +471,11 @@ func (s *Service) SaveFavoriteServer(ctx context.Context, input SaveFavoriteServ
 }
 
 func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
+	release, err := s.beginMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := s.store.DeleteFavoriteServer(ctx, id); err != nil {
 		return err
 	}
@@ -732,6 +483,11 @@ func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
 	return nil
 }
 func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domain.Instance, error) {
+	mutationRelease, mutationErr := s.beginMutation()
+	if mutationErr != nil {
+		return in, mutationErr
+	}
+	defer mutationRelease()
 	old, e := s.store.GetInstance(ctx, in.ID)
 	if e != nil {
 		return in, e
@@ -740,7 +496,7 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 	if e != nil {
 		return in, e
 	}
-	if _, e = s.store.GetVersion(ctx, in.GameVersionID); e != nil {
+	if _, e = s.versions.Get(ctx, in.GameVersionID); e != nil {
 		return in, e
 	}
 	if old.GameVersionID != in.GameVersionID {
@@ -750,7 +506,7 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 		}
 		defer release()
 		toVersion := in.GameVersionID
-		if version, versionErr := s.store.GetVersion(ctx, in.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
+		if version, versionErr := s.versions.Get(ctx, in.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
 			toVersion = version.Name
 		}
 		if _, err := s.createSafetySnapshot(ctx, in.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
@@ -777,9 +533,11 @@ func (s *Service) UpdateInstance(ctx context.Context, in domain.Instance) (domai
 	return in, e
 }
 func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles bool) error {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return err
 	}
+	defer release()
 	s.runningMu.Lock()
 	_, running := s.running[id]
 	s.runningMu.Unlock()
@@ -891,6 +649,11 @@ func removeAllReliably(path string) error {
 }
 
 func (s *Service) ListMods(ctx context.Context, instanceID string) ([]domain.InstalledMod, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	s.modsMu.Lock()
 	defer s.modsMu.Unlock()
 
@@ -980,36 +743,38 @@ func findDiscoveredMod(
 	}
 	return -1
 }
-func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, name, version string) (domain.Operation, error) {
-	if err := s.rejectIfRelocating(); err != nil {
-		return domain.Operation{}, err
+func (s *Service) InstallModFile(ctx context.Context, instanceID, sourcePath, name, version string) (operations.Operation, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return operations.Operation{}, err
 	}
+	defer release()
 	i, e := s.store.GetInstance(ctx, instanceID)
 	if e != nil {
-		return domain.Operation{}, e
+		return operations.Operation{}, e
 	}
 	return s.installModFile(ctx, i, sourcePath, name, version)
 }
 
-func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourcePath, name, version string) (domain.Operation, error) {
+func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourcePath, name, version string) (operations.Operation, error) {
 	slog.Info("installing mod file", "instance", i.Name, "mod", name)
 	if sourcePath == "" {
-		return domain.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
+		return operations.Operation{}, domain.NewError(domain.ErrValidation, "Select a mod file")
 	}
 	now := time.Now().UTC()
 	resource := i.ID
-	operation := domain.Operation{
+	operation := operations.Operation{
 		ID:         newID(),
 		Type:       "mod_install",
 		ResourceID: &resource,
 		Title:      "Installing mod",
 		TitleKey:   operationTitleInstallingMod,
-		Status:     "running",
+		Status:     operations.StatusRunning,
 		Progress:   0.1,
 		CreatedAt:  now,
 		StartedAt:  &now,
 	}
-	if err := s.store.SaveOperation(ctx, operation); err != nil {
+	if err := s.operations.Save(ctx, operation, ""); err != nil {
 		slog.Warn("could not persist the created operation", "operationId", operation.ID, "error", err)
 	}
 
@@ -1017,14 +782,12 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 	finished := time.Now().UTC()
 	operation.FinishedAt = &finished
 	if e != nil {
-		operation.Status = "failed"
+		operation.Status = operations.StatusFailed
 		msg := e.Error()
 		code := "MOD_INSTALL_FAILED"
 		operation.ErrorCode = &code
 		operation.ErrorMessage = &msg
-		if err := s.store.SaveOperation(ctx, operation); err != nil {
-			slog.Warn("could not persist the failed operation", "operationId", operation.ID, "error", err)
-		}
+		s.operations.SaveBestEffort(operation, "")
 		return operation, e
 	}
 	if name == "" {
@@ -1052,13 +815,11 @@ func (s *Service) installModFile(ctx context.Context, i domain.Instance, sourceP
 	}
 	s.bindInstalledModToExistingCache(ctx, mod)
 
-	operation.Status = "completed"
+	operation.Status = operations.StatusCompleted
 	operation.Progress = 1
 	operation.CurrentBytes = size
 	operation.TotalBytes = size
-	if err := s.store.SaveOperation(ctx, operation); err != nil {
-		slog.Warn("could not persist the completed operation", "operationId", operation.ID, "error", err)
-	}
+	s.operations.SaveBestEffort(operation, "")
 	s.emit("mod:installed", mod)
 	return operation, nil
 }
@@ -1076,9 +837,11 @@ type ModFileFailure struct {
 
 func (s *Service) InstallModFiles(ctx context.Context, instanceID string, sourcePaths []string) (InstallModFilesResult, error) {
 	result := InstallModFilesResult{}
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return result, err
 	}
+	defer release()
 	if len(sourcePaths) == 0 {
 		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
 	}
@@ -1107,9 +870,11 @@ func (s *Service) InstallModFiles(ctx context.Context, instanceID string, source
 	return result, nil
 }
 func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (domain.InstalledMod, error) {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return domain.InstalledMod{}, err
 	}
+	defer release()
 	m, e := s.store.GetMod(ctx, id)
 	if e != nil {
 		return m, e
@@ -1136,9 +901,11 @@ func (s *Service) SetModEnabled(ctx context.Context, id string, enabled bool) (d
 	return m, e
 }
 func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies bool) error {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return err
 	}
+	defer release()
 	m, e := s.store.GetMod(ctx, id)
 	if e != nil {
 		return e
@@ -1150,11 +917,11 @@ func (s *Service) DeleteMod(ctx context.Context, id string, deleteDependencies b
 			return e
 		}
 	}
-	release, err := s.lockInstanceMutations(m.InstanceID)
+	instanceRelease, err := s.lockInstanceMutations(m.InstanceID)
 	if err != nil {
 		return err
 	}
-	defer release()
+	defer instanceRelease()
 	if _, err := s.createSafetySnapshot(ctx, m.InstanceID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
 		"affectedMods": strconv.Itoa(len(toDelete)),
 	}); err != nil {
@@ -1177,9 +944,11 @@ func (s *Service) RemoveMods(
 	modIDs []string,
 	deleteDependencies bool,
 ) error {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return err
 	}
+	defer release()
 	if len(modIDs) == 0 {
 		return domain.NewError(domain.ErrValidation, "Select at least one mod to remove")
 	}
@@ -1219,11 +988,11 @@ func (s *Service) RemoveMods(
 		return nil
 	}
 
-	release, err := s.lockInstanceMutations(instance.ID)
+	instanceRelease, err := s.lockInstanceMutations(instance.ID)
 	if err != nil {
 		return err
 	}
-	defer release()
+	defer instanceRelease()
 	if _, err := s.createSafetySnapshot(ctx, instance.ID, domain.SnapshotReasonBeforeModRemoval, map[string]string{
 		"affectedMods": strconv.Itoa(len(toDelete)),
 	}); err != nil {
@@ -1363,22 +1132,17 @@ func (s *Service) ValidateLaunch(
 		return validation, err
 	}
 
-	version, err := s.store.GetVersion(ctx, instance.GameVersionID)
+	version, err := s.versions.ResolveExecutable(ctx, instance.GameVersionID)
 	if err != nil {
 		validation.Valid = false
+		issue := "The Vintagestory executable could not be found"
+		var appError *domain.AppError
+		if errors.As(err, &appError) && appError.Code == domain.ErrVersionNotFound {
+			issue = "The selected game version is not installed"
+		}
 		validation.Issues = append(
 			validation.Issues,
-			"The selected game version is not installed",
-		)
-		return validation, nil
-	}
-
-	version, repairErr := s.ensureVersionExecutable(ctx, version)
-	if repairErr != nil {
-		validation.Valid = false
-		validation.Issues = append(
-			validation.Issues,
-			"The Vintagestory executable could not be found",
+			issue,
 		)
 		return validation, nil
 	}
@@ -1451,9 +1215,16 @@ func (s *Service) launch(
 	accountID *string,
 	serverAddress string,
 ) (domain.PlaySession, error) {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return domain.PlaySession{}, err
 	}
+	releaseOnReturn := true
+	defer func() {
+		if releaseOnReturn {
+			release()
+		}
+	}()
 	s.launchMu.Lock()
 	defer s.launchMu.Unlock()
 	if err := s.ensureNoSnapshotOperation(instanceID); err != nil {
@@ -1474,19 +1245,11 @@ func (s *Service) launch(
 	if err != nil {
 		return domain.PlaySession{}, err
 	}
-	version, err := s.store.GetVersion(ctx, instance.GameVersionID)
+	version, err := s.versions.ResolveExecutable(ctx, instance.GameVersionID)
 	if err != nil {
 		return domain.PlaySession{}, err
 	}
 	slog.Info("launching instance", "instance", instance.Name, "version", version.Name)
-	version, err = s.ensureVersionExecutable(ctx, version)
-	if err != nil {
-		return domain.PlaySession{}, domain.NewError(
-			domain.ErrValidation,
-			"The Vintagestory executable could not be found",
-		)
-	}
-
 	accountID, err = s.resolveAccountID(ctx, instance, accountID)
 	if err != nil {
 		return domain.PlaySession{}, err
@@ -1531,7 +1294,7 @@ func (s *Service) launch(
 		return domain.PlaySession{}, err
 	}
 
-	settings, err := s.store.GetSettings(ctx)
+	settings, err := s.settings.Get(ctx)
 	if err != nil {
 		s.clearInjectedCredentials(cleanupCredentials, instance)
 		return domain.PlaySession{}, err
@@ -1643,8 +1406,11 @@ func (s *Service) launch(
 	// goroutines below read only this captured value (the package variable is
 	// mutable in tests).
 	startupWindow := gameStartupWindow
-	go s.markLaunchEstablished(instance, session.ID, startupWindow)
-	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath), startupWindow)
+	s.operations.Go(func(ctx context.Context) {
+		s.markLaunchEstablished(ctx, instance, session.ID, startupWindow)
+	})
+	releaseOnReturn = false
+	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath), startupWindow, release)
 	return session, nil
 }
 
@@ -1748,7 +1514,9 @@ func (s *Service) waitForGame(
 	cleanupCredentials func() error,
 	stopGameLog func(),
 	startupWindow time.Duration,
+	releaseMutation func(),
 ) {
+	defer releaseMutation()
 	exitCode, waitErr := process.Wait()
 	// Let the tailer pick up the lines the process flushed right before
 	// exiting, then stop it before the log file is closed.
@@ -1879,94 +1647,4 @@ func (s *Service) GetInstancePlaytime(ctx context.Context, instanceID string) (i
 		total += session.DurationSec
 	}
 	return total, nil
-}
-func (s *Service) ListOperations(ctx context.Context) ([]domain.Operation, error) {
-	return s.store.ListOperations(ctx, 100)
-}
-func (s *Service) DeleteFinishedOperation(ctx context.Context, operationID string) error {
-	operationID = strings.TrimSpace(operationID)
-	if operationID == "" {
-		return domain.NewError(domain.ErrValidation, "Select an operation to delete")
-	}
-	return s.store.DeleteFinishedOperation(ctx, operationID)
-}
-func (s *Service) ClearFinishedOperations(ctx context.Context) (int64, error) {
-	return s.store.ClearFinishedOperations(ctx)
-}
-
-func normalizeLanguage(lang string) string {
-	return language.NormalizeLanguage(lang)
-}
-
-func (s *Service) GetSettingValue(ctx context.Context, key string) (string, error) {
-	return s.store.GetSettingValue(ctx, key)
-}
-
-func (s *Service) SetSettingValue(ctx context.Context, key, value string) error {
-	return s.store.SetSettingValue(ctx, key, value)
-}
-
-func (s *Service) GetSettings(ctx context.Context) (domain.Settings, error) {
-	settings, err := s.store.GetSettings(ctx)
-	if err != nil {
-		return settings, err
-	}
-
-	normalizedLanguage := normalizeLanguage(settings.Language)
-	normalizedChannel, channelErr := normalizeUpdateChannel(settings.UpdateChannel)
-	if channelErr != nil {
-		normalizedChannel = "stable"
-	}
-	if settings.Language != normalizedLanguage || settings.UpdateChannel != normalizedChannel {
-		settings.Language = normalizedLanguage
-		settings.UpdateChannel = normalizedChannel
-		if err := s.store.SaveSettings(ctx, settings); err != nil {
-			return settings, err
-		}
-	}
-
-	return settings, nil
-}
-func (s *Service) SaveSettings(ctx context.Context, v domain.Settings) (domain.Settings, error) {
-	if v.DownloadsParallel < 1 || v.DownloadsParallel > 10 {
-		return v, domain.NewError(domain.ErrValidation, "Parallel downloads must be between 1 and 10")
-	}
-	v.Language = normalizeLanguage(v.Language)
-	channel, err := normalizeUpdateChannel(v.UpdateChannel)
-	if err != nil {
-		return v, err
-	}
-	v.UpdateChannel = channel
-	v.SkippedUpdateVersion = strings.TrimSpace(v.SkippedUpdateVersion)
-	if len(v.SkippedUpdateVersion) > 64 {
-		return v, domain.NewError(domain.ErrValidation, "Skipped update version is too long")
-	}
-	previous, getErr := s.store.GetSettings(ctx)
-	if getErr != nil {
-		// Keep saving even if the previous settings could not be read; the
-		// transition check simply falls back to a fresh comparison.
-		previous = domain.Settings{}
-	}
-	saveSettings := func() error { return s.store.SaveSettings(ctx, v) }
-	if s.telemetry != nil {
-		err = s.telemetry.SynchronizeConsent(saveSettings)
-	} else {
-		err = saveSettings()
-	}
-	if err != nil {
-		return v, err
-	}
-	slog.Info("settings saved", "language", v.Language, "updateChannel", v.UpdateChannel)
-	if v.TelemetryEnabled && !previous.TelemetryEnabled {
-		// Telemetry was just enabled: the installation becomes eligible for a
-		// heartbeat. No historical events are reconstructed.
-		s.telemetryHeartbeat()
-	}
-	return v, nil
-}
-
-func (s *Service) telemetryHeartbeat() {
-	if s.telemetry != nil {
-		s.telemetry.MaybeSendHeartbeat()
-	}
 }

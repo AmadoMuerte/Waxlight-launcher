@@ -7,39 +7,37 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
-func (s *SQLiteStore) GetSettings(ctx context.Context) (domain.Settings, error) {
-	settings := domain.Settings{Language: "en", DownloadsParallel: 3, ConfirmDeletion: true,
-		GlobalLaunchArguments: []string{}, CheckForUpdates: true, UpdateChannel: "stable",
-		TelemetryEnabled: false, AutomaticSafetySnapshots: true}
+func (s *SQLiteStore) GetSettings(ctx context.Context) (settings.Settings, error) {
+	value := settings.Defaults()
 	rows, err := s.db.QueryContext(ctx, `SELECT key,value FROM app_settings`)
 	if err != nil {
-		return settings, err
+		return value, err
 	}
 	defer rows.Close()
 	values := map[string]string{}
 	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			return settings, err
+		var key, raw string
+		if err := rows.Scan(&key, &raw); err != nil {
+			return value, err
 		}
-		values[key] = value
+		values[key] = raw
 	}
-	if value := values["settings"]; value != "" {
-		if err := json.Unmarshal([]byte(value), &settings); err != nil {
-			return settings, fmt.Errorf("decode settings: %w", err)
+	if raw := values["settings"]; raw != "" {
+		if err := json.Unmarshal([]byte(raw), &value); err != nil {
+			return value, fmt.Errorf("decode settings: %w", err)
 		}
 	}
-	if settings.GlobalLaunchArguments == nil {
-		settings.GlobalLaunchArguments = []string{}
+	if value.GlobalLaunchArguments == nil {
+		value.GlobalLaunchArguments = []string{}
 	}
-	return settings, rows.Err()
+	return value, rows.Err()
 }
 
-func (s *SQLiteStore) SaveSettings(ctx context.Context, settings domain.Settings) error {
-	encoded, err := json.Marshal(settings)
+func (s *SQLiteStore) SaveSettings(ctx context.Context, value settings.Settings) error {
+	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}

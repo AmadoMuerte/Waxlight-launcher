@@ -12,6 +12,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
@@ -94,14 +95,16 @@ func newTelemetryFixture(t *testing.T) (testFixture, *telemetryRecorder) {
 	t.Helper()
 	fixture := newTestFixture(t)
 	recorder := &telemetryRecorder{}
-	fixture.service.ConfigureTelemetry(telemetry.NewService(recorder, fixture.service))
+	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
+	fixture.service.ConfigureTelemetry(telemetryService)
+	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
-	settings, err := fixture.service.GetSettings(context.Background())
+	settings, err := fixture.settings.Get(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings.TelemetryEnabled = true
-	if _, err := fixture.service.SaveSettings(context.Background(), settings); err != nil {
+	if _, err := updates.Update(context.Background(), settings); err != nil {
 		t.Fatal(err)
 	}
 	return fixture, recorder
@@ -137,7 +140,7 @@ func TestTelemetryModEventsAtSuccessBoundaries(t *testing.T) {
 		ID: "7", Version: "2.0.0", GameVersions: []string{"1.20"}, ReleaseType: "stable",
 		FileName: "playercorpse.zip", DownloadURL: "https://cdn.test/playercorpse.zip",
 	}}}
-	fixture.service.ConfigureVersionDownloads(nil, recordingDownloader{}, nil)
+	fixture.setDownloader(recordingDownloader{})
 	fixture.service.ConfigureMods(staticModCatalog{details: details}, modstorage.New(fixture.root))
 	if _, err := fixture.service.DownloadCatalogMod(ctx, domain.DownloadModRequest{
 		ModID: "51", VersionID: "7", DownloadOnly: true,
@@ -212,16 +215,18 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 func TestTelemetryDisabledEmitsNothing(t *testing.T) {
 	fixture := newTestFixture(t)
 	recorder := &telemetryRecorder{}
-	fixture.service.ConfigureTelemetry(telemetry.NewService(recorder, fixture.service))
+	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
+	fixture.service.ConfigureTelemetry(telemetryService)
+	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
 	// Explicitly disable telemetry; the default is enabled, so the opt-out
 	// must be what prevents transmission.
-	settings, err := fixture.service.GetSettings(context.Background())
+	settings, err := fixture.settings.Get(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings.TelemetryEnabled = false
-	if _, err := fixture.service.SaveSettings(context.Background(), settings); err != nil {
+	if _, err := updates.Update(context.Background(), settings); err != nil {
 		t.Fatal(err)
 	}
 

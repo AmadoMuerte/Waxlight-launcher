@@ -83,7 +83,7 @@ func (s *Service) CheckInstanceModUpdates(
 		return ModUpdateReport{}, err
 	}
 	gameVersion := ""
-	if version, versionErr := s.store.GetVersion(ctx, instance.GameVersionID); versionErr == nil {
+	if version, versionErr := s.versions.Get(ctx, instance.GameVersionID); versionErr == nil {
 		gameVersion = version.Name
 		if gameVersion == "" {
 			gameVersion = version.ID

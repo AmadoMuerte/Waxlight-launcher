@@ -21,9 +21,11 @@ func (s *Service) CloneInstance(
 	sourceID string,
 	name string,
 ) (domain.Instance, error) {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return domain.Instance{}, err
 	}
+	defer release()
 	s.runningMu.Lock()
 	_, running := s.running[sourceID]
 	s.runningMu.Unlock()

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/downloads"
 )
 
 type blockingDownloader struct {
@@ -19,8 +19,8 @@ type blockingDownloader struct {
 
 func (downloader *blockingDownloader) Download(
 	context.Context,
-	application.DownloadRequest,
-	chan<- application.DownloadProgress,
+	downloads.Request,
+	chan<- downloads.Progress,
 ) error {
 	active := downloader.active.Add(1)
 	for {
@@ -52,8 +52,8 @@ type ctxAwareDownloader struct {
 
 func (downloader *ctxAwareDownloader) Download(
 	ctx context.Context,
-	_ application.DownloadRequest,
-	_ chan<- application.DownloadProgress,
+	_ downloads.Request,
+	_ chan<- downloads.Progress,
 ) error {
 	active := downloader.active.Add(1)
 	for {
@@ -92,7 +92,7 @@ func TestManagerLimitsConcurrentDownloads(t *testing.T) {
 			defer workers.Done()
 			_ = manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}()
@@ -127,7 +127,7 @@ func TestManagerSetLimitStartsQueuedDownloads(t *testing.T) {
 			defer workers.Done()
 			_ = manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}()
@@ -164,7 +164,7 @@ func TestManagerSetLimitStartsAllQueuedDownloads(t *testing.T) {
 			defer workers.Done()
 			_ = manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}()
@@ -197,7 +197,7 @@ func TestManagerSetLimitPausesRunningDownloads(t *testing.T) {
 			defer workers.Done()
 			_ = manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}()
@@ -237,7 +237,7 @@ func TestManagerPausedDownloadResumesWhenSlotFrees(t *testing.T) {
 			defer workers.Done()
 			_ = manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}()
@@ -273,7 +273,7 @@ func TestManagerPauseKeepsCallersBlockedUntilResume(t *testing.T) {
 		go func(result chan error) {
 			result <- manager.Download(
 				context.Background(),
-				application.DownloadRequest{},
+				downloads.Request{},
 				nil,
 			)
 		}(results[index])

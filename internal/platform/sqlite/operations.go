@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
-func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.Operation, error) {
+func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]operations.Operation, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, type, resource_id, title, status, progress, current_bytes,
 		total_bytes, bytes_per_second, error_code, error_message, created_at, started_at, finished_at,
 		title_key, title_params FROM operations ORDER BY created_at DESC LIMIT ?`, limit)
@@ -17,19 +18,19 @@ func (s *SQLiteStore) ListOperations(ctx context.Context, limit int) ([]domain.O
 		return nil, err
 	}
 	defer rows.Close()
-	var operations []domain.Operation
+	var result []operations.Operation
 	for rows.Next() {
 		operation, err := scanOperation(rows)
 		if err != nil {
 			return nil, err
 		}
-		operations = append(operations, operation)
+		result = append(result, operation)
 	}
-	return operations, rows.Err()
+	return result, rows.Err()
 }
 
-func scanOperation(row scanner) (domain.Operation, error) {
-	var operation domain.Operation
+func scanOperation(row scanner) (operations.Operation, error) {
+	var operation operations.Operation
 	var resource, errorCode, errorMessage, started, finished, titleKey, titleParams sql.NullString
 	var created string
 	err := row.Scan(&operation.ID, &operation.Type, &resource, &operation.Title, &operation.Status, &operation.Progress,
@@ -59,7 +60,7 @@ func scanOperation(row scanner) (domain.Operation, error) {
 	return operation, err
 }
 
-func (s *SQLiteStore) SaveOperation(ctx context.Context, operation domain.Operation) error {
+func (s *SQLiteStore) SaveOperation(ctx context.Context, operation operations.Operation) error {
 	params, err := json.Marshal(operation.TitleParams)
 	if err != nil {
 		return err
@@ -76,6 +77,33 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, operation domain.Operat
 		operation.ErrorCode, operation.ErrorMessage, ts(operation.CreatedAt), optTS(operation.StartedAt),
 		optTS(operation.FinishedAt), nullableString(operation.TitleKey), nullableString(string(params)))
 	return err
+}
+
+func (s *SQLiteStore) ReconcileInterruptedOperations(
+	ctx context.Context,
+	finishedAt time.Time,
+	errorCode string,
+	errorMessage string,
+) (int64, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE operations
+		SET status='failed', error_code=?, error_message=?, finished_at=?, bytes_per_second=0
+		WHERE status IN ('queued', 'running')`, errorCode, errorMessage, ts(finishedAt))
+	if err != nil {
+		return 0, err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (s *SQLiteStore) DeleteFinishedOperation(ctx context.Context, id string) error {

@@ -18,6 +18,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
 const (
@@ -42,7 +43,7 @@ type createSnapshotInput struct {
 func (s *Service) CreateInstanceSnapshot(
 	ctx context.Context,
 	instanceID string,
-) (domain.Operation, error) {
+) (operations.Operation, error) {
 	return s.createInstanceSnapshot(ctx, createSnapshotInput{
 		instanceID:   instanceID,
 		snapshotType: domain.SnapshotTypeManual,
@@ -55,12 +56,14 @@ func (s *Service) CreateInstanceSnapshot(
 func (s *Service) createInstanceSnapshotLocked(
 	ctx context.Context,
 	input createSnapshotInput,
-) (domain.Operation, error) {
-	if err := s.rejectIfRelocating(); err != nil {
-		return domain.Operation{}, err
+) (operations.Operation, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return operations.Operation{}, err
 	}
+	defer release()
 	if err := s.ensureInstanceNotRunning(input.instanceID); err != nil {
-		return domain.Operation{}, err
+		return operations.Operation{}, err
 	}
 	return s.createInstanceSnapshotCore(ctx, input)
 }
@@ -71,12 +74,14 @@ func (s *Service) createInstanceSnapshotLocked(
 func (s *Service) createInstanceSnapshot(
 	ctx context.Context,
 	input createSnapshotInput,
-) (domain.Operation, error) {
-	if err := s.rejectIfRelocating(); err != nil {
-		return domain.Operation{}, err
+) (operations.Operation, error) {
+	release, err := s.beginMutation()
+	if err != nil {
+		return operations.Operation{}, err
 	}
+	defer release()
 	if err := s.ensureInstanceSnapshotSafe(input.instanceID); err != nil {
-		return domain.Operation{}, err
+		return operations.Operation{}, err
 	}
 	return s.createInstanceSnapshotCore(ctx, input)
 }
@@ -91,21 +96,21 @@ func (s *Service) createInstanceSnapshot(
 func (s *Service) createInstanceSnapshotCore(
 	ctx context.Context,
 	input createSnapshotInput,
-) (domain.Operation, error) {
+) (operations.Operation, error) {
 	instance, err := s.store.GetInstance(ctx, input.instanceID)
 	if err != nil {
-		return domain.Operation{}, err
+		return operations.Operation{}, err
 	}
 
 	installedMods, err := s.ListMods(ctx, input.instanceID)
 	if err != nil {
-		return domain.Operation{}, err
+		return operations.Operation{}, err
 	}
 	manifestMods, skipPaths := s.snapshotModManifest(ctx, input.instanceID, installedMods)
 
-	estimated, err := dataroot.TotalSize(instance.Directory)
+	estimated, err := dataroot.TotalSizeContext(ctx, instance.Directory)
 	if err != nil {
-		return domain.Operation{}, &domain.AppError{
+		return operations.Operation{}, &domain.AppError{
 			Code:    domain.ErrFilePermission,
 			Message: "Could not read the instance files",
 			Cause:   err,
@@ -118,19 +123,19 @@ func (s *Service) createInstanceSnapshotCore(
 	}
 	if s.diskSpace != nil {
 		if err := s.ensureSnapshotSpace(estimated); err != nil {
-			return domain.Operation{}, err
+			return operations.Operation{}, err
 		}
 	}
 
 	now := time.Now().UTC()
 	resource := instance.ID
-	operation := domain.Operation{
+	operation := operations.Operation{
 		ID:         newID(),
 		Type:       "snapshot_create",
 		ResourceID: &resource,
 		Title:      "Creating snapshot",
 		TitleKey:   operationTitleCreatingSnapshot,
-		Status:     "running",
+		Status:     operations.StatusRunning,
 		Progress:   0,
 		TotalBytes: estimated,
 		CreatedAt:  now,
@@ -140,10 +145,9 @@ func (s *Service) createInstanceSnapshotCore(
 		operation.Title = "Creating safety backup..."
 		operation.TitleKey = operationTitleCreatingSafetyBackup
 	}
-	if err := s.store.SaveOperation(ctx, operation); err != nil {
+	if err := s.operations.Save(ctx, operation, operations.EventCreated); err != nil {
 		slog.Warn("could not persist the snapshot operation", "operationId", operation.ID, "error", err)
 	}
-	s.emit("operation:created", operation)
 
 	s.snapshotMu.Lock()
 	_, busy := s.snapshotBusy[instance.ID]
@@ -166,7 +170,7 @@ func (s *Service) createInstanceSnapshotCore(
 		}
 	}()
 
-	fail := func(cause error, code string) (domain.Operation, error) {
+	fail := func(cause error, code string) (operations.Operation, error) {
 		if staging != "" {
 			if cleanupErr := os.RemoveAll(staging); cleanupErr != nil {
 				slog.Warn("could not remove the failed snapshot staging directory", "instanceId", instance.ID, "error", cleanupErr)
@@ -233,10 +237,10 @@ func (s *Service) createInstanceSnapshotCore(
 
 	finished := time.Now().UTC()
 	operation.FinishedAt = &finished
-	operation.Status = "completed"
+	operation.Status = operations.StatusCompleted
 	operation.Progress = 1
 	operation.CurrentBytes = stats.sizeBytes
-	s.saveSnapshotOperation(operation, "operation:completed")
+	s.operations.SaveBestEffort(operation, operations.EventCompleted)
 	if input.snapshotType == domain.SnapshotTypeAutomatic {
 		slog.Info("automatic safety snapshot created", "instance", instance.Name, "snapshot", snapshotID, "reason", input.reason, "size", stats.sizeBytes, "mods", len(installedMods))
 	} else {
@@ -322,9 +326,11 @@ func (s *Service) RestoreInstanceSnapshot(
 	instanceID string,
 	snapshotID string,
 ) error {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return err
 	}
+	defer release()
 	instance, err := s.store.GetInstance(ctx, instanceID)
 	if err != nil {
 		return err
@@ -453,7 +459,7 @@ func (s *Service) restoreInstanceSnapshotV2(
 	operation.Title = "Restoring files..."
 	operation.TitleKey = operationTitleRestoringFiles
 	operation.TitleParams = nil
-	s.saveSnapshotOperation(operation, "operation:progress")
+	s.operations.SaveBestEffort(operation, operations.EventProgress)
 	staging, err := prepareRestoreStaging(
 		ctx,
 		instance,
@@ -474,7 +480,7 @@ func (s *Service) restoreInstanceSnapshotV2(
 		operation.Title = "Downloading mods..."
 		operation.TitleKey = operationTitleDownloadingMods
 		operation.TitleParams = nil
-		s.saveSnapshotOperation(operation, "operation:progress")
+		s.operations.SaveBestEffort(operation, operations.EventProgress)
 		var restoreErr error
 		restored, restoreErr = s.restoreSnapshotMods(ctx, staging, manifest.Mods, &operation)
 		if restoreErr != nil {
@@ -502,7 +508,7 @@ func (s *Service) restoreInstanceSnapshotV2(
 	operation.TitleKey = operationTitleFinishingRestore
 	operation.TitleParams = nil
 	operation.Progress = 0.95
-	s.saveSnapshotOperation(operation, "operation:progress")
+	s.operations.SaveBestEffort(operation, operations.EventProgress)
 
 	if err := swapRestoredInstance(ctx, instance, staging, s.dataRoot); err != nil {
 		return fail(err, domain.ErrFilePermission)
@@ -519,25 +525,24 @@ func (s *Service) restoreInstanceSnapshotV2(
 func (s *Service) beginSnapshotRestore(
 	instance domain.Instance,
 	size int64,
-) domain.Operation {
+) operations.Operation {
 	now := time.Now().UTC()
 	resource := instance.ID
-	operation := domain.Operation{
+	operation := operations.Operation{
 		ID:         newID(),
 		Type:       "snapshot_restore",
 		ResourceID: &resource,
 		Title:      "Restoring snapshot",
 		TitleKey:   operationTitleRestoringSnapshot,
-		Status:     "running",
+		Status:     operations.StatusRunning,
 		Progress:   0,
 		TotalBytes: size,
 		CreatedAt:  now,
 		StartedAt:  &now,
 	}
-	if err := s.store.SaveOperation(context.Background(), operation); err != nil {
+	if err := s.operations.Save(context.Background(), operation, operations.EventCreated); err != nil {
 		slog.Warn("could not persist the restore operation", "operationId", operation.ID, "error", err)
 	}
-	s.emit("operation:created", operation)
 	return operation
 }
 
@@ -613,7 +618,7 @@ func swapRestoredInstance(ctx context.Context, instance domain.Instance, staging
 }
 
 // finalizeRestore applies the post-swap hardening and completes the operation.
-func (s *Service) finalizeRestore(instance domain.Instance, operation domain.Operation, size int64) {
+func (s *Service) finalizeRestore(instance domain.Instance, operation operations.Operation, size int64) {
 	if s.clientSettings != nil {
 		if err := s.clientSettings.Clear(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
 			slog.Warn("could not clear authentication from the restored instance", "instance", instance.Name, "error", err)
@@ -624,13 +629,13 @@ func (s *Service) finalizeRestore(instance domain.Instance, operation domain.Ope
 	}
 	finished := time.Now().UTC()
 	operation.FinishedAt = &finished
-	operation.Status = "completed"
+	operation.Status = operations.StatusCompleted
 	operation.Progress = 1
 	operation.CurrentBytes = size
 	operation.Title = "Restoring snapshot"
 	operation.TitleKey = operationTitleRestoringSnapshot
 	operation.TitleParams = nil
-	s.saveSnapshotOperation(operation, "operation:completed")
+	s.operations.SaveBestEffort(operation, operations.EventCompleted)
 	slog.Info("instance restored from snapshot", "instance", instance.Name)
 }
 
@@ -721,7 +726,7 @@ func (s *Service) restoreSnapshotMods(
 	ctx context.Context,
 	staging string,
 	mods []domain.SnapshotMod,
-	operation *domain.Operation,
+	operation *operations.Operation,
 ) ([]restoredSnapshotMod, error) {
 	downloadCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -753,7 +758,7 @@ func (s *Service) restoreSnapshotMods(
 				0.5*float64(done)/float64(len(mods))
 			snapshot := *operation
 			progressMu.Unlock()
-			s.saveSnapshotOperation(snapshot, "operation:progress")
+			s.operations.SaveBestEffort(snapshot, operations.EventProgress)
 			results <- installed
 		}(mods[index])
 	}
@@ -899,9 +904,11 @@ func (s *Service) DeleteInstanceSnapshot(
 	instanceID string,
 	snapshotID string,
 ) error {
-	if err := s.rejectIfRelocating(); err != nil {
+	release, err := s.beginMutation()
+	if err != nil {
 		return err
 	}
+	defer release()
 	instance, err := s.store.GetInstance(ctx, instanceID)
 	if err != nil {
 		return err
@@ -984,7 +991,7 @@ func (s *Service) ensureSnapshotSpace(required int64) error {
 // instanceGameVersionName resolves the display name of the game version an
 // instance runs, falling back to the version ID when it is no longer installed.
 func (s *Service) instanceGameVersionName(ctx context.Context, instance domain.Instance) string {
-	version, err := s.store.GetVersion(ctx, instance.GameVersionID)
+	version, err := s.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
 		return instance.GameVersionID
 	}
@@ -995,26 +1002,19 @@ func (s *Service) instanceGameVersionName(ctx context.Context, instance domain.I
 }
 
 // finishSnapshotOperation marks a failed snapshot operation and persists it.
-func (s *Service) finishSnapshotOperation(operation domain.Operation, cause error, code string) {
+func (s *Service) finishSnapshotOperation(operation operations.Operation, cause error, code string) {
 	finishedAt := time.Now().UTC()
 	operation.FinishedAt = &finishedAt
-	operation.Status = "failed"
+	operation.Status = operations.StatusFailed
 	operation.ErrorCode = &code
 	message := cause.Error()
 	operation.ErrorMessage = &message
-	s.saveSnapshotOperation(operation, "operation:failed")
-}
-
-func (s *Service) saveSnapshotOperation(operation domain.Operation, event string) {
-	if err := s.store.SaveOperation(context.Background(), operation); err != nil {
-		slog.Warn("could not persist the snapshot operation", "operationId", operation.ID, "error", err)
-	}
-	s.emit(event, operation)
+	s.operations.SaveBestEffort(operation, operations.EventFailed)
 }
 
 // operationProgress returns a copy callback that throttles persisted operation
 // progress updates while a snapshot copy runs.
-func operationProgress(service *Service, operation *domain.Operation) func(int64) {
+func operationProgress(service *Service, operation *operations.Operation) func(int64) {
 	return operationScaledProgress(service, operation, func(fraction float64) float64 {
 		return fraction
 	})
@@ -1026,7 +1026,7 @@ func operationProgress(service *Service, operation *domain.Operation) func(int64
 // snapshotProgressInterval so high-frequency updates stay cheap.
 func operationScaledProgress(
 	service *Service,
-	operation *domain.Operation,
+	operation *operations.Operation,
 	scale func(float64) float64,
 ) func(int64) {
 	var copied int64
@@ -1037,12 +1037,12 @@ func operationScaledProgress(
 		if operation.TotalBytes > 0 {
 			operation.Progress = scale(float64(copied) / float64(operation.TotalBytes))
 		}
-		service.emit("operation:progress", *operation)
+		service.operations.Publish(operations.EventProgress, *operation)
 		if time.Since(lastSaved) < snapshotProgressInterval {
 			return
 		}
 		lastSaved = time.Now()
-		service.persistOperation(*operation)
+		service.operations.Persist(*operation)
 	}
 }
 
