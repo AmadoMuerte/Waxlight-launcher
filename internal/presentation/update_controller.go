@@ -8,9 +8,9 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/events"
+	"github.com/waxlight/waxlight-launcher/internal/updates"
 )
 
 type LauncherUpdateDTO struct {
@@ -27,13 +27,13 @@ type LauncherUpdateDTO struct {
 }
 
 type LauncherUpdateController struct {
-	service   *application.LauncherUpdateService
+	service   *updates.Service
 	lifecycle *app.Lifecycle
 	events    events.Publisher
 }
 
 func NewLauncherUpdateController(
-	service *application.LauncherUpdateService,
+	service *updates.Service,
 	lifecycle *app.Lifecycle,
 	eventPublisher events.Publisher,
 ) *LauncherUpdateController {
@@ -51,7 +51,7 @@ func (controller *LauncherUpdateController) CheckUpdates(channel string) (Launch
 
 func (controller *LauncherUpdateController) InstallUpdate(channel string) error {
 	ctx := controller.lifecycle.Context()
-	err := controller.service.Install(ctx, channel, func(progress domain.LauncherUpdateProgress) {
+	err := controller.service.Install(ctx, channel, func(progress updates.Progress) {
 		controller.events.Publish("updates:progress", progress)
 	})
 	if err != nil {
@@ -103,7 +103,7 @@ func validExternalURL(rawURL string) bool {
 	return parsed.Host != ""
 }
 
-func launcherUpdateDTO(update domain.LauncherUpdate) LauncherUpdateDTO {
+func launcherUpdateDTO(update updates.Update) LauncherUpdateDTO {
 	return LauncherUpdateDTO{
 		InstalledVersion: update.InstalledVersion,
 		Version:          update.Version,

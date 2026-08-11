@@ -120,39 +120,33 @@ func TestServiceOwnsFinishAndRecoveryTime(t *testing.T) {
 	}
 }
 
-func TestStatisticsAndInstancePlaytime(t *testing.T) {
+func TestQueriesPassThroughToRepository(t *testing.T) {
 	repository := &recordingRepository{}
-	for index := 0; index < 12; index++ {
-		instanceID := "secondary"
-		if index < 9 {
-			instanceID = "most-played"
-		}
+	for index := 0; index < 3; index++ {
 		repository.playSessions = append(repository.playSessions, PlaySession{
 			ID:          time.Unix(int64(index), 0).String(),
-			InstanceID:  instanceID,
+			InstanceID:  "instance",
 			DurationSec: int64(index + 1),
 		})
 	}
 	service := NewService(repository, time.Now)
 
-	statistics, err := service.GetStatistics(context.Background())
+	totals, err := service.SessionStatistics(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if statistics.TotalPlaytimeSeconds != 78 || statistics.LaunchCount != 12 || statistics.AverageSessionSeconds != 6 {
-		t.Fatalf("unexpected statistics: %+v", statistics)
+	if totals.LaunchCount != 3 || totals.TotalPlaytimeSeconds != 6 {
+		t.Fatalf("unexpected statistics totals: %+v", totals)
 	}
-	if statistics.MostPlayedInstanceID == nil || *statistics.MostPlayedInstanceID != "most-played" {
-		t.Fatalf("unexpected most-played instance: %+v", statistics.MostPlayedInstanceID)
+	recent, err := service.ListSessions(context.Background(), "", 2)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(statistics.RecentSessions) != 10 {
-		t.Fatalf("unexpected recent session count: %d", len(statistics.RecentSessions))
+	if len(recent) != 2 {
+		t.Fatalf("unexpected recent session count: %d", len(recent))
 	}
-	if statistics.RecentSessions[9].DurationSec != 10 {
-		t.Fatalf("statistics did not preserve repository ordering: %+v", statistics.RecentSessions)
-	}
-	playtime, err := service.GetInstancePlaytime(context.Background(), "most-played")
-	if err != nil || playtime != 45 {
+	playtime, err := service.InstancePlaytime(context.Background(), "instance")
+	if err != nil || playtime != 6 {
 		t.Fatalf("unexpected instance playtime: %d, %v", playtime, err)
 	}
 }
@@ -161,26 +155,13 @@ func TestQueriesPropagateRepositoryErrors(t *testing.T) {
 	want := errors.New("sessions unavailable")
 	service := NewService(&recordingRepository{err: want}, time.Now)
 
-	if _, err := service.GetStatistics(context.Background()); !errors.Is(err, want) {
-		t.Fatalf("GetStatistics error = %v, want %v", err, want)
+	if _, err := service.SessionStatistics(context.Background()); !errors.Is(err, want) {
+		t.Fatalf("SessionStatistics error = %v, want %v", err, want)
 	}
-	if _, err := service.GetInstancePlaytime(context.Background(), "instance"); !errors.Is(err, want) {
-		t.Fatalf("GetInstancePlaytime error = %v, want %v", err, want)
+	if _, err := service.ListSessions(context.Background(), "", 10); !errors.Is(err, want) {
+		t.Fatalf("ListSessions error = %v, want %v", err, want)
 	}
-}
-
-func TestStatisticsAreNotLimitedToRecentSessionHistory(t *testing.T) {
-	repository := &recordingRepository{playSessions: make([]PlaySession, 5001)}
-	for index := range repository.playSessions {
-		repository.playSessions[index] = PlaySession{InstanceID: "instance", DurationSec: 1}
-	}
-	service := NewService(repository, time.Now)
-
-	statistics, err := service.GetStatistics(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if statistics.LaunchCount != 5001 || statistics.TotalPlaytimeSeconds != 5001 || len(statistics.RecentSessions) != 10 {
-		t.Fatalf("unexpected large-history statistics: %+v", statistics)
+	if _, err := service.InstancePlaytime(context.Background(), "instance"); !errors.Is(err, want) {
+		t.Fatalf("InstancePlaytime error = %v, want %v", err, want)
 	}
 }

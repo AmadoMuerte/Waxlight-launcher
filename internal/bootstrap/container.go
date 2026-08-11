@@ -45,8 +45,10 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/statistics"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/waxlight/waxlight-launcher/internal/transport/wails"
+	"github.com/waxlight/waxlight-launcher/internal/updates"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -93,7 +95,7 @@ func New() (*Container, error) {
 	logging.SetFileHeader(fileHeader)
 	logging.SetLogDirectory(filepath.Join(dataRoot, "logs"), logging.DefaultMaxLogFiles)
 
-	if err := application.PurgeStaleUpdateSessions(dataRoot); err != nil {
+	if err := updates.PurgeStaleUpdateSessions(dataRoot); err != nil {
 		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
 	}
 
@@ -118,6 +120,7 @@ func New() (*Container, error) {
 	if err := sessionService.RecoverOpen(context.Background()); err != nil {
 		slog.Warn("bootstrap: could not recover interrupted game sessions", "error", err)
 	}
+	statisticsService := statistics.NewService(sessionService)
 	lifecycle := app.NewLifecycle()
 	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
 	operationManager := operations.NewManager(store, lifecycle, eventPublisher)
@@ -153,6 +156,7 @@ func New() (*Container, error) {
 		settingsReader,
 		store,
 		store,
+		lifecycle,
 	)
 	instanceCreator := instances.NewCreateService(
 		store,
@@ -310,7 +314,7 @@ func New() (*Container, error) {
 		&downloader.HTTPDownloader{Client: updateHTTPClient},
 		1,
 	)
-	updateService := application.NewLauncherUpdateService(
+	updateService := updates.NewService(
 		updater.NewSource(updateHTTPClient),
 		updateDownloader,
 		updater.NewInstaller(),
@@ -318,8 +322,8 @@ func New() (*Container, error) {
 		mutationGate,
 		dataRoot,
 		version.Version(),
+		telemetryService,
 	)
-	updateService.ConfigureTelemetry(telemetryService)
 	controllers := []any{
 		presentation.NewAppController(),
 		presentation.NewAccountController(accountService, lifecycle),
@@ -331,7 +335,7 @@ func New() (*Container, error) {
 			service.InstanceUpdater(),
 			service.InstanceDeleter(),
 			service.InstanceCloner(),
-			sessionService,
+			statisticsService,
 			service.Mods(),
 			lifecycle,
 		),
@@ -340,7 +344,7 @@ func New() (*Container, error) {
 		presentation.NewModCatalogController(service.ModsCatalog(), lifecycle),
 		presentation.NewInstancePackageController(packageService, lifecycle),
 		presentation.NewLaunchController(launchCoordinator, lifecycle),
-		presentation.NewStatisticsController(sessionService, lifecycle),
+		presentation.NewStatisticsController(statisticsService, lifecycle),
 		presentation.NewOperationController(operationManager, lifecycle),
 		presentation.NewSnapshotController(service.Snapshots(), lifecycle),
 		presentation.NewLastKnownGoodController(service.Recovery(), lifecycle),

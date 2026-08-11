@@ -11,7 +11,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/waxlight/waxlight-launcher/internal/statistics"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -177,7 +177,7 @@ type InstanceController struct {
 	updater    instanceUpdater
 	deleter    instanceDeleter
 	cloner     instanceCloner
-	sessions   instancePlaytime
+	statistics instancePlaytime
 	modCounter instanceModCounter
 	lifecycle  *app.Lifecycle
 }
@@ -204,7 +204,7 @@ type instanceCloner interface {
 }
 
 type instancePlaytime interface {
-	GetInstancePlaytime(context.Context, string) (int64, error)
+	InstancePlaytime(context.Context, string) (int64, error)
 }
 
 type instanceModCounter interface {
@@ -218,13 +218,13 @@ func NewInstanceController(
 	updater instanceUpdater,
 	deleter instanceDeleter,
 	cloner instanceCloner,
-	sessionQueries instancePlaytime,
+	playtime instancePlaytime,
 	modCounter instanceModCounter,
 	lifecycle *app.Lifecycle,
 ) *InstanceController {
 	return &InstanceController{
 		svc: service, creator: creator, queries: queries, updater: updater,
-		deleter: deleter, cloner: cloner, sessions: sessionQueries, lifecycle: lifecycle,
+		deleter: deleter, cloner: cloner, statistics: playtime, lifecycle: lifecycle,
 		modCounter: modCounter,
 	}
 }
@@ -269,7 +269,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 				dto.EnabledModCount++
 			}
 		}
-		playtime, playtimeErr := controller.sessions.GetInstancePlaytime(
+		playtime, playtimeErr := controller.statistics.InstancePlaytime(
 			ctx,
 			instance.ID,
 		)
@@ -604,7 +604,7 @@ type StatisticsController struct {
 }
 
 type statisticsQueries interface {
-	GetStatistics(context.Context) (sessions.Statistics, error)
+	Overview(context.Context) (statistics.Statistics, error)
 }
 
 func NewStatisticsController(service statisticsQueries, lifecycle *app.Lifecycle) *StatisticsController {
@@ -615,7 +615,7 @@ func (controller *StatisticsController) GetOverviewStatistics() (
 	StatisticsDTO,
 	error,
 ) {
-	statistics, err := controller.svc.GetStatistics(controller.lifecycle.Context())
+	statistics, err := controller.svc.Overview(controller.lifecycle.Context())
 	return statisticsDTO(statistics), err
 }
 

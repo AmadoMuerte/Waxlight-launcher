@@ -9,6 +9,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/statistics"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -281,7 +282,7 @@ type StatisticsDTO struct {
 	RecentSessions        []PlaySessionDTO `json:"recentSessions"`
 }
 
-func statisticsDTO(statistics sessions.Statistics) StatisticsDTO {
+func statisticsDTO(statistics statistics.Statistics) StatisticsDTO {
 	result := StatisticsDTO{
 		TotalPlaytimeSeconds:  statistics.TotalPlaytimeSeconds,
 		LaunchCount:           statistics.LaunchCount,

@@ -17,14 +17,6 @@ type PlaySession struct {
 	Recovered   bool
 }
 
-type Statistics struct {
-	TotalPlaytimeSeconds  int64
-	LaunchCount           int
-	AverageSessionSeconds int64
-	MostPlayedInstanceID  *string
-	RecentSessions        []PlaySession
-}
-
 type StatisticsTotals struct {
 	TotalPlaytimeSeconds int64
 	LaunchCount          int

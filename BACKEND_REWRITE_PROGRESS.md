@@ -34,7 +34,11 @@ launcher behavior while leaving the repository buildable and testable.
   cache, ModDB browsing, dependency resolution, and ModDB task tracking
   extracted from `application.Service`
 - Stage 6 branch: `refactor/backend-snapshots-recovery`
-- Stage 6 status: in progress
+- Stage 6 pull request: [#89](https://github.com/AmadoMuerte/Waxlight-launcher/pull/89)
+- Stage 6 status: complete; snapshot, recovery, and Last Known Good ownership
+  extracted from `application.Service`
+- Stage 7 branch: `refactor/backend-updates-telemetry-statistics`
+- Stage 7 status: in progress
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -946,40 +950,126 @@ narrow repositories and filesystem boundaries.
 Goal: give the remaining operational services explicit feature ownership and
 lifecycle-safe background delivery.
 
+### Completed Stage 7: Launcher Updates
+
+- Added `internal/updates` as the owner of the launcher update model (`Update`,
+  `Progress`), the update lifecycle stages, update error codes, the source,
+  installer, signature-verifier, mutation-gate, and telemetry ports, and the
+  update service.
+- Removed `domain.LauncherUpdate` and `domain.LauncherUpdateProgress` without
+  compatibility aliases.
+- Moved the update error codes used by the updater into the feature
+  (`ErrUpdateUnavailable`, `ErrUpdateInProgress`, `ErrUpdateFailed`,
+  `ErrUpdateUnsupported`, `ErrUpdateDownloadFailed`,
+  `ErrUpdateSignatureInvalid`, `ErrUpdateInstallerStartFail`) while keeping
+  their exact string values; unused legacy update codes remain in
+  `internal/domain`.
+- Replaced `application.LauncherUpdateService` and its
+  `ConfigureTelemetry` method with `updates.Service`, which receives source,
+  downloader, installer, signature verifier, mutation gate, data root, current
+  version, and telemetry as immutable constructor dependencies.
+- Moved `PurgeStaleUpdateSessions` and `normalizeUpdateChannel` into the
+  feature.
+- Kept the `updates:progress` event contract: the published phase strings
+  (`checking`, `downloading`, `signature`, `installing`, `restarting`) match
+  the frontend `LauncherUpdateProgress` union exactly.
+- Kept trusted URL validation, SHA-256 manifest checksums, signature
+  verification, publisher trust on Windows, channel behavior, portable-mode
+  guards, installer guarantees, and the update telemetry events
+  (`update_started`, `update_failed` with the download/signature/install error
+  taxonomy).
+- Made the GitHub source adapter map into `updates.Update` instead of
+  `domain.LauncherUpdate`.
+- Moved the updater tests into the feature and added direct telemetry tests
+  for the update started/failed boundaries.
+- Kept the `LauncherUpdateController` Wails methods, arguments, DTO fields,
+  and events unchanged.
+
+### Completed Stage 7: Telemetry
+
+- Made every telemetry delivery worker lifecycle-owned through a new
+  `telemetry.WorkerGroup` port (`Go(func(context.Context)) bool`) implemented
+  by `*app.Lifecycle` at the composition root: `Event`, `Error`, and
+  `MaybeSendHeartbeat` schedule their delivery through the worker group, the
+  worker context cancels in-flight sends during shutdown, and shutdown joins or
+  safely abandons the delivery workers.
+- Made a refused heartbeat worker reset the pending flag so a shutdown race can
+  never block future heartbeats.
+- Preserved disabled-until-opt-in behavior, event/error allowlists, identity
+  privacy, consent synchronization through `SynchronizeConsent`, and the
+  heartbeat policy.
+- Removed the remaining post-construction telemetry configuration:
+  `application.Service.ConfigureTelemetry` and
+  `launching.Coordinator.SetTelemetry` are gone; the application service and
+  the launch coordinator receive their telemetry port at construction.
+- Wired the application instance-deletion telemetry through the already
+  injected `mods.Telemetry` port instead of a service-held telemetry field.
+- Kept the telemetry package framework-free (no Wails or app imports).
+
+### Completed Stage 7: Statistics
+
+- Added `internal/statistics` as the owner of the aggregated statistics model
+  (`Statistics`), the recent-session limit, and the `Overview` and
+  `InstancePlaytime` capabilities.
+- Exposed the narrow `sessions.Reader` read capability
+  (`SessionStatistics`, `ListSessions`, `InstancePlaytime`) from
+  `sessions.Service`; `sessions` no longer owns statistics aggregation.
+- Removed `sessions.Statistics`, `sessions.Service.GetStatistics`, and
+  `sessions.Service.GetInstancePlaytime` without compatibility aliases; the
+  repository-level `sessions.StatisticsTotals` stays with the sessions feature.
+- Moved the statistics aggregation tests into the statistics feature and kept
+  the end-to-end backend statistics test.
+- Kept the `StatisticsController.GetOverviewStatistics` Wails method, the
+  `StatisticsDTO` JSON fields, and the per-instance playtime used by the
+  instance list unchanged.
+
+### Completed Stage 7: Game Logs
+
+- Added `internal/gamelog` as the owner of game-log tailing, crash-indicator
+  classification, and launcher-side crash-report coordination; the launching
+  coordinator now calls `gamelog.Watch(instance.Name, logPath)`.
+- Moved the game-output tailer, the error-line classifier, the rate limiter,
+  the truncation handling, and the `crashreport-*.txt` coordination out of
+  `internal/launching` without changing any behavior.
+- Preserved the log console flow: forwarded error lines and crash reports
+  reach the console, session log files, and support exports through the shared
+  slog pipeline, and full game output is never copied into launcher logs.
+- Moved the tailer tests into the feature unchanged.
+
 ### Launcher Updates
 
-- [ ] Add `internal/updates` for update checks, download orchestration,
+- [x] Add `internal/updates` for update checks, download orchestration,
   verification, installation, skip policy, and update events.
-- [ ] Make telemetry, downloader, platform, publisher, and installer
+- [x] Make telemetry, downloader, platform, publisher, and installer
   dependencies immutable.
-- [ ] Remove `LauncherUpdateService.ConfigureTelemetry`.
-- [ ] Preserve trusted URL validation, checksums, signatures, publisher trust,
+- [x] Remove `LauncherUpdateService.ConfigureTelemetry`.
+- [x] Preserve trusted URL validation, checksums, signatures, publisher trust,
   channel behavior, skipped versions, and installer guarantees.
 
 ### Telemetry
 
-- [ ] Move telemetry orchestration and background delivery into the final
+- [x] Move telemetry orchestration and background delivery into the final
   feature/platform structure.
-- [ ] Keep telemetry disabled until explicit opt-in and preserve event/error
+- [x] Keep telemetry disabled until explicit opt-in and preserve event/error
   allowlists, identity privacy, consent synchronization, and heartbeat policy.
-- [ ] Make every telemetry worker lifecycle-owned, cancellable where possible,
+- [x] Make every telemetry worker lifecycle-owned, cancellable where possible,
   and joined or safely abandoned during shutdown.
-- [ ] Remove remaining post-construction telemetry configuration.
+- [x] Remove remaining post-construction telemetry configuration.
 
 ### Statistics and Game Logs
 
-- [ ] Add `internal/statistics` for launcher statistics and per-instance
+- [x] Add `internal/statistics` for launcher statistics and per-instance
   playtime queries over the sessions read capability.
-- [ ] Add `internal/gamelog` for game-log tailing, crash indicators, and
+- [x] Add `internal/gamelog` for game-log tailing, crash indicators, and
   launcher-side crash-report coordination.
-- [ ] Preserve lazy frontend loading of the log console and existing events.
-- [ ] Never copy game output into launcher logs or support exports.
+- [x] Preserve lazy frontend loading of the log console and existing events.
+- [x] Never copy game output into launcher logs or support exports.
 
 ### Stage 7 Validation and Delivery
 
-- [ ] Add tests for update trust failures, cancellation, telemetry opt-in and
+- [x] Add tests for update trust failures, cancellation, telemetry opt-in and
   allowlists, shutdown, statistics, log tailing, and crash coordination.
-- [ ] Run focused race, privacy, security, and complete local validation checks.
+- [x] Run focused race, privacy, security, and complete local validation checks.
 - [ ] Complete manual smoke testing for update UI, telemetry transitions,
   statistics, and game-log viewing.
 - [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and

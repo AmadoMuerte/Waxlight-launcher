@@ -1,4 +1,4 @@
-package launching
+package gamelog
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func TestIsGameErrorLine(t *testing.T) {
@@ -45,17 +43,17 @@ func TestIsGameErrorLine(t *testing.T) {
 		tc := tc
 		t.Run(tc.line, func(t *testing.T) {
 			t.Parallel()
-			if got := isGameErrorLine(tc.line); got != tc.want {
-				t.Errorf("isGameErrorLine(%q) = %v, want %v", tc.line, got, tc.want)
+			if got := isErrorLine(tc.line); got != tc.want {
+				t.Errorf("isErrorLine(%q) = %v, want %v", tc.line, got, tc.want)
 			}
 		})
 	}
 }
 
 func TestWatchGameLogLogsOnlyErrorLines(t *testing.T) {
-	oldInterval := gameLogPollInterval
-	gameLogPollInterval = 10 * time.Millisecond
-	t.Cleanup(func() { gameLogPollInterval = oldInterval })
+	oldInterval := pollInterval
+	pollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { pollInterval = oldInterval })
 
 	logPath := filepath.Join(t.TempDir(), "instance.log")
 	if err := os.WriteFile(logPath, []byte("[Info] booting\n[Error] first problem\n"), 0o600); err != nil {
@@ -64,8 +62,8 @@ func TestWatchGameLogLogsOnlyErrorLines(t *testing.T) {
 
 	records := captureSlog(t)
 
-	instance := instances.Instance{ID: "instance-1", Name: "Test World"}
-	stop := watchGameLog(instance, logPath)
+	instance := "Test World"
+	stop := Watch(instance, logPath)
 
 	appendToFile(t, logPath, "[Warning] something odd\n[Error] second problem\n")
 	waitFor(t, func() bool { return len(records()) >= 1 })
@@ -87,9 +85,9 @@ func TestWatchGameLogLogsOnlyErrorLines(t *testing.T) {
 }
 
 func TestWatchGameLogHandlesTruncation(t *testing.T) {
-	oldInterval := gameLogPollInterval
-	gameLogPollInterval = 10 * time.Millisecond
-	t.Cleanup(func() { gameLogPollInterval = oldInterval })
+	oldInterval := pollInterval
+	pollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { pollInterval = oldInterval })
 
 	logPath := filepath.Join(t.TempDir(), "instance.log")
 	if err := os.WriteFile(logPath, []byte("[Error] before restart\n"), 0o600); err != nil {
@@ -98,7 +96,7 @@ func TestWatchGameLogHandlesTruncation(t *testing.T) {
 
 	records := captureSlog(t)
 
-	stop := watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
+	stop := Watch("W", logPath)
 	waitFor(t, func() bool { return len(records()) >= 1 })
 
 	// Simulate a crash restart that replaces the file: smaller and new content.
@@ -115,9 +113,9 @@ func TestWatchGameLogHandlesTruncation(t *testing.T) {
 }
 
 func TestWatchGameLogCapturesMainGameLogAppends(t *testing.T) {
-	oldInterval := gameLogPollInterval
-	gameLogPollInterval = 10 * time.Millisecond
-	t.Cleanup(func() { gameLogPollInterval = oldInterval })
+	oldInterval := pollInterval
+	pollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { pollInterval = oldInterval })
 
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "instance.log")
@@ -131,7 +129,7 @@ func TestWatchGameLogCapturesMainGameLogAppends(t *testing.T) {
 	}
 
 	records := captureSlog(t)
-	stop := watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
+	stop := Watch("W", logPath)
 
 	appendToFile(t, mainLog, "[Error] fresh main.log error\n")
 	waitFor(t, func() bool { return len(records()) >= 1 })
@@ -144,9 +142,9 @@ func TestWatchGameLogCapturesMainGameLogAppends(t *testing.T) {
 }
 
 func TestWatchGameLogForwardsNewCrashReportWhole(t *testing.T) {
-	oldInterval := gameLogPollInterval
-	gameLogPollInterval = 10 * time.Millisecond
-	t.Cleanup(func() { gameLogPollInterval = oldInterval })
+	oldInterval := pollInterval
+	pollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { pollInterval = oldInterval })
 
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "instance.log")
@@ -155,7 +153,7 @@ func TestWatchGameLogForwardsNewCrashReportWhole(t *testing.T) {
 	}
 
 	records := captureSlog(t)
-	stop := watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
+	stop := Watch("W", logPath)
 
 	// A crash report is written after the game starts; every line is an error,
 	// even without severity markers.
@@ -186,9 +184,9 @@ func TestWatchGameLogForwardsNewCrashReportWhole(t *testing.T) {
 }
 
 func TestWatchGameLogIgnoresStaleCrashReport(t *testing.T) {
-	oldInterval := gameLogPollInterval
-	gameLogPollInterval = 10 * time.Millisecond
-	t.Cleanup(func() { gameLogPollInterval = oldInterval })
+	oldInterval := pollInterval
+	pollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { pollInterval = oldInterval })
 
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "instance.log")
@@ -201,7 +199,7 @@ func TestWatchGameLogIgnoresStaleCrashReport(t *testing.T) {
 	}
 
 	records := captureSlog(t)
-	stop := watchGameLog(instances.Instance{ID: "i", Name: "W"}, logPath)
+	stop := Watch("W", logPath)
 	time.Sleep(60 * time.Millisecond)
 	stop()
 

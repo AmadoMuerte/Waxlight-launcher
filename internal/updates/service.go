@@ -1,4 +1,4 @@
-package application
+package updates
 
 import (
 	"context"
@@ -13,47 +13,36 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
-const maximumLauncherUpdateSize = 512 * 1024 * 1024
-
-type UpdateStage string
-
-const (
-	UpdateStageChecking           UpdateStage = "checking"
-	UpdateStageDownloading        UpdateStage = "downloading"
-	UpdateStageHashVerification   UpdateStage = "hash_verification"
-	UpdateStageSignatureCheck     UpdateStage = "signature_verification"
-	UpdateStageStartingInstaller  UpdateStage = "starting_installer"
-	UpdateStageClosingApplication UpdateStage = "closing_application"
-	UpdateStageRestarting         UpdateStage = "restarting"
-)
-
-type LauncherUpdateService struct {
-	source            LauncherUpdateSource
+// Service owns launcher update checks, verified downloads, and installation
+// orchestration. All dependencies are immutable at construction; telemetry is
+// strictly best-effort and never affects the update outcome.
+type Service struct {
+	source            Source
 	downloader        downloads.Downloader
-	installer         LauncherUpdateInstaller
+	installer         Installer
 	signatureVerifier SignatureVerifier
-	mutationGate      *mutations.Gate
+	mutationGate      MutationGate
 	dataRoot          string
 	currentVersion    string
-	telemetry         *telemetry.Service
+	telemetry         Telemetry
 	mu                sync.Mutex
 	installing        bool
 }
 
-func NewLauncherUpdateService(
-	source LauncherUpdateSource,
+func NewService(
+	source Source,
 	downloader downloads.Downloader,
-	installer LauncherUpdateInstaller,
+	installer Installer,
 	signatureVerifier SignatureVerifier,
-	mutationGate *mutations.Gate,
+	mutationGate MutationGate,
 	dataRoot string,
 	currentVersion string,
-) *LauncherUpdateService {
-	return &LauncherUpdateService{
+	telemetry Telemetry,
+) *Service {
+	return &Service{
 		source:            source,
 		downloader:        downloader,
 		installer:         installer,
@@ -61,45 +50,40 @@ func NewLauncherUpdateService(
 		mutationGate:      mutationGate,
 		dataRoot:          dataRoot,
 		currentVersion:    currentVersion,
+		telemetry:         telemetry,
 	}
 }
 
-// ConfigureTelemetry wires the telemetry service into the updater. Update
-// events are strictly best-effort and never affect the update outcome.
-func (service *LauncherUpdateService) ConfigureTelemetry(t *telemetry.Service) {
-	service.telemetry = t
-}
-
-func (service *LauncherUpdateService) reportEvent(ctx context.Context, name string) {
+func (service *Service) reportEvent(ctx context.Context, name string) {
 	if service.telemetry != nil {
 		service.telemetry.Event(ctx, name)
 	}
 }
 
-func (service *LauncherUpdateService) reportError(ctx context.Context, code, operation string) {
+func (service *Service) reportError(ctx context.Context, code, operation string) {
 	if service.telemetry != nil {
 		service.telemetry.Error(ctx, code, telemetry.ComponentUpdater, operation)
 	}
 }
 
-func (service *LauncherUpdateService) CurrentVersion() string {
+func (service *Service) CurrentVersion() string {
 	return service.currentVersion
 }
 
-func (service *LauncherUpdateService) Check(
+func (service *Service) Check(
 	ctx context.Context,
 	channel string,
-) (domain.LauncherUpdate, error) {
+) (Update, error) {
 	channel, err := normalizeUpdateChannel(channel)
 	if err != nil {
-		return domain.LauncherUpdate{}, err
+		return Update{}, err
 	}
 	slog.Info("checking for launcher updates", "channel", channel)
 	update, err := service.source.Check(ctx, service.currentVersion, channel)
 	if err != nil {
 		slog.Warn("launcher update check failed", "error", err)
-		return domain.LauncherUpdate{}, &domain.AppError{
-			Code:      domain.ErrUpdateUnavailable,
+		return Update{}, &domain.AppError{
+			Code:      ErrUpdateUnavailable,
 			Message:   "Could not check for launcher updates",
 			Retryable: true,
 			Cause:     err,
@@ -111,10 +95,10 @@ func (service *LauncherUpdateService) Check(
 	return update, nil
 }
 
-func (service *LauncherUpdateService) Install(
+func (service *Service) Install(
 	ctx context.Context,
 	channel string,
-	publish func(domain.LauncherUpdateProgress),
+	publish func(Progress),
 ) error {
 	if err := service.mutationGate.Begin(); err != nil {
 		return err
@@ -123,7 +107,7 @@ func (service *LauncherUpdateService) Install(
 	service.mu.Lock()
 	if service.installing {
 		service.mu.Unlock()
-		return domain.NewError(domain.ErrUpdateInProgress, "A launcher update is already running")
+		return domain.NewError(ErrUpdateInProgress, "A launcher update is already running")
 	}
 	service.installing = true
 	service.mu.Unlock()
@@ -139,7 +123,7 @@ func (service *LauncherUpdateService) Install(
 		return fmt.Errorf("create update session directory: %w", err)
 	}
 
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "checking"})
+	publishProgress(publish, Progress{Phase: string(StageChecking)})
 
 	update, err := service.Check(ctx, channel)
 	if err != nil {
@@ -148,22 +132,22 @@ func (service *LauncherUpdateService) Install(
 	}
 	if !update.Available {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(domain.ErrUpdateUnavailable, "No launcher update is available")
+		return domain.NewError(ErrUpdateUnavailable, "No launcher update is available")
 	}
 	slog.Info("installing launcher update", "version", update.Version)
 	if update.AssetName == "" || filepath.Base(update.AssetName) != update.AssetName {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(domain.ErrUpdateFailed, "The release contains an unsafe update filename")
+		return domain.NewError(ErrUpdateFailed, "The release contains an unsafe update filename")
 	}
 	if len(update.SHA256) != 64 {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(domain.ErrUpdateFailed, "The release checksum is invalid")
+		return domain.NewError(ErrUpdateFailed, "The release checksum is invalid")
 	}
 
 	if update.InstallationMode == "portable" && runtime.GOOS == "windows" {
 		service.cleanupSession(updateRoot)
 		return &domain.AppError{
-			Code:    domain.ErrUpdateUnsupported,
+			Code:    ErrUpdateUnsupported,
 			Message: "Automatic replacement is unavailable for portable installations. Download the new portable package and replace the current version manually.",
 			Cause:   nil,
 		}
@@ -188,15 +172,15 @@ func (service *LauncherUpdateService) Install(
 			if item.TotalBytes > 0 {
 				value = float64(item.DownloadedBytes) / float64(item.TotalBytes)
 			}
-			publishProgress(publish, domain.LauncherUpdateProgress{
-				Phase:           "downloading",
+			publishProgress(publish, Progress{
+				Phase:           string(StageDownloading),
 				DownloadedBytes: item.DownloadedBytes,
 				TotalBytes:      item.TotalBytes,
 				Progress:        value,
 			})
 		}
 	}()
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "downloading"})
+	publishProgress(publish, Progress{Phase: string(StageDownloading)})
 	err = service.downloader.Download(ctx, downloads.Request{
 		URL:               update.DownloadURL,
 		DestinationPath:   destination,
@@ -213,14 +197,14 @@ func (service *LauncherUpdateService) Install(
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateDownloadFailed, telemetry.OperationDownloadUpdate)
 		return &domain.AppError{
-			Code:      domain.ErrUpdateDownloadFailed,
+			Code:      ErrUpdateDownloadFailed,
 			Message:   "Could not download the launcher update",
 			Retryable: true,
 			Cause:     err,
 		}
 	}
 
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "signature", Progress: 1})
+	publishProgress(publish, Progress{Phase: string(StageSignature), Progress: 1})
 	if err := service.signatureVerifier.Verify(ctx, destination); err != nil {
 		os.Remove(destination)
 		service.cleanupSession(updateRoot)
@@ -228,30 +212,30 @@ func (service *LauncherUpdateService) Install(
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateSignatureInvalid, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
-			Code:    domain.ErrUpdateSignatureInvalid,
+			Code:    ErrUpdateSignatureInvalid,
 			Message: fmt.Sprintf("Could not verify update signature: %v", err),
 			Cause:   err,
 		}
 	}
 
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "installing", Progress: 1})
+	publishProgress(publish, Progress{Phase: string(StageInstalling), Progress: 1})
 	if err := service.installer.Apply(ctx, destination, os.Getpid()); err != nil {
 		service.cleanupSession(updateRoot)
 		slog.Error("launcher update install failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateInstallFailed, telemetry.OperationInstallUpdate)
 		return &domain.AppError{
-			Code:    domain.ErrUpdateInstallerStartFail,
+			Code:    ErrUpdateInstallerStartFail,
 			Message: fmt.Sprintf("Could not start the installer: %v", err),
 			Cause:   err,
 		}
 	}
-	publishProgress(publish, domain.LauncherUpdateProgress{Phase: "restarting", Progress: 1})
+	publishProgress(publish, Progress{Phase: string(StageRestarting), Progress: 1})
 	slog.Info("launcher update applied", "version", update.Version)
 	return nil
 }
 
-func (service *LauncherUpdateService) cleanupSession(sessionDir string) {
+func (service *Service) cleanupSession(sessionDir string) {
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
 		slog.Warn("could not clean up the update session directory", "dir", sessionDir, "error", err)
@@ -288,7 +272,7 @@ func normalizeUpdateChannel(channel string) (string, error) {
 	}
 }
 
-func publishProgress(publish func(domain.LauncherUpdateProgress), progress domain.LauncherUpdateProgress) {
+func publishProgress(publish func(Progress), progress Progress) {
 	if publish != nil {
 		publish(progress)
 	}

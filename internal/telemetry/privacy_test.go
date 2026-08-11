@@ -38,7 +38,7 @@ func TestSentinelNeverEntersTelemetryBodies(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	service := NewService(client, store, store, store)
+	service := NewService(client, store, store, store, testWorkers{})
 
 	service.sendHeartbeat(context.Background())
 	service.sendEvent(context.Background(), EventInstanceCreated)

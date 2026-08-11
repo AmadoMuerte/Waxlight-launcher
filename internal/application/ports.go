@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/recovery"
@@ -98,18 +97,6 @@ type ProcessLauncher interface {
 		env map[string]string,
 		output io.Writer,
 	) (RunningProcess, error)
-}
-
-type LauncherUpdateSource interface {
-	Check(context.Context, string, string) (domain.LauncherUpdate, error)
-}
-
-type LauncherUpdateInstaller interface {
-	Apply(ctx context.Context, installerPath string, currentPID int) error
-}
-
-type SignatureVerifier interface {
-	Verify(ctx context.Context, executablePath string) error
 }
 
 type DiskSpaceChecker interface {

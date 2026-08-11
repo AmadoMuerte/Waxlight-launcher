@@ -25,7 +25,6 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
-	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -39,7 +38,7 @@ type Service struct {
 	snapshots       *snapshots.Service
 	recovery        *recovery.Service
 	events          events.Publisher
-	telemetry       *telemetry.Service
+	telemetry       mods.Telemetry
 	mutationGate    *mutations.Gate
 	settings        *settingscore.Reader
 	operations      *operations.Manager
@@ -199,6 +198,11 @@ func NewService(
 		instances.PublishFunc(service.emit),
 		time.Now,
 	)
+	reportEvent := func(ctx context.Context, name string) {
+		if telemetryService != nil {
+			telemetryService.Event(ctx, name)
+		}
+	}
 	service.instanceDeleter = instances.NewDeleteService(
 		store,
 		mutationGate,
@@ -207,7 +211,7 @@ func NewService(
 		clearClientSettings,
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(service.emit),
-		service.reportEvent,
+		reportEvent,
 	)
 	service.instanceCloner = instances.NewCloneService(
 		store,
@@ -246,36 +250,6 @@ func (s *Service) Recovery() *recovery.Service {
 
 func (s *Service) SetEventPublisher(publisher events.Publisher) {
 	s.events = publisher
-}
-
-// ConfigureTelemetry wires the privacy-preserving telemetry service into the
-// application layer. All telemetry calls inside this service are optional and
-// never affect the outcome of the operations that produce them.
-func (s *Service) ConfigureTelemetry(t *telemetry.Service) {
-	s.telemetry = t
-}
-
-// reportEvent forwards an allowlisted telemetry event. Telemetry is strictly
-// best-effort: delivery failures never surface to the caller.
-func (s *Service) reportEvent(ctx context.Context, name string) {
-	if s.telemetry != nil {
-		s.telemetry.Event(ctx, name)
-	}
-}
-
-// reportError forwards a structured telemetry error category. Raw errors are
-// never attached; only allowlisted codes reach the telemetry backend.
-func (s *Service) reportError(ctx context.Context, code, component, operation string) {
-	if s.telemetry != nil {
-		s.telemetry.Error(ctx, code, component, operation)
-	}
-}
-
-func (s *Service) beginMutation() (func(), error) {
-	if err := s.mutationGate.Begin(); err != nil {
-		return nil, err
-	}
-	return s.mutationGate.End, nil
 }
 
 // ConfigureClientSettings wires the client-settings patcher into the snapshot

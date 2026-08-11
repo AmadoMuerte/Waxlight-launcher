@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/updates"
 	"golang.org/x/mod/semver"
 )
 
@@ -75,25 +75,25 @@ func (source *Source) Check(
 	ctx context.Context,
 	currentVersion string,
 	channel string,
-) (domain.LauncherUpdate, error) {
+) (updates.Update, error) {
 	releases, err := source.releases(ctx)
 	if err != nil {
 		slog.Warn("launcher update source request failed", "error", err)
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	current := canonicalVersion(currentVersion)
 	if current == "" {
-		return domain.LauncherUpdate{}, fmt.Errorf("invalid installed version %q", currentVersion)
+		return updates.Update{}, fmt.Errorf("invalid installed version %q", currentVersion)
 	}
 
 	selected, version, err := selectReleaseForChannel(releases, channel)
 	if err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 
 	comparison := semver.Compare(version, current)
 	installedPrerelease := semver.Prerelease(current) != ""
-	result := domain.LauncherUpdate{
+	result := updates.Update{
 		InstalledVersion: strings.TrimPrefix(current, "v"),
 		Version:          strings.TrimPrefix(version, "v"),
 		Available:        comparison != 0,
@@ -111,7 +111,7 @@ func (source *Source) Check(
 		result.Available = false
 	}
 	if err := validateReleasePageURL(result.ReleasePageURL, selected.TagName); err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	if !result.Available {
 		return result, nil
@@ -119,25 +119,25 @@ func (source *Source) Check(
 
 	assetName, err := expectedAssetName(result.Version)
 	if err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	asset, ok := findAsset(selected.Assets, assetName)
 	if !ok || asset.Size <= 0 {
-		return domain.LauncherUpdate{}, fmt.Errorf("release asset %q is unavailable", assetName)
+		return updates.Update{}, fmt.Errorf("release asset %q is unavailable", assetName)
 	}
 	if err := validateAssetURL(asset.BrowserDownloadURL, selected.TagName, assetName); err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	checksumAsset, ok := findAsset(selected.Assets, "SHA256SUMS")
 	if !ok {
-		return domain.LauncherUpdate{}, errors.New("release checksum manifest is unavailable")
+		return updates.Update{}, errors.New("release checksum manifest is unavailable")
 	}
 	if err := validateAssetURL(checksumAsset.BrowserDownloadURL, selected.TagName, "SHA256SUMS"); err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	checksum, err := source.checksum(ctx, checksumAsset.BrowserDownloadURL, assetName)
 	if err != nil {
-		return domain.LauncherUpdate{}, err
+		return updates.Update{}, err
 	}
 	result.AssetName = assetName
 	result.AssetSize = asset.Size
