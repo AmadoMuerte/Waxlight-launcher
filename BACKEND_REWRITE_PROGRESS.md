@@ -13,8 +13,9 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 1 pull request: [#81](https://github.com/AmadoMuerte/Waxlight-launcher/pull/81)
 - Stage 1 status: merged into `dev`
 - Stage 2 branch: `refactor/backend-core-features`
-- Stage 2 status: implemented and validated locally, including manual smoke
-  testing; commit, synchronization, push, and pull request are still pending
+- Stage 2 pull request: [#82](https://github.com/AmadoMuerte/Waxlight-launcher/pull/82)
+- Stage 2 status: implemented, validated locally, committed, synchronized, and
+  submitted for review; CI and merge are pending
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -112,8 +113,8 @@ builds.
 
 ## Stage 2: Operations, Versions, and Settings
 
-Stage 2 is implemented on `refactor/backend-core-features` but has not yet been
-delivered as a pull request.
+Stage 2 is implemented on `refactor/backend-core-features` and delivered for
+review in pull request #82.
 
 ### Operations Feature
 
@@ -290,9 +291,9 @@ Manual smoke testing also passed for the implemented Stage 2 behavior.
 - [x] Confirm Wails/frontend API, DTO, and event compatibility.
 - [x] Run the complete local validation matrix.
 - [x] Complete manual smoke testing of the implemented behavior.
-- [ ] Commit Stage 2 with clear English commit messages.
-- [ ] Synchronize `refactor/backend-core-features` with the latest `origin/dev`.
-- [ ] Push the branch and open a pull request against `dev`.
+- [x] Commit Stage 2 with a clear English commit message.
+- [x] Synchronize `refactor/backend-core-features` with the latest `origin/dev`.
+- [x] Push the branch and open pull request #82 against `dev`.
 - [ ] Wait for CI before starting the next integration stage.
 
 ### Instances, Launching, and Sessions
