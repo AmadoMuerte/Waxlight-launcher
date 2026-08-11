@@ -1,22 +1,73 @@
-package application
+package app
 
 import (
 	"context"
 
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
+
+// modsStoreAdapter maps the shared store to the mods repository port,
+// converting instance records into the minimal instance view of the mods
+// feature.
+type modsStoreAdapter struct {
+	store *sqlite.SQLiteStore
+}
+
+func (adapter modsStoreAdapter) GetInstance(ctx context.Context, id string) (mods.InstanceRef, error) {
+	instance, err := adapter.store.GetInstance(ctx, id)
+	return modsInstanceRef(instance), err
+}
+
+func (adapter modsStoreAdapter) ListInstances(ctx context.Context) ([]mods.InstanceRef, error) {
+	stored, err := adapter.store.ListInstances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]mods.InstanceRef, 0, len(stored))
+	for _, instance := range stored {
+		result = append(result, modsInstanceRef(instance))
+	}
+	return result, nil
+}
+
+func modsInstanceRef(instance instances.Instance) mods.InstanceRef {
+	return mods.InstanceRef{
+		ID:            instance.ID,
+		Name:          instance.Name,
+		Directory:     instance.Directory,
+		GameVersionID: instance.GameVersionID,
+	}
+}
+
+func (adapter modsStoreAdapter) ListMods(ctx context.Context, instanceID string) ([]mods.InstalledMod, error) {
+	return adapter.store.ListMods(ctx, instanceID)
+}
+
+func (adapter modsStoreAdapter) GetMod(ctx context.Context, id string) (mods.InstalledMod, error) {
+	return adapter.store.GetMod(ctx, id)
+}
+
+func (adapter modsStoreAdapter) SaveMod(ctx context.Context, mod mods.InstalledMod) error {
+	return adapter.store.SaveMod(ctx, mod)
+}
+
+func (adapter modsStoreAdapter) DeleteMod(ctx context.Context, id string) error {
+	return adapter.store.DeleteMod(ctx, id)
+}
 
 // snapshotInstanceAdapter maps the shared store to the snapshot instance
 // reader port, converting instance records into the minimal instance view of
 // the snapshot feature.
 type snapshotInstanceAdapter struct {
-	service *Service
+	store *sqlite.SQLiteStore
 }
 
 func (adapter snapshotInstanceAdapter) GetInstance(ctx context.Context, id string) (snapshots.InstanceRef, error) {
-	instance, err := adapter.service.GetInstance(ctx, id)
+	instance, err := adapter.store.GetInstance(ctx, id)
 	return snapshotInstanceRef(instance), err
 }
 
@@ -35,11 +86,12 @@ func snapshotInstanceRef(instance instances.Instance) snapshots.InstanceRef {
 // saving and deleting touch the raw store because restore rebuilds records
 // without touching the restored files.
 type snapshotModStoreAdapter struct {
-	service *Service
+	store *sqlite.SQLiteStore
+	mods  func() *mods.Service
 }
 
 func (adapter snapshotModStoreAdapter) ListMods(ctx context.Context, instanceID string) ([]snapshots.InstalledMod, error) {
-	mods, err := adapter.service.mods.ListMods(ctx, instanceID)
+	mods, err := adapter.mods().ListMods(ctx, instanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +103,7 @@ func (adapter snapshotModStoreAdapter) ListMods(ctx context.Context, instanceID 
 }
 
 func (adapter snapshotModStoreAdapter) SaveMod(ctx context.Context, mod snapshots.InstalledMod) error {
-	return adapter.service.store.SaveMod(ctx, mods.InstalledMod{
+	return adapter.store.SaveMod(ctx, mods.InstalledMod{
 		ID:          mod.ID,
 		InstanceID:  mod.InstanceID,
 		Name:        mod.Name,
@@ -68,7 +120,7 @@ func (adapter snapshotModStoreAdapter) SaveMod(ctx context.Context, mod snapshot
 }
 
 func (adapter snapshotModStoreAdapter) DeleteMod(ctx context.Context, id string) error {
-	return adapter.service.store.DeleteMod(ctx, id)
+	return adapter.store.DeleteMod(ctx, id)
 }
 
 func snapshotInstalledMod(mod mods.InstalledMod) snapshots.InstalledMod {
@@ -92,11 +144,11 @@ func snapshotInstalledMod(mod mods.InstalledMod) snapshots.InstalledMod {
 // port, converting downloaded releases between their mods and snapshot
 // representations.
 type snapshotCatalogAdapter struct {
-	service *Service
+	catalog func() *mods.CatalogService
 }
 
 func (adapter snapshotCatalogAdapter) GetDownloadedMod(ctx context.Context, modID, versionID string) (snapshots.DownloadedRelease, error) {
-	cached, err := adapter.service.modsCatalog.GetDownloadedMod(ctx, modID, versionID)
+	cached, err := adapter.catalog().GetDownloadedMod(ctx, modID, versionID)
 	if err != nil {
 		return snapshots.DownloadedRelease{}, err
 	}
@@ -111,7 +163,7 @@ func (adapter snapshotCatalogAdapter) GetDownloadedMod(ctx context.Context, modI
 }
 
 func (adapter snapshotCatalogAdapter) DownloadRelease(ctx context.Context, modID, versionID string) (snapshots.DownloadedRelease, error) {
-	downloaded, err := adapter.service.modsCatalog.DownloadRelease(ctx, modID, versionID)
+	downloaded, err := adapter.catalog().DownloadRelease(ctx, modID, versionID)
 	if err != nil {
 		return snapshots.DownloadedRelease{}, err
 	}
@@ -124,9 +176,7 @@ func (adapter snapshotCatalogAdapter) DownloadRelease(ctx context.Context, modID
 
 // snapshotArchiveInfoAdapter maps the mods archive inspection to the snapshot
 // archive-info port.
-type snapshotArchiveInfoAdapter struct {
-	service *Service
-}
+type snapshotArchiveInfoAdapter struct{}
 
 func (adapter snapshotArchiveInfoAdapter) ReadArchiveInfo(filePath string) (snapshots.ArchiveInfo, error) {
 	info, err := mods.ReadModArchiveInfo(filePath)
@@ -140,18 +190,18 @@ func (adapter snapshotArchiveInfoAdapter) ReadArchiveInfo(filePath string) (snap
 // Last-Known-Good reference port. The recovery service is wired after the
 // snapshot service, so the lazy lookup is guarded.
 type snapshotLKGReferenceAdapter struct {
-	service *Service
+	recovery func() *recovery.Service
 }
 
 func (adapter snapshotLKGReferenceAdapter) ClearSnapshotReference(ctx context.Context, instanceID, snapshotID string) {
-	if adapter.service.recovery != nil {
-		adapter.service.recovery.ClearSnapshotReference(ctx, instanceID, snapshotID)
+	if service := adapter.recovery(); service != nil {
+		service.ClearSnapshotReference(ctx, instanceID, snapshotID)
 	}
 }
 
 func (adapter snapshotLKGReferenceAdapter) ProtectedSnapshotID(ctx context.Context, instanceID string) string {
-	if adapter.service.recovery == nil {
-		return ""
+	if service := adapter.recovery(); service != nil {
+		return service.ProtectedSnapshotID(ctx, instanceID)
 	}
-	return adapter.service.recovery.ProtectedSnapshotID(ctx, instanceID)
+	return ""
 }
