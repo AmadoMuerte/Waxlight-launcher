@@ -22,11 +22,15 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -229,19 +233,21 @@ func (process *controllableProcess) Kill() error {
 }
 
 type testFixture struct {
-	service    *application.Service
-	store      *sqlite.SQLiteStore
-	root       string
-	executable string
-	launcher   *recordingLauncher
-	lifecycle  *app.Lifecycle
-	operations *operations.Manager
-	versions   *versions.Capabilities
-	downloader *switchingDownloader
-	diskSpace  *switchingDiskSpace
-	settings   *settingscore.Reader
-	updates    *settingscore.Service
-	gate       *mutations.Gate
+	service            *application.Service
+	store              *sqlite.SQLiteStore
+	root               string
+	executable         string
+	launcher           *recordingLauncher
+	lifecycle          *app.Lifecycle
+	operations         *operations.Manager
+	sessions           *sessions.Service
+	versions           *versions.Capabilities
+	downloader         *switchingDownloader
+	diskSpace          *switchingDiskSpace
+	settings           *settingscore.Reader
+	updates            *settingscore.Service
+	gate               *mutations.Gate
+	setCreateTelemetry func(*telemetry.Service)
 }
 
 func newTestFixture(t *testing.T) testFixture {
@@ -266,6 +272,7 @@ func newTestFixtureWithVersionDependencies(
 	lifecycle := app.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	operationManager := operations.NewManager(store, lifecycle, nil)
+	sessionService := sessions.NewService(store, time.Now)
 	gate := &mutations.Gate{}
 	downloadSwitch := &switchingDownloader{current: downloader}
 	diskSpace := &switchingDiskSpace{current: fixedDiskSpace(1 << 62)}
@@ -281,12 +288,37 @@ func newTestFixtureWithVersionDependencies(
 		versions.NewCatalogInstallService(store, versionQueries, downloadSwitch, packageInstaller, diskSpace, versionRuntime, nil, root),
 		versions.NewRemovalService(store, store, versionFilesystem, gate, nil),
 	)
+	instanceQueries := instances.NewQueryService(store)
+	var createTelemetry *telemetry.Service
+	instanceCreator := instances.NewCreateService(
+		store,
+		versionService,
+		store,
+		func(ctx context.Context) (string, error) {
+			settings, err := settingsReader.Get(ctx)
+			return settings.Language, err
+		},
+		gate,
+		instancedirectory.New(filesystem.ModFileManager{}),
+		nil,
+		func(ctx context.Context, name string) {
+			if createTelemetry != nil {
+				createTelemetry.Event(ctx, name)
+			}
+		},
+		root,
+		time.Now,
+		func() string { return fmt.Sprintf("instance-%d", time.Now().UnixNano()) },
+	)
 	service := application.NewService(
 		store,
 		filesystem.ModFileManager{},
 		launcher,
 		root,
 		operationManager,
+		sessionService,
+		instanceQueries,
+		instanceCreator,
 		versionService,
 		downloadSwitch,
 		diskSpace,
@@ -325,19 +357,21 @@ func newTestFixtureWithVersionDependencies(
 	}
 
 	return testFixture{
-		service:    service,
-		store:      store,
-		root:       root,
-		executable: executable,
-		launcher:   launcher,
-		lifecycle:  lifecycle,
-		operations: operationManager,
-		versions:   versionService,
-		downloader: downloadSwitch,
-		diskSpace:  diskSpace,
-		settings:   settingsReader,
-		updates:    settingsService,
-		gate:       gate,
+		service:            service,
+		store:              store,
+		root:               root,
+		executable:         executable,
+		launcher:           launcher,
+		lifecycle:          lifecycle,
+		operations:         operationManager,
+		sessions:           sessionService,
+		versions:           versionService,
+		downloader:         downloadSwitch,
+		diskSpace:          diskSpace,
+		settings:           settingsReader,
+		updates:            settingsService,
+		gate:               gate,
+		setCreateTelemetry: func(service *telemetry.Service) { createTelemetry = service },
 	}
 }
 
@@ -356,7 +390,7 @@ func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
 
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:          "Warm world",
 			GameVersionID: "1.20",
 			Directory:     customDirectory,
@@ -378,7 +412,7 @@ func TestCreateInstanceAndDirectoryConflict(t *testing.T) {
 
 	_, err = fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:          "Duplicate",
 			GameVersionID: "1.20",
 			Directory:     customDirectory,
@@ -393,7 +427,7 @@ func TestCreateInstanceDefaultNameAndSuffixes(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	first, err := fixture.service.CreateInstance(ctx, instances.CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +435,7 @@ func TestCreateInstanceDefaultNameAndSuffixes(t *testing.T) {
 		t.Fatalf("expected default name %q, got %q", "Instance", first.Name)
 	}
 
-	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +443,7 @@ func TestCreateInstanceDefaultNameAndSuffixes(t *testing.T) {
 		t.Fatalf("expected suffixed name %q, got %q", "Instance-2", second.Name)
 	}
 
-	third, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	third, err := fixture.service.CreateInstance(ctx, instances.CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +452,7 @@ func TestCreateInstanceDefaultNameAndSuffixes(t *testing.T) {
 	}
 
 	// An explicitly typed name is never renumbered, even when it collides.
-	explicit, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	explicit, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Instance",
 		GameVersionID: "1.20",
 	})
@@ -445,7 +479,7 @@ func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	first, err := fixture.service.CreateInstance(ctx, instances.CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +487,7 @@ func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
 		t.Fatalf("expected localized default name %q, got %q", "Сборка", first.Name)
 	}
 
-	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{GameVersionID: "1.20"})
+	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +499,7 @@ func TestCreateInstanceLocalizedDefaultNames(t *testing.T) {
 func TestStartupReconciliationHardensExistingLogs(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "Logs", GameVersionID: "1.20"})
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "Logs", GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -527,7 +561,7 @@ func TestLocalModLifecycle(t *testing.T) {
 
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:          "Modded",
 			GameVersionID: "1.20",
 		},
@@ -586,7 +620,7 @@ func TestInstallModFilesBatch(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Batch", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -667,7 +701,7 @@ func TestInstallModFilesBatch(t *testing.T) {
 func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Imported", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -741,7 +775,7 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:            "Vanilla",
 			GameVersionID:   "1.20",
 			LaunchArguments: []string{"--debug"},
@@ -793,7 +827,7 @@ func TestLaunchUsesDetectedExecutableAndIsolatedDataPath(t *testing.T) {
 func TestLaunchServerPassesConnectArgumentToSelectedInstance(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Server instance",
 		GameVersionID: "1.20",
 	})
@@ -863,7 +897,7 @@ func TestAuthenticatedLaunchValidatesAndPatchesClientSettings(t *testing.T) {
 	accountID := login.Account.ID
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:             "Authenticated",
 			GameVersionID:    "1.20",
 			DefaultAccountID: &accountID,
@@ -956,7 +990,7 @@ func TestAuthenticatedLaunchFailureCleansInjectedCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "Failure cleanup", GameVersionID: "1.20", DefaultAccountID: &login.Account.ID})
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "Failure cleanup", GameVersionID: "1.20", DefaultAccountID: &login.Account.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1017,7 +1051,7 @@ func TestExpiredSessionBlocksLaunch(t *testing.T) {
 	accountID := login.Account.ID
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:             "Expired",
 			GameVersionID:    "1.20",
 			DefaultAccountID: &accountID,
@@ -1053,7 +1087,7 @@ func TestValidationRepairsLegacyExecutablePath(t *testing.T) {
 
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:          "Legacy installation",
 			GameVersionID: "1.20",
 		},
@@ -1148,7 +1182,7 @@ func TestStatisticsAreCalculatedByBackend(t *testing.T) {
 
 	instance, err := fixture.service.CreateInstance(
 		ctx,
-		application.CreateInstanceInput{
+		instances.CreateInput{
 			Name:          "Stats",
 			GameVersionID: "1.20",
 		},
@@ -1164,7 +1198,7 @@ func TestStatisticsAreCalculatedByBackend(t *testing.T) {
 	}
 	for sessionID, duration := range durations {
 		endedAt := now.Add(time.Duration(duration) * time.Second)
-		session := domain.PlaySession{
+		session := sessions.PlaySession{
 			ID:          sessionID,
 			InstanceID:  instance.ID,
 			VersionID:   "1.20",
@@ -1177,7 +1211,7 @@ func TestStatisticsAreCalculatedByBackend(t *testing.T) {
 		}
 	}
 
-	statistics, err := fixture.service.GetStatistics(ctx)
+	statistics, err := fixture.sessions.GetStatistics(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1375,7 +1409,7 @@ func TestRelocationGuardRejectsDiskOperations(t *testing.T) {
 		t.Fatal("expected relocation to be rejected while busy")
 	}
 
-	_, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+	_, err := fixture.service.CreateInstance(context.Background(), instances.CreateInput{
 		Name:          "blocked",
 		GameVersionID: "1.20",
 	})
@@ -1416,7 +1450,7 @@ func (blockingClientSettings) Reconcile(string) error { return nil }
 
 func TestRelocationCannotBeginDuringAccountClientSettingsCleanup(t *testing.T) {
 	fixture := newTestFixture(t)
-	if _, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+	if _, err := fixture.service.CreateInstance(context.Background(), instances.CreateInput{
 		Name: "cleanup race", GameVersionID: "1.20",
 	}); err != nil {
 		t.Fatal(err)

@@ -34,9 +34,6 @@ var ErrNotFound = errors.New("not found")
 const (
 	ErrValidation           = "VALIDATION_ERROR"
 	ErrAccountNotFound      = "ACCOUNT_NOT_FOUND"
-	ErrInstanceNotFound     = "INSTANCE_NOT_FOUND"
-	ErrInstanceRunning      = "INSTANCE_ALREADY_RUNNING"
-	ErrDirectoryConflict    = "INSTANCE_DIRECTORY_CONFLICT"
 	ErrVersionNotFound      = "GAME_VERSION_NOT_FOUND"
 	ErrVersionNotInstalled  = "GAME_VERSION_NOT_INSTALLED"
 	ErrVersionExists        = "GAME_VERSION_ALREADY_INSTALLED"

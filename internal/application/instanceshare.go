@@ -18,6 +18,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -427,7 +428,7 @@ func (s *Service) ImportPackage(
 	if description == "" {
 		description = pkg.Manifest.Description
 	}
-	instance, err := s.CreateInstance(ctx, CreateInstanceInput{
+	instance, err := s.CreateInstance(ctx, instances.CreateInput{
 		Name:            name,
 		Description:     description,
 		GameVersionID:   versionID,
@@ -474,7 +475,7 @@ func (s *Service) ImportPackage(
 	return report, nil
 }
 
-func (s *Service) cleanupFailedImport(ctx context.Context, instance domain.Instance) error {
+func (s *Service) cleanupFailedImport(ctx context.Context, instance instances.Instance) error {
 	if err := safeRemoveAll(instance.Directory, s.dataRoot, ".waxlight-instance"); err != nil {
 		slog.Warn("could not remove the failed import directory", "instance", instance.Name, "error", err)
 		return err
@@ -490,7 +491,7 @@ func (s *Service) installPackageMod(
 	ctx context.Context,
 	pkg *instancepackage.Package,
 	mod domain.PackageMod,
-	instance domain.Instance,
+	instance instances.Instance,
 	allowIncompatible bool,
 ) domain.ImportedModResult {
 	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}
@@ -539,7 +540,7 @@ func modsDirectoryFor(enabled bool) string {
 func (s *Service) installCatalogPackageMod(
 	ctx context.Context,
 	mod domain.PackageMod,
-	instance domain.Instance,
+	instance instances.Instance,
 	allowIncompatible bool,
 ) domain.ImportedModResult {
 	result := domain.ImportedModResult{Name: mod.Name, Version: mod.Version}

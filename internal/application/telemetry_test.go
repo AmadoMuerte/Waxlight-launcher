@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
@@ -97,6 +97,7 @@ func newTelemetryFixture(t *testing.T) (testFixture, *telemetryRecorder) {
 	recorder := &telemetryRecorder{}
 	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
 	fixture.service.ConfigureTelemetry(telemetryService)
+	fixture.setCreateTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
 	settings, err := fixture.settings.Get(context.Background())
@@ -114,7 +115,7 @@ func TestTelemetryInstanceEventsAtSuccessBoundaries(t *testing.T) {
 	fixture, recorder := newTelemetryFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Telemetry Test",
 		GameVersionID: "1.20",
 	})
@@ -123,7 +124,7 @@ func TestTelemetryInstanceEventsAtSuccessBoundaries(t *testing.T) {
 	}
 	recorder.waitForEvent(t, telemetry.EventInstanceCreated)
 
-	if err := fixture.service.DeleteInstance(ctx, instance.ID, true); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, instance.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventInstanceDeleted)
@@ -155,7 +156,7 @@ func TestTelemetryModEventsAtSuccessBoundaries(t *testing.T) {
 	recorder.waitForEvent(t, telemetry.EventModRemoved)
 
 	// Instance-level mod removal: install a local file, then remove it.
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -185,7 +186,7 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 	fixture, recorder := newTelemetryFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -198,7 +199,7 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 
 	// A separate instance whose process start fails exercises the
 	// game_launch_failed boundary (the first instance is still running).
-	failing, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	failing, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -217,6 +218,7 @@ func TestTelemetryDisabledEmitsNothing(t *testing.T) {
 	recorder := &telemetryRecorder{}
 	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
 	fixture.service.ConfigureTelemetry(telemetryService)
+	fixture.setCreateTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
 	// Explicitly disable telemetry; the default is enabled, so the opt-out
@@ -230,7 +232,7 @@ func TestTelemetryDisabledEmitsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+	if _, err := fixture.service.CreateInstance(context.Background(), instances.CreateInput{
 		GameVersionID: "1.20",
 	}); err != nil {
 		t.Fatal(err)

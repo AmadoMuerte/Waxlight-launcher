@@ -14,6 +14,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -351,7 +352,7 @@ func TestAutomaticSnapshotCreatedBeforeGameVersionChange(t *testing.T) {
 	saveAdditionalGameVersion(t, fixture, "1.21.6")
 
 	instance.GameVersionID = "1.21.6"
-	if _, err := fixture.service.UpdateInstance(ctx, instance); err != nil {
+	if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err != nil {
 		t.Fatal(err)
 	}
 
@@ -450,7 +451,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		fixture.setDiskSpace(fixedDiskSpace(0))
 
 		instance.GameVersionID = "1.21.6"
-		if _, err := fixture.service.UpdateInstance(ctx, instance); err == nil {
+		if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err == nil {
 			t.Fatal("expected the version change to fail")
 		}
 		stored, err := fixture.store.GetInstance(ctx, instance.ID)
@@ -504,7 +505,7 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 
 	saveAdditionalGameVersion(t, fixture, "1.21.6")
 	instance.GameVersionID = "1.21.6"
-	if _, err := fixture.service.UpdateInstance(ctx, instance); err != nil {
+	if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err != nil {
 		t.Fatal(err)
 	}
 	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
@@ -752,7 +753,7 @@ func TestAutomaticSnapshotRejectedWhileGameRunning(t *testing.T) {
 		[]application.ModUpdateTarget{{ModID: "100", VersionID: "1001"}},
 		false,
 	)
-	if code := appErrorCode(t, err); code != domain.ErrInstanceRunning {
+	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
 	if source := installedSource(t, fixture, instance.ID, "100"); source != "moddb:100:1000" {

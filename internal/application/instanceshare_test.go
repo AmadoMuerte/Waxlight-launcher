@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -17,7 +17,7 @@ func TestExportInstancePackageExcludesSensitiveData(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Share me",
 		GameVersionID: "1.20",
 	})
@@ -153,7 +153,7 @@ func TestImportPackageCreatesIsolatedInstance(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	source, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	source, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Original",
 		GameVersionID: "1.20",
 	})
@@ -256,7 +256,7 @@ func TestExportInstanceRejectsInvalidAuthorLinks(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Author links",
 		GameVersionID: "1.20",
 	})
@@ -383,7 +383,7 @@ func TestImportedInstanceHasNoStaleModPaths(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	source, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	source, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Source with mod paths",
 		GameVersionID: "1.20",
 	})
@@ -432,7 +432,7 @@ func TestImportedInstanceSurvivesSourceDeletion(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	source, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	source, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Source pack",
 		GameVersionID: "1.20",
 	})
@@ -470,7 +470,7 @@ func TestImportedInstanceSurvivesSourceDeletion(t *testing.T) {
 		t.Fatalf("imported mod missing before deletion: %v", err)
 	}
 
-	if err := fixture.service.DeleteInstance(ctx, source.ID, true); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, source.ID, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -490,7 +490,7 @@ func TestImportLeavesNoStrayFilesOutsideInstance(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	source, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	source, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Source pack",
 		GameVersionID: "1.20",
 	})

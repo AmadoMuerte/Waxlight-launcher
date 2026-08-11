@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
@@ -18,7 +19,7 @@ type fakeStore struct {
 	mu        sync.Mutex
 	enabled   bool
 	values    map[string]string
-	instances []domain.Instance
+	instances []instances.Instance
 	mods      map[string][]domain.InstalledMod
 	err       error
 }
@@ -56,13 +57,13 @@ func (s *fakeStore) SetSettingValue(_ context.Context, key, value string) error 
 	return nil
 }
 
-func (s *fakeStore) ListInstances(context.Context) ([]domain.Instance, error) {
+func (s *fakeStore) ListInstances(context.Context) ([]instances.Instance, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return nil, s.err
 	}
-	return append([]domain.Instance(nil), s.instances...), nil
+	return append([]instances.Instance(nil), s.instances...), nil
 }
 
 func (s *fakeStore) ListMods(_ context.Context, instanceID string) ([]domain.InstalledMod, error) {
@@ -101,7 +102,7 @@ type blockingHeartbeatStore struct {
 	release chan struct{}
 }
 
-func (s *blockingHeartbeatStore) ListInstances(ctx context.Context) ([]domain.Instance, error) {
+func (s *blockingHeartbeatStore) ListInstances(ctx context.Context) ([]instances.Instance, error) {
 	close(s.listed)
 	<-s.release
 	return s.fakeStore.ListInstances(ctx)
@@ -189,7 +190,7 @@ func TestDisabledTelemetrySendsNothing(t *testing.T) {
 func TestFirstEligibleHeartbeatIsSent(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
-	store.instances = []domain.Instance{{ID: "a"}, {ID: "b"}}
+	store.instances = []instances.Instance{{ID: "a"}, {ID: "b"}}
 	store.mods["a"] = []domain.InstalledMod{{ID: "m1"}, {ID: "m2"}}
 	sender := &fakeSender{}
 	service := NewService(sender, store, store, store)
@@ -420,7 +421,7 @@ func TestStructuredErrorPayloadHasNoRawText(t *testing.T) {
 func TestHeartbeatPayloadContainsOnlyApprovedFields(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
-	store.instances = []domain.Instance{{ID: "a", Name: "secret-instance-name"}}
+	store.instances = []instances.Instance{{ID: "a", Name: "secret-instance-name"}}
 	store.mods["a"] = []domain.InstalledMod{{ID: "m1", Name: "secret-mod-name", FilePath: "/home/user/.waxlight/instances/a/Mods/secret.zip"}}
 	sender := &fakeSender{}
 	service := NewService(sender, store, store, store)

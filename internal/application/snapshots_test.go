@@ -11,17 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
-func createSnapshotTestInstance(t *testing.T, fixture testFixture, name string) domain.Instance {
+func createSnapshotTestInstance(t *testing.T, fixture testFixture, name string) instances.Instance {
 	t.Helper()
-	instance, err := fixture.service.CreateInstance(context.Background(), application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(context.Background(), instances.CreateInput{
 		Name:          name,
 		GameVersionID: "1.20",
 	})
@@ -31,7 +31,7 @@ func createSnapshotTestInstance(t *testing.T, fixture testFixture, name string) 
 	return instance
 }
 
-func writeTestInstanceFiles(t *testing.T, instance domain.Instance) {
+func writeTestInstanceFiles(t *testing.T, instance instances.Instance) {
 	t.Helper()
 	files := map[string]string{
 		"SaveGame/world1/Main/level.bin": "world-bytes",
@@ -51,7 +51,7 @@ func writeTestInstanceFiles(t *testing.T, instance domain.Instance) {
 	}
 }
 
-func writeTestInstanceModFiles(t *testing.T, instance domain.Instance) {
+func writeTestInstanceModFiles(t *testing.T, instance instances.Instance) {
 	t.Helper()
 	for relative, contents := range map[string]string{
 		"Mods/modpack.zip":            "mod-bytes",
@@ -72,7 +72,7 @@ func writeTestInstanceModFiles(t *testing.T, instance domain.Instance) {
 func installManagedMod(
 	t *testing.T,
 	fixture testFixture,
-	instance domain.Instance,
+	instance instances.Instance,
 	name string,
 	fileName string,
 	modID string,
@@ -371,7 +371,7 @@ func TestCreateInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	defer func() { _ = fixture.service.Stop(ctx, instance.ID, true) }()
 
 	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
-	if code := appErrorCode(t, err); code != domain.ErrInstanceRunning {
+	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
 	snapshots, err := fixture.service.ListInstanceSnapshots(ctx, instance.ID)
@@ -883,7 +883,7 @@ func TestRestoreInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	defer func() { _ = fixture.service.Stop(ctx, instance.ID, true) }()
 
 	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
-	if code := appErrorCode(t, err); code != domain.ErrInstanceRunning {
+	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
 		t.Fatalf("expected INSTANCE_ALREADY_RUNNING, got %s", code)
 	}
 }
@@ -1034,7 +1034,7 @@ func TestSnapshotOperationsRejectUnsafeIdentifiers(t *testing.T) {
 	writeTestInstanceFiles(t, instance)
 
 	_, err := fixture.service.CreateInstanceSnapshot(ctx, "..")
-	if code := appErrorCode(t, err); code != domain.ErrInstanceNotFound {
+	if code := appErrorCode(t, err); code != instances.ErrInstanceNotFound {
 		t.Fatalf("expected INSTANCE_NOT_FOUND, got %s", code)
 	}
 

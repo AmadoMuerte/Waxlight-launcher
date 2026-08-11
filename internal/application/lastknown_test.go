@@ -16,11 +16,14 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -143,6 +146,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 	lifecycle := app.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	operationManager := operations.NewManager(store, lifecycle, nil)
+	sessionService := sessions.NewService(store, time.Now)
 	gate := &mutations.Gate{}
 	settingsReader := settingscore.NewReader(store)
 	versionFilesystem := versionfs.New(root)
@@ -155,12 +159,33 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		versions.NewCatalogInstallService(store, versionQueries, nil, nil, nil, versionRuntime, nil, root),
 		versions.NewRemovalService(store, store, versionFilesystem, gate, nil),
 	)
+	instanceQueries := instances.NewQueryService(store)
+	events := &lkgEventRecorder{}
+	instanceCreator := instances.NewCreateService(
+		store,
+		versionService,
+		store,
+		func(ctx context.Context) (string, error) {
+			settings, err := settingsReader.Get(ctx)
+			return settings.Language, err
+		},
+		gate,
+		instancedirectory.New(filesystem.ModFileManager{}),
+		events,
+		nil,
+		root,
+		time.Now,
+		func() string { return "lkg-instance" },
+	)
 	service := NewService(
 		store,
 		filesystem.ModFileManager{},
 		launcher,
 		root,
 		operationManager,
+		sessionService,
+		instanceQueries,
+		instanceCreator,
 		versionService,
 		nil,
 		nil,
@@ -171,7 +196,6 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		lifecycle.Shutdown()
 		_ = service.Close()
 	})
-	events := &lkgEventRecorder{}
 	service.SetEventPublisher(events)
 
 	versionDirectory := filepath.Join(root, "versions", "1.20")
@@ -216,9 +240,9 @@ func setStartupWindow(t *testing.T, window time.Duration) {
 	t.Cleanup(func() { gameStartupWindow = previous })
 }
 
-func (fixture lkgFixture) createInstance(t *testing.T, name string) domain.Instance {
+func (fixture lkgFixture) createInstance(t *testing.T, name string) instances.Instance {
 	t.Helper()
-	instance, err := fixture.service.CreateInstance(context.Background(), CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(context.Background(), instances.CreateInput{
 		Name:          name,
 		GameVersionID: "1.20",
 	})
@@ -234,7 +258,7 @@ var lkgModCounter int
 
 func (fixture lkgFixture) installManagedMod(
 	t *testing.T,
-	instance domain.Instance,
+	instance instances.Instance,
 	modID string,
 	releaseID string,
 	version string,
@@ -271,7 +295,7 @@ func (fixture lkgFixture) installManagedMod(
 // another release, simulating an update without the full download pipeline.
 func (fixture lkgFixture) changeInstalledMod(
 	t *testing.T,
-	instance domain.Instance,
+	instance instances.Instance,
 	modID string,
 	newReleaseID string,
 	newVersion string,
@@ -899,7 +923,7 @@ func TestDeletedInstanceCleansLastKnownGood(t *testing.T) {
 	fixture.launcher.exit(0)
 	fixture.waitForGameExit(t)
 
-	if err := fixture.service.DeleteInstance(ctx, instance.ID, false); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.store.GetLastKnownGood(ctx, instance.ID); !errors.Is(err, domain.ErrNotFound) {

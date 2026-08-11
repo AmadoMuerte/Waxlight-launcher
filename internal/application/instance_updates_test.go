@@ -10,8 +10,8 @@ import (
 	"time"
 
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 func mustTime(t *testing.T) time.Time {
@@ -48,7 +48,7 @@ func TestCheckInstanceModUpdates(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
 
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Warm world",
 		GameVersionID: "1.20",
 	})

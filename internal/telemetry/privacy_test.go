@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // sentinel must never appear in any telemetry payload. The test store injects
@@ -22,7 +23,7 @@ const sentinel = "SECRET_PATH_OR_TOKEN_SHOULD_NEVER_BE_SENT"
 func TestSentinelNeverEntersTelemetryBodies(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
-	store.instances = []domain.Instance{
+	store.instances = []instances.Instance{
 		{ID: sentinel, Name: sentinel},
 	}
 	store.mods[sentinel] = []domain.InstalledMod{

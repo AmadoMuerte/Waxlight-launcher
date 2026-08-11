@@ -9,10 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 type recordedEvent struct {
@@ -152,11 +152,11 @@ func (downloader modArchiveDownloader) ContentLength(_ context.Context, _ string
 func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "First", GameVersionID: "1.20"})
+	first, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "First", GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{Name: "Second", GameVersionID: "1.20"})
+	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{Name: "Second", GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 	if len(result.Installations) != 2 || !result.Installations[0].Installed || !result.Installations[1].Installed {
 		t.Fatalf("unexpected installation result: %#v", result.Installations)
 	}
-	for _, instance := range []domain.Instance{first, second} {
+	for _, instance := range []instances.Instance{first, second} {
 		installed, listErr := fixture.store.ListMods(ctx, instance.ID)
 		if listErr != nil || len(installed) != 1 || installed[0].Source != "moddb:51:7" {
 			t.Fatalf("unexpected installed mods: %#v, %v", installed, listErr)
@@ -199,7 +199,7 @@ func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 func TestDownloadCatalogModsBatchContinuesAfterTargetFailure(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Batch", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -239,7 +239,7 @@ func TestDownloadCatalogModsBatchContinuesAfterTargetFailure(t *testing.T) {
 func TestRemoveUnusedDownloadedModsKeepsInstalledDependencies(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Uses dependency", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	ctx := context.Background()
 	events := &recordingEventPublisher{}
 	fixture.service.SetEventPublisher(events)
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name:          "Dependency test",
 		GameVersionID: "1.20",
 	})
@@ -493,7 +493,7 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 func TestDownloadCatalogModUpgradesSharedDependencyVersion(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Shared dependency", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -566,7 +566,7 @@ func TestUpdateModRemovesSupersededCacheVersion(t *testing.T) {
 	ctx := context.Background()
 	fixture.setDownloader(modArchiveDownloader{})
 	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
-	instance, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	instance, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Updater", GameVersionID: "1.20",
 	})
 	if err != nil {
@@ -601,13 +601,13 @@ func TestUpdateKeepsCacheVersionUsedByAnotherInstance(t *testing.T) {
 	ctx := context.Background()
 	fixture.setDownloader(modArchiveDownloader{})
 	fixture.service.ConfigureMods(twoVersionCorpseCatalog(), modstorage.New(fixture.root))
-	first, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	first, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "Old", GameVersionID: "1.20",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := fixture.service.CreateInstance(ctx, application.CreateInstanceInput{
+	second, err := fixture.service.CreateInstance(ctx, instances.CreateInput{
 		Name: "New", GameVersionID: "1.20",
 	})
 	if err != nil {

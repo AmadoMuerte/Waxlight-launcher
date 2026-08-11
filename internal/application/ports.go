@@ -6,6 +6,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 type ClientSettingsPatcher interface {
@@ -15,12 +16,8 @@ type ClientSettingsPatcher interface {
 }
 
 type Store interface {
+	instances.Repository
 	Close() error
-	ListInstances(context.Context) ([]domain.Instance, error)
-	GetInstance(context.Context, string) (domain.Instance, error)
-	SaveInstance(context.Context, domain.Instance) error
-	DeleteInstance(context.Context, string) error
-	IsDirectoryUsed(context.Context, string, string) (bool, error)
 
 	ListFavoriteServers(context.Context) ([]domain.FavoriteServer, error)
 	GetFavoriteServer(context.Context, string) (domain.FavoriteServer, error)
@@ -35,10 +32,6 @@ type Store interface {
 	GetMod(context.Context, string) (domain.InstalledMod, error)
 	SaveMod(context.Context, domain.InstalledMod) error
 	DeleteMod(context.Context, string) error
-
-	SaveSession(context.Context, domain.PlaySession) error
-	FinishSession(context.Context, string, int, bool, int64) error
-	ListSessions(context.Context, string, int) ([]domain.PlaySession, error)
 }
 
 type ModFileManager interface {

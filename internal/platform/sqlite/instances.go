@@ -9,30 +9,31 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 const instanceColumns = `id, name, description, game_version_id, default_account_id,
 	directory, cover_path, status, launch_arguments, last_played_at, created_at, updated_at`
 
-func (s *SQLiteStore) ListInstances(ctx context.Context) ([]domain.Instance, error) {
+func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+instanceColumns+` FROM instances ORDER BY COALESCE(last_played_at, created_at) DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var instances []domain.Instance
+	var result []instances.Instance
 	for rows.Next() {
 		instance, err := scanInstance(rows)
 		if err != nil {
 			return nil, err
 		}
-		instances = append(instances, instance)
+		result = append(result, instance)
 	}
-	return instances, rows.Err()
+	return result, rows.Err()
 }
 
-func scanInstance(row scanner) (domain.Instance, error) {
-	var instance domain.Instance
+func scanInstance(row scanner) (instances.Instance, error) {
+	var instance instances.Instance
 	var account, cover, last sql.NullString
 	var arguments, created, updated string
 	err := row.Scan(&instance.ID, &instance.Name, &instance.Description, &instance.GameVersionID, &account,
@@ -50,15 +51,15 @@ func scanInstance(row scanner) (domain.Instance, error) {
 	return instance, err
 }
 
-func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (domain.Instance, error) {
+func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
 	instance, err := scanInstance(s.db.QueryRowContext(ctx, `SELECT `+instanceColumns+` FROM instances WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return instance, domain.NewError(domain.ErrInstanceNotFound, "Instance not found")
+		return instance, domain.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
 	return instance, err
 }
 
-func (s *SQLiteStore) SaveInstance(ctx context.Context, instance domain.Instance) error {
+func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Instance) error {
 	arguments, _ := json.Marshal(instance.LaunchArguments)
 	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description,
@@ -69,7 +70,7 @@ func (s *SQLiteStore) SaveInstance(ctx context.Context, instance domain.Instance
 		instance.Directory, instance.CoverPath, instance.Status, string(arguments), optTS(instance.LastPlayedAt),
 		ts(instance.CreatedAt), ts(instance.UpdatedAt))
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed: instances.directory") {
-		return domain.NewError(domain.ErrDirectoryConflict, "The directory is already used by another instance")
+		return domain.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance")
 	}
 	return err
 }
@@ -80,7 +81,7 @@ func (s *SQLiteStore) DeleteInstance(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(domain.ErrInstanceNotFound, "Instance not found")
+		return domain.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
 	return nil
 }

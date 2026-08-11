@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
@@ -305,7 +306,7 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	cover := filepath.Join(oldRoot, "instances", "i1", "cover.png")
-	if err := store.SaveInstance(ctx, domain.Instance{
+	if err := store.SaveInstance(ctx, instances.Instance{
 		ID:              "i1",
 		Name:            "Setup",
 		GameVersionID:   "v1",

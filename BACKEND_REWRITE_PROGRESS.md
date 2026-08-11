@@ -14,8 +14,12 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 1 status: merged into `dev`
 - Stage 2 branch: `refactor/backend-core-features`
 - Stage 2 pull request: [#82](https://github.com/AmadoMuerte/Waxlight-launcher/pull/82)
-- Stage 2 status: implemented, validated locally, committed, synchronized, and
-  submitted for review; CI and merge are pending
+- Stage 2 status: merged into `dev` after successful local validation, manual
+  smoke testing, and CI
+- Stage 3 branch: `refactor/backend-instances-launching`
+- Stage 3 pull request: [#84](https://github.com/AmadoMuerte/Waxlight-launcher/pull/84)
+- Stage 3 status: in progress; play-session, instance-core, creation/local-storage,
+  and update/delete ownership extracted
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -113,8 +117,8 @@ builds.
 
 ## Stage 2: Operations, Versions, and Settings
 
-Stage 2 is implemented on `refactor/backend-core-features` and delivered for
-review in pull request #82.
+Stage 2 was implemented on `refactor/backend-core-features` and merged into
+`dev` through pull request #82.
 
 ### Operations Feature
 
@@ -278,8 +282,9 @@ that the Wails/frontend API, DTO, and event contracts remain compatible. On
 - `make wails-build` on Linux AMD64
 - `git diff --check`
 
-Native Windows credential-store integration and Windows production build checks
-remain CI-only.
+PR #82 also passed CI tests/static checks, vulnerability and secret scanning,
+Linux and Windows native credential-store integration, and Linux and Windows
+production builds.
 
 Manual smoke testing also passed for the implemented Stage 2 behavior.
 
@@ -294,133 +299,442 @@ Manual smoke testing also passed for the implemented Stage 2 behavior.
 - [x] Commit Stage 2 with a clear English commit message.
 - [x] Synchronize `refactor/backend-core-features` with the latest `origin/dev`.
 - [x] Push the branch and open pull request #82 against `dev`.
-- [ ] Wait for CI before starting the next integration stage.
+- [x] Pass all required CI checks.
+- [x] Merge pull request #82 into `dev`.
 
-### Instances, Launching, and Sessions
+## Stage 3: Instances, Launching, and Sessions
 
-- Move the instance model and repository interface into `internal/instances`.
-- Split instance CRUD, clone, share/import/export, local storage, and update
-  analysis into coherent capabilities.
-- Remove instance methods and synchronization from `application.Service`.
-- Add a focused launch coordinator that separates:
-  - instance resolution;
-  - account/session resolution;
-  - client-settings preparation;
-  - process argument construction;
-  - process start/stop/tracking;
-  - launcher-side logs;
-  - sensitive settings restoration;
-  - play-session recording;
-  - crash/recovery handling.
-- Move process execution behind a platform adapter.
-- Make all launch workers lifecycle-owned and joined during shutdown.
-- Move play-session models/repository and statistics inputs to feature-owned
-  packages.
-- Preserve credential injection cleanup and startup reconciliation.
+Goal: remove instance and game-process orchestration from
+`internal/application.Service` without changing instance storage, launch
+arguments, credential handling, or frontend behavior.
 
-### Servers
+### Completed Stage 3 Slice: Sessions
 
-- Move favorite/public server models and repository interface into
-  `internal/servers`.
-- Keep the public catalog behind the `vintagestory-go` server adapter.
-- Remove `ConfigurePublicServerCatalog`.
-- Move the Wails server controller to the new transport boundary.
-- Preserve favorite server storage and launch behavior.
+- Added `internal/sessions` as the owner of persisted play-session and
+  statistics models.
+- Added a narrow session repository plus focused create, finish, interrupted
+  recovery, statistics, and per-instance playtime capabilities.
+- Removed play-session models and persistence methods from `internal/domain`
+  and the broad `application.Store`.
+- Made session completion and startup recovery timestamps feature-owned and
+  injectable for deterministic tests.
+- Made interrupted-session and running-instance recovery transactional instead
+  of ignoring a partial recovery failure.
+- Replaced the 5,000-row statistics cap with aggregate SQLite queries while
+  retaining a separate ten-session recent-history limit.
+- Updated launch orchestration to use the session capability while keeping
+  process, credential-cleanup, and game-exit ordering together until the
+  launching feature is extracted.
+- Updated bootstrap, statistics presentation, instance playtime aggregation,
+  DTO mapping, and SQLite mappings without changing frontend contracts or the
+  database schema.
+- Added direct feature tests and SQLite tests for round trips, finish state,
+  interrupted-session recovery, statistics, and playtime.
+- Passed `go test ./...`, focused race tests for sessions, SQLite, application,
+  presentation, and bootstrap, `make format-check lint`, and `make security`.
 
-### Mods and Mod Catalog
+### Completed Stage 3 Slice: Instance Core
 
-- Move installed/downloaded mod models, repository ports, file-management
-  boundaries, download coordination, updates, enable/disable, removal, local
-  linking, and dependency installation into focused mod capabilities.
-- Separate ModDB browsing from installed-mod orchestration.
-- Move ModDB task tracking to a focused manager while retaining current event
-  names and frontend behavior.
-- Remove `ConfigureMods` and remaining mod state from `application.Service`.
-- Keep ModDB and modpack behavior sourced from `vintagestory-go`.
-- Resolve the remaining duplicate local `modinfo.json` parsing and generic
-  dependency compatibility behavior by contributing missing generic capability
-  upstream instead of maintaining duplicate Waxlight implementations.
+- Added `internal/instances` as the owner of the instance model, create input,
+  ready/running statuses, instance error codes, repository, and query service.
+- Removed `domain.Instance`, the application-owned create input, and the
+  instance error codes from `internal/domain` without compatibility aliases.
+- Made the broad application store compose the focused instance repository
+  instead of redeclaring its methods.
+- Moved SQLite instance mapping to `instances.Instance` without changing the
+  schema, columns, ordering, JSON launch arguments, nullable fields, or error
+  messages.
+- Updated application orchestration, telemetry, presentation DTOs, bootstrap,
+  and tests to consume the instance-owned model.
+- Made `InstanceController` use the focused query capability for list/get while
+  retaining existing Wails method names and DTO shapes.
+- Added direct query-service and SQLite tests for CRUD, mapping, ordering,
+  directory conflicts, and missing records.
+- Passed `go test ./...`, focused race tests for instances, sessions, SQLite,
+  application, presentation, telemetry, and bootstrap, all frontend tests, and
+  the frontend production build. Format, lint, security, and vulnerability
+  checks also passed.
 
-### Snapshots and Recovery
+### Completed Stage 3 Slice: Instance Creation and Local Storage
 
-- Move snapshots, safety snapshots, retention, restore coordination, and
-  snapshot models into `internal/snapshots`.
-- Move Last Known Good and crash-recovery behavior into a focused recovery
-  package.
-- Define narrow snapshot filesystem and repository ports.
-- Remove direct application imports of snapshot/data-root/filesystem adapters.
-- Preserve manual snapshots, safety snapshots, automatic retention, exact
-  managed-mod restoration, recovery suggestions, and credential sanitization.
-- Add direct snapshot-store integration tests in addition to feature tests.
+- Added an instance-owned creation service with immutable, focused repository,
+  version, account, settings-language, mutation-gate, directory-storage, event,
+  telemetry, clock, and ID-generation dependencies.
+- Split instance query and creation repository boundaries so read-only
+  capabilities no longer depend on the complete instance repository.
+- Moved name validation, localized default naming, suffix allocation, version
+  and account validation, timestamps, persistence, creation events, and
+  creation telemetry out of `application.Service`.
+- Added an instance-directory infrastructure adapter that normalizes paths,
+  serializes in-process allocation, uses an exclusive instance marker as a
+  cross-adapter reservation, creates the standard mod/log layout, hardens logs,
+  and preserves the exact marker contents and permissions.
+- Made failed creation roll back only allocation-owned files. A newly created
+  instance root is removed, while a pre-existing custom directory and its user
+  content are preserved.
+- Closed the custom-directory check/allocate race for concurrent creators and
+  prevented a losing allocator from deleting the winning allocator's files.
+- Made `InstanceController.CreateInstance` call the focused creation capability
+  directly while preserving its Wails method, request, response, error, event,
+  and telemetry contracts.
+- Kept a narrow application delegate for clone and package-import orchestration
+  until those capabilities move into the instance feature.
+- Added direct creation and directory-adapter tests for naming, validation,
+  mutation gating, events, telemetry, marker/layout creation, conflicts,
+  persistence rollback, pre-existing directory preservation, symlink roots,
+  and concurrent independent allocators.
+- Passed focused tests and race tests for instances, instance-directory
+  storage, application, presentation, and bootstrap.
 
-### Updater, Telemetry, Statistics, and Game Logs
+### Completed Stage 3 Slice: Instance Update and Deletion
 
-- Move launcher update orchestration into `internal/updates` with immutable
-  telemetry and platform dependencies.
-- Remove `LauncherUpdateService.ConfigureTelemetry`.
-- Keep trusted URL, checksum, signature, publisher, and installer guarantees.
-- Move telemetry orchestration to the final feature/platform structure without
-  weakening opt-in or payload allowlists.
-- Move statistics and playtime queries into `internal/statistics`.
-- Move game-log tailing/crash-report coordination into `internal/gamelog`.
-- Ensure telemetry and background delivery have explicit lifecycle ownership.
+- Added instance-owned update and deletion services with focused repository,
+  version, mutation-gate, client-settings, safety-snapshot, process-state,
+  recovery-cleanup, filesystem, event, telemetry, and clock boundaries.
+- Moved update validation, persisted-field preservation, account-change
+  credential cleanup, timestamps, persistence, and update events out of
+  `application.Service`.
+- Kept game-version safety snapshots behind a narrow transitional callback so
+  the per-instance mutation lock remains held from snapshot creation through
+  persistence without making `internal/instances` depend on the legacy
+  snapshot subsystem.
+- Moved deletion sequencing, optional client-settings cleanup, repository
+  deletion, best-effort Last Known Good cleanup, events, and telemetry out of
+  `application.Service`.
+- Preserved running-game and snapshot-operation deletion guards through a
+  narrow application adapter until process and snapshot ownership moves in
+  later Stage 3 and Stage 6 slices.
+- Made `InstanceController` call update and deletion capabilities directly and
+  removed the migrated `UpdateInstance` and `DeleteInstance` orchestration
+  methods from `application.Service` without changing Wails methods or DTOs.
+- Added direct tests for field preservation, timestamps, version-change lock
+  ordering, credential cleanup, mutation-gate rejection, filesystem/persistence
+  ordering, best-effort recovery cleanup, events, telemetry, and failure
+  rollback boundaries.
+- Passed `go test ./...` and focused race tests for instances, application,
+  presentation, bootstrap, and SQLite.
 
-### Wails Transport and Composition Root
+### Instance Feature
 
-- Move every controller from `internal/presentation` into
-  `internal/transport/wails`, split by feature.
-- Keep Wails limited to parameter/DTO conversion, feature invocation, dialogs,
-  events, browser opening, and application quit.
-- Preserve all frontend-consumed controller names, method names, arguments,
-  return shapes, events, and user-facing errors.
-- Add an automated frontend-to-backend Wails contract check for the complete API
-  inventory.
-- Move bootstrap wiring into `internal/app/wire.go` and lifecycle ownership into
-  `internal/app`.
-- Keep `cmd/waxlight/main.go` as a small executable entrypoint.
-- Remove `internal/bootstrap` after the composition root is complete.
+- [x] Add `internal/instances` as the owner of the instance model, inputs,
+  repository interfaces, statuses, and instance-specific errors.
+- [ ] Split instance behavior into focused capabilities for:
+  - queries and CRUD (complete);
+  - directory allocation and local storage (creation allocation extracted;
+    deletion and restore storage remain);
+  - cloning;
+  - package import and export;
+  - update analysis and game-version changes.
+- [ ] Replace the broad application store dependency with narrow instance,
+  version, account, mod, snapshot, and filesystem ports.
+- [ ] Move instance mutation locking into the feature and integrate it with
+  `internal/mutations.Gate`.
+- [x] Move instance SQLite mappings to instance-owned models while preserving
+  the current schema and stored rows.
+- [ ] Remove migrated instance methods, state, and tests from
+  `internal/application.Service`.
 
-### Remove the Legacy Architecture
+### Launching and Processes
 
-- Delete `internal/application.Service` after all callers are migrated.
-- Delete the remaining broad `application.Store` and unrelated global ports.
-- Remove all remaining post-construction configuration methods:
+- [ ] Add `internal/launching` with a focused launch coordinator that separates:
+  - instance and version resolution;
+  - account and session validation;
+  - client-settings preparation and cleanup;
+  - process argument and environment construction;
+  - process start, stop, tracking, and exit handling;
+  - launcher-owned diagnostic logs;
+  - play-session persistence;
+  - failed-startup and crash handling.
+- [ ] Move process execution and OS-specific stop/kill behavior under
+  `internal/platform/process`.
+- [ ] Make every launch worker lifecycle-owned and joined during shutdown.
+- [ ] Preserve temporary credential injection into `clientsettings.json` and
+  guaranteed cleanup after normal exit, failed launch, forced stop, and startup
+  reconciliation.
+- [ ] Keep credentials out of process arguments, environment variables, logs,
+  DTOs, errors, and events.
+- [ ] Preserve current launch validation messages, server-connect behavior,
+  game events, and frontend controller contracts.
+
+### Sessions and Statistics Inputs
+
+- [x] Add `internal/sessions` as the owner of play-session models and repository
+  interfaces.
+- [x] Move session start/finish recording and interrupted-session recovery out
+  of `application.Service`.
+- [x] Expose narrow read capabilities that a later statistics feature can use.
+- [x] Preserve playtime, crash, exit-code, process-ID, and account associations.
+
+### Stage 3 Validation and Delivery
+
+- [ ] Add direct tests for instance CRUD, clone, package operations, validation,
+  launch rollback, credential cleanup, process failures, shutdown, and session
+  recovery.
+- [ ] Run focused race tests for instances, launching, sessions, bootstrap,
+  SQLite, and presentation.
+- [ ] Confirm all instance/game Wails methods, DTOs, events, and error messages
+  remain compatible.
+- [ ] Run the complete local validation matrix.
+- [ ] Complete manual smoke testing for create/edit/clone/import/export,
+  authenticated and offline launch, stop, crash, and restart recovery.
+- [ ] Commit, synchronize with `origin/dev`, push, open a pull request against
+  `dev`, pass CI, and merge before Stage 4 begins.
+
+## Stage 4: Servers and Public Catalog
+
+Goal: isolate favorite-server persistence and public-server browsing while
+keeping Vintage Story protocol behavior in `vintagestory-go`.
+
+### Server Feature
+
+- [ ] Add `internal/servers` as the owner of favorite/public server models,
+  validation, repository ports, and launch requests.
+- [ ] Split favorite-server CRUD from public-catalog queries.
+- [ ] Keep public catalog access behind a thin `vintagestory-go` adapter.
+- [ ] Remove `ConfigurePublicServerCatalog` and inject immutable dependencies at
+  construction.
+- [ ] Move the server controller into `internal/transport/wails` while
+  preserving controller and method names.
+- [ ] Preserve favorite-server rows, address validation, instance association,
+  public catalog fields, and connect-on-launch behavior.
+
+### Stage 4 Validation and Delivery
+
+- [ ] Add tests for favorite-server CRUD, validation, catalog mapping, catalog
+  failures, and server launches.
+- [ ] Confirm server DTOs, generated bindings, events, and frontend calls remain
+  compatible.
+- [ ] Run focused race tests and the complete local validation matrix.
+- [ ] Complete manual smoke testing for favorites, public browsing, refresh,
+  errors, and joining a server.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 5 begins.
+
+## Stage 5: Mods and ModDB
+
+Goal: separate installed-mod orchestration from ModDB browsing and eliminate
+the remaining mod state in `application.Service`.
+
+### Upstream Vintage Story Work
+
+- [ ] Inventory remaining local `modinfo.json`, dependency, compatibility, and
+  modpack behavior against the released `vintagestory-go` API.
+- [ ] Contribute missing generic parsing or compatibility capabilities to
+  `vintagestory-go` with upstream tests.
+- [ ] Release and consume the required library version before deleting any
+  temporary local generic implementation.
+- [ ] Keep only Waxlight-specific mapping, persistence, filesystem policy,
+  orchestration, and user-facing errors in this repository.
+
+### Installed Mods
+
+- [ ] Add `internal/mods` as the owner of installed/downloaded mod models,
+  repository ports, mutation coordination, and feature errors.
+- [ ] Split capabilities for:
+  - installed-mod discovery and reconciliation;
+  - local file installation and linking;
+  - enable/disable and removal;
+  - dependency installation and removal previews;
+  - downloaded-mod cache and cleanup;
+  - update analysis and application.
+- [ ] Define narrow filesystem, downloader, catalog, snapshot, instance, and
+  event boundaries.
+- [ ] Preserve safety snapshots before destructive mod changes.
+- [ ] Remove migrated mod methods, mutexes, task maps, and state from
+  `application.Service`.
+
+### ModDB Browsing and Tasks
+
+- [ ] Add a focused ModDB catalog capability backed by `vintagestory-go`.
+- [ ] Move ModDB task tracking, cancellation, progress, and completion into a
+  dedicated manager separate from persistent launcher operations.
+- [ ] Remove `ConfigureMods` and use immutable constructor dependencies.
+- [ ] Preserve current ModDB query behavior, pagination, dependency flow,
+  event names, DTOs, and frontend task cancellation.
+
+### Stage 5 Validation and Delivery
+
+- [ ] Add tests for discovery, reconciliation, local linking, dependencies,
+  updates, cancellation, cache cleanup, unsafe archives, and rollback.
+- [ ] Run focused race tests for mods, ModDB tasks, downloader, snapshots,
+  SQLite, bootstrap, and presentation.
+- [ ] Confirm all mod Wails methods, DTOs, events, and generated bindings remain
+  compatible.
+- [ ] Run the complete local validation matrix and manual mod-management smoke
+  tests.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 6 begins.
+
+## Stage 6: Snapshots and Recovery
+
+Goal: isolate backup, restore, Last Known Good, and crash-recovery policy behind
+narrow repositories and filesystem boundaries.
+
+### Snapshot Feature
+
+- [ ] Add `internal/snapshots` as the owner of snapshot models, reasons,
+  retention policy, repository ports, and capabilities.
+- [ ] Move manual snapshots, safety snapshots, restore coordination, pruning,
+  and exact managed-mod restoration out of `application.Service`.
+- [ ] Define narrow snapshot filesystem, instance, mod, version, and mutation
+  ports.
+- [ ] Move the snapshot storage adapter under `internal/platform/snapshots`.
+- [ ] Ensure every snapshot, export, and archive path removes `sessionkey`,
+  `sessionsignature`, `playeruid`, and `playername` from `clientsettings.json`.
+
+### Recovery Feature
+
+- [ ] Add `internal/recovery` for Last Known Good state, startup reconciliation,
+  failed-launch analysis, recovery suggestions, and restore coordination.
+- [ ] Preserve current crash-window behavior and user-facing recovery events.
+- [ ] Remove direct application imports of snapshot, data-root, and filesystem
+  adapters.
+- [ ] Remove migrated snapshot/recovery methods and state from
+  `application.Service`.
+
+### Stage 6 Validation and Delivery
+
+- [ ] Add direct integration tests for the snapshot storage adapter.
+- [ ] Add tests for manual/safety snapshots, retention, exact restore,
+  credential sanitization, failed restores, Last Known Good, and crash recovery.
+- [ ] Run focused race tests and the complete local validation matrix.
+- [ ] Complete manual smoke testing for create, restore, prune, failed launch,
+  and suggested recovery.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 7 begins.
+
+## Stage 7: Updates, Telemetry, Statistics, and Game Logs
+
+Goal: give the remaining operational services explicit feature ownership and
+lifecycle-safe background delivery.
+
+### Launcher Updates
+
+- [ ] Add `internal/updates` for update checks, download orchestration,
+  verification, installation, skip policy, and update events.
+- [ ] Make telemetry, downloader, platform, publisher, and installer
+  dependencies immutable.
+- [ ] Remove `LauncherUpdateService.ConfigureTelemetry`.
+- [ ] Preserve trusted URL validation, checksums, signatures, publisher trust,
+  channel behavior, skipped versions, and installer guarantees.
+
+### Telemetry
+
+- [ ] Move telemetry orchestration and background delivery into the final
+  feature/platform structure.
+- [ ] Keep telemetry disabled until explicit opt-in and preserve event/error
+  allowlists, identity privacy, consent synchronization, and heartbeat policy.
+- [ ] Make every telemetry worker lifecycle-owned, cancellable where possible,
+  and joined or safely abandoned during shutdown.
+- [ ] Remove remaining post-construction telemetry configuration.
+
+### Statistics and Game Logs
+
+- [ ] Add `internal/statistics` for launcher statistics and per-instance
+  playtime queries over the sessions read capability.
+- [ ] Add `internal/gamelog` for game-log tailing, crash indicators, and
+  launcher-side crash-report coordination.
+- [ ] Preserve lazy frontend loading of the log console and existing events.
+- [ ] Never copy game output into launcher logs or support exports.
+
+### Stage 7 Validation and Delivery
+
+- [ ] Add tests for update trust failures, cancellation, telemetry opt-in and
+  allowlists, shutdown, statistics, log tailing, and crash coordination.
+- [ ] Run focused race, privacy, security, and complete local validation checks.
+- [ ] Complete manual smoke testing for update UI, telemetry transitions,
+  statistics, and game-log viewing.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 8 begins.
+
+## Stage 8: Wails Transport and Composition Root
+
+Goal: reduce Wails to a transport adapter and make `internal/app` the complete,
+explicit composition root.
+
+### Wails Transport
+
+- [ ] Move every remaining controller and DTO from `internal/presentation` into
+  feature-oriented files under `internal/transport/wails`.
+- [ ] Keep Wails limited to parameter/DTO conversion, feature invocation,
+  dialogs, events, browser opening, directory opening, and application quit.
+- [ ] Preserve all frontend-consumed controller names, method names, argument
+  order, return shapes, JSON fields, events, and user-facing errors.
+- [ ] Regenerate bindings and verify that only intentional package-path changes
+  occur.
+- [ ] Add a checked-in Wails API inventory and an automated frontend-to-backend
+  compatibility check.
+
+### Composition Root
+
+- [ ] Move dependency construction and wiring into `internal/app/wire.go`.
+- [ ] Keep lifecycle, mutation gate, event publisher, repositories, features,
+  platform adapters, and transport assembly explicit and immutable.
+- [ ] Keep `cmd/waxlight/main.go` as a small executable entrypoint.
+- [ ] Remove `internal/bootstrap` after all startup, reconciliation, and shutdown
+  responsibilities have moved.
+- [ ] Add composition tests that prove startup ordering, recovery ordering, and
+  deterministic shutdown.
+
+### Stage 8 Validation and Delivery
+
+- [ ] Verify the complete Wails API inventory against frontend consumers and
+  generated bindings.
+- [ ] Run focused lifecycle, bootstrap/composition, transport, and race tests.
+- [ ] Run the complete local validation matrix and a desktop smoke test.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 9 begins.
+
+## Stage 9: Legacy Removal and Architecture Enforcement
+
+Goal: delete the old global architecture, document the implemented package
+graph, and prevent architectural regression.
+
+### Remove Legacy Packages
+
+- [ ] Delete `internal/application.Service` after all callers are migrated.
+- [ ] Delete the remaining broad `application.Store` and unrelated global
+  ports.
+- [ ] Remove all remaining post-construction configuration methods:
   - `ConfigureAuthentication`;
   - `ConfigureMods`;
   - `ConfigurePublicServerCatalog`;
   - `ConfigureTelemetry`;
   - `SetEventPublisher`.
-- Delete obsolete application feature files, shared global models, controller
-  monoliths, adapters, compatibility helpers, and dead tests.
-- Move remaining infrastructure adapters under `internal/platform` by focused
-  responsibility.
-- Remove the old global `internal/domain`, `internal/application`,
+- [ ] Delete obsolete application feature files, shared global models,
+  controller monoliths, adapters, compatibility helpers, and dead tests.
+- [ ] Move remaining infrastructure adapters under `internal/platform` by
+  focused responsibility.
+- [ ] Remove the old global `internal/domain`, `internal/application`,
   `internal/infrastructure`, and `internal/presentation` hierarchy once no
   feature depends on it.
-- Ensure no new service, module, repository, or dependency container replaces
-  the old god objects.
+- [ ] Confirm that no replacement god service, store, module, or dependency
+  container has been introduced.
 
-### Architecture Documentation and Enforcement
+### Documentation and Enforcement
 
-- Add `docs/backend-architecture.md` describing the final implemented package
+- [ ] Add `docs/backend-architecture.md` describing the implemented package
   graph, module ownership, dependency direction, lifecycle, events, migrations,
   security boundaries, and extension rules.
-- Update `AGENTS.md` to require the feature-oriented architecture rather than
-  the old global layered structure.
-- Add architecture checks that reject:
-  - Wails imports from features;
-  - SQLite/platform imports from features;
-  - credentials in DTOs/generated bindings;
+- [ ] Update `AGENTS.md` to require the final feature-oriented architecture.
+- [ ] Add architecture checks that reject:
+  - Wails imports from feature packages;
+  - SQLite/platform imports from feature packages;
+  - credentials in DTOs or generated bindings;
   - forbidden global service/store patterns;
   - duplicate generic Vintage Story implementations.
-- Add a complete Wails API compatibility inventory/check.
+- [ ] Integrate architecture and Wails contract checks into local validation and
+  CI.
+- [ ] Update this progress document with the final package inventory and mark
+  every rewrite stage complete.
 
-### Final Validation and Delivery
+### Stage 9 Validation and Delivery
 
-Before the rewrite is considered complete, run and report:
+- [ ] Run and report the complete final validation matrix:
 
 ```bash
-gofmt
+make format
+git diff --check
 go test ./...
 go test -race ./...
 go vet ./...
@@ -432,6 +746,14 @@ npm run build --prefix frontend
 make wails-build
 ```
 
-Platform-specific checks that cannot run locally must be reported explicitly
-and covered by CI. The final branch must be pushed and the final normal pull
-request must target `dev`; it must not be merged automatically.
+- [ ] Complete final manual testing for accounts, versions, instances, launch,
+  servers, mods, snapshots, recovery, relocation, updates, statistics, and logs.
+- [ ] Report any platform-specific checks that cannot run locally and require
+  them in CI.
+- [ ] Confirm the final branch is synchronized with `origin/dev` and contains
+  only the intended rewrite changes.
+- [ ] Push the final branch and open the final normal pull request against
+  `dev`; do not target `main` and do not merge automatically.
+- [ ] Pass every required CI check and complete review before merge.
+- [ ] After merge, mark the backend rewrite complete and begin any release
+  promotion only through the separate `dev` to `main` process.

@@ -4,9 +4,10 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -133,7 +134,7 @@ type InstanceDTO struct {
 	PlaytimeSeconds  int64    `json:"playtimeSeconds"`
 }
 
-func instanceDTO(instance domain.Instance) InstanceDTO {
+func instanceDTO(instance instances.Instance) InstanceDTO {
 	launchArguments := instance.LaunchArguments
 	if launchArguments == nil {
 		launchArguments = []string{}
@@ -284,7 +285,7 @@ type PlaySessionDTO struct {
 	Recovered       bool    `json:"recovered"`
 }
 
-func sessionDTO(session domain.PlaySession) PlaySessionDTO {
+func sessionDTO(session sessions.PlaySession) PlaySessionDTO {
 	result := PlaySessionDTO{
 		ID:              session.ID,
 		InstanceID:      session.InstanceID,
@@ -311,7 +312,7 @@ type StatisticsDTO struct {
 	RecentSessions        []PlaySessionDTO `json:"recentSessions"`
 }
 
-func statisticsDTO(statistics application.Statistics) StatisticsDTO {
+func statisticsDTO(statistics sessions.Statistics) StatisticsDTO {
 	result := StatisticsDTO{
 		TotalPlaytimeSeconds:  statistics.TotalPlaytimeSeconds,
 		LaunchCount:           statistics.LaunchCount,
