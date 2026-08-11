@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/apptest"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
@@ -295,7 +295,7 @@ type testFixture struct {
 	launching          *launching.Coordinator
 	registry           *launching.Registry
 	accountHolder      *accountHolder
-	lifecycle          *app.Lifecycle
+	lifecycle          *apptest.Lifecycle
 	operations         *operations.Manager
 	sessions           *sessions.Service
 	versions           *versions.Capabilities
@@ -353,7 +353,7 @@ func newTestFixtureFull(
 	}
 
 	launcher := &recordingLauncher{}
-	lifecycle := app.NewLifecycle()
+	lifecycle := apptest.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	operationManager := operations.NewManager(store, lifecycle, nil)
 	sessionService := sessions.NewService(store, time.Now)

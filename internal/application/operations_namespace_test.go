@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/app"
+	"github.com/waxlight/waxlight-launcher/internal/apptest"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
@@ -31,7 +31,7 @@ func (namespaceOperationRepository) ClearFinishedOperations(context.Context) (in
 }
 
 func TestPersistentAndModTaskCancellationNamespacesDoNotCross(t *testing.T) {
-	lifecycle := app.NewLifecycle()
+	lifecycle := apptest.NewLifecycle()
 	lifecycle.Startup(context.Background())
 	t.Cleanup(lifecycle.Shutdown)
 	manager := operations.NewManager(namespaceOperationRepository{}, lifecycle, nil)

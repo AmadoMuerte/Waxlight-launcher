@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "controllers": {
+    "AccountController": [
+      "CancelLogin",
+      "CompleteTOTP",
+      "ListAccounts",
+      "Login",
+      "ReauthenticateAccount",
+      "RemoveAccount",
+      "SetDefaultAccount",
+      "ValidateAccount"
+    ],
+    "AppController": [
+      "AppInfo"
+    ],
+    "GameVersionController": [
+      "InstallLocalVersion",
+      "InstallVersion",
+      "ListAvailableVersions",
+      "ListInstalledVersions",
+      "RemoveVersion"
+    ],
+    "InstanceController": [
+      "CloneInstance",
+      "CreateInstance",
+      "DeleteInstance",
+      "GetInstance",
+      "ListInstances",
+      "UpdateInstance"
+    ],
+    "InstancePackageController": [
+      "ExportInstance",
+      "ImportPackage",
+      "InspectPackage",
+      "SelectExportPath",
+      "SelectPackageFile"
+    ],
+    "LastKnownGoodController": [
+      "GetInstanceLastKnownGood"
+    ],
+    "LaunchController": [
+      "ForceStopInstance",
+      "GetRunningInstances",
+      "LaunchInstance",
+      "LaunchServer",
+      "StopInstance",
+      "ValidateLaunch"
+    ],
+    "LauncherUpdateController": [
+      "CheckUpdates",
+      "CurrentVersion",
+      "InstallUpdate",
+      "OpenReleasePage",
+      "OpenUrl"
+    ],
+    "LogController": [
+      "ExportLogs",
+      "ListLogs",
+      "OpenLogsDirectory",
+      "WriteLog"
+    ],
+    "ModCatalogController": [
+      "CancelModTask",
+      "CheckModUpdates",
+      "DownloadMod",
+      "DownloadModsBatch",
+      "GetMod",
+      "InstallDownloadedMod",
+      "ListDownloadedMods",
+      "ListModTags",
+      "PreviewUnusedDownloadedMods",
+      "RemoveDownloadedMod",
+      "RemoveUnusedDownloadedMods",
+      "SearchMods",
+      "UploadMods"
+    ],
+    "ModManagerController": [
+      "CheckInstanceModUpdates",
+      "GetModDeletePreview",
+      "InstallModFile",
+      "InstallModFiles",
+      "LinkLocalMods",
+      "ListInstalledMods",
+      "RemoveMod",
+      "SetModEnabled",
+      "UpdateInstanceMods"
+    ],
+    "OperationController": [
+      "CancelOperation",
+      "ClearOperationHistory",
+      "DeleteOperation",
+      "ListOperations"
+    ],
+    "ServerController": [
+      "DeleteFavoriteServer",
+      "ListFavoriteServers",
+      "ListPublicServers",
+      "SaveFavoriteServer"
+    ],
+    "SettingsController": [
+      "GetDataFolder",
+      "GetSettings",
+      "MoveDataFolder",
+      "OpenDirectory",
+      "SelectDataFolder",
+      "SelectGameArchive",
+      "SelectGameDirectory",
+      "SelectModFile",
+      "SelectModFiles",
+      "UpdateSettings"
+    ],
+    "SnapshotController": [
+      "CreateInstanceSnapshot",
+      "DeleteInstanceSnapshot",
+      "ListInstanceSnapshots",
+      "RestoreInstanceSnapshot"
+    ],
+    "StatisticsController": [
+      "GetOverviewStatistics"
+    ]
+  }
+}

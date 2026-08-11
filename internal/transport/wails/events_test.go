@@ -4,15 +4,13 @@ import (
 	"context"
 	"reflect"
 	"testing"
-
-	"github.com/waxlight/waxlight-launcher/internal/app"
 )
 
 func TestEventAdapterUsesLifecycleContextAndPreservesEvent(t *testing.T) {
 	type contextKey string
 	parent := context.WithValue(context.Background(), contextKey("key"), "value")
-	lifecycle := app.NewLifecycle()
-	lifecycle.Startup(parent)
+	lifecycle := newTestLifecycle()
+	lifecycle.ctx = parent
 
 	var gotContext context.Context
 	var gotName string

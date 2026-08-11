@@ -11,8 +11,9 @@
 //     database, hands the database over, points the pointer at the target, and
 //     only then rewrites the stored absolute paths and removes the old copy.
 //
-// Callers interact through the Manager type; bootstrap consumes PrepareStartup
-// and FinalizePrevious, and the settings controller drives StartRelocation.
+// Callers interact through the Manager type; the composition root consumes
+// PrepareStartup and FinalizePrevious, and the settings controller drives
+// StartRelocation.
 package dataroot
 
 import (

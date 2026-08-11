@@ -1,4 +1,4 @@
-import type { presentation } from "../../wailsjs/go/models";
+import type { wails } from "../../wailsjs/go/models";
 import {
   CancelLogin,
   CompleteTOTP,
@@ -8,7 +8,7 @@ import {
   RemoveAccount,
   SetDefaultAccount,
   ValidateAccount,
-} from "../../wailsjs/go/presentation/AccountController";
+} from "../../wailsjs/go/wails/AccountController";
 import type { Account, LoginResult } from "./types";
 
 export const accountsApi = {
@@ -24,7 +24,7 @@ export const accountsApi = {
   remove: (id: string) => RemoveAccount(id),
 };
 
-function loginResult(result: presentation.LoginResultDTO): LoginResult {
+function loginResult(result: wails.LoginResultDTO): LoginResult {
   return {
     status: loginStatus(result.status),
     account: result.account,
