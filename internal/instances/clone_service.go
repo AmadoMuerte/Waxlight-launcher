@@ -15,7 +15,7 @@ type CloneService struct {
 	mods            CloneModRepository
 	creator         InstanceCreator
 	gate            MutationGate
-	guard           CloneGuard
+	lock            MutationLock
 	storage         CloneStorage
 	removeDirectory DirectoryRemover
 	now             Clock
@@ -27,7 +27,7 @@ func NewCloneService(
 	mods CloneModRepository,
 	creator InstanceCreator,
 	gate MutationGate,
-	guard CloneGuard,
+	lock MutationLock,
 	storage CloneStorage,
 	removeDirectory DirectoryRemover,
 	now Clock,
@@ -38,7 +38,7 @@ func NewCloneService(
 		mods:            mods,
 		creator:         creator,
 		gate:            gate,
-		guard:           guard,
+		lock:            lock,
 		storage:         storage,
 		removeDirectory: removeDirectory,
 		now:             now,
@@ -57,10 +57,10 @@ func (service *CloneService) Clone(ctx context.Context, sourceID, name string) (
 	if service.removeDirectory == nil {
 		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone cleanup is unavailable")
 	}
-	if service.guard == nil {
+	if service.lock == nil {
 		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone guard is unavailable")
 	}
-	guardRelease, err := service.guard(sourceID)
+	guardRelease, err := service.lock.Guard(sourceID, MutationMarker, "Stop the game before cloning this instance")
 	if err != nil {
 		return Instance{}, err
 	}

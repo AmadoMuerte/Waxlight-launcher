@@ -365,10 +365,10 @@ func TestCreateInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 	instance := createSnapshotTestInstance(t, fixture, "Running")
 	writeTestInstanceFiles(t, instance)
 
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err != nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = fixture.service.Stop(ctx, instance.ID, true) }()
+	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
 	_, err := fixture.service.CreateInstanceSnapshot(ctx, instance.ID)
 	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {
@@ -877,10 +877,10 @@ func TestRestoreInstanceSnapshotRejectsRunningInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err != nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = fixture.service.Stop(ctx, instance.ID, true) }()
+	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
 	err = fixture.service.RestoreInstanceSnapshot(ctx, instance.ID, operation.ID)
 	if code := appErrorCode(t, err); code != instances.ErrInstanceRunning {

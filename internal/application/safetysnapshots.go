@@ -5,18 +5,13 @@ import (
 	"log/slog"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
 // automaticSnapshotRetentionCount is how many automatic snapshots per
 // instance are kept. Manual snapshots are never touched by retention.
 const automaticSnapshotRetentionCount = 10
-
-// mutationLockMarker is the per-instance busy marker held while a destructive
-// operation (or its safety snapshot) is running. It is stored in the same
-// per-instance map as snapshot operations so every mutation of an instance is
-// mutually exclusive without any process-global blocking.
-const mutationLockMarker = "instance-mutation"
 
 const snapshotReservationMarker = "snapshot-reservation"
 
@@ -25,18 +20,7 @@ const snapshotReservationMarker = "snapshot-reservation"
 // A second destructive operation or snapshot for the same instance is
 // rejected while the slot is held.
 func (s *Service) lockInstanceMutations(instanceID string) (func(), error) {
-	s.snapshotMu.Lock()
-	defer s.snapshotMu.Unlock()
-	if busy := s.snapshotBusy[instanceID]; busy != "" {
-		return nil, domain.NewError(
-			domain.ErrSnapshotInProgress,
-			"Wait for the running operation on this instance to finish",
-		)
-	}
-	s.snapshotBusy[instanceID] = mutationLockMarker
-	return func() {
-		s.releaseSnapshotBusy(instanceID, mutationLockMarker)
-	}, nil
+	return s.launchRegistry.Lock(instanceID, launching.MutationLockMarker)
 }
 
 // createSafetySnapshot creates one automatic snapshot of the instance right

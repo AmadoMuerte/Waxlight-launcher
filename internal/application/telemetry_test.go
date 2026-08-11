@@ -98,6 +98,7 @@ func newTelemetryFixture(t *testing.T) (testFixture, *telemetryRecorder) {
 	telemetryService := telemetry.NewService(recorder, fixture.settings, fixture.store, fixture.store)
 	fixture.service.ConfigureTelemetry(telemetryService)
 	fixture.setCreateTelemetry(telemetryService)
+	fixture.launching.SetTelemetry(telemetryService)
 	updates := settingscore.NewService(fixture.store, fixture.settings, telemetryService, telemetryService, nil)
 
 	settings, err := fixture.settings.Get(context.Background())
@@ -192,7 +193,7 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err != nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventGameLaunchSucceeded)
@@ -206,7 +207,7 @@ func TestTelemetryGameLaunchEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture.launcher.startErr = errors.New("process start failed")
-	if _, err := fixture.service.Launch(ctx, failing.ID, nil); err == nil {
+	if _, err := fixture.launching.Launch(ctx, failing.ID, nil); err == nil {
 		t.Fatal("expected launch to fail")
 	}
 	recorder.waitForEvent(t, telemetry.EventGameLaunchFailed)

@@ -15,6 +15,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/app"
 	"github.com/waxlight/waxlight-launcher/internal/application"
+	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
@@ -22,19 +23,21 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
+	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
-	processinfra "github.com/waxlight/waxlight-launcher/internal/infrastructure/process"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/servercatalog"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/presentation"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
@@ -49,6 +52,7 @@ import (
 type Container struct {
 	Service        *application.Service
 	AccountService *accounts.Service
+	Launching      *launching.Coordinator
 	DataRoot       *dataroot.Manager
 	Lifecycle      *app.Lifecycle
 	Events         events.Publisher
@@ -164,10 +168,11 @@ func New() (*Container, error) {
 		time.Now,
 		newVersionID,
 	)
+	instanceSlot := mutations.NewSlot()
+	launchRegistry := launching.NewRegistry(instanceSlot)
 	service := application.NewService(
 		store,
 		filesystem.ModFileManager{},
-		processinfra.Launcher{},
 		dataRoot,
 		operationManager,
 		sessionService,
@@ -179,7 +184,56 @@ func New() (*Container, error) {
 		filesystem.DiskSpace{},
 		mutationGate,
 		settingsReader,
+		instanceSlot,
+		launchRegistry,
 	)
+	clientSettingsService := filesystem.ClientSettingsService{}
+	// The account service needs the launch coordinator's account-cleanup hook,
+	// and the coordinator needs the account reader; wire the hook after the
+	// coordinator exists.
+	var clearAccountsFromInstances func(context.Context, string) error
+	accountService := accounts.NewService(
+		store,
+		vintagestory.NewAuthClient(nil),
+		credentials.NewStore(dataRoot),
+		credentials.NewStore(dataRoot),
+		func(ctx context.Context, accountID string) error {
+			if clearAccountsFromInstances != nil {
+				return clearAccountsFromInstances(ctx, accountID)
+			}
+			return nil
+		},
+		func(ctx context.Context) {
+			telemetryService.Error(
+				ctx,
+				telemetry.ErrorAuthServerUnavailable,
+				telemetry.ComponentAuthentication,
+				telemetry.OperationAuthenticate,
+			)
+		},
+		mutationGate,
+	)
+	launchCoordinator := launching.NewCoordinator(
+		launchRegistry,
+		mutationGate,
+		store,
+		versionService,
+		accountService,
+		clientSettingsService,
+		settingsReader,
+		filesystem.ModFileManager{},
+		sessionService,
+		process.OSLauncher{},
+		instancedirectory.LaunchLogs{},
+		eventPublisher,
+		telemetryService,
+		service,
+		lifecycle,
+		operationManager,
+		time.Now,
+		newVersionID,
+	)
+	clearAccountsFromInstances = launchCoordinator.ClearAccountFromInstances
 	// Do not probe with a write here: a temporarily locked native store must not
 	// prevent the launcher from opening. Credential operations report failures
 	// when the user signs in or launches a game.
@@ -212,38 +266,36 @@ func New() (*Container, error) {
 	dataRootService := settingscore.NewDataRootService(
 		dataRootManager,
 		mutationGate,
-		service,
+		launchCoordinator,
 		lifecycle,
 		eventPublisher,
 		wailstransport.QuitAdapter{},
 	)
-	accountService := accounts.NewService(
-		store,
-		vintagestory.NewAuthClient(nil),
-		secretStore,
-		secretStore,
-		service.ClearAccountFromInstances,
-		func(ctx context.Context) {
-			telemetryService.Error(
-				ctx,
-				telemetry.ErrorAuthServerUnavailable,
-				telemetry.ComponentAuthentication,
-				telemetry.OperationAuthenticate,
-			)
-		},
-		mutationGate,
-	)
 	service.ConfigureTelemetry(telemetryService)
-	service.ConfigureAuthentication(
-		accountService,
-		filesystem.ClientSettingsService{},
-	)
-	if err := service.ReconcileInjectedCredentials(context.Background()); err != nil {
+	service.ConfigureClientSettings(clientSettingsService)
+	if err := launchCoordinator.ReconcileInjectedCredentials(context.Background()); err != nil {
 		closeStoreOnError(store)
 		return nil, err
 	}
 	service.ConfigureMods(modcatalog.NewClient(nil), modstorage.New(dataRoot))
 	service.ConfigurePublicServerCatalog(servercatalog.NewClient(nil))
+	packageService := instances.NewPackageService(
+		store,
+		instanceCreator,
+		versionService,
+		store,
+		packageCatalogAdapter{service: service},
+		packageDownloadedAdapter{service: service},
+		service,
+		service,
+		instancepackage.Store{},
+		mutationGate,
+		eventPublisher,
+		func(path string) error { return application.SafeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		dataRoot,
+		time.Now,
+		newVersionID,
+	)
 	updateHTTPClient := updater.NewHTTPClient()
 	updateDownloader := downloader.NewManager(
 		&downloader.HTTPDownloader{Client: updateHTTPClient},
@@ -276,8 +328,8 @@ func New() (*Container, error) {
 		presentation.NewServerController(service, lifecycle),
 		presentation.NewModManagerController(service, lifecycle),
 		presentation.NewModCatalogController(service, lifecycle),
-		presentation.NewInstancePackageController(service, lifecycle),
-		presentation.NewLaunchController(service, lifecycle),
+		presentation.NewInstancePackageController(packageService, lifecycle),
+		presentation.NewLaunchController(launchCoordinator, lifecycle),
 		presentation.NewStatisticsController(sessionService, lifecycle),
 		presentation.NewOperationController(operationManager, lifecycle),
 		presentation.NewSnapshotController(service, lifecycle),
@@ -297,6 +349,7 @@ func New() (*Container, error) {
 	return &Container{
 		Service:        service,
 		AccountService: accountService,
+		Launching:      launchCoordinator,
 		DataRoot:       dataRootManager,
 		Lifecycle:      lifecycle,
 		Events:         eventPublisher,
@@ -317,6 +370,26 @@ func credentialStoreUnavailable(err error) bool {
 	return errors.Is(err, accounts.ErrStoreLocked) ||
 		errors.Is(err, accounts.ErrStoreUnavailable) ||
 		errors.Is(err, accounts.ErrPermissionDenied)
+}
+
+// packageCatalogAdapter maps the application catalog method names to the
+// instance package port until the mods feature owns them.
+type packageCatalogAdapter struct {
+	service *application.Service
+}
+
+func (adapter packageCatalogAdapter) Get(ctx context.Context, modID string) (domain.ModDetails, error) {
+	return adapter.service.GetCatalogMod(ctx, modID)
+}
+
+// packageDownloadedAdapter maps the application download-store method names to
+// the instance package port until the mods feature owns them.
+type packageDownloadedAdapter struct {
+	service *application.Service
+}
+
+func (adapter packageDownloadedAdapter) Get(ctx context.Context, modID, versionID string) (domain.DownloadedMod, error) {
+	return adapter.service.GetDownloadedMod(ctx, modID, versionID)
 }
 
 func (container *Container) Startup(ctx context.Context) {
@@ -345,6 +418,11 @@ func (container *Container) telemetryHeartbeat() {
 func (container *Container) Shutdown(context.Context) {
 	logging.SetEmitter(nil)
 	container.Lifecycle.Shutdown()
+	// A game still running past the startup window when the launcher shuts
+	// down is evidence its configuration works; record it before the database
+	// closes. waitForGame never observes this exit because the launcher is
+	// already gone.
+	container.Launching.RecordEstablishedOnShutdown()
 	if err := container.Service.Close(); err != nil {
 		slog.Warn("bootstrap: could not close the application service cleanly", "error", err)
 	}

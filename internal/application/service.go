@@ -6,25 +6,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
 	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/snapshotstore"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
@@ -35,7 +31,6 @@ import (
 
 type Service struct {
 	store              Store
-	accounts           *accounts.Service
 	clientSettings     ClientSettingsPatcher
 	serverCatalog      PublicServerCatalog
 	downloader         downloads.Downloader
@@ -44,16 +39,11 @@ type Service struct {
 	modFiles           ModFileManager
 	modCatalog         ModCatalog
 	modDownloads       DownloadedModStore
-	launcher           ProcessLauncher
 	dataRoot           string
 	snapshots          *snapshotstore.Store
 	events             events.Publisher
 	telemetry          *telemetry.Service
-	runningMu          sync.Mutex
-	launchMu           sync.Mutex
 	modsMu             sync.Mutex
-	snapshotMu         sync.Mutex
-	snapshotBusy       map[string]string
 	mutationGate       *mutations.Gate
 	settings           *settingscore.Reader
 	operations         *operations.Manager
@@ -63,10 +53,11 @@ type Service struct {
 	instanceUpdater    *instances.UpdateService
 	instanceDeleter    *instances.DeleteService
 	instanceCloner     *instances.CloneService
+	instanceSlot       *mutations.Slot
+	launchRegistry     *launching.Registry
 	modTasksMu         sync.Mutex
 	modTaskCancels     map[string]context.CancelFunc
 	activeModDownloads map[string]string
-	running            map[string]runningGame
 }
 
 type VersionCapabilities interface {
@@ -77,18 +68,9 @@ type VersionCapabilities interface {
 	InstallCatalogAndWait(context.Context, string) (versions.GameVersion, error)
 }
 
-type runningGame struct {
-	process   RunningProcess
-	sessionID string
-	started   time.Time
-	log       io.Closer
-	cleanup   func() error
-}
-
 func NewService(
 	store Store,
 	modFiles ModFileManager,
-	launcher ProcessLauncher,
 	dataRoot string,
 	operationManager *operations.Manager,
 	sessionService *sessions.Service,
@@ -100,11 +82,12 @@ func NewService(
 	diskSpace DiskSpaceChecker,
 	mutationGate *mutations.Gate,
 	settingsReader *settingscore.Reader,
+	instanceSlot *mutations.Slot,
+	launchRegistry *launching.Registry,
 ) *Service {
 	service := &Service{
 		store:              store,
 		modFiles:           modFiles,
-		launcher:           launcher,
 		dataRoot:           dataRoot,
 		snapshots:          snapshotstore.New(dataRoot),
 		operations:         operationManager,
@@ -116,16 +99,20 @@ func NewService(
 		diskSpace:          diskSpace,
 		mutationGate:       mutationGate,
 		settings:           settingsReader,
+		instanceSlot:       instanceSlot,
+		launchRegistry:     launchRegistry,
 		modTaskCancels:     make(map[string]context.CancelFunc),
 		activeModDownloads: make(map[string]string),
-		running:            make(map[string]runningGame),
-		snapshotBusy:       make(map[string]string),
 	}
 	service.instanceUpdater = instances.NewUpdateService(
 		store,
 		versionService,
 		mutationGate,
-		service.prepareInstanceVersionChange,
+		launchRegistry,
+		instances.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason domain.SnapshotReason, snapshotContext map[string]string) error {
+			_, err := service.createSafetySnapshot(ctx, instanceID, reason, snapshotContext)
+			return err
+		}),
 		func(path string) error {
 			if service.clientSettings == nil {
 				return nil
@@ -138,7 +125,7 @@ func NewService(
 	service.instanceDeleter = instances.NewDeleteService(
 		store,
 		mutationGate,
-		service.guardInstanceDeletion,
+		launchRegistry,
 		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
 		func(path string) error {
 			if service.clientSettings == nil {
@@ -155,7 +142,7 @@ func NewService(
 		store,
 		instanceCreator,
 		mutationGate,
-		service.guardInstanceClone,
+		launchRegistry,
 		instanceCloneStorage,
 		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
 		time.Now,
@@ -205,29 +192,6 @@ func (s *Service) reportError(ctx context.Context, code, component, operation st
 	}
 }
 
-// CheckDataRootRelocation rejects a move while a game or operation is running.
-func (s *Service) CheckDataRootRelocation(ctx context.Context) error {
-	s.runningMu.Lock()
-	gameRunning := len(s.running) > 0
-	s.runningMu.Unlock()
-	if gameRunning {
-		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before moving the data folder")
-	}
-	tracked, err := s.operations.ListLimit(ctx, 1000)
-	if err != nil {
-		return err
-	}
-	for _, operation := range tracked {
-		if operation.Status == operations.StatusRunning || operation.Status == operations.StatusQueued {
-			return domain.NewError(
-				domain.ErrDataFolderBusy,
-				"Wait for running operations to finish before moving the data folder",
-			)
-		}
-	}
-	return nil
-}
-
 func (s *Service) beginMutation() (func(), error) {
 	if err := s.mutationGate.Begin(); err != nil {
 		return nil, err
@@ -235,65 +199,11 @@ func (s *Service) beginMutation() (func(), error) {
 	return s.mutationGate.End, nil
 }
 
-func (s *Service) ConfigureAuthentication(
-	accountService *accounts.Service,
-	clientSettings ClientSettingsPatcher,
-) {
-	s.accounts = accountService
+// ConfigureClientSettings wires the client-settings patcher into the snapshot
+// and instance-credential-cleanup paths.
+func (s *Service) ConfigureClientSettings(clientSettings ClientSettingsPatcher) {
 	s.clientSettings = clientSettings
-	slog.Info("authentication subsystem configured")
-}
-
-func (s *Service) ReconcileInjectedCredentials(ctx context.Context) error {
-	if s.clientSettings == nil {
-		return nil
-	}
-	release, err := s.beginMutation()
-	if err != nil {
-		return err
-	}
-	defer release()
-	instances, err := s.store.ListInstances(ctx)
-	if err != nil {
-		return err
-	}
-	for _, instance := range instances {
-		if err := hardenLogs(filepath.Join(instance.Directory, "Logs")); err != nil {
-			return err
-		}
-		if err := s.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
-		}
-	}
-	return nil
-}
-
-func (s *Service) ClearAccountFromInstances(ctx context.Context, accountID string) error {
-	if s.clientSettings == nil {
-		return nil
-	}
-	release, err := s.beginMutation()
-	if err != nil {
-		return err
-	}
-	defer release()
-	instances, err := s.store.ListInstances(ctx)
-	if err != nil {
-		return err
-	}
-	for _, instance := range instances {
-		if err := s.clientSettings.Clear(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &domain.AppError{Code: domain.ErrClientSettings, Message: "Could not clear account authentication from an instance", Cause: err}
-		}
-		if instance.DefaultAccountID != nil && *instance.DefaultAccountID == accountID {
-			instance.DefaultAccountID = nil
-			instance.UpdatedAt = time.Now().UTC()
-			if err := s.store.SaveInstance(ctx, instance); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	slog.Info("client settings subsystem configured")
 }
 
 func (s *Service) emit(name string, payload any) {
@@ -302,11 +212,6 @@ func (s *Service) emit(name string, payload any) {
 	}
 }
 func (s *Service) Close() error {
-	// A game still running past the startup window when the launcher shuts
-	// down is evidence its configuration works; record it before the database
-	// closes. waitForGame never observes this exit because the launcher is
-	// already gone.
-	s.recordEstablishedLaunches()
 	return s.store.Close()
 }
 
@@ -418,64 +323,6 @@ func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
 	}
 	s.emit("favorite-server:removed", map[string]string{"id": id})
 	return nil
-}
-func (s *Service) prepareInstanceVersionChange(
-	ctx context.Context,
-	previous instances.Instance,
-	updated instances.Instance,
-) (func(), error) {
-	release, err := s.lockInstanceMutations(updated.ID)
-	if err != nil {
-		return nil, err
-	}
-	toVersion := updated.GameVersionID
-	if version, versionErr := s.versions.Get(ctx, updated.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
-		toVersion = version.Name
-	}
-	if _, err := s.createSafetySnapshot(ctx, updated.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
-		"fromGameVersion": s.instanceGameVersionName(ctx, previous),
-		"toGameVersion":   toVersion,
-	}); err != nil {
-		release()
-		return nil, err
-	}
-	return release, nil
-}
-
-func (s *Service) guardInstanceDeletion(id string) (func(), error) {
-	s.launchMu.Lock()
-	defer s.launchMu.Unlock()
-	s.runningMu.Lock()
-	_, running := s.running[id]
-	s.runningMu.Unlock()
-	if running {
-		return nil, domain.NewError(instances.ErrInstanceRunning, "Stop the game before deleting this instance")
-	}
-	s.snapshotMu.Lock()
-	defer s.snapshotMu.Unlock()
-	if s.snapshotBusy[id] != "" {
-		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
-	}
-	s.snapshotBusy[id] = mutationLockMarker
-	return func() { s.releaseSnapshotBusy(id, mutationLockMarker) }, nil
-}
-
-func (s *Service) guardInstanceClone(id string) (func(), error) {
-	s.launchMu.Lock()
-	defer s.launchMu.Unlock()
-	s.runningMu.Lock()
-	_, running := s.running[id]
-	s.runningMu.Unlock()
-	if running {
-		return nil, domain.NewError(instances.ErrInstanceRunning, "Stop the game before cloning this instance")
-	}
-	s.snapshotMu.Lock()
-	defer s.snapshotMu.Unlock()
-	if s.snapshotBusy[id] != "" {
-		return nil, domain.NewError(domain.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
-	}
-	s.snapshotBusy[id] = mutationLockMarker
-	return func() { s.releaseSnapshotBusy(id, mutationLockMarker) }, nil
 }
 func safeRemoveAll(path, dataRoot, marker string) error {
 	abs, e := filepath.Abs(path)
@@ -1021,475 +868,4 @@ func stillRequiredByOther(
 		}
 	}
 	return false
-}
-
-type LaunchValidation struct {
-	Valid    bool
-	Issues   []string
-	Warnings []string
-}
-
-func (s *Service) ValidateLaunch(
-	ctx context.Context,
-	instanceID string,
-	accountID *string,
-) (LaunchValidation, error) {
-	validation := LaunchValidation{
-		Valid:    true,
-		Issues:   []string{},
-		Warnings: []string{},
-	}
-
-	instance, err := s.store.GetInstance(ctx, instanceID)
-	if err != nil {
-		return validation, err
-	}
-
-	version, err := s.versions.ResolveExecutable(ctx, instance.GameVersionID)
-	if err != nil {
-		validation.Valid = false
-		issue := "The Vintagestory executable could not be found"
-		var appError *domain.AppError
-		if errors.As(err, &appError) && appError.Code == domain.ErrVersionNotFound {
-			issue = "The selected game version is not installed"
-		}
-		validation.Issues = append(
-			validation.Issues,
-			issue,
-		)
-		return validation, nil
-	}
-
-	executableInfo, err := os.Stat(version.ExecutablePath)
-	if err != nil || executableInfo.IsDir() {
-		validation.Valid = false
-		validation.Issues = append(
-			validation.Issues,
-			"The Vintagestory executable could not be found",
-		)
-	}
-	chosen, chooseErr := s.resolveAccountID(ctx, instance, accountID)
-	if chooseErr != nil {
-		validation.Valid = false
-		validation.Issues = append(validation.Issues, "The selected account no longer exists")
-	}
-	if chosen == nil {
-		validation.Warnings = append(
-			validation.Warnings,
-			"No account is selected. The game will start without authentication data.",
-		)
-	} else if account, accountErr := s.accounts.GetAccount(ctx, *chosen); accountErr != nil {
-		validation.Valid = false
-		validation.Issues = append(validation.Issues, "The selected account no longer exists")
-	} else if account.Status == accounts.StatusExpired || account.Status == accounts.StatusNeedsReauth {
-		validation.Valid = false
-		validation.Issues = append(validation.Issues, "The selected account must be authenticated again")
-	}
-
-	s.runningMu.Lock()
-	_, isRunning := s.running[instanceID]
-	s.runningMu.Unlock()
-	if isRunning {
-		validation.Valid = false
-		validation.Issues = append(
-			validation.Issues,
-			"This instance is already running",
-		)
-	}
-
-	return validation, nil
-}
-
-func (s *Service) Launch(
-	ctx context.Context,
-	instanceID string,
-	accountID *string,
-) (sessions.PlaySession, error) {
-	return s.launch(ctx, instanceID, accountID, "")
-}
-
-// LaunchServer starts an instance and connects it to the requested server.
-func (s *Service) LaunchServer(
-	ctx context.Context,
-	instanceID string,
-	accountID *string,
-	address string,
-) (sessions.PlaySession, error) {
-	address = strings.TrimSpace(address)
-	if address == "" || len(address) > 255 || strings.ContainsAny(address, " \t\r\n/?#") {
-		return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Enter a valid server address")
-	}
-	return s.launch(ctx, instanceID, accountID, address)
-}
-
-func (s *Service) launch(
-	ctx context.Context,
-	instanceID string,
-	accountID *string,
-	serverAddress string,
-) (sessions.PlaySession, error) {
-	release, err := s.beginMutation()
-	if err != nil {
-		return sessions.PlaySession{}, err
-	}
-	releaseOnReturn := true
-	defer func() {
-		if releaseOnReturn {
-			release()
-		}
-	}()
-	s.launchMu.Lock()
-	defer s.launchMu.Unlock()
-	if err := s.ensureNoSnapshotOperation(instanceID); err != nil {
-		return sessions.PlaySession{}, err
-	}
-	validation, err := s.ValidateLaunch(ctx, instanceID, accountID)
-	if err != nil {
-		return sessions.PlaySession{}, err
-	}
-	if !validation.Valid {
-		return sessions.PlaySession{}, domain.NewError(
-			domain.ErrValidation,
-			strings.Join(validation.Issues, "; "),
-		)
-	}
-
-	instance, err := s.store.GetInstance(ctx, instanceID)
-	if err != nil {
-		return sessions.PlaySession{}, err
-	}
-	version, err := s.versions.ResolveExecutable(ctx, instance.GameVersionID)
-	if err != nil {
-		return sessions.PlaySession{}, err
-	}
-	slog.Info("launching instance", "instance", instance.Name, "version", version.Name)
-	accountID, err = s.resolveAccountID(ctx, instance, accountID)
-	if err != nil {
-		return sessions.PlaySession{}, err
-	}
-
-	clientSettingsPath := filepath.Join(instance.Directory, "clientsettings.json")
-	cleanupCredentials := func() error { return nil }
-	if accountID != nil {
-		if s.accounts == nil || s.clientSettings == nil {
-			return sessions.PlaySession{}, domain.NewError(domain.ErrValidation, "Account authentication is unavailable")
-		}
-		account, validateErr := s.accounts.ValidateAuthorizedAccount(ctx, *accountID)
-		if validateErr != nil {
-			return sessions.PlaySession{}, validateErr
-		}
-		cleanup, patchErr := s.clientSettings.Inject(clientSettingsPath, account)
-		if patchErr != nil {
-			return sessions.PlaySession{}, &domain.AppError{
-				Code:    domain.ErrClientSettings,
-				Message: "Could not write authentication to the instance settings",
-				Cause:   patchErr,
-			}
-		}
-		cleanupCredentials = cleanup
-	} else if s.clientSettings != nil {
-		if clearErr := s.clientSettings.Clear(clientSettingsPath); clearErr != nil {
-			return sessions.PlaySession{}, &domain.AppError{
-				Code:    domain.ErrClientSettings,
-				Message: "Could not clear authentication from the instance settings",
-				Cause:   clearErr,
-			}
-		}
-	}
-
-	if err := s.modFiles.EnsureLayout(instance.Directory); err != nil {
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, err
-	}
-	logsDirectory := filepath.Join(instance.Directory, "Logs")
-	if err := hardenLogs(logsDirectory); err != nil {
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, err
-	}
-
-	settings, err := s.settings.Get(ctx)
-	if err != nil {
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, err
-	}
-	arguments := append([]string{}, settings.GlobalLaunchArguments...)
-	arguments = append(arguments, instance.LaunchArguments...)
-	arguments = append(arguments, "--dataPath", instance.Directory)
-	if serverAddress != "" {
-		arguments = append(arguments, "--connect", serverAddress)
-	}
-
-	logPath := filepath.Join(
-		logsDirectory,
-		time.Now().Format("20060102-150405.000000000")+".log",
-	)
-	logFile, err := os.OpenFile(
-		logPath,
-		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
-		0o600,
-	)
-	if err != nil {
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, err
-	}
-	if err := securefs.Apply(logPath, 0o600, false); err != nil {
-		closeLaunchLog(logFile, instance.Name)
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, err
-	}
-
-	// Record the exact launch command so issues like a wrong data path can be
-	// diagnosed from the instance log.
-	if _, writeErr := fmt.Fprintf(
-		logFile,
-		"Executing: %s %s\n",
-		version.ExecutablePath,
-		strings.Join(quoteLaunchArguments(arguments), " "),
-	); writeErr != nil {
-		closeLaunchLog(logFile, instance.Name)
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return sessions.PlaySession{}, &domain.AppError{
-			Code:    domain.ErrFilePermission,
-			Message: "Could not write the launch command to the instance log",
-			Cause:   writeErr,
-		}
-	}
-
-	workingDirectory := filepath.Dir(version.ExecutablePath)
-	process, err := s.launcher.Start(
-		context.Background(),
-		version.ExecutablePath,
-		arguments,
-		workingDirectory,
-		map[string]string{"WAXLIGHT_INSTANCE_DIR": instance.Directory},
-		logFile,
-	)
-	if err != nil {
-		closeLaunchLog(logFile, instance.Name)
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		s.reportEvent(ctx, telemetry.EventGameLaunchFailed)
-		s.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
-		return sessions.PlaySession{}, &domain.AppError{
-			Code:    domain.ErrProcessStart,
-			Message: "Failed to start Vintage Story",
-			Cause:   err,
-		}
-	}
-
-	now := time.Now().UTC()
-	processID := process.PID()
-	session := sessions.PlaySession{
-		ID:         newID(),
-		InstanceID: instance.ID,
-		AccountID:  accountID,
-		VersionID:  version.ID,
-		ProcessID:  &processID,
-		StartedAt:  now,
-	}
-	if err := s.sessions.Create(ctx, session); err != nil {
-		if killErr := process.Kill(); killErr != nil {
-			slog.Debug("could not kill the game process after a failed session save", "error", killErr)
-		}
-		closeLaunchLog(logFile, instance.Name)
-		s.clearInjectedCredentials(cleanupCredentials, instance)
-		return session, err
-	}
-
-	instance.Status = instances.StatusRunning
-	instance.LastPlayedAt = &now
-	instance.UpdatedAt = now
-	if err := s.store.SaveInstance(ctx, instance); err != nil {
-		slog.Warn("could not persist the running instance", "instance", instance.Name, "error", err)
-	}
-
-	s.runningMu.Lock()
-	s.running[instance.ID] = runningGame{
-		process:   process,
-		sessionID: session.ID,
-		started:   now,
-		log:       logFile,
-		cleanup:   cleanupCredentials,
-	}
-	s.runningMu.Unlock()
-
-	s.emit("game:started", session)
-	s.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
-	slog.Info("game started", "instance", instance.Name)
-	// Snapshot the startup window once on the caller goroutine; the launch
-	// goroutines below read only this captured value (the package variable is
-	// mutable in tests).
-	startupWindow := gameStartupWindow
-	s.operations.Go(func(ctx context.Context) {
-		s.markLaunchEstablished(ctx, instance, session.ID, startupWindow)
-	})
-	releaseOnReturn = false
-	go s.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, s.watchGameLog(instance, logPath), startupWindow, release)
-	return session, nil
-}
-
-func quoteLaunchArguments(arguments []string) []string {
-	result := make([]string, 0, len(arguments))
-	for _, argument := range arguments {
-		if strings.ContainsAny(argument, " \t\"") {
-			result = append(result, `"`+strings.ReplaceAll(argument, `"`, `\"`)+`"`)
-		} else {
-			result = append(result, argument)
-		}
-	}
-	return result
-}
-
-func hardenLogs(logsDirectory string) error {
-	return instancedirectory.HardenLogs(logsDirectory)
-}
-
-func (s *Service) resolveAccountID(
-	ctx context.Context,
-	instance instances.Instance,
-	requested *string,
-) (*string, error) {
-	if requested != nil && strings.TrimSpace(*requested) != "" {
-		if s.accounts == nil {
-			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
-		}
-		if _, err := s.accounts.GetAccount(ctx, *requested); err != nil {
-			return nil, err
-		}
-		value := *requested
-		return &value, nil
-	}
-	if instance.DefaultAccountID != nil && strings.TrimSpace(*instance.DefaultAccountID) != "" {
-		if s.accounts == nil {
-			return nil, domain.NewError(domain.ErrAccountNotFound, "Account not found")
-		}
-		if _, err := s.accounts.GetAccount(ctx, *instance.DefaultAccountID); err != nil {
-			return nil, err
-		}
-		value := *instance.DefaultAccountID
-		return &value, nil
-	}
-	if s.accounts == nil {
-		return nil, nil
-	}
-	storedAccounts, err := s.accounts.ListAccounts(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, account := range storedAccounts {
-		if account.IsDefault {
-			value := account.ID
-			return &value, nil
-		}
-	}
-	return nil, nil
-}
-
-// closeLaunchLog best-effort closes the instance log file opened for a launch.
-// Failures only affect cleanup, so they are logged at debug level.
-func closeLaunchLog(logFile io.Closer, instanceName string) {
-	if err := logFile.Close(); err != nil {
-		slog.Debug("could not close the instance log file", "instance", instanceName, "error", err)
-	}
-}
-
-// clearInjectedCredentials removes the session credentials injected into the
-// instance client settings. A failure leaves credentials on disk, so it is
-// logged as an error.
-func (s *Service) clearInjectedCredentials(cleanup func() error, instance instances.Instance) {
-	if err := cleanup(); err != nil {
-		slog.Error("could not remove injected credentials", "instance", instance.Name, "error", err)
-	}
-}
-
-func (s *Service) waitForGame(
-	instance instances.Instance,
-	process RunningProcess,
-	sessionID string,
-	startedAt time.Time,
-	logFile io.Closer,
-	cleanupCredentials func() error,
-	stopGameLog func(),
-	startupWindow time.Duration,
-	releaseMutation func(),
-) {
-	defer releaseMutation()
-	exitCode, waitErr := process.Wait()
-	// Let the tailer pick up the lines the process flushed right before
-	// exiting, then stop it before the log file is closed.
-	stopGameLog()
-	if err := logFile.Close(); err != nil {
-		slog.Debug("could not close the instance log file", "instance", instance.Name, "error", err)
-	}
-	s.clearInjectedCredentials(cleanupCredentials, instance)
-
-	durationSeconds := int64(time.Since(startedAt).Seconds())
-	crashed := waitErr != nil || exitCode != 0
-	if crashed {
-		slog.Warn("game exited with an error", "instance", instance.Name, "exitCode", exitCode, "error", waitErr)
-	} else {
-		slog.Info("game exited", "instance", instance.Name, "exitCode", exitCode, "seconds", durationSeconds)
-	}
-	// A crash inside the startup window is a failed startup: compare the
-	// current configuration with the Last Known Good state and offer a safe
-	// recovery. A game that ran past the window (or exited normally) is not a
-	// configuration failure, no matter how it ended.
-	if crashed && time.Since(startedAt) < startupWindow {
-		s.handleFailedLaunch(instance)
-	}
-	if err := s.sessions.Finish(
-		context.Background(),
-		sessionID,
-		exitCode,
-		crashed,
-		durationSeconds,
-	); err != nil {
-		slog.Warn("could not persist the finished session", "instance", instance.Name, "sessionId", sessionID, "error", err)
-	}
-
-	instance.Status = instances.StatusReady
-	instance.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveInstance(context.Background(), instance); err != nil {
-		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
-	}
-
-	s.runningMu.Lock()
-	delete(s.running, instance.ID)
-	s.runningMu.Unlock()
-
-	s.emit("game:exited", map[string]any{
-		"instanceId":      instance.ID,
-		"sessionId":       sessionID,
-		"exitCode":        exitCode,
-		"crashed":         crashed,
-		"durationSeconds": durationSeconds,
-	})
-}
-func (s *Service) Stop(ctx context.Context, instanceID string, force bool) error {
-	slog.Info("stopping instance", "instance", instanceID, "force", force)
-	s.runningMu.Lock()
-	r, ok := s.running[instanceID]
-	s.runningMu.Unlock()
-	if !ok {
-		return domain.NewError(domain.ErrValidation, "The instance is not running")
-	}
-	var e error
-	if force {
-		e = r.process.Kill()
-	} else {
-		e = r.process.Stop()
-	}
-	if e != nil {
-		return &domain.AppError{Code: domain.ErrProcessStop, Message: "Failed to stop Vintage Story", Cause: e}
-	}
-	return nil
-}
-func (s *Service) RunningInstanceIDs() []string {
-	s.runningMu.Lock()
-	defer s.runningMu.Unlock()
-	ids := make([]string, 0, len(s.running))
-	for id := range s.running {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	return ids
 }

@@ -742,10 +742,10 @@ func TestAutomaticSnapshotRejectedWhileGameRunning(t *testing.T) {
 	installManagedMod(t, fixture, instance, "Mod A", "mod-a.zip", "100", "1000", "1.0.0", true)
 	configureUpdateTestInfrastructure(&fixture, staticModCatalog{details: twoReleaseMod("100", "1000", "1.0.0", "1001", "2.0.0")})
 
-	if _, err := fixture.service.Launch(ctx, instance.ID, nil); err != nil {
+	if _, err := fixture.launching.Launch(ctx, instance.ID, nil); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = fixture.service.Stop(ctx, instance.ID, true) }()
+	defer func() { _ = fixture.launching.Stop(ctx, instance.ID, true) }()
 
 	_, err := fixture.service.UpdateInstanceMods(
 		ctx,

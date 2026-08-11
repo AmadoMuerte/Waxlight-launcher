@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,8 +21,10 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
@@ -66,7 +69,7 @@ func (launcher *lkgTestLauncher) Start(
 	_ string,
 	_ map[string]string,
 	_ io.Writer,
-) (RunningProcess, error) {
+) (process.Running, error) {
 	if launcher.process == nil {
 		launcher.process = &lkgTestProcess{result: make(chan processExit, 1)}
 	}
@@ -128,11 +131,12 @@ func (recorder *lkgEventRecorder) has(name string) bool {
 }
 
 type lkgFixture struct {
-	service  *Service
-	store    *sqlite.SQLiteStore
-	root     string
-	launcher *lkgTestLauncher
-	events   *lkgEventRecorder
+	service   *Service
+	store     *sqlite.SQLiteStore
+	root      string
+	launcher  *lkgTestLauncher
+	launching *launching.Coordinator
+	events    *lkgEventRecorder
 }
 
 func newLKGFixture(t *testing.T) lkgFixture {
@@ -175,12 +179,13 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		nil,
 		root,
 		time.Now,
-		func() string { return "lkg-instance" },
+		func() string { return fmt.Sprintf("lkg-instance-%d", time.Now().UnixNano()) },
 	)
+	instanceSlot := mutations.NewSlot()
+	launchRegistry := launching.NewRegistry(instanceSlot)
 	service := NewService(
 		store,
 		filesystem.ModFileManager{},
-		launcher,
 		root,
 		operationManager,
 		sessionService,
@@ -192,9 +197,32 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		nil,
 		gate,
 		settingsReader,
+		instanceSlot,
+		launchRegistry,
+	)
+	launchCoordinator := launching.NewCoordinator(
+		launchRegistry,
+		gate,
+		store,
+		versionService,
+		nil,
+		filesystem.ClientSettingsService{},
+		settingsReader,
+		filesystem.ModFileManager{},
+		sessionService,
+		launcher,
+		instancedirectory.LaunchLogs{},
+		events,
+		nil,
+		service,
+		lifecycle,
+		operationManager,
+		time.Now,
+		func() string { return fmt.Sprintf("lkg-session-%d", time.Now().UnixNano()) },
 	)
 	t.Cleanup(func() {
 		lifecycle.Shutdown()
+		launchCoordinator.RecordEstablishedOnShutdown()
 		_ = service.Close()
 	})
 	service.SetEventPublisher(events)
@@ -224,11 +252,12 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		t.Fatal(err)
 	}
 	return lkgFixture{
-		service:  service,
-		store:    store,
-		root:     root,
-		launcher: launcher,
-		events:   events,
+		service:   service,
+		store:     store,
+		root:      root,
+		launcher:  launcher,
+		launching: launchCoordinator,
+		events:    events,
 	}
 }
 
@@ -236,9 +265,9 @@ func newLKGFixture(t *testing.T) lkgFixture {
 // the production value afterwards.
 func setStartupWindow(t *testing.T, window time.Duration) {
 	t.Helper()
-	previous := gameStartupWindow
-	gameStartupWindow = window
-	t.Cleanup(func() { gameStartupWindow = previous })
+	previous := launching.GameStartupWindow()
+	launching.SetGameStartupWindow(window)
+	t.Cleanup(func() { launching.SetGameStartupWindow(previous) })
 }
 
 func (fixture lkgFixture) createInstance(t *testing.T, name string) instances.Instance {
@@ -403,7 +432,7 @@ func (fixture lkgFixture) waitForLastKnownGoodMod(t *testing.T, instanceID, modI
 
 func (fixture lkgFixture) launch(t *testing.T, instanceID string) {
 	t.Helper()
-	if _, err := fixture.service.Launch(context.Background(), instanceID, nil); err != nil {
+	if _, err := fixture.launching.Launch(context.Background(), instanceID, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -561,7 +590,7 @@ func TestSuccessfulLaunchThenCrashAfterWindowDoesNotSuggestRecovery(t *testing.T
 	fixture.waitForLastKnownGood(t, instance.ID)
 
 	// A crash after a long session is not a configuration failure.
-	time.Sleep(3 * gameStartupWindow)
+	time.Sleep(3 * launching.GameStartupWindow())
 	fixture.launcher.crash()
 	fixture.waitForGameExit(t)
 	if fixture.events.has("game:recovery-suggestion") {
@@ -658,7 +687,7 @@ func TestRecoverySnapshotPrefersLinkedSnapshotNotNewest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 
 	// S2 is newer but captures a different, broken state.
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
@@ -674,7 +703,7 @@ func TestRecoverySnapshotPrefersLinkedSnapshotNotNewest(t *testing.T) {
 	if lkg.SnapshotID != first.ID {
 		t.Fatalf("expected the last known good to reference %s, got %q", first.ID, lkg.SnapshotID)
 	}
-	snapshotID, ok := fixture.service.resolveRecoverySnapshot(ctx, instance.ID, lkg)
+	snapshotID, ok := fixture.service.ResolveRecoverySnapshot(ctx, instance.ID, lkg)
 	if !ok || snapshotID != first.ID {
 		t.Fatalf("recovery must prefer the linked snapshot %s, got %q (ok=%v)", first.ID, snapshotID, ok)
 	}
@@ -690,7 +719,7 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
 
 	// No snapshot exists when the marker is recorded.
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -706,7 +735,7 @@ func TestRecoveryFallsBackToSnapshotCreatedAfterMarker(t *testing.T) {
 	}
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
 
-	snapshotID, ok := fixture.service.resolveRecoverySnapshot(ctx, instance.ID, lkg)
+	snapshotID, ok := fixture.service.ResolveRecoverySnapshot(ctx, instance.ID, lkg)
 	if !ok || snapshotID != first.ID {
 		t.Fatalf("expected the state-matching snapshot %s to enable recovery, got %q (ok=%v)", first.ID, snapshotID, ok)
 	}
@@ -730,7 +759,7 @@ func TestRestoreLastKnownGoodUsesSnapshotRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -772,10 +801,10 @@ func TestRecoveryWithoutSnapshotShowsChangesOnly(t *testing.T) {
 	ctx := context.Background()
 	instance := fixture.createInstance(t, "No snapshot")
 	fixture.installManagedMod(t, instance, "A", "r1", "1.0.0")
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 
 	fixture.changeInstalledMod(t, instance, "A", "r2", "2.0.0")
-	fixture.service.handleFailedLaunch(instance)
+	fixture.service.HandleFailedLaunch(instance)
 	payload := fixture.events.waitForEvent(t, "game:recovery-suggestion", time.Second)
 	suggestion := payload.(domain.RecoverySuggestion)
 	if suggestion.SnapshotExists || suggestion.SnapshotID != "" {
@@ -806,7 +835,7 @@ func TestSnapshotDeletionClearsLastKnownGoodReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -845,7 +874,7 @@ func TestAutomaticRetentionKeepsLastKnownGoodRecoverySnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.recordLastKnownGood(ctx, instance)
+	fixture.service.RecordLastKnownGood(ctx, instance)
 	lkg, err := fixture.store.GetLastKnownGood(ctx, instance.ID)
 	if err != nil {
 		t.Fatal(err)

@@ -170,32 +170,35 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 }
 
 type UpdateService struct {
-	repository           UpdateRepository
-	versions             VersionReader
-	gate                 MutationGate
-	prepareVersionChange VersionChangePreparer
-	clearClientSettings  ClientSettingsClearer
-	events               Publisher
-	now                  Clock
+	repository          UpdateRepository
+	versions            VersionReader
+	gate                MutationGate
+	lock                MutationLock
+	snapshotter         SafetySnapshotter
+	clearClientSettings ClientSettingsClearer
+	events              Publisher
+	now                 Clock
 }
 
 func NewUpdateService(
 	repository UpdateRepository,
 	versions VersionReader,
 	gate MutationGate,
-	prepareVersionChange VersionChangePreparer,
+	lock MutationLock,
+	snapshotter SafetySnapshotter,
 	clearClientSettings ClientSettingsClearer,
 	events Publisher,
 	now Clock,
 ) *UpdateService {
 	return &UpdateService{
-		repository:           repository,
-		versions:             versions,
-		gate:                 gate,
-		prepareVersionChange: prepareVersionChange,
-		clearClientSettings:  clearClientSettings,
-		events:               events,
-		now:                  now,
+		repository:          repository,
+		versions:            versions,
+		gate:                gate,
+		lock:                lock,
+		snapshotter:         snapshotter,
+		clearClientSettings: clearClientSettings,
+		events:              events,
+		now:                 now,
 	}
 }
 
@@ -217,17 +220,33 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 		return updated, err
 	}
 	if previous.GameVersionID != updated.GameVersionID {
-		if service.prepareVersionChange == nil {
+		if service.lock == nil {
 			return updated, domain.NewError(domain.ErrValidation, "Instance version changes are unavailable")
 		}
-		release, prepareErr := service.prepareVersionChange(ctx, previous, updated)
-		if prepareErr != nil {
-			return updated, prepareErr
+		release, lockErr := service.lock.Lock(updated.ID, MutationMarker)
+		if lockErr != nil {
+			return updated, lockErr
 		}
 		if release == nil {
 			return updated, domain.NewError(domain.ErrValidation, "Instance version change lock is unavailable")
 		}
 		defer release()
+		if service.snapshotter != nil {
+			toVersion := updated.GameVersionID
+			if version, versionErr := service.versions.Get(ctx, updated.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
+				toVersion = version.Name
+			}
+			fromVersion := previous.GameVersionID
+			if version, versionErr := service.versions.Get(ctx, previous.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
+				fromVersion = version.Name
+			}
+			if err := service.snapshotter.Create(ctx, updated.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
+				"fromGameVersion": fromVersion,
+				"toGameVersion":   toVersion,
+			}); err != nil {
+				return updated, err
+			}
+		}
 	}
 
 	updated.Directory = previous.Directory
@@ -252,7 +271,7 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 type DeleteService struct {
 	repository          DeleteRepository
 	gate                MutationGate
-	guard               DeleteGuard
+	lock                MutationLock
 	removeDirectory     DirectoryRemover
 	clearClientSettings ClientSettingsClearer
 	cleanRecovery       RecoveryCleaner
@@ -263,7 +282,7 @@ type DeleteService struct {
 func NewDeleteService(
 	repository DeleteRepository,
 	gate MutationGate,
-	guard DeleteGuard,
+	lock MutationLock,
 	removeDirectory DirectoryRemover,
 	clearClientSettings ClientSettingsClearer,
 	cleanRecovery RecoveryCleaner,
@@ -273,7 +292,7 @@ func NewDeleteService(
 	return &DeleteService{
 		repository:          repository,
 		gate:                gate,
-		guard:               guard,
+		lock:                lock,
 		removeDirectory:     removeDirectory,
 		clearClientSettings: clearClientSettings,
 		cleanRecovery:       cleanRecovery,
@@ -288,10 +307,10 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	}
 	defer service.gate.End()
 
-	if service.guard == nil {
+	if service.lock == nil {
 		return domain.NewError(domain.ErrValidation, "Instance deletion guard is unavailable")
 	}
-	guardRelease, err := service.guard(id)
+	guardRelease, err := service.lock.Guard(id, MutationMarker, "Stop the game before deleting this instance")
 	if err != nil {
 		return err
 	}
