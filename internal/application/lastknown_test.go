@@ -186,6 +186,7 @@ func newLKGFixture(t *testing.T) lkgFixture {
 		sessionService,
 		instanceQueries,
 		instanceCreator,
+		instancedirectory.NewCloneStorage(filesystem.SanitizeClientSettings),
 		versionService,
 		nil,
 		nil,

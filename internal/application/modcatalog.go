@@ -233,6 +233,14 @@ func (s *Service) DownloadCatalogMod(
 	ctx context.Context,
 	request domain.DownloadModRequest,
 ) (domain.ModInstallResult, error) {
+	return s.downloadCatalogMod(ctx, request, nil)
+}
+
+func (s *Service) downloadCatalogMod(
+	ctx context.Context,
+	request domain.DownloadModRequest,
+	lockedInstances map[string]struct{},
+) (domain.ModInstallResult, error) {
 	release, err := s.beginMutation()
 	if err != nil {
 		return domain.ModInstallResult{}, err
@@ -347,7 +355,17 @@ func (s *Service) DownloadCatalogMod(
 
 	allInstalled := true
 	for _, instance := range targetInstances {
+		var instanceRelease func()
+		if _, alreadyLocked := lockedInstances[instance.ID]; !alreadyLocked {
+			instanceRelease, err = s.lockInstanceMutations(instance.ID)
+			if err != nil {
+				return result, err
+			}
+		}
 		installation := s.installModPlan(downloadCtx, plan, instance)
+		if instanceRelease != nil {
+			instanceRelease()
+		}
 		result.Installations = append(result.Installations, installation)
 		allInstalled = allInstalled && installation.Installed
 	}
@@ -1111,12 +1129,12 @@ func (s *Service) UpdateInstanceMods(
 	}
 
 	for _, target := range pending {
-		downloadResult, err := s.DownloadCatalogMod(ctx, domain.DownloadModRequest{
+		downloadResult, err := s.downloadCatalogMod(ctx, domain.DownloadModRequest{
 			ModID:             target.ModID,
 			VersionID:         target.VersionID,
 			InstanceIDs:       []string{instance.ID},
 			AllowIncompatible: allowIncompatible,
-		})
+		}, map[string]struct{}{instance.ID: {}})
 		if err != nil {
 			return result, err
 		}
@@ -1315,6 +1333,11 @@ func (s *Service) LinkLocalMods(ctx context.Context, instanceID string) (domain.
 	if err != nil {
 		return result, err
 	}
+	instanceRelease, err := s.lockInstanceMutations(instanceID)
+	if err != nil {
+		return result, err
+	}
+	defer instanceRelease()
 	mods, err := s.ListMods(ctx, instanceID)
 	if err != nil {
 		return result, err
@@ -1398,8 +1421,14 @@ func (s *Service) bindMatchingInstanceMods(ctx context.Context, target domain.Do
 		return
 	}
 	for _, instance := range instances {
+		instanceRelease, lockErr := s.lockInstanceMutations(instance.ID)
+		if lockErr != nil {
+			slog.Debug("skipping catalog metadata binding for a busy instance", "instance", instance.Name)
+			continue
+		}
 		mods, err := s.store.ListMods(ctx, instance.ID)
 		if err != nil {
+			instanceRelease()
 			slog.Warn("could not list mods while binding catalog entries", "instance", instance.Name, "error", err)
 			continue
 		}
@@ -1420,6 +1449,7 @@ func (s *Service) bindMatchingInstanceMods(ctx context.Context, target domain.Do
 				s.emit("mod:linked", updated)
 			}
 		}
+		instanceRelease()
 	}
 }
 

@@ -16,10 +16,14 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 2 pull request: [#82](https://github.com/AmadoMuerte/Waxlight-launcher/pull/82)
 - Stage 2 status: merged into `dev` after successful local validation, manual
   smoke testing, and CI
-- Stage 3 branch: `refactor/backend-instances-launching`
-- Stage 3 pull request: [#84](https://github.com/AmadoMuerte/Waxlight-launcher/pull/84)
-- Stage 3 status: in progress; play-session, instance-core, creation/local-storage,
-  and update/delete ownership extracted
+- Stage 3 initial branch: `refactor/backend-instances-launching`
+- Stage 3 initial pull request: [#84](https://github.com/AmadoMuerte/Waxlight-launcher/pull/84)
+- Stage 3 initial status: merged into `dev` after successful local validation,
+  manual smoke testing, and CI
+- Current Stage 3 branch: `refactor/backend-instance-cloning`
+- Current Stage 3 pull request: [#85](https://github.com/AmadoMuerte/Waxlight-launcher/pull/85)
+- Stage 3 status: in progress; play-session, instance-core, CRUD,
+  local-storage, and cloning ownership extracted
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -414,6 +418,46 @@ arguments, credential handling, or frontend behavior.
 - Passed `go test ./...` and focused race tests for instances, application,
   presentation, bootstrap, and SQLite.
 
+### Completed Stage 3 Slice: Instance Cloning
+
+- Added an instance-owned clone service with focused instance, mod, creation,
+  mutation-gate, source-guard, filesystem, client-settings, cleanup, clock, and
+  ID-generation boundaries.
+- Moved clone metadata orchestration, mod-row replication, path remapping,
+  cover remapping, final persistence, and rollback out of
+  `application.Service`.
+- Added an instance-directory clone adapter that preserves the new clone marker,
+  copies regular instance files and modes, skips saves, logs, source markers,
+  and authentication journals, rejects symbolic links and non-regular files,
+  verifies opened source files, refuses target replacement, and honors
+  cancellation during file copies.
+- Made `clientsettings.json` sanitize in memory before its first destination
+  write, removing authentication, account, server-history, and machine-path
+  data without modifying the source or creating a crash window with copied
+  credentials.
+- Preserved complete mutation-gate coverage and made cloning reserve the source
+  instance against launches, snapshots, and destructive mutations until the
+  clone completes.
+- Made manual snapshot creation and restore reserve the same per-instance slot
+  atomically with launch checks, and extended that slot to local/catalog mod
+  installation, enable/disable, and local-catalog linking so clone inputs
+  cannot change midway through copying.
+- Made instance deletion reserve the same slot through filesystem and database
+  cleanup, preventing deletion from racing clone or snapshot work.
+- Preserved creation event semantics, mod metadata, rollback ordering, and
+  primary-error propagation when cleanup also fails; cancellation now uses a
+  bounded live cleanup context, and a failed directory cleanup retains the
+  instance record as recovery metadata instead of orphaning files.
+- Made `InstanceController.CloneInstance` call the focused clone capability
+  directly and deleted the legacy clone implementation from
+  `internal/application` without changing the Wails request or response.
+- Added direct clone-service and filesystem-adapter tests for metadata, launch
+  argument isolation, mod and cover paths, operation ordering, rollback,
+  excluded content, sanitize-before-write behavior, marker preservation,
+  symlink and overlapping-root rejection, cancellation, mutually exclusive
+  source/snapshot reservations, live cleanup context, and internal-path
+  mapping.
+
 ### Instance Feature
 
 - [x] Add `internal/instances` as the owner of the instance model, inputs,
@@ -422,7 +466,7 @@ arguments, credential handling, or frontend behavior.
   - queries and CRUD (complete);
   - directory allocation and local storage (creation allocation extracted;
     deletion and restore storage remain);
-  - cloning;
+  - cloning (complete);
   - package import and export;
   - update analysis and game-version changes.
 - [ ] Replace the broad application store dependency with narrow instance,
