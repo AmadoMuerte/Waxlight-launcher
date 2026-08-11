@@ -172,6 +172,8 @@ type InstanceController struct {
 	svc       *application.Service
 	creator   instanceCreator
 	queries   instanceQueries
+	updater   instanceUpdater
+	deleter   instanceDeleter
 	sessions  instancePlaytime
 	lifecycle *app.Lifecycle
 }
@@ -185,6 +187,14 @@ type instanceQueries interface {
 	Get(context.Context, string) (instances.Instance, error)
 }
 
+type instanceUpdater interface {
+	Update(context.Context, instances.Instance) (instances.Instance, error)
+}
+
+type instanceDeleter interface {
+	Delete(context.Context, string, bool) error
+}
+
 type instancePlaytime interface {
 	GetInstancePlaytime(context.Context, string) (int64, error)
 }
@@ -193,10 +203,15 @@ func NewInstanceController(
 	service *application.Service,
 	creator instanceCreator,
 	queries instanceQueries,
+	updater instanceUpdater,
+	deleter instanceDeleter,
 	sessionQueries instancePlaytime,
 	lifecycle *app.Lifecycle,
 ) *InstanceController {
-	return &InstanceController{svc: service, creator: creator, queries: queries, sessions: sessionQueries, lifecycle: lifecycle}
+	return &InstanceController{
+		svc: service, creator: creator, queries: queries, updater: updater,
+		deleter: deleter, sessions: sessionQueries, lifecycle: lifecycle,
+	}
 }
 
 type CreateInstanceRequest struct {
@@ -290,7 +305,7 @@ func (controller *InstanceController) UpdateInstance(
 	instance.DefaultAccountID = request.DefaultAccountID
 	instance.LaunchArguments = request.LaunchArguments
 
-	updated, err := controller.svc.UpdateInstance(ctx, instance)
+	updated, err := controller.updater.Update(ctx, instance)
 	return instanceDTO(updated), err
 }
 
@@ -298,7 +313,7 @@ func (controller *InstanceController) DeleteInstance(
 	id string,
 	deleteFiles bool,
 ) error {
-	return controller.svc.DeleteInstance(controller.lifecycle.Context(), id, deleteFiles)
+	return controller.deleter.Delete(controller.lifecycle.Context(), id, deleteFiles)
 }
 
 func (controller *InstanceController) CloneInstance(

@@ -124,7 +124,7 @@ func TestTelemetryInstanceEventsAtSuccessBoundaries(t *testing.T) {
 	}
 	recorder.waitForEvent(t, telemetry.EventInstanceCreated)
 
-	if err := fixture.service.DeleteInstance(ctx, instance.ID, true); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, instance.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	recorder.waitForEvent(t, telemetry.EventInstanceDeleted)

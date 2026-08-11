@@ -60,6 +60,8 @@ type Service struct {
 	sessions           *sessions.Service
 	instanceQueries    *instances.QueryService
 	instanceCreator    *instances.CreateService
+	instanceUpdater    *instances.UpdateService
+	instanceDeleter    *instances.DeleteService
 	modTasksMu         sync.Mutex
 	modTaskCancels     map[string]context.CancelFunc
 	activeModDownloads map[string]string
@@ -97,7 +99,7 @@ func NewService(
 	mutationGate *mutations.Gate,
 	settingsReader *settingscore.Reader,
 ) *Service {
-	return &Service{
+	service := &Service{
 		store:              store,
 		modFiles:           modFiles,
 		launcher:           launcher,
@@ -117,6 +119,36 @@ func NewService(
 		running:            make(map[string]runningGame),
 		snapshotBusy:       make(map[string]string),
 	}
+	service.instanceUpdater = instances.NewUpdateService(
+		store,
+		versionService,
+		mutationGate,
+		service.prepareInstanceVersionChange,
+		func(path string) error {
+			if service.clientSettings == nil {
+				return nil
+			}
+			return service.clientSettings.Clear(path)
+		},
+		instances.PublishFunc(service.emit),
+		time.Now,
+	)
+	service.instanceDeleter = instances.NewDeleteService(
+		store,
+		mutationGate,
+		service.guardInstanceDeletion,
+		func(path string) error { return safeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		func(path string) error {
+			if service.clientSettings == nil {
+				return nil
+			}
+			return service.clientSettings.Clear(path)
+		},
+		store.DeleteLastKnownGood,
+		instances.PublishFunc(service.emit),
+		service.reportEvent,
+	)
+	return service
 }
 
 func (s *Service) ConfigureMods(
@@ -299,6 +331,14 @@ func (s *Service) GetInstance(ctx context.Context, id string) (instances.Instanc
 	return s.instanceQueries.Get(ctx, id)
 }
 
+func (s *Service) InstanceUpdater() *instances.UpdateService {
+	return s.instanceUpdater
+}
+
+func (s *Service) InstanceDeleter() *instances.DeleteService {
+	return s.instanceDeleter
+}
+
 type SaveFavoriteServerInput struct {
 	ID         string
 	Name       string
@@ -362,102 +402,37 @@ func (s *Service) DeleteFavoriteServer(ctx context.Context, id string) error {
 	s.emit("favorite-server:removed", map[string]string{"id": id})
 	return nil
 }
-func (s *Service) UpdateInstance(ctx context.Context, in instances.Instance) (instances.Instance, error) {
-	mutationRelease, mutationErr := s.beginMutation()
-	if mutationErr != nil {
-		return in, mutationErr
-	}
-	defer mutationRelease()
-	old, e := s.store.GetInstance(ctx, in.ID)
-	if e != nil {
-		return in, e
-	}
-	in.Name, e = cleanName(in.Name)
-	if e != nil {
-		return in, e
-	}
-	if _, e = s.versions.Get(ctx, in.GameVersionID); e != nil {
-		return in, e
-	}
-	if old.GameVersionID != in.GameVersionID {
-		release, err := s.lockInstanceMutations(in.ID)
-		if err != nil {
-			return in, err
-		}
-		defer release()
-		toVersion := in.GameVersionID
-		if version, versionErr := s.versions.Get(ctx, in.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
-			toVersion = version.Name
-		}
-		if _, err := s.createSafetySnapshot(ctx, in.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
-			"fromGameVersion": s.instanceGameVersionName(ctx, old),
-			"toGameVersion":   toVersion,
-		}); err != nil {
-			return in, err
-		}
-	}
-	in.Directory = old.Directory
-	in.CreatedAt = old.CreatedAt
-	in.LastPlayedAt = old.LastPlayedAt
-	in.Status = old.Status
-	in.UpdatedAt = time.Now().UTC()
-	if !sameOptionalString(old.DefaultAccountID, in.DefaultAccountID) && s.clientSettings != nil {
-		if e = s.clientSettings.Clear(filepath.Join(old.Directory, "clientsettings.json")); e != nil {
-			return in, e
-		}
-	}
-	e = s.store.SaveInstance(ctx, in)
-	if e == nil {
-		s.emit("instance:updated", in)
-	}
-	return in, e
-}
-func (s *Service) DeleteInstance(ctx context.Context, id string, deleteFiles bool) error {
-	release, err := s.beginMutation()
+func (s *Service) prepareInstanceVersionChange(
+	ctx context.Context,
+	previous instances.Instance,
+	updated instances.Instance,
+) (func(), error) {
+	release, err := s.lockInstanceMutations(updated.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer release()
+	toVersion := updated.GameVersionID
+	if version, versionErr := s.versions.Get(ctx, updated.GameVersionID); versionErr == nil && strings.TrimSpace(version.Name) != "" {
+		toVersion = version.Name
+	}
+	if _, err := s.createSafetySnapshot(ctx, updated.ID, domain.SnapshotReasonBeforeGameVersionChange, map[string]string{
+		"fromGameVersion": s.instanceGameVersionName(ctx, previous),
+		"toGameVersion":   toVersion,
+	}); err != nil {
+		release()
+		return nil, err
+	}
+	return release, nil
+}
+
+func (s *Service) guardInstanceDeletion(id string) error {
 	s.runningMu.Lock()
 	_, running := s.running[id]
 	s.runningMu.Unlock()
 	if running {
 		return domain.NewError(instances.ErrInstanceRunning, "Stop the game before deleting this instance")
 	}
-	if err := s.ensureNoSnapshotOperation(id); err != nil {
-		return err
-	}
-	i, e := s.store.GetInstance(ctx, id)
-	if e != nil {
-		return e
-	}
-	if deleteFiles {
-		if e = safeRemoveAll(i.Directory, s.dataRoot, ".waxlight-instance"); e != nil {
-			return e
-		}
-	}
-	if !deleteFiles && s.clientSettings != nil {
-		if e = s.clientSettings.Clear(filepath.Join(i.Directory, "clientsettings.json")); e != nil {
-			return e
-		}
-	}
-	if e = s.store.DeleteInstance(ctx, id); e != nil {
-		return e
-	}
-	if e = s.store.DeleteLastKnownGood(ctx, id); e != nil {
-		slog.Warn("could not clean up the last known good state of the deleted instance", "instanceId", id, "error", e)
-	}
-	s.emit("instance:deleted", map[string]string{"id": id})
-	s.reportEvent(ctx, telemetry.EventInstanceDeleted)
-	slog.Info("instance deleted", "id", id)
-	return nil
-}
-
-func sameOptionalString(left, right *string) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	return *left == *right
+	return s.ensureNoSnapshotOperation(id)
 }
 func safeRemoveAll(path, dataRoot, marker string) error {
 	abs, e := filepath.Abs(path)

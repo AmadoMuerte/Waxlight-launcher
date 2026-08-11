@@ -923,7 +923,7 @@ func TestDeletedInstanceCleansLastKnownGood(t *testing.T) {
 	fixture.launcher.exit(0)
 	fixture.waitForGameExit(t)
 
-	if err := fixture.service.DeleteInstance(ctx, instance.ID, false); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, instance.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.store.GetLastKnownGood(ctx, instance.ID); !errors.Is(err, domain.ErrNotFound) {

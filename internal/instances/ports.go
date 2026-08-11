@@ -19,6 +19,16 @@ type CreateRepository interface {
 	IsDirectoryUsed(context.Context, string, string) (bool, error)
 }
 
+type UpdateRepository interface {
+	GetInstance(context.Context, string) (Instance, error)
+	SaveInstance(context.Context, Instance) error
+}
+
+type DeleteRepository interface {
+	GetInstance(context.Context, string) (Instance, error)
+	DeleteInstance(context.Context, string) error
+}
+
 type Repository interface {
 	QueryRepository
 	CreateRepository
@@ -52,6 +62,17 @@ type Publisher interface {
 	Publish(string, any)
 }
 
+type PublishFunc func(string, any)
+
+func (publish PublishFunc) Publish(name string, payload any) {
+	publish(name, payload)
+}
+
+type VersionChangePreparer func(context.Context, Instance, Instance) (func(), error)
+type ClientSettingsClearer func(string) error
+type DeleteGuard func(string) error
+type DirectoryRemover func(string) error
+type RecoveryCleaner func(context.Context, string) error
 type LanguageFunc func(context.Context) (string, error)
 type TelemetryFunc func(context.Context, string)
 type Clock func() time.Time

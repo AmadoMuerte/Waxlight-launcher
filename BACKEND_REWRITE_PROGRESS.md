@@ -17,8 +17,9 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 2 status: merged into `dev` after successful local validation, manual
   smoke testing, and CI
 - Stage 3 branch: `refactor/backend-instances-launching`
-- Stage 3 status: in progress; play-session, instance-core, and instance
-  creation/local-storage ownership extracted
+- Stage 3 pull request: [#84](https://github.com/AmadoMuerte/Waxlight-launcher/pull/84)
+- Stage 3 status: in progress; play-session, instance-core, creation/local-storage,
+  and update/delete ownership extracted
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -385,12 +386,40 @@ arguments, credential handling, or frontend behavior.
 - Passed focused tests and race tests for instances, instance-directory
   storage, application, presentation, and bootstrap.
 
+### Completed Stage 3 Slice: Instance Update and Deletion
+
+- Added instance-owned update and deletion services with focused repository,
+  version, mutation-gate, client-settings, safety-snapshot, process-state,
+  recovery-cleanup, filesystem, event, telemetry, and clock boundaries.
+- Moved update validation, persisted-field preservation, account-change
+  credential cleanup, timestamps, persistence, and update events out of
+  `application.Service`.
+- Kept game-version safety snapshots behind a narrow transitional callback so
+  the per-instance mutation lock remains held from snapshot creation through
+  persistence without making `internal/instances` depend on the legacy
+  snapshot subsystem.
+- Moved deletion sequencing, optional client-settings cleanup, repository
+  deletion, best-effort Last Known Good cleanup, events, and telemetry out of
+  `application.Service`.
+- Preserved running-game and snapshot-operation deletion guards through a
+  narrow application adapter until process and snapshot ownership moves in
+  later Stage 3 and Stage 6 slices.
+- Made `InstanceController` call update and deletion capabilities directly and
+  removed the migrated `UpdateInstance` and `DeleteInstance` orchestration
+  methods from `application.Service` without changing Wails methods or DTOs.
+- Added direct tests for field preservation, timestamps, version-change lock
+  ordering, credential cleanup, mutation-gate rejection, filesystem/persistence
+  ordering, best-effort recovery cleanup, events, telemetry, and failure
+  rollback boundaries.
+- Passed `go test ./...` and focused race tests for instances, application,
+  presentation, bootstrap, and SQLite.
+
 ### Instance Feature
 
 - [x] Add `internal/instances` as the owner of the instance model, inputs,
   repository interfaces, statuses, and instance-specific errors.
 - [ ] Split instance behavior into focused capabilities for:
-  - queries and CRUD (queries and creation extracted; update/delete remain);
+  - queries and CRUD (complete);
   - directory allocation and local storage (creation allocation extracted;
     deletion and restore storage remain);
   - cloning;

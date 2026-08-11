@@ -10,7 +10,10 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 )
 
-const telemetryEventInstanceCreated = "instance_created"
+const (
+	telemetryEventInstanceCreated = "instance_created"
+	telemetryEventInstanceDeleted = "instance_deleted"
+)
 
 type QueryService struct {
 	repository QueryRepository
@@ -164,6 +167,173 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		service.telemetry(ctx, telemetryEventInstanceCreated)
 	}
 	return instance, nil
+}
+
+type UpdateService struct {
+	repository           UpdateRepository
+	versions             VersionReader
+	gate                 MutationGate
+	prepareVersionChange VersionChangePreparer
+	clearClientSettings  ClientSettingsClearer
+	events               Publisher
+	now                  Clock
+}
+
+func NewUpdateService(
+	repository UpdateRepository,
+	versions VersionReader,
+	gate MutationGate,
+	prepareVersionChange VersionChangePreparer,
+	clearClientSettings ClientSettingsClearer,
+	events Publisher,
+	now Clock,
+) *UpdateService {
+	return &UpdateService{
+		repository:           repository,
+		versions:             versions,
+		gate:                 gate,
+		prepareVersionChange: prepareVersionChange,
+		clearClientSettings:  clearClientSettings,
+		events:               events,
+		now:                  now,
+	}
+}
+
+func (service *UpdateService) Update(ctx context.Context, updated Instance) (Instance, error) {
+	if err := service.gate.Begin(); err != nil {
+		return updated, err
+	}
+	defer service.gate.End()
+
+	previous, err := service.repository.GetInstance(ctx, updated.ID)
+	if err != nil {
+		return updated, err
+	}
+	updated.Name, err = cleanName(updated.Name)
+	if err != nil {
+		return updated, err
+	}
+	if _, err = service.versions.Get(ctx, updated.GameVersionID); err != nil {
+		return updated, err
+	}
+	if previous.GameVersionID != updated.GameVersionID {
+		if service.prepareVersionChange == nil {
+			return updated, domain.NewError(domain.ErrValidation, "Instance version changes are unavailable")
+		}
+		release, prepareErr := service.prepareVersionChange(ctx, previous, updated)
+		if prepareErr != nil {
+			return updated, prepareErr
+		}
+		if release == nil {
+			return updated, domain.NewError(domain.ErrValidation, "Instance version change lock is unavailable")
+		}
+		defer release()
+	}
+
+	updated.Directory = previous.Directory
+	updated.CreatedAt = previous.CreatedAt
+	updated.LastPlayedAt = previous.LastPlayedAt
+	updated.Status = previous.Status
+	updated.UpdatedAt = service.now().UTC()
+	if !sameOptionalString(previous.DefaultAccountID, updated.DefaultAccountID) && service.clearClientSettings != nil {
+		if err = service.clearClientSettings(filepath.Join(previous.Directory, "clientsettings.json")); err != nil {
+			return updated, err
+		}
+	}
+	if err = service.repository.SaveInstance(ctx, updated); err != nil {
+		return updated, err
+	}
+	if service.events != nil {
+		service.events.Publish("instance:updated", updated)
+	}
+	return updated, nil
+}
+
+type DeleteService struct {
+	repository          DeleteRepository
+	gate                MutationGate
+	guard               DeleteGuard
+	removeDirectory     DirectoryRemover
+	clearClientSettings ClientSettingsClearer
+	cleanRecovery       RecoveryCleaner
+	events              Publisher
+	telemetry           TelemetryFunc
+}
+
+func NewDeleteService(
+	repository DeleteRepository,
+	gate MutationGate,
+	guard DeleteGuard,
+	removeDirectory DirectoryRemover,
+	clearClientSettings ClientSettingsClearer,
+	cleanRecovery RecoveryCleaner,
+	events Publisher,
+	telemetryReporter TelemetryFunc,
+) *DeleteService {
+	return &DeleteService{
+		repository:          repository,
+		gate:                gate,
+		guard:               guard,
+		removeDirectory:     removeDirectory,
+		clearClientSettings: clearClientSettings,
+		cleanRecovery:       cleanRecovery,
+		events:              events,
+		telemetry:           telemetryReporter,
+	}
+}
+
+func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles bool) error {
+	if err := service.gate.Begin(); err != nil {
+		return err
+	}
+	defer service.gate.End()
+
+	if service.guard == nil {
+		return domain.NewError(domain.ErrValidation, "Instance deletion guard is unavailable")
+	}
+	if err := service.guard(id); err != nil {
+		return err
+	}
+	instance, err := service.repository.GetInstance(ctx, id)
+	if err != nil {
+		return err
+	}
+	if deleteFiles {
+		if service.removeDirectory == nil {
+			return domain.NewError(domain.ErrValidation, "Instance directory removal is unavailable")
+		}
+		if err := service.removeDirectory(instance.Directory); err != nil {
+			return err
+		}
+	}
+	if !deleteFiles && service.clearClientSettings != nil {
+		if err := service.clearClientSettings(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
+			return err
+		}
+	}
+	if err := service.repository.DeleteInstance(ctx, id); err != nil {
+		return err
+	}
+	if service.cleanRecovery != nil {
+		if err := service.cleanRecovery(ctx, id); err != nil {
+			slog.Warn("could not clean up the last known good state of the deleted instance", "instanceId", id, "error", err)
+		}
+	}
+	if service.events != nil {
+		service.events.Publish("instance:deleted", map[string]string{"id": id})
+	}
+	if service.telemetry != nil {
+		service.telemetry(ctx, telemetryEventInstanceDeleted)
+	}
+	slog.Info("instance deleted", "id", id)
+	return nil
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func cleanName(value string) (string, error) {

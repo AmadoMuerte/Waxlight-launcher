@@ -470,7 +470,7 @@ func TestImportedInstanceSurvivesSourceDeletion(t *testing.T) {
 		t.Fatalf("imported mod missing before deletion: %v", err)
 	}
 
-	if err := fixture.service.DeleteInstance(ctx, source.ID, true); err != nil {
+	if err := fixture.service.InstanceDeleter().Delete(ctx, source.ID, true); err != nil {
 		t.Fatal(err)
 	}
 

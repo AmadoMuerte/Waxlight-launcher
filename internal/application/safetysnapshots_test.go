@@ -352,7 +352,7 @@ func TestAutomaticSnapshotCreatedBeforeGameVersionChange(t *testing.T) {
 	saveAdditionalGameVersion(t, fixture, "1.21.6")
 
 	instance.GameVersionID = "1.21.6"
-	if _, err := fixture.service.UpdateInstance(ctx, instance); err != nil {
+	if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err != nil {
 		t.Fatal(err)
 	}
 
@@ -451,7 +451,7 @@ func TestAutomaticSnapshotFailureBlocksDestructiveOperations(t *testing.T) {
 		fixture.setDiskSpace(fixedDiskSpace(0))
 
 		instance.GameVersionID = "1.21.6"
-		if _, err := fixture.service.UpdateInstance(ctx, instance); err == nil {
+		if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err == nil {
 			t.Fatal("expected the version change to fail")
 		}
 		stored, err := fixture.store.GetInstance(ctx, instance.ID)
@@ -505,7 +505,7 @@ func TestDisabledAutomaticSnapshotsSkipCreation(t *testing.T) {
 
 	saveAdditionalGameVersion(t, fixture, "1.21.6")
 	instance.GameVersionID = "1.21.6"
-	if _, err := fixture.service.UpdateInstance(ctx, instance); err != nil {
+	if _, err := fixture.service.InstanceUpdater().Update(ctx, instance); err != nil {
 		t.Fatal(err)
 	}
 	if snapshots, listErr := fixture.service.ListInstanceSnapshots(ctx, instance.ID); listErr != nil || len(snapshots) != 0 {
