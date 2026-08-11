@@ -137,7 +137,7 @@ jobs:
             eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)"
             go test \
               -tags=integration \
-              ./internal/infrastructure/credentials \
+              ./internal/platform/credentials \
               -run TestNativeCredentialStoreRoundTrip
           '
 
@@ -147,7 +147,7 @@ jobs:
         run: |
           go test `
             -tags=integration `
-            ./internal/infrastructure/credentials `
+            ./internal/platform/credentials `
             -run TestNativeCredentialStoreRoundTrip
 
   linux-build:

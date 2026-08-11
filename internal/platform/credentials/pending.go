@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
 
 type pendingCommits struct {

@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
 
 // LaunchLogs opens and hardens launcher-owned instance log files.

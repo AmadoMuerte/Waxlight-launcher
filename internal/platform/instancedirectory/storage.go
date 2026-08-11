@@ -9,8 +9,8 @@ import (
 	"syscall"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
 
 const markerName = ".waxlight-instance"

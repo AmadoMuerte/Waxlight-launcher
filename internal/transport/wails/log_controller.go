@@ -11,11 +11,11 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )

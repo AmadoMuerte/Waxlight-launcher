@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
 )
 
 const metadataFile = "metadata.json"

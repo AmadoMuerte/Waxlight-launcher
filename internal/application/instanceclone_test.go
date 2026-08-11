@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 )
 
 func TestCloneInstanceCopiesFilesAndModsWithoutSavesOrLogs(t *testing.T) {

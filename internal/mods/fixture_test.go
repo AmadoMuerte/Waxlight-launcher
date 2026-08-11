@@ -14,11 +14,11 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 

@@ -74,7 +74,7 @@ Focused Go tests: `go test ./path/to/package -run TestName`. The pre-commit hook
 - Never put passwords, TOTP codes, pre-login tokens, session keys, or signatures in DTOs, generated bindings, logs, errors, fixtures, URLs, process arguments, environment variables, or exports.
 - Production credentials use native OS storage only; no plaintext or in-memory fallback.
 - Features that copy/export/diagnose/archive instances must remove the four authentication properties from `clientsettings.json`.
-- Logging goes only through `internal/infrastructure/logging` (slog); stdlib `log` and stdout prints are forbidden.
+- Logging goes only through `internal/platform/logging` (slog); stdlib `log` and stdout prints are forbidden.
 
 ## Localization
 

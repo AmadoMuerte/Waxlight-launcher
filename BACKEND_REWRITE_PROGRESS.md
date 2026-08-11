@@ -57,7 +57,7 @@ frontend behavior.
 
 ### SQLite Boundary
 
-- Removed the 1,300-line `internal/infrastructure/database/sqlite.go`.
+- Removed the 1,300-line `internal/platform/database/sqlite.go`.
 - Added `internal/platform/sqlite` with one shared `*sql.DB` connection.
 - Split persistence implementation by responsibility:
   - accounts;
@@ -594,7 +594,7 @@ keeping Vintage Story protocol behavior in `vintagestory-go`.
 - Split favorite-server CRUD (`Service`) from public-catalog queries
   (`CatalogService`); the catalog dependency is immutable at construction.
 - Kept public catalog access behind the existing thin `vintagestory-go`
-  adapter in `internal/infrastructure/servercatalog`, which now maps into
+  adapter in `internal/platform/servercatalog`, which now maps into
   `servers.PublicServer` and still exposes `NewClient`/`NewClientWithURL`
   for tests.
 - Made the broad application store compose `servers.Repository` instead of
@@ -682,7 +682,7 @@ the remaining mod state in `application.Service`.
   released as `v0.2.0` (sentinel error refinement in `v0.2.1`), and consumed
   the new version in Waxlight.
 - Removed the duplicated local modinfo implementations from
-  `internal/infrastructure/filesystem` and `internal/application`.
+  `internal/platform/filesystem` and `internal/application`.
 - Kept only Waxlight-specific mapping, persistence, filesystem policy,
   orchestration, and user-facing errors in this repository.
 
@@ -728,7 +728,7 @@ the remaining mod state in `application.Service`.
 ### ModDB Browsing and Tasks
 
 - Kept ModDB browsing behind the existing thin `vintagestory-go` adapter in
-  `internal/infrastructure/modcatalog`, which now maps into `mods` models.
+  `internal/platform/modcatalog`, which now maps into `mods` models.
 - Moved ModDB task tracking, cancellation, progress, and completion into
   `ModTaskManager`, separate from persistent launcher operations; the
   namespace test proves the two cancellation domains cannot cross.
@@ -831,7 +831,7 @@ narrow repositories and filesystem boundaries.
   recovery features through minimal views and structural ports; the source
   marker format (`moddb:<modID>:<versionID>`) is parsed and rendered in the
   snapshot feature to match the mods feature contract.
-- Moved the snapshot storage adapter from `internal/infrastructure/snapshotstore`
+- Moved the snapshot storage adapter from `internal/platform/snapshotstore`
   to `internal/platform/snapshots` while preserving the directory layout,
   manifest format, staging, listing, removal, and size semantics.
 - Kept `clientsettings.json` sanitized on every snapshot copy and every restore

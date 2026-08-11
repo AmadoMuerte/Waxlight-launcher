@@ -31,7 +31,7 @@ The page follows the project layering rules:
 - `frontend/src/shared/api/index.ts` is the only frontend transport wrapper;
 - `internal/presentation/controllers.go` exposes thin Wails methods;
 - `internal/application/service.go` and `versions.go` own use-case behavior;
-- `internal/infrastructure/database/sqlite.go` owns persistence and enforces the
+- `internal/platform/database/sqlite.go` owns persistence and enforces the
   finished-only deletion guard;
 - the shared downloader still owns HTTP transfer, checksum verification,
   progress, and resumable `.partial` files.

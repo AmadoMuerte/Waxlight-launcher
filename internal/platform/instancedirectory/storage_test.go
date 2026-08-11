@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/instancedirectory"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 

@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 

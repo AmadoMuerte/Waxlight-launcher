@@ -11,9 +11,9 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/versionfs"
 )
 
 type testRepository struct {

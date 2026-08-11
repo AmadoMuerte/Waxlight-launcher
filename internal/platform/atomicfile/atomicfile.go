@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
 
 func Write(path string, data []byte, permissions os.FileMode) error {

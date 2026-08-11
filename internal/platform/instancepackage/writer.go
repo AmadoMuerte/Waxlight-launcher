@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 )
 
 // WriteSource describes everything needed to produce a package.

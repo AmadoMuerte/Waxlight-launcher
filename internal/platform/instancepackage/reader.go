@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 )
 
 // Package is a validated read-only view of a .waxlight archive.

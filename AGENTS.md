@@ -109,8 +109,8 @@ Before promoting `dev` to `main`:
 - `cmd/waxlight/main.go` starts Wails and bootstraps `internal/bootstrap`; keep domain/application logic independent of Wails and React.
 - Go layers: `internal/domain` models/errors, `internal/application` use cases and ports, `internal/infrastructure` adapters, `internal/presentation` Wails controllers and DTOs.
 - Frontend backend access belongs in `frontend/src/shared/api`; Wails bindings are generated under `frontend/src/wailsjs`.
-- Runtime SQLite schema changes belong in `internal/infrastructure/database/sqlite.go`; files in `migrations/` are not canonical runtime migrations.
-- Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/infrastructure/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/infrastructure/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, `logs`, and `backups`.
+- Runtime SQLite schema changes belong in `internal/platform/database/sqlite.go`; files in `migrations/` are not canonical runtime migrations.
+- Every new data directory created inside the launcher data root must be handled by the data-root relocation in `internal/platform/dataroot` so it moves with the data folder: it must not be added to `reservedNames` (so `CopyData`/`TotalSize` include it), and it must be added to the directory list in `removeOldRoot` in `internal/platform/dataroot/dataroot.go`. The existing data directories are `versions`, `instances`, `downloads`, `cache`, `security`, `updates`, `logs`, and `backups`.
 
 ## Vintage Story Library
 
@@ -125,7 +125,7 @@ Before promoting `dev` to `main`:
 - Production credentials use native OS storage only; do not add plaintext or in-memory fallback.
 - Logins, passwords, sessions, and all credentials must live only in the protected OS credential store, and at most be written to the game's `clientsettings.json` for the duration of a running game session. Storing, using, displaying, echoing, logging, or returning them anywhere else is strictly forbidden.
 - Features that copy, export, diagnose, archive, or back up an instance must remove `sessionkey`, `sessionsignature`, `playeruid`, and `playername` from its `clientsettings.json`.
-- All launcher logging goes through `internal/infrastructure/logging` (the `slog` default handler installed at startup). Never import stdlib `log` or print to stdout for diagnostics; `slog.Info/Warn/Error` is captured in the in-memory console and the exported support log. Log only the launcher's own events and errors — never game output, credentials, or account data. The logging package is framework-free and must stay independent of domain, application, and presentation.
+- All launcher logging goes through `internal/platform/logging` (the `slog` default handler installed at startup). Never import stdlib `log` or print to stdout for diagnostics; `slog.Info/Warn/Error` is captured in the in-memory console and the exported support log. Log only the launcher's own events and errors — never game output, credentials, or account data. The logging package is framework-free and must stay independent of domain, application, and presentation.
 
 ## Frontend
 
