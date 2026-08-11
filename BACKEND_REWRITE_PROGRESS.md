@@ -39,7 +39,9 @@ launcher behavior while leaving the repository buildable and testable.
   extracted from `application.Service`
 - Stage 7 branch: `refactor/backend-updates-telemetry-statistics`
 - Stage 7 pull request: [#90](https://github.com/AmadoMuerte/Waxlight-launcher/pull/90)
-- Stage 7 status: in progress
+- Stage 7 status: merged into `dev` after successful local validation and CI
+- Stage 8 branch: `refactor/backend-wails-transport`
+- Stage 8 status: in progress
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -1071,10 +1073,126 @@ lifecycle-safe background delivery.
 - [x] Add tests for update trust failures, cancellation, telemetry opt-in and
   allowlists, shutdown, statistics, log tailing, and crash coordination.
 - [x] Run focused race, privacy, security, and complete local validation checks.
-- [ ] Complete manual smoke testing for update UI, telemetry transitions,
+- [x] Complete manual smoke testing for update UI, telemetry transitions,
   statistics, and game-log viewing.
-- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+- [x] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
   merge before Stage 8 begins.
+
+## Stage 8: Wails Transport and Composition Root
+
+Goal: reduce Wails to a transport adapter and make `internal/app` the complete,
+explicit composition root.
+
+### Wails Transport
+
+- Moved every remaining controller and DTO from `internal/presentation` into
+  feature-oriented files under `internal/transport/wails`:
+  - `app_controller.go`, `account_controller.go`, `game_version_controller.go`,
+    `instance_controller.go`, `mod_manager_controller.go`,
+    `mod_catalog_controller.go`, `instance_package_controller.go`,
+    `launch_controller.go`, `statistics_controller.go`,
+    `operation_controller.go`, `snapshot_controller.go`,
+    `last_known_good_controller.go`, `log_controller.go`,
+    `settings_controller.go`, `update_controller.go` (the server controller
+    already lived in the transport package).
+- Moved the DTO layer into `dto.go` (shared DTOs and conversions),
+  `modcatalog_dto.go`, `instance_update_dto.go`, `instancepackage_dto.go`,
+  `snapshot_dto.go`, and `lastknown_dto.go`.
+- Deleted the entire `internal/presentation` package; its tests moved with the
+  controllers (DTO serialization, support-log formatting, URL validation, and
+  the credential allow-list security tests).
+- Kept Wails limited to parameter/DTO conversion, feature invocation, dialogs,
+  events, browser opening, directory opening, and application quit.
+- Removed the last `application.Service` references from controllers: the
+  instance controller dropped its unused service field, and the log controller
+  now consumes the focused instance query service through a narrow
+  `instanceLister` port for its support-log summary.
+- Preserved every frontend-consumed controller name, method name, argument
+  order, return shape, JSON field, event, and user-facing error; regenerated
+  bindings contain only the intentional namespace change (`presentation` ->
+  `wails`) with identical controller methods and model classes.
+- Made the transport consume a minimal local `lifecycle` interface
+  (`Context()` and `Go`) instead of `*app.Lifecycle`; the composition root can
+  therefore bind the controllers without creating an import cycle.
+- Updated the frontend bridge to resolve only the `wails` namespace and moved
+  `accounts.ts` onto the `wailsjs/go/wails` bindings.
+
+### Wails API Inventory and Compatibility Check
+
+- Added the checked-in `docs/wails-api-inventory.json` generated from the
+  transport controllers by `go run ./internal/transport/wails/inventory`
+  (`make api-inventory`).
+- Added automated compatibility tests in `internal/transport/wails`:
+  - the inventory always matches the transport controller methods;
+  - the generated `frontend/src/wailsjs/go/wails` bindings expose exactly the
+    inventoried controllers and methods;
+  - every `call(...)` and binding import in `frontend/src/shared/api` targets a
+    controller and method that exist in the inventory, no legacy `presentation`
+    namespace references remain, and `models.ts` still exports the `wails`
+    namespace.
+
+### Composition Root
+
+- Moved dependency construction and wiring into `internal/app/wire.go`: the
+  `Container` type, `New`/`NewWithHome` (an explicit home directory keeps the
+  composition root testable), `Startup`, `Shutdown`, and every construction
+  adapter (`newVersionID`, `credentialStoreUnavailable`, package adapters).
+- Lifecycle, mutation gate, event publisher, repositories, features, platform
+  adapters, and transport assembly are explicit and immutable at construction;
+  no post-construction wiring remains except the launch account-cleanup hook
+  that already existed.
+- `cmd/waxlight/main.go` is now a small executable entrypoint that constructs
+  the container and starts Wails.
+- Deleted `internal/bootstrap`; installer telemetry consent moved into
+  `internal/app` unchanged.
+- Added `internal/apptest.Lifecycle` so feature tests that cannot import the
+  composition root still exercise lifecycle-owned workers.
+
+### Composition Tests
+
+- `internal/app/wire_test.go` proves:
+  - the bound controllers exactly match the checked-in Wails API inventory;
+  - recovery ordering: interrupted play sessions and queued/running operations
+    seeded before construction are recovered before the container is returned;
+  - startup ordering: the lifecycle context derives from the framework context
+    and accepts lifecycle-owned workers;
+  - deterministic shutdown: cancelling joins a blocked lifecycle worker and
+    leaves the store consistent for the next run.
+
+### Stage 8 Checkboxes
+
+### Wails Transport
+
+- [x] Move every remaining controller and DTO from `internal/presentation` into
+  feature-oriented files under `internal/transport/wails`.
+- [x] Keep Wails limited to parameter/DTO conversion, feature invocation,
+  dialogs, events, browser opening, directory opening, and application quit.
+- [x] Preserve all frontend-consumed controller names, method names, argument
+  order, return shapes, JSON fields, events, and user-facing errors.
+- [x] Regenerate bindings and verify that only intentional package-path changes
+  occur.
+- [x] Add a checked-in Wails API inventory and an automated frontend-to-backend
+  compatibility check.
+
+### Composition Root
+
+- [x] Move dependency construction and wiring into `internal/app/wire.go`.
+- [x] Keep lifecycle, mutation gate, event publisher, repositories, features,
+  platform adapters, and transport assembly explicit and immutable.
+- [x] Keep `cmd/waxlight/main.go` as a small executable entrypoint.
+- [x] Remove `internal/bootstrap` after all startup, reconciliation, and shutdown
+  responsibilities have moved.
+- [x] Add composition tests that prove startup ordering, recovery ordering, and
+  deterministic shutdown.
+
+### Stage 8 Validation and Delivery
+
+- [ ] Verify the complete Wails API inventory against frontend consumers and
+  generated bindings.
+- [ ] Run focused lifecycle, bootstrap/composition, transport, and race tests.
+- [ ] Run the complete local validation matrix and a desktop smoke test.
+- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
+  merge before Stage 9 begins.
 
 ## Stage 8: Wails Transport and Composition Root
 
