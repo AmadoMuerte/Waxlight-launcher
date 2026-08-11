@@ -8,6 +8,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -64,6 +65,11 @@ func (repository *testRepository) ListMods(ctx context.Context, instanceID strin
 			result = append(result, mod)
 		}
 	}
+	// The production store lists mods ordered by name (ORDER BY name); mirror
+	// that contract so tests are deterministic instead of map-iteration order.
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
 	return result, nil
 }
 
