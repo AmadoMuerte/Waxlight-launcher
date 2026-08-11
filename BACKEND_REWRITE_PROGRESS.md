@@ -41,7 +41,8 @@ launcher behavior while leaving the repository buildable and testable.
 - Stage 7 pull request: [#90](https://github.com/AmadoMuerte/Waxlight-launcher/pull/90)
 - Stage 7 status: merged into `dev` after successful local validation and CI
 - Stage 8 branch: `refactor/backend-wails-transport`
-- Stage 8 status: in progress
+- Stage 8 pull request: [#91](https://github.com/AmadoMuerte/Waxlight-launcher/pull/91)
+- Stage 8 status: complete; all CI checks green, merge pending review
 - Overall rewrite status: in progress
 
 The final acceptance criteria are not met yet. In particular,
@@ -1187,50 +1188,15 @@ explicit composition root.
 
 ### Stage 8 Validation and Delivery
 
-- [ ] Verify the complete Wails API inventory against frontend consumers and
+- [x] Verify the complete Wails API inventory against frontend consumers and
   generated bindings.
-- [ ] Run focused lifecycle, bootstrap/composition, transport, and race tests.
-- [ ] Run the complete local validation matrix and a desktop smoke test.
-- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
-  merge before Stage 9 begins.
-
-## Stage 8: Wails Transport and Composition Root
-
-Goal: reduce Wails to a transport adapter and make `internal/app` the complete,
-explicit composition root.
-
-### Wails Transport
-
-- [ ] Move every remaining controller and DTO from `internal/presentation` into
-  feature-oriented files under `internal/transport/wails`.
-- [ ] Keep Wails limited to parameter/DTO conversion, feature invocation,
-  dialogs, events, browser opening, directory opening, and application quit.
-- [ ] Preserve all frontend-consumed controller names, method names, argument
-  order, return shapes, JSON fields, events, and user-facing errors.
-- [ ] Regenerate bindings and verify that only intentional package-path changes
-  occur.
-- [ ] Add a checked-in Wails API inventory and an automated frontend-to-backend
-  compatibility check.
-
-### Composition Root
-
-- [ ] Move dependency construction and wiring into `internal/app/wire.go`.
-- [ ] Keep lifecycle, mutation gate, event publisher, repositories, features,
-  platform adapters, and transport assembly explicit and immutable.
-- [ ] Keep `cmd/waxlight/main.go` as a small executable entrypoint.
-- [ ] Remove `internal/bootstrap` after all startup, reconciliation, and shutdown
-  responsibilities have moved.
-- [ ] Add composition tests that prove startup ordering, recovery ordering, and
-  deterministic shutdown.
-
-### Stage 8 Validation and Delivery
-
-- [ ] Verify the complete Wails API inventory against frontend consumers and
-  generated bindings.
-- [ ] Run focused lifecycle, bootstrap/composition, transport, and race tests.
-- [ ] Run the complete local validation matrix and a desktop smoke test.
-- [ ] Commit, synchronize, push, open a pull request against `dev`, pass CI, and
-  merge before Stage 9 begins.
+- [x] Run focused lifecycle, bootstrap/composition, transport, and race tests.
+- [x] Run the complete local validation matrix and a desktop smoke test. The
+  desktop smoke test ran the built binary with an isolated config directory:
+  the window opened, the frontend loaded and called the bound controllers
+  through the `wails` namespace (startup update check), and shutdown was clean.
+- [x] Commit, synchronize, push, open a pull request against `dev`, and pass CI
+  (merge pending review before Stage 9 begins).
 
 ## Stage 9: Legacy Removal and Architecture Enforcement
 
