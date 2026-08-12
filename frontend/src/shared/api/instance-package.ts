@@ -1,5 +1,5 @@
 import { call } from "./bridge";
-import type { Operation, PackageAuthor, PackageInspection, PackageManifest } from "./types";
+import type { Operation, PackageInspection, PackageManifest } from "./types";
 
 export const instancePackageApi = {
   export: (request: {
@@ -7,7 +7,6 @@ export const instancePackageApi = {
     targetPath: string;
     name?: string;
     description?: string;
-    author?: PackageAuthor;
   }) => call<PackageManifest>("InstancePackageController", "ExportInstance", request),
   inspect: (packagePath: string) =>
     call<PackageInspection>("InstancePackageController", "InspectPackage", packagePath),

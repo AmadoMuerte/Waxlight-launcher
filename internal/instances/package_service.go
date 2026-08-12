@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -111,10 +110,6 @@ func (service *PackageService) ExportInstance(
 		return PackageManifest{}, err
 	}
 
-	if err := validatePackageAuthorLinks(options.Author); err != nil {
-		return PackageManifest{}, err
-	}
-
 	name := instance.Name
 	if strings.TrimSpace(options.Name) != "" {
 		if name, err = cleanName(options.Name); err != nil {
@@ -125,7 +120,6 @@ func (service *PackageService) ExportInstance(
 		SchemaVersion:   InstancePackageSchemaVersion,
 		Name:            name,
 		Description:     strings.TrimSpace(options.Description),
-		Author:          options.Author,
 		GameVersion:     PackageGameVersion{ID: version.ID, Name: version.Name},
 		LaunchArguments: append([]string(nil), instance.LaunchArguments...),
 		CreatedAt:       service.now().UTC(),
@@ -196,32 +190,6 @@ func (service *PackageService) ExportInstance(
 		return PackageManifest{}, err
 	}
 	return manifest, nil
-}
-
-func validatePackageAuthorLinks(author *PackageAuthor) error {
-	if author == nil {
-		return nil
-	}
-	for _, link := range []struct {
-		value string
-		label string
-	}{
-		{value: author.Homepage, label: "author homepage"},
-		{value: author.Source, label: "author source link"},
-	} {
-		value := strings.TrimSpace(link.value)
-		if value == "" {
-			continue
-		}
-		parsed, err := url.Parse(value)
-		if err != nil || parsed.Host == "" {
-			return errs.NewError(errs.ErrValidation, "The "+link.label+" must be a valid URL")
-		}
-		if parsed.Scheme != "http" && parsed.Scheme != "https" {
-			return errs.NewError(errs.ErrValidation, "The "+link.label+" must start with http:// or https://")
-		}
-	}
-	return nil
 }
 
 func uniqueEmbeddedName(name string, seen map[string]struct{}) string {

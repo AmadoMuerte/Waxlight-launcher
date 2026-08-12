@@ -12,7 +12,7 @@
 [![Лицензия: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../LICENSE)
 [![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://hipolink.net/amadomuerte/tips)
 
-[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Гайд](https://amadomuerte.github.io/Waxlight-launcher/ru.html) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
+[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
 </div>
 
 Waxlight — независимый open-source лаунчер, который объединяет аккаунты Vintage Story, версии игры, изолированные сборки, моды, обновления и игровую статистику в одном приложении для **Windows и Linux**.

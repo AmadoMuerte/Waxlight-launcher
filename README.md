@@ -12,7 +12,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Support development](https://img.shields.io/badge/Support-Development-8A2BE2)](https://hipolink.net/amadomuerte)
 
-[Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Guide](https://amadomuerte.github.io/Waxlight-launcher/) · [Discord](https://discord.gg/CrRHvg9UVw) · [Privacy Policy](docs/PRIVACY.md) · [Code Signing Policy](docs/CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte)
+[Download](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Discord](https://discord.gg/CrRHvg9UVw) · [Privacy Policy](docs/PRIVACY.md) · [Code Signing Policy](docs/CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Support](https://hipolink.net/amadomuerte)
 </div>
  
 Waxlight is an independent, open-source launcher that brings Vintage Story accounts, game versions, isolated instances, mods, updates, and playtime into one desktop app for **Windows and Linux**.
@@ -44,7 +44,7 @@ Get the latest version from [GitHub Releases](https://github.com/AmadoMuerte/Wax
 
 Each release includes `SHA256SUMS` for integrity checks.
 
-> On Windows, early unsigned builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
+> On Windows, unsigned Waxlight builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
 
 ## Getting started
 

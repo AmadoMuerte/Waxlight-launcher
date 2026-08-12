@@ -2747,9 +2747,16 @@ main {
 }
 .serversToolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
   gap: 12px;
   margin: 18px 0 14px;
+}
+.serversWhitelistFilter {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #37322e;
+  border-radius: 11px;
+  background: #191715;
 }
 .serversSearch {
   display: flex;
@@ -3120,10 +3127,23 @@ main {
   font-family: Newsreader, Georgia, serif;
   font-size: 23px;
 }
+.serverPasswordNotice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #6d4b24;
+  border-radius: 9px;
+  color: #e2c28c;
+  background: #2a2015;
+  font-size: 13px;
+  line-height: 1.45;
+}
 
 @media (max-width: 850px) {
   .serversToolbar {
     grid-template-columns: 1fr auto;
+  }
+  .serversWhitelistFilter {
+    grid-column: 1 / -1;
   }
   .serverFeatured {
     grid-template-columns: 145px minmax(0, 1fr);
@@ -4560,6 +4580,24 @@ main {
   overflow-y: auto;
 }
 
+.modUpdatesLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 220px;
+  color: var(--text-muted);
+}
+
+.modUpdatesLoading .spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  border-color: #5e554b;
+  border-top-color: var(--amber);
+}
+
 .modUpdateList {
   display: flex;
   flex-direction: column;
@@ -4788,12 +4826,6 @@ main {
   vertical-align: 2px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-
-.modSourceBadge.managed {
-  color: #7fbf8f;
-  background: #16261b;
-  border: 1px solid #274033;
 }
 
 .modSourceBadge.local {

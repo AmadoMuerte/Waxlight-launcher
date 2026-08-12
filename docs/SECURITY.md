@@ -67,21 +67,19 @@ revocation.
 
 ## Windows release signing policy
 
-The project-wide [Code signing policy](CODE_SIGNING_POLICY.md) defines the source, roles, approval requirements, privacy links, and artifact rules used for Windows release signing.
+The project-wide [Code signing policy](CODE_SIGNING_POLICY.md) defines the current Windows release-signing status and verification guidance.
 
-Waxlight is transitioning Windows release signing to the SignPath Foundation open-source signing program. Releases published before that integration is active may be unsigned. A Git tag marked “Verified” by GitHub is not the same thing as an Authenticode signature on a Windows executable. Always verify the specific downloaded artifact.
-
-For releases signed through the Foundation program: **Free code signing provided by SignPath.io, certificate by SignPath Foundation.**
+Windows release artifacts are currently unsigned. A Git tag marked “Verified” by GitHub is not the same thing as an Authenticode signature on a Windows executable.
 
 ### What SHA-256 verifies vs what Authenticode verifies
 
 SHA-256 checksums in `SHA256SUMS` confirm that the downloaded file is byte-identical to the artifact for which the checksum was generated. SHA-256 does **not** establish publisher identity.
 
-Authenticode adds publisher authentication and post-signing integrity. A signed Waxlight release should report a valid Windows Authenticode signature and a certificate chain trusted by Windows. Legacy unsigned releases will report `NotSigned`.
+Authenticode adds publisher authentication and post-signing integrity. A signed Windows release should report a valid Authenticode signature and a certificate chain trusted by Windows. Current Waxlight Windows releases report `NotSigned`.
 
 ### Trusted publisher configuration
 
-The launcher updater requires a configured trusted-publisher list before it will install a Windows update automatically. Until the production SignPath publisher identity is configured in release builds, it rejects automatic Windows installer updates after checksum verification. Checksum verification must not be described as equivalent to publisher authentication.
+The launcher updater requires a configured trusted-publisher list before it will install a Windows update automatically. Because no publisher is currently configured in release builds, it rejects automatic Windows installer updates after checksum verification. Checksum verification must not be described as equivalent to publisher authentication.
 
 ### Why Unblock-File is not used
 

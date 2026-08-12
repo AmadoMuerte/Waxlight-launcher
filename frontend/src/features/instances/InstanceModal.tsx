@@ -528,9 +528,7 @@ export function InstanceModal({
                     <div className="modRowCopy">
                       <strong>
                         {mod.name}
-                        {mod.managed ? (
-                          <span className="modSourceBadge managed">{t("managed_mod")}</span>
-                        ) : (
+                        {!mod.managed && (
                           <span className="modSourceBadge local">{t("local_mod")}</span>
                         )}
                       </strong>

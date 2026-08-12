@@ -20,24 +20,15 @@ func NewInstancePackageController(service *instances.PackageService, lifecycle l
 }
 
 type ExportInstanceRequest struct {
-	InstanceID  string            `json:"instanceId"`
-	TargetPath  string            `json:"targetPath"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Author      *PackageAuthorDTO `json:"author,omitempty"`
+	InstanceID  string `json:"instanceId"`
+	TargetPath  string `json:"targetPath"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func (controller *InstancePackageController) ExportInstance(
 	request ExportInstanceRequest,
 ) (PackageManifestDTO, error) {
-	var author *instances.PackageAuthor
-	if request.Author != nil {
-		author = &instances.PackageAuthor{
-			Name:     request.Author.Name,
-			Homepage: request.Author.Homepage,
-			Source:   request.Author.Source,
-		}
-	}
 	manifest, err := controller.svc.ExportInstance(
 		controller.lifecycle.Context(),
 		request.InstanceID,
@@ -45,7 +36,6 @@ func (controller *InstancePackageController) ExportInstance(
 		instances.ExportInstanceOptions{
 			Name:        request.Name,
 			Description: request.Description,
-			Author:      author,
 		},
 	)
 	return packageManifestDTO(manifest), err
