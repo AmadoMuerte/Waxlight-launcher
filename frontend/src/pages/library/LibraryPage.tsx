@@ -11,16 +11,13 @@ import { useInstancesQuery } from "../../entities/instance/queries";
 import { modsApi } from "../../entities/mod/api";
 import type { InstanceModUpdateReport } from "../../entities/mod/model";
 import { ExportInstanceModal } from "../../features/instance-package/ExportInstanceModal";
-import { ImportPackageModal } from "../../features/instance-package/ImportPackageModal";
-import { ImportResultModal } from "../../features/instance-package/ImportResultModal";
 import { CloneInstanceModal } from "../../features/instance/CloneInstanceModal";
 import { CreateInstanceModal } from "../../features/instances/CreateInstanceModal";
 import { InstanceCard } from "../../features/instances/InstanceCard";
 import { InstanceModal } from "../../features/instances/InstanceModal";
 import { errorMessage } from "../../shared/api/bridge";
 import { instancePackageApi } from "../../shared/api/instance-package";
-import { GAME_VERSIONS_QUERY_KEY, INSTANCES_QUERY_KEY } from "../../shared/api/keys";
-import type { ImportReport, PackageInspection } from "../../shared/api/types";
+import { INSTANCES_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
@@ -38,8 +35,6 @@ export function LibraryPage() {
   const [selectedInstance, setSelectedInstance] = useState<(typeof instances)[number]>();
   const [cloningInstance, setCloningInstance] = useState<(typeof instances)[number]>();
   const [exportingInstance, setExportingInstance] = useState<(typeof instances)[number]>();
-  const [importInspection, setImportInspection] = useState<PackageInspection>();
-  const [importResult, setImportResult] = useState<ImportReport>();
   const [query, setQuery] = useState("");
   const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
   const instancesRef = useRef(instances);
@@ -93,8 +88,18 @@ export function LibraryPage() {
       if (!path) {
         return;
       }
-      const inspection = await instancePackageApi.inspect(path);
-      setImportInspection(inspection);
+      await instancePackageApi.import({
+        packagePath: path,
+        name: "",
+        description: "",
+        directory: "",
+        gameVersionId: "",
+        installVersion: true,
+        allowIncompatible: false,
+        skipUnavailable: true,
+      });
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEY });
+      void navigate("/operations");
     } catch (error) {
       notify(errorMessage(error), "error");
     }
@@ -290,28 +295,6 @@ export function LibraryPage() {
             await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
           }}
         />
-      )}
-
-      {importInspection && (
-        <ImportPackageModal
-          inspection={importInspection}
-          versions={versions}
-          onClose={() => setImportInspection(undefined)}
-          onDone={async (report) => {
-            setImportInspection(undefined);
-            setImportResult(report);
-            await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
-            await queryClient.invalidateQueries({ queryKey: GAME_VERSIONS_QUERY_KEY });
-          }}
-          onBackgroundDone={async () => {
-            setImportInspection(undefined);
-            await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
-          }}
-        />
-      )}
-
-      {importResult && (
-        <ImportResultModal report={importResult} onClose={() => setImportResult(undefined)} />
       )}
 
       <ConfirmDialog

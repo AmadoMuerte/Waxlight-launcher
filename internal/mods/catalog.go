@@ -329,6 +329,7 @@ func (service *CatalogService) downloadCatalogMod(
 	defer service.tasks.Release(taskID)
 
 	plan := make([]modInstallPlanItem, 0, 4)
+	newDownloads := make([]DownloadedMod, 0, 4)
 	resolved := make(map[string]ModVersion)
 	visiting := make(map[string]struct{})
 	downloaded, err := service.resolveAndDownloadCatalogMod(
@@ -342,13 +343,14 @@ func (service *CatalogService) downloadCatalogMod(
 		resolved,
 		visiting,
 		&plan,
+		&newDownloads,
 	)
 	if err != nil {
 		service.tasks.EmitProgress(taskID, details.ID, phaseFailed, 0, 0, 0, dependencyFailureMessage(err))
-		return ModInstallResult{TaskID: taskID}, err
+		return ModInstallResult{TaskID: taskID, DownloadedNow: newDownloads}, err
 	}
 
-	result := ModInstallResult{TaskID: taskID, Downloaded: downloaded}
+	result := ModInstallResult{TaskID: taskID, Downloaded: downloaded, DownloadedNow: newDownloads}
 	defer service.tasks.EmitDownloadsChanged(taskID, details.ID, newlyDownloadedDependencies(plan))
 	if request.DownloadOnly || len(targetInstances) == 0 {
 		service.tasks.EmitProgress(taskID, details.ID, phaseComplete, downloaded.FileSize, downloaded.FileSize, 1, messageDownload)
@@ -504,6 +506,48 @@ func (service *CatalogService) RemoveDownloadedMod(ctx context.Context, modID, v
 		return err
 	}
 	service.reportEvent(ctx, EventModRemoved)
+	return nil
+}
+
+// RemoveDownloadedModsIfUnusedLocked removes cache entries created by a caller
+// already holding the launcher mutation gate. Entries used by another instance
+// or task are retained.
+func (service *CatalogService) RemoveDownloadedModsIfUnusedLocked(ctx context.Context, candidates []DownloadedMod) error {
+	if len(candidates) == 0 {
+		return nil
+	}
+	instances, err := service.repository.ListInstances(ctx)
+	if err != nil {
+		return err
+	}
+	installed := make(map[string]struct{})
+	for _, instance := range instances {
+		installedMods, listErr := service.repository.ListMods(ctx, instance.ID)
+		if listErr != nil {
+			return listErr
+		}
+		for _, mod := range installedMods {
+			modID, versionID, ok := ParseModDBSource(mod.Source)
+			if ok {
+				installed[modDownloadKey(modID, versionID)] = struct{}{}
+			}
+		}
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		key := modDownloadKey(candidate.ModID, candidate.VersionID)
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		if _, used := installed[key]; used || service.tasks.IsDownloading(candidate.ModID, candidate.VersionID) {
+			continue
+		}
+		if err := service.downloads.Delete(ctx, candidate.ModID, candidate.VersionID); err != nil {
+			return err
+		}
+		service.reportEvent(ctx, EventModRemoved)
+	}
 	return nil
 }
 

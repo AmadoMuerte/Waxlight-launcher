@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Снимоктан қалпына келтіру",
   "operation_restoring_files": "Файлдар қалпына келтірілуде…",
   "operation_downloading_mods": "Модтар жүктелуде…",
+  "operation_importing_instance": "Дана импортталуда",
   "operation_finishing_restore": "Қалпына келтіру аяқталуда…",
   "operation_restoring_mods_progress": "Модтар қалпына келтірілуде {{done}} / {{total}}",
   "last_known_good": "Соңғы белгілі жұмыс күйі",

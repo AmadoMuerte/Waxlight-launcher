@@ -4,7 +4,7 @@ import {wails} from '../models';
 
 export function ExportInstance(arg1:wails.ExportInstanceRequest):Promise<wails.PackageManifestDTO>;
 
-export function ImportPackage(arg1:wails.ImportInstanceRequest):Promise<wails.ImportReportDTO>;
+export function ImportPackage(arg1:wails.ImportInstanceRequest):Promise<wails.OperationDTO>;
 
 export function InspectPackage(arg1:string):Promise<wails.PackageInspectionDTO>;
 

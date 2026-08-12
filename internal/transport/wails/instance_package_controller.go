@@ -71,8 +71,8 @@ type ImportInstanceRequest struct {
 
 func (controller *InstancePackageController) ImportPackage(
 	request ImportInstanceRequest,
-) (ImportReportDTO, error) {
-	report, err := controller.svc.ImportPackage(
+) (OperationDTO, error) {
+	operation, err := controller.svc.StartImport(
 		controller.lifecycle.Context(),
 		request.PackagePath,
 		instances.ImportInstanceOptions{
@@ -85,7 +85,7 @@ func (controller *InstancePackageController) ImportPackage(
 			SkipUnavailable:   request.SkipUnavailable,
 		},
 	)
-	return importReportDTO(report), err
+	return operationDTO(operation), err
 }
 
 func (controller *InstancePackageController) SelectExportPath(

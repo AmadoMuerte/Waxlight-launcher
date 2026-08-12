@@ -150,6 +150,7 @@ type PackageDownloadedMods interface {
 // state. It stays a transitional delegate until the mods feature owns it.
 type CatalogModInstaller interface {
 	DownloadCatalogMod(context.Context, mods.DownloadModRequest) (mods.ModInstallResult, error)
+	RemoveDownloadedModsIfUnused(context.Context, []mods.DownloadedMod) error
 	SetModEnabled(context.Context, string, bool) (mods.InstalledMod, error)
 }
 

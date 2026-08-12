@@ -145,6 +145,32 @@ func TestLifecycleShutdownCancelsWorker(t *testing.T) {
 	}
 }
 
+func TestWorkerCanRemoveItsCancelledOperation(t *testing.T) {
+	manager, lifecycle := newManager(t, nil)
+	defer lifecycle.Shutdown()
+	operation := operations.Operation{ID: "cancelled", Status: operations.StatusRunning}
+
+	future, err := operations.Start(manager, context.Background(), operation, "cancelled-key", func(context.Context) (struct{}, error) {
+		operation.Status = operations.StatusCancelled
+		if err := manager.Save(context.Background(), operation, ""); err != nil {
+			return struct{}{}, err
+		}
+		if err := manager.Delete(context.Background(), operation.ID); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, context.Canceled
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Wait(context.Background()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("future error = %v, want context cancellation", err)
+	}
+	if _, err := manager.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestOperationEventNameAndPayloadJSON(t *testing.T) {
 	var eventName string
 	var payload []byte

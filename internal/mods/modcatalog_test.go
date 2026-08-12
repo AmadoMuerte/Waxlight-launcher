@@ -122,6 +122,36 @@ func TestRemoveUnusedDownloadedModsKeepsInstalledDependencies(t *testing.T) {
 	}
 }
 
+func TestRemoveDownloadedModsIfUnusedLockedPreservesUsedCache(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Uses dependency")
+	used := mods.DownloadedMod{SchemaVersion: 1, ModID: "library", VersionID: "2.0.10", Name: "Library", FileSize: 50}
+	introduced := mods.DownloadedMod{SchemaVersion: 1, ModID: "imported", VersionID: "1.0.0", Name: "Imported", FileSize: 25}
+	if err := fixture.downloads.Save(ctx, used); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.downloads.Save(ctx, introduced); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.repository.SaveMod(ctx, mods.InstalledMod{
+		ID: "installed-library", InstanceID: instance.ID, Name: "Library", Source: "moddb:library:2.0.10",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fixture.catalogService.RemoveDownloadedModsIfUnusedLocked(ctx, []mods.DownloadedMod{used, introduced}); err != nil {
+		t.Fatal(err)
+	}
+	items, err := fixture.downloads.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ModID != used.ModID || items[0].VersionID != used.VersionID {
+		t.Fatalf("unexpected cached downloads after cleanup: %#v", items)
+	}
+}
+
 func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	rootMod := mods.ModDetails{
 		ModSummary: mods.ModSummary{
@@ -194,6 +224,9 @@ func TestDownloadCatalogModResolvesAndInstallsDependencies(t *testing.T) {
 	}
 	if len(result.Installations) != 1 || !result.Installations[0].Installed {
 		t.Fatalf("unexpected installation result: %#v", result.Installations)
+	}
+	if len(result.DownloadedNow) != 3 {
+		t.Fatalf("expected root mod and dependencies to be tracked, got %#v", result.DownloadedNow)
 	}
 
 	installed, err := fixture.repository.ListMods(ctx, instance.ID)

@@ -35,6 +35,7 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 	resolved map[string]ModVersion,
 	visiting map[string]struct{},
 	plan *[]modInstallPlanItem,
+	newDownloads *[]DownloadedMod,
 ) (DownloadedMod, error) {
 	canonicalID := canonicalCatalogModID(details)
 	if canonicalID == "" {
@@ -55,6 +56,9 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 	downloaded, downloadedNow, err := service.downloadCatalogVersion(ctx, taskID, details, selected)
 	if err != nil {
 		return DownloadedMod{}, err
+	}
+	if downloadedNow {
+		*newDownloads = append(*newDownloads, downloaded)
 	}
 
 	archiveInfo, err := ReadModArchiveInfo(downloaded.FilePath)
@@ -133,6 +137,7 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 			resolved,
 			visiting,
 			plan,
+			newDownloads,
 		); resolveErr != nil {
 			return DownloadedMod{}, resolveErr
 		}
