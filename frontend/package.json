@@ -12,8 +12,7 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "prepare": "cd .. && husky frontend/.husky",
-    "test": "node scripts/test.mjs",
-    "wiki:build": "node ../docs/build.mjs"
+    "test": "node scripts/test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.11",
