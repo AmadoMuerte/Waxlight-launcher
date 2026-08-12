@@ -199,6 +199,7 @@ type BatchDownloadModsRequest struct {
 type ModInstallResult struct {
 	TaskID        string
 	Downloaded    DownloadedMod
+	DownloadedNow []DownloadedMod
 	Installations []ModInstallationResult
 }
 

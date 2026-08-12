@@ -8,7 +8,12 @@ export class BackendUnavailableError extends Error {
   }
 }
 
-export async function call<T>(controller: string, method: string, ...args: unknown[]): Promise<T> {
+async function invoke<T>(
+  controller: string,
+  method: string,
+  args: unknown[],
+  logFailures: boolean,
+): Promise<T> {
   const namespaces = window.go;
   const callable = namespaces?.wails?.[controller]?.[method];
 
@@ -24,6 +29,7 @@ export async function call<T>(controller: string, method: string, ...args: unkno
     // back into WriteLog. Its own availability error is only reported when
     // the backend is gone entirely; the logger's console fallback covers it.
     if (
+      logFailures &&
       !(
         error instanceof BackendUnavailableError &&
         controller === "LogController" &&
@@ -34,6 +40,16 @@ export async function call<T>(controller: string, method: string, ...args: unkno
     }
     throw error;
   }
+}
+
+export function call<T>(controller: string, method: string, ...args: unknown[]): Promise<T> {
+  return invoke<T>(controller, method, args, true);
+}
+
+// Best-effort background requests handle their own errors and should not turn
+// expected stale-data races into console errors.
+export function callQuietly<T>(controller: string, method: string, ...args: unknown[]): Promise<T> {
+  return invoke<T>(controller, method, args, false);
 }
 
 export function errorMessage(error: unknown): string {

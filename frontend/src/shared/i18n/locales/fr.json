@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Restauration de l'instantané",
   "operation_restoring_files": "Restauration des fichiers…",
   "operation_downloading_mods": "Téléchargement des mods…",
+  "operation_importing_instance": "Importation de l’instance",
   "operation_finishing_restore": "Finalisation de la restauration…",
   "operation_restoring_mods_progress": "Restauration des mods {{done}} / {{total}}",
   "last_known_good": "Dernier état valide connu",

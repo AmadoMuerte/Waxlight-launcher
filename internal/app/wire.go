@@ -395,6 +395,7 @@ func NewWithHome(home string) (*Container, error) {
 		mods.Identity{},
 		instancepackage.Store{},
 		mutationGate,
+		operationManager,
 		eventPublisher,
 		func(path string) error { return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance") },
 		dataRoot,
@@ -513,6 +514,10 @@ type packageCatalogModInstaller struct {
 
 func (adapter packageCatalogModInstaller) DownloadCatalogMod(ctx context.Context, request mods.DownloadModRequest) (mods.ModInstallResult, error) {
 	return adapter.catalog.DownloadCatalogMod(ctx, request)
+}
+
+func (adapter packageCatalogModInstaller) RemoveDownloadedModsIfUnused(ctx context.Context, downloaded []mods.DownloadedMod) error {
+	return adapter.catalog.RemoveDownloadedModsIfUnusedLocked(ctx, downloaded)
 }
 
 func (adapter packageCatalogModInstaller) SetModEnabled(ctx context.Context, id string, enabled bool) (mods.InstalledMod, error) {

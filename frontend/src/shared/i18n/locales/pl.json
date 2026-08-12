@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Przywracanie migawki",
   "operation_restoring_files": "Przywracanie plików…",
   "operation_downloading_mods": "Pobieranie modów…",
+  "operation_importing_instance": "Importowanie instancji",
   "operation_finishing_restore": "Finalizowanie przywracania…",
   "operation_restoring_mods_progress": "Przywracanie modów {{done}} / {{total}}",
   "last_known_good": "Ostatni znany dobry stan",

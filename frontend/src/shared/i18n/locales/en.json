@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Restoring snapshot",
   "operation_restoring_files": "Restoring files…",
   "operation_downloading_mods": "Downloading mods…",
+  "operation_importing_instance": "Importing instance",
   "operation_finishing_restore": "Finishing restore…",
   "operation_restoring_mods_progress": "Restoring mods {{done}} / {{total}}",
   "last_known_good": "Last known good",

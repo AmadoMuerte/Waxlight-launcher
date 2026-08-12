@@ -1,4 +1,4 @@
-import { call } from "./bridge";
+import { call, callQuietly } from "./bridge";
 import type {
   InstallModFilesResult,
   InstanceModUpdateReport,
@@ -14,7 +14,11 @@ export const modsApi = {
   list: (instanceId: string) =>
     call<InstalledMod[]>("ModManagerController", "ListInstalledMods", instanceId),
   checkInstanceUpdates: (instanceId: string) =>
-    call<InstanceModUpdateReport>("ModManagerController", "CheckInstanceModUpdates", instanceId),
+    callQuietly<InstanceModUpdateReport>(
+      "ModManagerController",
+      "CheckInstanceModUpdates",
+      instanceId,
+    ),
   updateInstance: (request: {
     instanceId: string;
     mods: ModUpdateTarget[];

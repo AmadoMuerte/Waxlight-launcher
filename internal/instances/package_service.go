@@ -17,6 +17,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -34,6 +35,7 @@ type PackageService struct {
 	identity   ModIdentity
 	io         PackageIO
 	gate       MutationGate
+	operations *operations.Manager
 	events     Publisher
 	remove     DirectoryRemover
 	dataRoot   string
@@ -52,6 +54,7 @@ func NewPackageService(
 	identity ModIdentity,
 	io PackageIO,
 	gate MutationGate,
+	operationManager *operations.Manager,
 	events Publisher,
 	remove DirectoryRemover,
 	dataRoot string,
@@ -69,6 +72,7 @@ func NewPackageService(
 		identity:   identity,
 		io:         io,
 		gate:       gate,
+		operations: operationManager,
 		events:     events,
 		remove:     remove,
 		dataRoot:   dataRoot,
@@ -440,6 +444,72 @@ func (service *PackageService) findInstalledVersion(
 	return versions.GameVersion{}, false
 }
 
+const importOperationTitle = "operation_importing_instance"
+
+// StartImport starts an instance package import as a cancellable operation.
+func (service *PackageService) StartImport(
+	ctx context.Context,
+	packagePath string,
+	options ImportInstanceOptions,
+) (operations.Operation, error) {
+	if service.operations == nil {
+		return operations.Operation{}, errs.NewError(errs.ErrValidation, "Instance imports are not configured")
+	}
+	packagePath = strings.TrimSpace(packagePath)
+	if packagePath == "" {
+		return operations.Operation{}, errs.NewError(errs.ErrValidation, "Select a package file")
+	}
+	now := service.now().UTC()
+	operation := operations.Operation{
+		ID: service.newID(), Type: "instance_import",
+		Title: "Importing instance", TitleKey: importOperationTitle,
+		Status: operations.StatusQueued, CreatedAt: now,
+	}
+	_, err := operations.Start(service.operations, ctx, operation, "instance-import", func(workerCtx context.Context) (ImportReport, error) {
+		started := service.now().UTC()
+		operation.Status, operation.StartedAt = operations.StatusRunning, &started
+		service.operations.SaveBestEffort(operation, operations.EventUpdated)
+
+		report, importErr := service.importPackage(workerCtx, packagePath, options, func(progress float64) {
+			operation.Progress = progress
+			service.operations.Publish(operations.EventProgress, operation)
+			service.operations.Persist(operation)
+		})
+		if errors.Is(importErr, context.Canceled) {
+			return report, service.cancelImport(operation)
+		}
+		if importErr != nil {
+			finished := service.now().UTC()
+			operation.Status, operation.FinishedAt = operations.StatusFailed, &finished
+			code, message := errs.ErrValidation, importErr.Error()
+			operation.ErrorCode, operation.ErrorMessage = &code, &message
+			service.operations.SaveBestEffort(operation, operations.EventFailed)
+			return report, importErr
+		}
+		finished := service.now().UTC()
+		operation.Status, operation.Progress, operation.FinishedAt = operations.StatusCompleted, 1, &finished
+		service.operations.SaveBestEffort(operation, operations.EventCompleted)
+		return report, nil
+	})
+	if err != nil {
+		return operations.Operation{}, err
+	}
+	return operation, nil
+}
+
+func (service *PackageService) cancelImport(operation operations.Operation) error {
+	finished := service.now().UTC()
+	operation.Status, operation.FinishedAt = operations.StatusCancelled, &finished
+	if err := service.operations.Save(context.Background(), operation, ""); err != nil {
+		return err
+	}
+	if err := service.operations.Delete(context.Background(), operation.ID); err != nil {
+		return err
+	}
+	service.operations.Publish(operations.EventRemoved, map[string]string{"id": operation.ID})
+	return context.Canceled
+}
+
 // ImportPackage installs a validated package as a new, isolated instance.
 // Existing instances are never modified or overwritten.
 func (service *PackageService) ImportPackage(
@@ -447,11 +517,15 @@ func (service *PackageService) ImportPackage(
 	packagePath string,
 	options ImportInstanceOptions,
 ) (ImportReport, error) {
-	release, err := service.beginMutation()
-	if err != nil {
-		return ImportReport{}, err
-	}
-	defer release()
+	return service.importPackage(ctx, packagePath, options, nil)
+}
+
+func (service *PackageService) importPackage(
+	ctx context.Context,
+	packagePath string,
+	options ImportInstanceOptions,
+	setProgress func(float64),
+) (report ImportReport, err error) {
 	packagePath = strings.TrimSpace(packagePath)
 	if packagePath == "" {
 		return ImportReport{}, errs.NewError(errs.ErrValidation, "Select a package file")
@@ -461,11 +535,19 @@ func (service *PackageService) ImportPackage(
 	if err != nil {
 		return ImportReport{}, err
 	}
+	service.setImportProgress(setProgress, 0.1)
 
 	versionID, err := service.resolveImportVersion(ctx, pkg.Manifest().GameVersion, options)
 	if err != nil {
 		return ImportReport{}, err
 	}
+	service.setImportProgress(setProgress, 0.25)
+
+	release, err := service.beginMutation()
+	if err != nil {
+		return ImportReport{}, err
+	}
+	defer release()
 
 	name := strings.TrimSpace(options.Name)
 	if name == "" {
@@ -486,40 +568,65 @@ func (service *PackageService) ImportPackage(
 		return ImportReport{}, err
 	}
 
-	report := ImportReport{
+	report = ImportReport{
 		InstanceID:    instance.ID,
 		InstanceName:  instance.Name,
 		GameVersionID: versionID,
 		Mods:          []ImportedModResult{},
 	}
+	var downloadedMods []mods.DownloadedMod
+	cleanup := true
+	defer func() {
+		if cleanup && err != nil {
+			_ = service.cleanupFailedImport(context.Background(), instance)
+			if service.installer != nil {
+				if cleanupErr := service.installer.RemoveDownloadedModsIfUnused(context.Background(), downloadedMods); cleanupErr != nil {
+					slog.Warn("could not remove downloads from the failed import", "instance", instance.Name, "error", cleanupErr)
+				}
+			}
+		}
+	}()
+	service.setImportProgress(setProgress, 0.4)
 
 	if err := pkg.ExtractConfigs(ctx, instance.Directory); err != nil {
-		_ = service.cleanupFailedImport(ctx, instance)
 		return report, err
 	}
+	service.setImportProgress(setProgress, 0.65)
 
 	if pkg.Manifest().HasIcon {
 		iconPath := filepath.Join(instance.Directory, ".waxlight-cover.png")
 		if err := pkg.ExtractIcon(ctx, iconPath); err != nil {
-			_ = service.cleanupFailedImport(ctx, instance)
 			return report, err
 		}
 		cover := iconPath
 		instance.CoverPath = &cover
 		instance.UpdatedAt = service.now().UTC()
 		if err := service.repository.SaveInstance(ctx, instance); err != nil {
-			_ = service.cleanupFailedImport(ctx, instance)
 			return report, err
 		}
 	}
 
-	for _, mod := range pkg.Manifest().Mods {
-		result := service.installPackageMod(ctx, pkg, mod, instance, options.AllowIncompatible)
+	mods := pkg.Manifest().Mods
+	for index, mod := range mods {
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
+		result := service.installPackageMod(ctx, pkg, mod, instance, options.AllowIncompatible, &downloadedMods)
 		report.Mods = append(report.Mods, result)
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
+		service.setImportProgress(setProgress, 0.65+0.3*float64(index+1)/float64(len(mods)))
 	}
 	report.Warnings = service.packageImportWarnings(report)
-
+	cleanup = false
 	return report, nil
+}
+
+func (service *PackageService) setImportProgress(setProgress func(float64), progress float64) {
+	if setProgress != nil {
+		setProgress(progress)
+	}
 }
 
 func (service *PackageService) cleanupFailedImport(ctx context.Context, instance Instance) error {
@@ -540,6 +647,7 @@ func (service *PackageService) installPackageMod(
 	mod PackageMod,
 	instance Instance,
 	allowIncompatible bool,
+	downloadedMods *[]mods.DownloadedMod,
 ) ImportedModResult {
 	result := ImportedModResult{Name: mod.Name, Version: mod.Version}
 	switch mod.Source {
@@ -573,7 +681,7 @@ func (service *PackageService) installPackageMod(
 		return result
 
 	default:
-		return service.installCatalogPackageMod(ctx, mod, instance, allowIncompatible)
+		return service.installCatalogPackageMod(ctx, mod, instance, allowIncompatible, downloadedMods)
 	}
 }
 
@@ -589,6 +697,7 @@ func (service *PackageService) installCatalogPackageMod(
 	mod PackageMod,
 	instance Instance,
 	allowIncompatible bool,
+	downloadedMods *[]mods.DownloadedMod,
 ) ImportedModResult {
 	result := ImportedModResult{Name: mod.Name, Version: mod.Version}
 	if service.installer == nil {
@@ -602,6 +711,7 @@ func (service *PackageService) installCatalogPackageMod(
 		InstanceIDs:       []string{instance.ID},
 		AllowIncompatible: allowIncompatible,
 	})
+	*downloadedMods = append(*downloadedMods, installResult.DownloadedNow...)
 	if err != nil {
 		result.Status = "skipped"
 		result.Message = friendlyPackageModError(err)

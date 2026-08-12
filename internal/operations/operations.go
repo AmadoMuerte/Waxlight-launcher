@@ -287,6 +287,16 @@ func Start[T any](
 		workerCtx, cancel := context.WithCancel(ownerCtx)
 		manager.mu.Lock()
 		entry := manager.workers[operation.ID]
+		if entry == nil {
+			if key != "" && manager.active[key] == operation.ID {
+				delete(manager.active, key)
+			}
+			manager.mu.Unlock()
+			cancel()
+			state.err = context.Canceled
+			close(state.done)
+			return
+		}
 		entry.cancel = cancel
 		if entry.cancelRequested {
 			cancel()
@@ -296,7 +306,9 @@ func Start[T any](
 		state.result, state.err = worker(workerCtx)
 		cancel()
 		manager.mu.Lock()
-		entry.active = false
+		if entry != nil {
+			entry.active = false
+		}
 		if key != "" && manager.active[key] == operation.ID {
 			delete(manager.active, key)
 		}
