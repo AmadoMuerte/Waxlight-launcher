@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { InstanceModUpdateReport, ModDetails } from "../../entities/mod/model";
@@ -98,19 +98,60 @@ function renderModal(reportValue: InstanceModUpdateReport = report) {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+beforeEach(() => {
   catalogApi.get.mockResolvedValue(details("fallback", []));
 });
 
 describe("ModUpdatesModal", () => {
+  it("keeps updates disabled until compatibility details load", async () => {
+    let resolveDetails: ((value: ModDetails) => void) | undefined;
+    catalogApi.get.mockImplementation(
+      () =>
+        new Promise<ModDetails>((resolve) => {
+          resolveDetails = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderModal({ ...report, mods: [report.mods[0]] });
+
+    const apply = screen.getByRole("button", { name: "Loading mods" }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("Loading mods");
+    expect(screen.queryByText("Stone Quarry")).toBeNull();
+    expect(screen.queryByLabelText(/allow updates/i)).toBeNull();
+    await user.click(apply);
+    expect(api.updateInstance).not.toHaveBeenCalled();
+
+    resolveDetails?.(
+      details("stonequarry", [
+        {
+          id: "v2",
+          version: "1.3.0",
+          gameVersions: [],
+          releaseType: "stable",
+          fileName: "v2.zip",
+          fileSize: 1,
+        },
+      ]),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    expect(await screen.findByText("Stone Quarry")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update 0 mods" })).toBeTruthy();
+    expect(api.updateInstance).not.toHaveBeenCalled();
+  });
+
   it("applies compatible updates on confirm", async () => {
     api.updateInstance.mockResolvedValue({ updated: 1 });
     const user = userEvent.setup();
     const props = renderModal();
 
-    expect(screen.getByText("Stone Quarry")).toBeTruthy();
+    expect(await screen.findByText("Stone Quarry")).toBeTruthy();
     expect(screen.getByText("1.2.0 → 1.3.0")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
+    await user.click(await screen.findByRole("button", { name: "Update 1 mod" }));
     await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
     expect(api.updateInstance).toHaveBeenCalledWith({
       instanceId: "instance-1",
@@ -131,7 +172,7 @@ describe("ModUpdatesModal", () => {
     };
     renderModal(twoCompatible);
 
-    await user.click(screen.getByRole("button", { name: "Update 2 mods" }));
+    await user.click(await screen.findByRole("button", { name: "Update 2 mods" }));
     await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
     expect(api.updateInstance).toHaveBeenCalledWith({
       instanceId: "instance-1",
@@ -152,7 +193,8 @@ describe("ModUpdatesModal", () => {
     };
     renderModal(onlyIncompatible);
 
-    const apply = screen.getByRole("button", { name: /update/i }) as HTMLButtonElement;
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    const apply = screen.getByRole("button", { name: "Update 0 mods" }) as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
 
     await user.click(screen.getByLabelText("Old Mod"));
@@ -252,7 +294,7 @@ describe("ModUpdatesModal", () => {
       ],
     };
     renderModal(withHtml);
-    await userEvent.setup().click(screen.getByText("Changelog"));
+    await userEvent.setup().click(await screen.findByText("Changelog"));
     expect(screen.getByText(/Fixed a crash/)).toBeTruthy();
     expect(screen.getByText(/One/)).toBeTruthy();
     expect(screen.queryByText("<p>")).toBeNull();
