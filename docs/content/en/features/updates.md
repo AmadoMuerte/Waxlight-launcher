@@ -25,17 +25,7 @@ Authenticode provides publisher authentication and post-signing integrity — bu
 
 ## Current signing status
 
-The project is transitioning Windows release signing to the SignPath Foundation open-source program. Until the integration is active, releases may be unsigned, and Windows builds **refuse automatic update installation** after checksum verification — update manually from the [GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) page.
-
-The intended release signing order:
-
-```text
-build the Waxlight executable
-→ SignPath signs it, CI verifies the exe
-→ create the portable ZIP and installer with the signed exe
-→ SignPath signs the installer, CI verifies it
-→ generate checksums and publish
-```
+Windows releases are currently unsigned. Because no trusted Windows publisher is configured, Windows builds **refuse automatic update installation** after checksum verification. Update manually from the [GitHub Releases](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) page.
 
 Details on the [Code signing](../policies/code-signing.md) page.
 

@@ -7,7 +7,7 @@
 3. On Windows, Waxlight then requires a valid Authenticode signature from a configured trusted publisher before it starts the installer.
 4. The per-user update helper waits for Waxlight to exit, runs the NSIS installer silently, and then attempts to restart Waxlight.
 
-The current public releases do not configure a trusted Windows publisher. Consequently, current Windows builds reject automatic installer updates after checksum verification instead of accepting unsigned code. Users must obtain such updates manually from the GitHub Releases page until SignPath Foundation signing is active.
+Current public Windows releases are unsigned and do not configure a trusted Windows publisher. Consequently, Windows builds reject automatic installer updates after checksum verification instead of accepting unsigned code. Users must obtain updates manually from the official GitHub Releases page.
 
 ## Trust model
 
@@ -19,17 +19,7 @@ GitHub release metadata and `update-manifest.json` are not independently authent
 
 ## Signing status
 
-The release workflow does not currently perform Authenticode signing and does not use PFX secrets. SignPath Foundation integration, trusted-publisher configuration, signature verification in CI, and the required signing/repackaging order will be added only after SignPath approves the project and provides the required identifiers and artifact configuration.
-
-The intended order is:
-
-```text
-build Waxlight executable
--> SignPath signs and CI verifies the executable
--> create portable ZIP and installer containing that signed executable
--> SignPath signs and CI verifies the installer
--> generate checksums and publish the final artifacts
-```
+The release workflow does not currently perform Authenticode signing. No trusted Windows publisher is configured, so automatic installer replacement remains unavailable. Future code signing can enable trusted automatic replacement only after a real trusted publisher configuration exists.
 
 ## Installation modes
 

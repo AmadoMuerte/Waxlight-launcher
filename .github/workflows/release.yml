@@ -356,10 +356,7 @@ jobs:
 
           Write-Host "Windows metadata validation passed" -ForegroundColor Green
 
-      # Windows Authenticode signing is intentionally not performed with a PFX
-      # stored in GitHub Secrets. After SignPath Foundation approves Waxlight,
-      # insert the official SignPath signing step/artifact configuration here so
-      # signed binaries remain verifiably tied to this repository build.
+      # Windows release artifacts are currently published unsigned.
 
       - name: Verify Windows packages
         shell: powershell
@@ -523,7 +520,7 @@ jobs:
 
           cp "$source_notes_file" "$notes_file"
           printf '\n## Code signing policy\n\n%s\n' \
-            "See the [Waxlight Code signing policy](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md). Legacy releases created before SignPath Foundation signing is activated may be unsigned; verify the Authenticode status of the downloaded Windows artifact." \
+            "Windows artifacts are currently unsigned. See the [Waxlight Code signing policy](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md) for release verification information." \
             >> "$notes_file"
 
           prerelease_args=()

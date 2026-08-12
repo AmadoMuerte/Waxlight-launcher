@@ -14,7 +14,7 @@ The complete list of important project documents: policies, license, technical a
 | --- | --- |
 | [PRIVACY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/PRIVACY.md) | Local data, optional telemetry (disabled by default), third-party services, contact for privacy requests. |
 | [SECURITY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/SECURITY.md) | Private vulnerability reporting, security scope, threat model, credential storage, supported versions. |
-| [CODE_SIGNING_POLICY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md) | SignPath Foundation, roles and approvals, build provenance, artifact and metadata rules. |
+| [CODE_SIGNING_POLICY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md) | Current Windows signing status, release provenance, and artifact verification. |
 
 The same policies in a readable form: [Privacy](./policies/privacy.md), [Security](./policies/security.md), [Code signing](./policies/code-signing.md).
 
@@ -40,7 +40,7 @@ The same policies in a readable form: [Privacy](./policies/privacy.md), [Securit
 | [game-versions.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/game-versions.md) | The official version feed, platform selection, installation pipeline, MD5/SHA-256, known boundaries. |
 | [modpack.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/modpack.md) | The mod update analysis library: Catalog contract, statuses, candidate selection, compatibility, dependencies. |
 | [operations-page.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/operations-page.md) | Operations page contract: statuses, cancellation as rollback, history deletion, required regression tests. |
-| [windows-updater.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/windows-updater.md) | Windows auto-update architecture: SHA256SUMS vs Authenticode, trust model, the SignPath signing plan, installation modes. |
+| [windows-updater.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/windows-updater.md) | Windows auto-update architecture: SHA256SUMS vs Authenticode, trust model, and installation modes. |
 
 ## For contributors
 

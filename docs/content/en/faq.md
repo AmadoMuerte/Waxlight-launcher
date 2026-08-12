@@ -26,11 +26,11 @@ Only from the official repository's [GitHub Releases](https://github.com/AmadoMu
 
 ### Windows shows a SmartScreen warning. Is it safe?
 
-Early unsigned builds may trigger SmartScreen. Waxlight is transitioning to SignPath Foundation signing; until it is active, download only from the official Releases page and verify the SHA-256. See [Code signing](./policies/code-signing.md).
+Unsigned Waxlight builds may trigger SmartScreen. Download only from the official Releases page and verify the SHA-256. See [Code signing](./policies/code-signing.md).
 
 ### Why doesn't the Windows auto-update install automatically?
 
-By design. Until a trusted SignPath publisher is configured, the launcher rejects automatic installation of unsigned updates after checksum verification. Download the new version manually from the Releases page. See [Launcher updates](./features/updates.md).
+By design. Because no trusted publisher is configured, the launcher rejects automatic installation of unsigned updates after checksum verification. Download the new version manually from the Releases page. See [Launcher updates](./features/updates.md).
 
 ### Where does Waxlight store its data?
 
