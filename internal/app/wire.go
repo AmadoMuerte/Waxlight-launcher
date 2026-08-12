@@ -13,36 +13,37 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/application"
 	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/credentials"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/dataroot"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/downloader"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/gameversion"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancedirectory"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/instancepackage"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modcatalog"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/securefs"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/servercatalog"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/credentials"
+	"github.com/waxlight/waxlight-launcher/internal/platform/dataroot"
+	"github.com/waxlight/waxlight-launcher/internal/platform/downloader"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/gameversion"
+	"github.com/waxlight/waxlight-launcher/internal/platform/instancedirectory"
+	"github.com/waxlight/waxlight-launcher/internal/platform/instancepackage"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/modcatalog"
+	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
-	"github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
+	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/servercatalog"
+	platformsnapshots "github.com/waxlight/waxlight-launcher/internal/platform/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/waxlight/waxlight-launcher/internal/platform/updater"
+	"github.com/waxlight/waxlight-launcher/internal/platform/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/vintagestory"
 	"github.com/waxlight/waxlight-launcher/internal/publishers"
+	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/statistics"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/waxlight/waxlight-launcher/internal/transport/wails"
@@ -55,13 +56,13 @@ import (
 // dependency is constructed in New/NewWithHome and wired exactly once; the
 // Wails entrypoint only starts the container and passes its parts to Wails.
 type Container struct {
-	Service        *application.Service
 	AccountService *accounts.Service
 	Launching      *launching.Coordinator
 	DataRoot       *dataroot.Manager
 	Lifecycle      *Lifecycle
 	Events         events.Publisher
 	Controllers    []any
+	store          *sqlite.SQLiteStore
 	telemetry      *telemetry.Service
 }
 
@@ -185,35 +186,118 @@ func NewWithHome(home string) (*Container, error) {
 	)
 	instanceSlot := mutations.NewSlot()
 	launchRegistry := launching.NewRegistry(instanceSlot)
-	service := application.NewService(
-		store,
-		filesystem.ModFileManager{},
-		dataRoot,
-		snapshots.New(dataRoot),
+	clientSettingsService := filesystem.ClientSettingsService{}
+	clearClientSettings := func(path string) error { return clientSettingsService.Clear(path) }
+	safeRemoveInstanceDir := func(path string) error {
+		return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance")
+	}
+	modsRepository := modsStoreAdapter{store: store}
+	modCatalog := modcatalog.NewClient(nil)
+	modDownloads := modstorage.New(dataRoot)
+	emit := func(name string, payload any) { eventPublisher.Publish(name, payload) }
+	reportEvent := func(ctx context.Context, name string) { telemetryService.Event(ctx, name) }
+
+	var recoveryService *recovery.Service
+	var modsService *mods.Service
+	var modsCatalogService *mods.CatalogService
+	snapshotService := snapshots.NewService(
+		platformsnapshots.New(dataRoot),
+		snapshotInstanceAdapter{store: store},
+		versionService,
+		snapshotModStoreAdapter{store: store, mods: func() *mods.Service { return modsService }},
+		snapshotCatalogAdapter{catalog: func() *mods.CatalogService { return modsCatalogService }},
+		snapshotArchiveInfoAdapter{},
+		settingsReader,
+		operationManager,
+		mutationGate,
+		instanceSlot,
+		launchRegistry,
+		filesystem.DiskSpace{},
 		dataroot.TotalSizeContext,
 		filesystem.SanitizeClientSettings,
 		instancedirectory.HardenLogs,
-		operationManager,
-		sessionService,
-		instanceQueries,
-		instanceCreator,
-		instancedirectory.NewCloneStorage(filesystem.SanitizeClientSettings),
-		versionService,
-		downloadManager,
-		filesystem.DiskSpace{},
-		mutationGate,
-		settingsReader,
-		instanceSlot,
-		launchRegistry,
-		modcatalog.NewClient(nil),
-		modstorage.New(dataRoot),
-		eventPublisher,
-		telemetryService,
+		clearClientSettings,
+		safeRemoveInstanceDir,
+		snapshotLKGReferenceAdapter{recovery: func() *recovery.Service { return recoveryService }},
+		dataRoot,
+		time.Now,
+		newVersionID,
 	)
-	clientSettingsService := filesystem.ClientSettingsService{}
-	// The account service needs the launch coordinator's account-cleanup hook,
-	// and the coordinator needs the account reader; wire the hook after the
-	// coordinator exists.
+	recoveryService = recovery.NewService(
+		store,
+		snapshotService,
+		snapshotService,
+		store,
+		mutationGate,
+		eventPublisher,
+		time.Now,
+	)
+	snapshotter := snapshots.SafetySnapshotterFunc(func(ctx context.Context, instanceID string, reason snapshots.Reason, snapshotContext map[string]string) error {
+		_, err := snapshotService.CreateSafety(ctx, instanceID, reason, snapshotContext)
+		return err
+	})
+	modsService = mods.NewService(
+		modsRepository,
+		filesystem.ModFileManager{},
+		modCatalog,
+		modDownloads,
+		operationManager,
+		mutationGate,
+		launchRegistry,
+		snapshotter,
+		mods.PublishFunc(emit),
+		telemetryService,
+		time.Now,
+		newVersionID,
+	)
+	modsCatalogService = mods.NewCatalogService(
+		modsRepository,
+		filesystem.ModFileManager{},
+		modCatalog,
+		modDownloads,
+		downloadManager,
+		versionService,
+		modsService,
+		mutationGate,
+		launchRegistry,
+		snapshotter,
+		mods.PublishFunc(emit),
+		telemetryService,
+		mods.NewModTaskManager(mods.PublishFunc(emit)),
+		time.Now,
+		newVersionID,
+	)
+	instanceUpdater := instances.NewUpdateService(
+		store,
+		versionService,
+		mutationGate,
+		launchRegistry,
+		snapshotter,
+		clearClientSettings,
+		instances.PublishFunc(emit),
+		time.Now,
+	)
+	instanceDeleter := instances.NewDeleteService(
+		store,
+		mutationGate,
+		launchRegistry,
+		safeRemoveInstanceDir,
+		clearClientSettings,
+		store.DeleteLastKnownGood,
+		instances.PublishFunc(emit),
+		reportEvent,
+	)
+	instanceCloner := instances.NewCloneService(
+		store,
+		store,
+		instanceCreator,
+		mutationGate,
+		launchRegistry,
+		instancedirectory.NewCloneStorage(filesystem.SanitizeClientSettings),
+		safeRemoveInstanceDir,
+		time.Now,
+		newVersionID,
+	)
 	var clearAccountsFromInstances func(context.Context, string) error
 	accountService := accounts.NewService(
 		store,
@@ -250,7 +334,7 @@ func NewWithHome(home string) (*Container, error) {
 		instancedirectory.LaunchLogs{},
 		eventPublisher,
 		telemetryService,
-		service.Recovery(),
+		recoveryService,
 		lifecycle,
 		operationManager,
 		time.Now,
@@ -294,7 +378,6 @@ func NewWithHome(home string) (*Container, error) {
 		eventPublisher,
 		wailstransport.QuitAdapter{},
 	)
-	service.ConfigureClientSettings(clientSettingsService)
 	if err := launchCoordinator.ReconcileInjectedCredentials(context.Background()); err != nil {
 		closeStoreOnError(store)
 		return nil, err
@@ -306,14 +389,14 @@ func NewWithHome(home string) (*Container, error) {
 		instanceCreator,
 		versionService,
 		store,
-		packageCatalogAdapter{service: service.ModsCatalog()},
-		packageDownloadedAdapter{service: service.ModsCatalog()},
-		packageCatalogModInstaller{installed: service.Mods(), catalog: service.ModsCatalog()},
+		packageCatalogAdapter{service: modsCatalogService},
+		packageDownloadedAdapter{service: modsCatalogService},
+		packageCatalogModInstaller{installed: modsService, catalog: modsCatalogService},
 		mods.Identity{},
 		instancepackage.Store{},
 		mutationGate,
 		eventPublisher,
-		func(path string) error { return application.SafeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		func(path string) error { return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance") },
 		dataRoot,
 		time.Now,
 		newVersionID,
@@ -340,23 +423,23 @@ func NewWithHome(home string) (*Container, error) {
 		wailstransport.NewInstanceController(
 			instanceCreator,
 			instanceQueries,
-			service.InstanceUpdater(),
-			service.InstanceDeleter(),
-			service.InstanceCloner(),
+			instanceUpdater,
+			instanceDeleter,
+			instanceCloner,
 			statisticsService,
-			service.Mods(),
+			modsService,
 			lifecycle,
 		),
 		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
-		wailstransport.NewModManagerController(service.Mods(), service.ModsCatalog(), lifecycle),
-		wailstransport.NewModCatalogController(service.ModsCatalog(), lifecycle),
+		wailstransport.NewModManagerController(modsService, modsCatalogService, lifecycle),
+		wailstransport.NewModCatalogController(modsCatalogService, lifecycle),
 		wailstransport.NewInstancePackageController(packageService, lifecycle),
 		wailstransport.NewLaunchController(launchCoordinator, lifecycle),
 		wailstransport.NewStatisticsController(statisticsService, lifecycle),
 		wailstransport.NewOperationController(operationManager, lifecycle),
-		wailstransport.NewSnapshotController(service.Snapshots(), lifecycle),
-		wailstransport.NewLastKnownGoodController(service.Recovery(), lifecycle),
-		wailstransport.NewLogController(instanceQueries, service.Mods(), versionService, lifecycle),
+		wailstransport.NewSnapshotController(snapshotService, lifecycle),
+		wailstransport.NewLastKnownGoodController(recoveryService, lifecycle),
+		wailstransport.NewLogController(instanceQueries, modsService, versionService, lifecycle),
 		wailstransport.NewSettingsController(
 			settingsReader,
 			settingsService,
@@ -369,13 +452,13 @@ func NewWithHome(home string) (*Container, error) {
 	}
 
 	return &Container{
-		Service:        service,
 		AccountService: accountService,
 		Launching:      launchCoordinator,
 		DataRoot:       dataRootManager,
 		Lifecycle:      lifecycle,
 		Events:         eventPublisher,
 		Controllers:    controllers,
+		store:          store,
 		telemetry:      telemetryService,
 	}, nil
 }
@@ -470,8 +553,8 @@ func (container *Container) Shutdown(context.Context) {
 	// closes. waitForGame never observes this exit because the launcher is
 	// already gone.
 	container.Launching.RecordEstablishedOnShutdown()
-	if err := container.Service.Close(); err != nil {
-		slog.Warn("wire: could not close the application service cleanly", "error", err)
+	if err := container.store.Close(); err != nil {
+		slog.Warn("wire: could not close the database cleanly", "error", err)
 	}
 }
 

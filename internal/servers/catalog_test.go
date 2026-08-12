@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 type catalog struct {
@@ -42,8 +42,8 @@ func TestCatalogServiceReportsUnavailableWhenNil(t *testing.T) {
 	if err == nil {
 		t.Fatal("List() succeeded, want unavailable error")
 	}
-	var appError *domain.AppError
-	if !errors.As(err, &appError) || appError.Code != domain.ErrValidation {
+	var appError *errs.AppError
+	if !errors.As(err, &appError) || appError.Code != errs.ErrValidation {
 		t.Fatalf("List() error = %v, want validation error", err)
 	}
 }

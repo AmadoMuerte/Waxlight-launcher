@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
@@ -32,7 +32,7 @@ func (s *SQLiteStore) ListFavoriteServers(ctx context.Context) ([]servers.Favori
 func (s *SQLiteStore) GetFavoriteServer(ctx context.Context, id string) (servers.FavoriteServer, error) {
 	server, err := scanFavoriteServer(s.db.QueryRowContext(ctx, `SELECT `+favoriteServerColumns+` FROM favorite_servers WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return server, domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+		return server, errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 	}
 	return server, err
 }
@@ -51,7 +51,7 @@ func (s *SQLiteStore) DeleteFavoriteServer(ctx context.Context, id string) error
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(domain.ErrServerNotFound, "Favorite server not found")
+		return errs.NewError(errs.ErrServerNotFound, "Favorite server not found")
 	}
 	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -164,7 +163,7 @@ type PackageIO interface {
 // PackageArchive exposes the contents of an opened package without leaking the
 // archive implementation.
 type PackageArchive interface {
-	Manifest() domain.PackageManifest
+	Manifest() PackageManifest
 	TotalSize() int64
 	ExtractConfigs(context.Context, string) error
 	ExtractEmbeddedMod(context.Context, string, string) error
@@ -173,7 +172,7 @@ type PackageArchive interface {
 
 // PackageWriteSource is the feature-owned input for package writing.
 type PackageWriteSource struct {
-	Manifest     domain.PackageManifest
+	Manifest     PackageManifest
 	InstanceDir  string
 	EmbeddedMods map[string]string
 	IconPath     string

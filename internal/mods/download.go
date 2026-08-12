@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // modInstallPlanItem is one release of the resolved install plan for a
@@ -38,13 +38,13 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 ) (DownloadedMod, error) {
 	canonicalID := canonicalCatalogModID(details)
 	if canonicalID == "" {
-		return DownloadedMod{}, domain.NewError(ErrModCatalog, "The catalog returned a mod without an ID")
+		return DownloadedMod{}, errs.NewError(ErrModCatalog, "The catalog returned a mod without an ID")
 	}
 	if resolvedVersion, ok := resolved[canonicalID]; ok {
 		return service.downloads.Get(ctx, details.ID, resolvedVersion.ID)
 	}
 	if _, cycle := visiting[canonicalID]; cycle {
-		return DownloadedMod{}, domain.NewError(
+		return DownloadedMod{}, errs.NewError(
 			ErrModCatalog,
 			fmt.Sprintf("Circular dependency detected while resolving %s", details.Name),
 		)
@@ -83,7 +83,7 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 
 		dependencyDetails, getErr := service.catalog.Get(ctx, dependencyID)
 		if getErr != nil {
-			return DownloadedMod{}, &domain.AppError{
+			return DownloadedMod{}, &errs.AppError{
 				Code:    ErrModCatalog,
 				Message: fmt.Sprintf("Could not resolve required dependency %s for %s", dependencyID, details.Name),
 				Cause:   getErr,
@@ -100,7 +100,7 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 			if versionText == "" || versionText == "*" {
 				versionText = "any version"
 			}
-			return DownloadedMod{}, domain.NewError(
+			return DownloadedMod{}, errs.NewError(
 				ErrModVersionNotFound,
 				fmt.Sprintf(
 					"No compatible release of dependency %s (%s) was found for %s",
@@ -157,7 +157,7 @@ func (service *CatalogService) downloadCatalogVersion(
 	selected ModVersion,
 ) (DownloadedMod, bool, error) {
 	if !strings.HasPrefix(selected.DownloadURL, "https://") {
-		return DownloadedMod{}, false, domain.NewError(
+		return DownloadedMod{}, false, errs.NewError(
 			ErrInvalidModFile,
 			fmt.Sprintf("The catalog returned an unsafe download URL for %s", details.Name),
 		)
@@ -177,7 +177,7 @@ func (service *CatalogService) downloadCatalogVersion(
 	if err := service.tasks.Claim(taskID, details.ID, selected.ID); err != nil {
 		var busy *ReleaseBusyError
 		if errors.As(err, &busy) {
-			return DownloadedMod{}, false, &domain.AppError{
+			return DownloadedMod{}, false, &errs.AppError{
 				Code:    ErrModAlreadyActive,
 				Message: fmt.Sprintf("%s is already downloading", details.Name),
 				Cause:   busy,
@@ -236,8 +236,8 @@ func (service *CatalogService) downloadCatalogVersion(
 		} else {
 			service.reportModDownloadError(err)
 		}
-		return DownloadedMod{}, false, &domain.AppError{
-			Code:      domain.ErrDownloadFailed,
+		return DownloadedMod{}, false, &errs.AppError{
+			Code:      errs.ErrDownloadFailed,
 			Message:   message,
 			Retryable: true,
 			Cause:     err,
@@ -295,7 +295,7 @@ func (service *CatalogService) DownloadRelease(
 	}
 	selected, ok := FindModVersion(details.Versions, versionID)
 	if !ok {
-		return DownloadedMod{}, domain.NewError(
+		return DownloadedMod{}, errs.NewError(
 			ErrModVersionNotFound,
 			"The exact mod release is no longer available",
 		)

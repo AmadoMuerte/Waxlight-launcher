@@ -69,6 +69,9 @@ jobs:
       - name: Check prohibited security patterns
         run: ./scripts/check-security-patterns.sh
 
+      - name: Check backend architecture
+        run: ./scripts/check-architecture.sh
+
   security:
     name: Vulnerability and secret scanning
     runs-on: ubuntu-24.04
@@ -137,7 +140,7 @@ jobs:
             eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)"
             go test \
               -tags=integration \
-              ./internal/infrastructure/credentials \
+              ./internal/platform/credentials \
               -run TestNativeCredentialStoreRoundTrip
           '
 
@@ -147,7 +150,7 @@ jobs:
         run: |
           go test `
             -tags=integration `
-            ./internal/infrastructure/credentials `
+            ./internal/platform/credentials `
             -run TestNativeCredentialStoreRoundTrip
 
   linux-build:

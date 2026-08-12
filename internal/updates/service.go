@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
 )
 
@@ -82,7 +82,7 @@ func (service *Service) Check(
 	update, err := service.source.Check(ctx, service.currentVersion, channel)
 	if err != nil {
 		slog.Warn("launcher update check failed", "error", err)
-		return Update{}, &domain.AppError{
+		return Update{}, &errs.AppError{
 			Code:      ErrUpdateUnavailable,
 			Message:   "Could not check for launcher updates",
 			Retryable: true,
@@ -107,7 +107,7 @@ func (service *Service) Install(
 	service.mu.Lock()
 	if service.installing {
 		service.mu.Unlock()
-		return domain.NewError(ErrUpdateInProgress, "A launcher update is already running")
+		return errs.NewError(ErrUpdateInProgress, "A launcher update is already running")
 	}
 	service.installing = true
 	service.mu.Unlock()
@@ -132,21 +132,21 @@ func (service *Service) Install(
 	}
 	if !update.Available {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(ErrUpdateUnavailable, "No launcher update is available")
+		return errs.NewError(ErrUpdateUnavailable, "No launcher update is available")
 	}
 	slog.Info("installing launcher update", "version", update.Version)
 	if update.AssetName == "" || filepath.Base(update.AssetName) != update.AssetName {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(ErrUpdateFailed, "The release contains an unsafe update filename")
+		return errs.NewError(ErrUpdateFailed, "The release contains an unsafe update filename")
 	}
 	if len(update.SHA256) != 64 {
 		service.cleanupSession(updateRoot)
-		return domain.NewError(ErrUpdateFailed, "The release checksum is invalid")
+		return errs.NewError(ErrUpdateFailed, "The release checksum is invalid")
 	}
 
 	if update.InstallationMode == "portable" && runtime.GOOS == "windows" {
 		service.cleanupSession(updateRoot)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    ErrUpdateUnsupported,
 			Message: "Automatic replacement is unavailable for portable installations. Download the new portable package and replace the current version manually.",
 			Cause:   nil,
@@ -196,7 +196,7 @@ func (service *Service) Install(
 		slog.Error("launcher update download failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateDownloadFailed, telemetry.OperationDownloadUpdate)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:      ErrUpdateDownloadFailed,
 			Message:   "Could not download the launcher update",
 			Retryable: true,
@@ -211,7 +211,7 @@ func (service *Service) Install(
 		slog.Error("launcher update signature verification failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateSignatureInvalid, telemetry.OperationInstallUpdate)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    ErrUpdateSignatureInvalid,
 			Message: fmt.Sprintf("Could not verify update signature: %v", err),
 			Cause:   err,
@@ -224,7 +224,7 @@ func (service *Service) Install(
 		slog.Error("launcher update install failed", "version", update.Version, "error", err)
 		service.reportEvent(ctx, telemetry.EventUpdateFailed)
 		service.reportError(ctx, telemetry.ErrorUpdateInstallFailed, telemetry.OperationInstallUpdate)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    ErrUpdateInstallerStartFail,
 			Message: fmt.Sprintf("Could not start the installer: %v", err),
 			Cause:   err,
@@ -268,7 +268,7 @@ func normalizeUpdateChannel(channel string) (string, error) {
 	case "prerelease":
 		return "prerelease", nil
 	default:
-		return "", domain.NewError(domain.ErrValidation, "Update channel must be stable or prerelease")
+		return "", errs.NewError(errs.ErrValidation, "Update channel must be stable or prerelease")
 	}
 }
 

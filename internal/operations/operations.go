@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 )
 
@@ -109,7 +109,7 @@ func (manager *Manager) ReconcileInterrupted(ctx context.Context, now time.Time)
 	return manager.repository.ReconcileInterruptedOperations(
 		ctx,
 		now.UTC(),
-		domain.ErrOperationInterrupted,
+		errs.ErrOperationInterrupted,
 		"The operation was interrupted when the launcher closed",
 	)
 }
@@ -144,7 +144,7 @@ func (manager *Manager) Publish(event string, payload any) {
 func (manager *Manager) Delete(ctx context.Context, id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return domain.NewError(domain.ErrValidation, "Select an operation to delete")
+		return errs.NewError(errs.ErrValidation, "Select an operation to delete")
 	}
 	if err := manager.repository.DeleteFinishedOperation(ctx, id); err != nil {
 		return err
@@ -175,7 +175,7 @@ func (manager *Manager) Cancel(id string) error {
 	worker := manager.workers[id]
 	if worker == nil || !worker.active {
 		manager.mu.Unlock()
-		return domain.NewError(domain.ErrOperationNotFound, "The operation is no longer running")
+		return errs.NewError(errs.ErrOperationNotFound, "The operation is no longer running")
 	}
 	worker.cancelRequested = true
 	worker.cancel()
@@ -183,8 +183,8 @@ func (manager *Manager) Cancel(id string) error {
 
 	<-worker.done
 	if err := worker.err(); err != nil && !errors.Is(err, context.Canceled) {
-		return &domain.AppError{
-			Code:    domain.ErrFilePermission,
+		return &errs.AppError{
+			Code:    errs.ErrFilePermission,
 			Message: "Could not fully clean up the cancelled operation",
 			Cause:   err,
 		}
@@ -197,7 +197,7 @@ func (manager *Manager) Wait(ctx context.Context, id string) error {
 	worker := manager.workers[id]
 	manager.mu.Unlock()
 	if worker == nil {
-		return domain.NewError(domain.ErrOperationNotFound, "The game version install task is no longer running")
+		return errs.NewError(errs.ErrOperationNotFound, "The game version install task is no longer running")
 	}
 	select {
 	case <-worker.done:

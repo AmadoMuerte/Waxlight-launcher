@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/events"
 )
 
@@ -37,16 +37,16 @@ func (service *RemovalService) Remove(ctx context.Context, id string, deleteFile
 		return err
 	}
 	if found {
-		return domain.NewError(domain.ErrValidation, "The version is used by instance \""+name+"\"")
+		return errs.NewError(errs.ErrValidation, "The version is used by instance \""+name+"\"")
 	}
 	slog.Info("removing game version", "version", version.Name)
 	if deleteFiles {
 		if err := service.filesystem.RemoveVersion(version.InstallationDir, id); err != nil {
-			var appError *domain.AppError
+			var appError *errs.AppError
 			if errors.As(err, &appError) {
 				return err
 			}
-			return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not remove the game version files. Close the game and try again", Cause: err}
+			return &errs.AppError{Code: errs.ErrFilePermission, Message: "Could not remove the game version files. Close the game and try again", Cause: err}
 		}
 	}
 	if err := service.repository.DeleteVersion(ctx, id); err != nil {

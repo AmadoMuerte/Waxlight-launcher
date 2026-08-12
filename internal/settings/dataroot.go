@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const progressInterval = 150 * time.Millisecond
@@ -63,7 +63,7 @@ func (service *DataRootService) Move(ctx context.Context, target string) error {
 	}
 	service.events.Publish("data-folder:progress", RelocationProgress{Phase: "preparing"})
 	if !service.workers.Go(func(workerCtx context.Context) { service.run(workerCtx, relocation) }) {
-		return domain.NewError(domain.ErrDataFolderBusy, "The launcher is shutting down")
+		return errs.NewError(errs.ErrDataFolderBusy, "The launcher is shutting down")
 	}
 	release = false
 	return nil

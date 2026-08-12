@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
@@ -54,7 +54,7 @@ func scanInstance(row scanner) (instances.Instance, error) {
 func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
 	instance, err := scanInstance(s.db.QueryRowContext(ctx, `SELECT `+instanceColumns+` FROM instances WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return instance, domain.NewError(instances.ErrInstanceNotFound, "Instance not found")
+		return instance, errs.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
 	return instance, err
 }
@@ -70,7 +70,7 @@ func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Insta
 		instance.Directory, instance.CoverPath, instance.Status, string(arguments), optTS(instance.LastPlayedAt),
 		ts(instance.CreatedAt), ts(instance.UpdatedAt))
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed: instances.directory") {
-		return domain.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance")
+		return errs.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance")
 	}
 	return err
 }
@@ -81,7 +81,7 @@ func (s *SQLiteStore) DeleteInstance(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(instances.ErrInstanceNotFound, "Instance not found")
+		return errs.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
 	return nil
 }

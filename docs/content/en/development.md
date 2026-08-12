@@ -42,12 +42,13 @@ The Go code is layered:
 
 | Layer | Purpose |
 | --- | --- |
-| `internal/domain` | Models and errors |
-| `internal/application` | Use cases and ports |
-| `internal/infrastructure` | Adapters: database, downloader, credential store, filesystem, mod catalog, etc. |
-| `internal/presentation` | Wails controllers and DTOs |
+| `internal/app` | Composition root (`wire.go`, `adapters.go`): constructs every dependency and owns startup/shutdown |
+| `internal/<feature>` | Features: `accounts`, `instances`, `versions`, `launching`, `sessions`, `mods`, `snapshots`, `recovery`, `servers`, `settings`, `operations`, `updates`, `telemetry`, `statistics`, `gamelog`, `downloads`, `events`, `mutations`, `errs` |
+| `internal/platform/*` | Adapters: `sqlite`, `snapshots`, `process`, `logging`, `dataroot`, `credentials`, `filesystem`, `downloader`, mod/server catalogs, etc. |
+| `internal/transport/wails` | Wails controllers and DTOs |
 
-`cmd/waxlight/main.go` starts Wails and bootstrap; domain and application logic stay independent of Wails and React. The frontend follows Feature-Sliced Design (`app/`, `pages/`, `features/`, `entities/`, `shared/`, `widgets/`); backend calls go only through `frontend/src/shared/api`.
+
+`cmd/waxlight/main.go` starts Wails; feature logic stays independent of Wails and React. The full backend architecture is documented in `docs/backend-architecture.md`. The frontend follows Feature-Sliced Design (`app/`, `pages/`, `features/`, `entities/`, `shared/`, `widgets/`); backend calls go only through `frontend/src/shared/api`.
 
 ## Checks and tests
 
@@ -74,7 +75,7 @@ Focused Go tests: `go test ./path/to/package -run TestName`. The pre-commit hook
 - Never put passwords, TOTP codes, pre-login tokens, session keys, or signatures in DTOs, generated bindings, logs, errors, fixtures, URLs, process arguments, environment variables, or exports.
 - Production credentials use native OS storage only; no plaintext or in-memory fallback.
 - Features that copy/export/diagnose/archive instances must remove the four authentication properties from `clientsettings.json`.
-- Logging goes only through `internal/infrastructure/logging` (slog); stdlib `log` and stdout prints are forbidden.
+- Logging goes only through `internal/platform/logging` (slog); stdlib `log` and stdout prints are forbidden.
 
 ## Localization
 

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
@@ -88,13 +88,13 @@ type fakeCatalog struct {
 }
 
 func (catalog *fakeCatalog) GetDownloadedMod(context.Context, string, string) (DownloadedRelease, error) {
-	return DownloadedRelease{}, domain.ErrNotFound
+	return DownloadedRelease{}, errs.ErrNotFound
 }
 
 func (catalog *fakeCatalog) DownloadRelease(_ context.Context, modID, releaseID string) (DownloadedRelease, error) {
 	release, ok := catalog.releases[modID+":"+releaseID]
 	if !ok {
-		return DownloadedRelease{}, domain.NewError(domain.ErrModVersionNotFound, "release missing")
+		return DownloadedRelease{}, errs.NewError(errs.ErrModVersionNotFound, "release missing")
 	}
 	return release, nil
 }
@@ -112,7 +112,7 @@ type fakeVersion struct {
 func (reader fakeVersion) Get(_ context.Context, id string) (versions.GameVersion, error) {
 	name, ok := reader.names[id]
 	if !ok {
-		return versions.GameVersion{}, domain.ErrNotFound
+		return versions.GameVersion{}, errs.ErrNotFound
 	}
 	return versions.GameVersion{ID: id, Name: name}, nil
 }
@@ -245,7 +245,7 @@ func (storage *fakeStorage) SnapshotDir(instanceID, snapshotID string) (string, 
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 	if instanceID == "" || snapshotID == "" || strings.ContainsAny(instanceID+snapshotID, `/\.`) {
-		return "", domain.NewError(domain.ErrValidation, "Invalid snapshot identifier")
+		return "", errs.NewError(errs.ErrValidation, "Invalid snapshot identifier")
 	}
 	return filepath.Join(storage.root, instanceID, snapshotID), nil
 }
@@ -272,11 +272,11 @@ func (storage *fakeStorage) Remove(instanceID, snapshotID string) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 	if instanceID == "" || snapshotID == "" || strings.ContainsAny(instanceID+snapshotID, `/\.`) {
-		return domain.NewError(domain.ErrValidation, "Invalid snapshot identifier")
+		return errs.NewError(errs.ErrValidation, "Invalid snapshot identifier")
 	}
 	dir := filepath.Join(storage.root, instanceID, snapshotID)
 	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
-		return domain.NewError(ErrSnapshotNotFound, "Snapshot not found")
+		return errs.NewError(ErrSnapshotNotFound, "Snapshot not found")
 	}
 	return os.RemoveAll(dir)
 }
@@ -617,7 +617,7 @@ func TestRestoreDownloadFailsWhenReleaseMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("restore must fail when the managed release is missing")
 	}
-	var appErr *domain.AppError
+	var appErr *errs.AppError
 	if !errors.As(err, &appErr) || appErr.Code != ErrSnapshotInvalid {
 		t.Fatalf("expected SNAPSHOT_INVALID, got %v", err)
 	}

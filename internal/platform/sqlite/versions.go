@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -45,7 +45,7 @@ func scanVersion(row scanner) (versions.GameVersion, error) {
 func (s *SQLiteStore) GetVersion(ctx context.Context, id string) (versions.GameVersion, error) {
 	version, err := scanVersion(s.db.QueryRowContext(ctx, `SELECT `+versionColumns+` FROM game_versions WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return version, domain.NewError(domain.ErrVersionNotFound, "Game version not found")
+		return version, errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	}
 	return version, err
 }
@@ -55,7 +55,7 @@ func (s *SQLiteStore) SaveVersion(ctx context.Context, version versions.GameVers
 		version.ID, version.Name, version.Channel, version.Platform, version.Architecture, version.InstallationDir,
 		version.ExecutablePath, version.Status, ts(version.InstalledAt), optTS(version.VerifiedAt), version.SizeBytes)
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
-		return domain.NewError(domain.ErrVersionExists, "This game version is already installed")
+		return errs.NewError(errs.ErrVersionExists, "This game version is already installed")
 	}
 	return err
 }
@@ -71,7 +71,7 @@ func (s *SQLiteStore) UpdateVersion(ctx context.Context, version versions.GameVe
 	if count, err := result.RowsAffected(); err != nil {
 		return err
 	} else if count == 0 {
-		return domain.NewError(domain.ErrVersionNotFound, "Game version not found")
+		return errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (s *SQLiteStore) DeleteVersion(ctx context.Context, id string) error {
 		return err
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return domain.NewError(domain.ErrVersionNotFound, "Game version not found")
+		return errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	}
 	return nil
 }

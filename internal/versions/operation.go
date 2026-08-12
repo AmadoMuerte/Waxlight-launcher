@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -32,7 +32,7 @@ func (runtime *InstallRuntime) fail(operation *operations.Operation, err error, 
 
 func errorCode(err error, defaultCode string) string {
 	if strings.Contains(strings.ToLower(err.Error()), "checksum") {
-		return domain.ErrChecksumMismatch
+		return errs.ErrChecksumMismatch
 	}
 	return defaultCode
 }
@@ -40,7 +40,7 @@ func errorCode(err error, defaultCode string) string {
 func (runtime *InstallRuntime) cancel(operation operations.Operation, downloadPath string) error {
 	if downloadPath != "" {
 		if err := runtime.filesystem.RemoveDownload(downloadPath); err != nil {
-			runtime.fail(&operation, err, domain.ErrFilePermission)
+			runtime.fail(&operation, err, errs.ErrFilePermission)
 			return err
 		}
 	}
@@ -49,7 +49,7 @@ func (runtime *InstallRuntime) cancel(operation operations.Operation, downloadPa
 
 func (runtime *InstallRuntime) cancelInstall(operation operations.Operation, downloadPath, target, id string) error {
 	if err := runtime.filesystem.RemoveInstallTarget(target, id); err != nil {
-		runtime.fail(&operation, err, domain.ErrFilePermission)
+		runtime.fail(&operation, err, errs.ErrFilePermission)
 		return err
 	}
 	return runtime.cancel(operation, downloadPath)
@@ -72,7 +72,7 @@ func (runtime *InstallRuntime) finishCancellation(operation operations.Operation
 
 func (runtime *InstallRuntime) failAndClean(operation *operations.Operation, target, id string, err error, defaultCode string) error {
 	if cleanupErr := runtime.filesystem.RemoveInstallTarget(target, id); cleanupErr != nil {
-		runtime.fail(operation, cleanupErr, domain.ErrFilePermission)
+		runtime.fail(operation, cleanupErr, errs.ErrFilePermission)
 		return cleanupErr
 	}
 	runtime.fail(operation, err, defaultCode)

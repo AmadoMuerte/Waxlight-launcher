@@ -4,7 +4,7 @@ package mutations
 import (
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 type Gate struct {
@@ -56,5 +56,5 @@ func (gate *Gate) Busy() bool {
 }
 
 func busyError() error {
-	return domain.NewError(domain.ErrDataFolderBusy, "The data folder is being moved; wait for the relocation to finish")
+	return errs.NewError(errs.ErrDataFolderBusy, "The data folder is being moved; wait for the relocation to finish")
 }

@@ -17,7 +17,7 @@ if rg -n 'json:"(password|totpcode|prelogintoken|sessionkey|sessionsignature)' i
 fi
 
 legacy_occurrences="$(rg -l 'account-secrets\.json' internal --glob '*.go' --glob '!**/*_test.go' || true)"
-if [[ -n "$legacy_occurrences" && "$legacy_occurrences" != "internal/infrastructure/credentials/migration.go" ]]; then
+if [[ -n "$legacy_occurrences" && "$legacy_occurrences" != "internal/platform/credentials/migration.go" ]]; then
   echo "Legacy plaintext filename used outside migration: $legacy_occurrences" >&2
   exit 1
 fi

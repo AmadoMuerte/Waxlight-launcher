@@ -12,7 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -43,13 +43,13 @@ func (s *Service) Restore(ctx context.Context, instanceID, snapshotID string) er
 	manifest, err := s.storage.ReadManifest(snapshotDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return domain.NewError(ErrSnapshotNotFound, "Snapshot not found")
+			return errs.NewError(ErrSnapshotNotFound, "Snapshot not found")
 		}
 		slog.Warn("snapshot manifest could not be read", "instanceId", instanceID, "snapshotId", snapshotID, "error", err)
-		return domain.NewError(ErrSnapshotInvalid, "Snapshot is corrupted or incomplete")
+		return errs.NewError(ErrSnapshotInvalid, "Snapshot is corrupted or incomplete")
 	}
 	if manifest.InstanceID != instance.ID {
-		return domain.NewError(ErrSnapshotInvalid, "This snapshot does not belong to the selected instance")
+		return errs.NewError(ErrSnapshotInvalid, "This snapshot does not belong to the selected instance")
 	}
 
 	if manifest.FormatVersion == FormatVersion1 {
@@ -68,7 +68,7 @@ func (s *Service) restoreV1(
 ) error {
 	size, err := s.storage.Size(snapshotDir)
 	if err != nil {
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    ErrSnapshotInvalid,
 			Message: "Snapshot is corrupted or incomplete",
 			Cause:   err,
@@ -83,7 +83,7 @@ func (s *Service) restoreV1(
 
 	fail := func(cause error, code string) error {
 		s.finishOperation(operation, cause, code)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    code,
 			Message: "Could not restore snapshot",
 			Cause:   cause,
@@ -95,11 +95,11 @@ func (s *Service) restoreV1(
 		if errors.Is(err, errRestoreStaging) {
 			return fail(restoreStagingCause(err), ErrSnapshotInvalid)
 		}
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 
 	if err := s.swapRestoredInstance(ctx, instance, staging); err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 	s.finalizeRestore(instance, operation, size)
 	return nil
@@ -120,7 +120,7 @@ func (s *Service) restoreV2(
 	}
 	size, err := s.storage.Size(snapshotDir)
 	if err != nil {
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    ErrSnapshotInvalid,
 			Message: "Snapshot is corrupted or incomplete",
 			Cause:   err,
@@ -135,7 +135,7 @@ func (s *Service) restoreV2(
 
 	fail := func(cause error, code string) error {
 		s.finishOperation(operation, cause, code)
-		return &domain.AppError{
+		return &errs.AppError{
 			Code:    code,
 			Message: "Could not restore snapshot",
 			Cause:   cause,
@@ -158,7 +158,7 @@ func (s *Service) restoreV2(
 		if errors.Is(err, errRestoreStaging) {
 			return fail(restoreStagingCause(err), ErrSnapshotInvalid)
 		}
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 
 	restored := []restoredMod{}
@@ -173,7 +173,7 @@ func (s *Service) restoreV2(
 			_ = os.RemoveAll(staging)
 			message := modRestoreMessage(restoreErr)
 			s.finishOperation(operation, restoreErr, ErrSnapshotInvalid)
-			return &domain.AppError{
+			return &errs.AppError{
 				Code:    ErrSnapshotInvalid,
 				Message: message,
 				Cause:   restoreErr,
@@ -182,7 +182,7 @@ func (s *Service) restoreV2(
 		if err := s.validateRestoredMods(staging, restored); err != nil {
 			_ = os.RemoveAll(staging)
 			s.finishOperation(operation, err, ErrSnapshotInvalid)
-			return &domain.AppError{
+			return &errs.AppError{
 				Code:    ErrSnapshotInvalid,
 				Message: "Could not restore snapshot",
 				Cause:   err,
@@ -197,7 +197,7 @@ func (s *Service) restoreV2(
 	s.operations.SaveBestEffort(operation, operations.EventProgress)
 
 	if err := s.swapRestoredInstance(ctx, instance, staging); err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 	if err := s.rebuildInstanceMods(ctx, instance, staging, restored); err != nil {
 		slog.Warn("could not rebuild the restored instance mod records", "instance", instance.Name, "error", err)
@@ -356,7 +356,7 @@ func modRestoreMessage(err error) string {
 		return "Snapshot could not be restored: " + err.Error()
 	}
 	mod := downloadError.mod
-	if isAppErrorCode(downloadError.cause, domain.ErrModVersionNotFound) {
+	if isAppErrorCode(downloadError.cause, errs.ErrModVersionNotFound) {
 		return fmt.Sprintf(
 			"Snapshot could not be restored. The following mod release is no longer available: %s %s",
 			ModDisplayName(mod),
@@ -364,7 +364,7 @@ func modRestoreMessage(err error) string {
 		)
 	}
 	detail := downloadError.cause.Error()
-	if appError, ok := downloadError.cause.(*domain.AppError); ok {
+	if appError, ok := downloadError.cause.(*errs.AppError); ok {
 		detail = appError.Message
 	}
 	return fmt.Sprintf(
@@ -378,7 +378,7 @@ func modRestoreMessage(err error) string {
 // isAppErrorCode reports whether the error chain contains an AppError with
 // the given code.
 func isAppErrorCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
@@ -27,7 +27,7 @@ func (repository *fakeRepository) GetLastKnownGood(_ context.Context, instanceID
 	defer repository.mu.Unlock()
 	marker, ok := repository.marker[instanceID]
 	if !ok {
-		return LastKnownGood{}, domain.ErrNotFound
+		return LastKnownGood{}, errs.ErrNotFound
 	}
 	return marker, nil
 }
@@ -70,7 +70,7 @@ func (fake *fakeSnapshots) List(_ context.Context, instanceID string) ([]snapsho
 func (fake *fakeSnapshots) ReadManifest(_ context.Context, _, snapshotID string) (snapshots.Manifest, error) {
 	manifest, ok := fake.manifests[snapshotID]
 	if !ok {
-		return snapshots.Manifest{}, domain.ErrNotFound
+		return snapshots.Manifest{}, errs.ErrNotFound
 	}
 	return manifest, nil
 }
@@ -363,7 +363,7 @@ func TestStatusReportsChangesAndRecoveryAvailability(t *testing.T) {
 	if status.ModCount != 0 || status.GameVersion != "1.20" {
 		t.Fatalf("unexpected status: %#v", status)
 	}
-	if errors.Is(err, domain.ErrNotFound) {
+	if errors.Is(err, errs.ErrNotFound) {
 		t.Fatal("marker lookup must succeed")
 	}
 }

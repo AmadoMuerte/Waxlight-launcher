@@ -42,12 +42,13 @@ Go-код разделён на слои:
 
 | Слой | Назначение |
 | --- | --- |
-| `internal/domain` | Модели и ошибки |
-| `internal/application` | Юзкейсы и порты |
-| `internal/infrastructure` | Адаптеры: БД, загрузчик, credential store, файловая система, каталог модов и т.д. |
-| `internal/presentation` | Wails-контроллеры и DTO |
+| `internal/app` | Composition root (`wire.go`, `adapters.go`): конструирует все зависимости, владеет startup/shutdown |
+| `internal/<feature>` | Фичи: `accounts`, `instances`, `versions`, `launching`, `sessions`, `mods`, `snapshots`, `recovery`, `servers`, `settings`, `operations`, `updates`, `telemetry`, `statistics`, `gamelog`, `downloads`, `events`, `mutations`, `errs` |
+| `internal/platform/*` | Адаптеры: `sqlite`, `snapshots`, `process`, `logging`, `dataroot`, `credentials`, `filesystem`, `downloader`, каталоги модов/серверов и т.д. |
+| `internal/transport/wails` | Wails-контроллеры и DTO |
 
-`cmd/waxlight/main.go` запускает Wails и bootstrap; доменная и прикладная логика не зависят от Wails и React. Фронтенд организован по Feature-Sliced Design (`app/`, `pages/`, `features/`, `entities/`, `shared/`, `widgets/`); обращения к бэкенду — только через `frontend/src/shared/api`.
+
+`cmd/waxlight/main.go` запускает Wails; логика фич не зависит от Wails и React. Полная архитектура бэкенда описана в `docs/backend-architecture.md`. Фронтенд организован по Feature-Sliced Design (`app/`, `pages/`, `features/`, `entities/`, `shared/`, `widgets/`); обращения к бэкенду — только через `frontend/src/shared/api`.
 
 ## Проверки и тесты
 
@@ -74,7 +75,7 @@ make release-check VERSION=X.Y.Z  # полная релизная валидац
 - Никогда не помещайте пароли, TOTP-коды, pre-login токены, ключи сессий и подписи в DTO, биндинги, логи, ошибки, фикстуры, URL, аргументы процессов, переменные окружения и экспорты.
 - Продакшн-учётные данные — только нативное хранилище ОС; plaintext- и in-memory-fallback запрещены.
 - Функции копирования/экспорта/диагностики инстансов обязаны удалять четыре аутентификационных свойства из `clientsettings.json`.
-- Логирование — только через `internal/infrastructure/logging` (slog); stdlib `log` и вывод в stdout запрещены.
+- Логирование — только через `internal/platform/logging` (slog); stdlib `log` и вывод в stdout запрещены.
 
 ## Локализация
 

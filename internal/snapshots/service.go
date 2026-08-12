@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
@@ -169,7 +169,7 @@ func (s *Service) createLocked(ctx context.Context, input createInput) (operatio
 	}
 	defer release()
 	if s.lock.Running(input.instanceID) {
-		return operations.Operation{}, domain.NewError(instanceRunningCode, "Stop the game before modifying this instance")
+		return operations.Operation{}, errs.NewError(instanceRunningCode, "Stop the game before modifying this instance")
 	}
 	return s.createCore(ctx, input)
 }
@@ -220,8 +220,8 @@ func (s *Service) createCore(ctx context.Context, input createInput) (operations
 
 	estimated, err := s.totalSize(ctx, instance.Directory)
 	if err != nil {
-		return operations.Operation{}, &domain.AppError{
-			Code:    domain.ErrFilePermission,
+		return operations.Operation{}, &errs.AppError{
+			Code:    errs.ErrFilePermission,
 			Message: "Could not read the instance files",
 			Cause:   err,
 		}
@@ -282,7 +282,7 @@ func (s *Service) createCore(ctx context.Context, input createInput) (operations
 		if input.snapshotType == TypeAutomatic {
 			message = "Could not create a safety backup. The instance was not modified"
 		}
-		return operation, &domain.AppError{
+		return operation, &errs.AppError{
 			Code:    code,
 			Message: message,
 			Cause:   cause,
@@ -291,11 +291,11 @@ func (s *Service) createCore(ctx context.Context, input createInput) (operations
 
 	staging, err = s.storage.TempDir(instance.ID)
 	if err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 	final, err := s.storage.SnapshotDir(instance.ID, operation.ID)
 	if err != nil {
-		return fail(err, domain.ErrValidation)
+		return fail(err, errs.ErrValidation)
 	}
 
 	snapshotID := operation.ID
@@ -308,7 +308,7 @@ func (s *Service) createCore(ctx context.Context, input createInput) (operations
 		s.sanitizeSettings,
 	)
 	if err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 
 	manifest := Manifest{
@@ -327,13 +327,13 @@ func (s *Service) createCore(ctx context.Context, input createInput) (operations
 		Mods:          manifestMods,
 	}
 	if err := s.storage.WriteManifest(staging, manifest); err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 	if _, err := s.storage.ReadManifest(staging); err != nil {
 		return fail(err, ErrSnapshotInvalid)
 	}
 	if err := os.Rename(staging, final); err != nil {
-		return fail(err, domain.ErrFilePermission)
+		return fail(err, errs.ErrFilePermission)
 	}
 	staging = ""
 
@@ -477,7 +477,7 @@ func (s *Service) Delete(ctx context.Context, instanceID, snapshotID string) err
 		return err
 	}
 	if s.slot.IsBusy(instanceID) {
-		return domain.NewError(ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return errs.NewError(ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
 	}
 	if err := s.storage.Remove(instanceID, snapshotID); err != nil {
 		return err
@@ -532,14 +532,14 @@ func (s *Service) ensureSpace(required int64) error {
 	}
 	available, err := s.diskSpace.Available(s.dataRoot)
 	if err != nil {
-		return &domain.AppError{
-			Code:    domain.ErrFilePermission,
+		return &errs.AppError{
+			Code:    errs.ErrFilePermission,
 			Message: "Could not check available disk space",
 			Cause:   err,
 		}
 	}
 	if available < required {
-		return domain.NewError(domain.ErrInsufficientSpace, "Not enough free disk space")
+		return errs.NewError(errs.ErrInsufficientSpace, "Not enough free disk space")
 	}
 	return nil
 }
@@ -641,15 +641,15 @@ func ValidateMods(mods []Mod) error {
 		switch mod.Source {
 		case ModSourceModDB:
 			if strings.TrimSpace(mod.ModID) == "" || strings.TrimSpace(mod.ReleaseID) == "" {
-				return domain.NewError(ErrSnapshotInvalid, "Snapshot mod metadata is incomplete")
+				return errs.NewError(ErrSnapshotInvalid, "Snapshot mod metadata is incomplete")
 			}
 		case ModSourceUnknown:
-			return domain.NewError(
+			return errs.NewError(
 				ErrSnapshotInvalid,
 				"This snapshot contains a mod that Waxlight cannot download automatically: "+ModDisplayName(mod)+" "+mod.Version,
 			)
 		default:
-			return domain.NewError(ErrSnapshotInvalid, "Snapshot contains an unsupported mod source")
+			return errs.NewError(ErrSnapshotInvalid, "Snapshot contains an unsupported mod source")
 		}
 	}
 	return nil

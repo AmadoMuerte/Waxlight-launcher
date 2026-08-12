@@ -43,6 +43,7 @@ RELEASE_TAG = v$(VERSION)
 	race \
 	vet \
 	security \
+	architecture \
 	security-patterns \
 	vulncheck \
 	api-inventory \
@@ -256,6 +257,9 @@ race:
 vet:
 	$(GO) vet ./...
 
+architecture:
+	./scripts/check-architecture.sh
+
 security-patterns:
 	./scripts/check-security-patterns.sh
 
@@ -265,7 +269,7 @@ vulncheck:
 		golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) \
 		./...
 
-security: security-patterns vulncheck
+security: security-patterns vulncheck architecture
 
 package-linux: check-version-argument
 	./scripts/build-linux.sh "$(VERSION)" "$(RELEASE_DIR)"

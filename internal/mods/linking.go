@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // LinkLocalMods recognizes locally installed mods that are not yet managed by
@@ -74,7 +74,7 @@ func (service *CatalogService) UploadMods(ctx context.Context, sourcePaths []str
 	}
 	defer service.gate.End()
 	if len(sourcePaths) == 0 {
-		return result, domain.NewError(domain.ErrValidation, "Select at least one mod file")
+		return result, errs.NewError(errs.ErrValidation, "Select at least one mod file")
 	}
 	for _, sourcePath := range sourcePaths {
 		downloaded, link, err := service.linkLocalModFile(ctx, sourcePath, true, "")
@@ -91,7 +91,7 @@ func (service *CatalogService) UploadMods(ctx context.Context, sourcePaths []str
 		}
 	}
 	if len(result.Linked) == 0 && len(result.Failed) > 0 {
-		return result, domain.NewError(ErrInvalidModFile, "No mods were added to the library")
+		return result, errs.NewError(ErrInvalidModFile, "No mods were added to the library")
 	}
 	return result, nil
 }
@@ -152,7 +152,7 @@ func (service *CatalogService) linkLocalModFile(
 	extension := strings.ToLower(filepath.Ext(sourcePath))
 	if extension != ".zip" && extension != ".cs" && extension != ".dll" {
 		link.Reason = "Unsupported mod file type"
-		return DownloadedMod{}, link, domain.NewError(ErrInvalidModFile, "Unsupported mod file type")
+		return DownloadedMod{}, link, errs.NewError(ErrInvalidModFile, "Unsupported mod file type")
 	}
 	info, err := ReadModArchiveInfo(sourcePath)
 	if err != nil {
@@ -259,5 +259,5 @@ func (service *CatalogService) cacheModDestination(
 			return path, nil
 		}
 	}
-	return "", domain.NewError(ErrInvalidModFile, "Unsupported mod file type")
+	return "", errs.NewError(ErrInvalidModFile, "Unsupported mod file type")
 }

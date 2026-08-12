@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
@@ -79,7 +79,7 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 }
 
 func appErrorCode(err error) string {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if errors.As(err, &appError) {
 		return appError.Code
 	}

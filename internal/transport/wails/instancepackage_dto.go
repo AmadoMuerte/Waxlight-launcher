@@ -1,6 +1,6 @@
 package wails
 
-import "github.com/waxlight/waxlight-launcher/internal/domain"
+import "github.com/waxlight/waxlight-launcher/internal/instances"
 
 type PackageAuthorDTO struct {
 	Name     string `json:"name,omitempty"`
@@ -8,7 +8,7 @@ type PackageAuthorDTO struct {
 	Source   string `json:"source,omitempty"`
 }
 
-func packageAuthorDTO(author *domain.PackageAuthor) *PackageAuthorDTO {
+func packageAuthorDTO(author *instances.PackageAuthor) *PackageAuthorDTO {
 	if author == nil {
 		return nil
 	}
@@ -36,7 +36,7 @@ type PackageModDTO struct {
 	Enabled     bool   `json:"enabled"`
 }
 
-func packageModDTO(mod domain.PackageMod) PackageModDTO {
+func packageModDTO(mod instances.PackageMod) PackageModDTO {
 	return PackageModDTO{
 		ModID:       mod.ModID,
 		VersionID:   mod.VersionID,
@@ -62,7 +62,7 @@ type PackageManifestDTO struct {
 	HasIcon         bool                  `json:"hasIcon"`
 }
 
-func packageManifestDTO(manifest domain.PackageManifest) PackageManifestDTO {
+func packageManifestDTO(manifest instances.PackageManifest) PackageManifestDTO {
 	launchArguments := manifest.LaunchArguments
 	if launchArguments == nil {
 		launchArguments = []string{}
@@ -100,7 +100,7 @@ type PackageModCheckDTO struct {
 	HasEmbedded bool   `json:"hasEmbedded,omitempty"`
 }
 
-func packageModCheckDTO(check domain.PackageModCheck) PackageModCheckDTO {
+func packageModCheckDTO(check instances.PackageModCheck) PackageModCheckDTO {
 	return PackageModCheckDTO{
 		ModID:       check.ModID,
 		VersionID:   check.VersionID,
@@ -131,7 +131,7 @@ type PackageInspectionDTO struct {
 	Warnings        []string              `json:"warnings"`
 }
 
-func packageInspectionDTO(inspection domain.PackageInspection) PackageInspectionDTO {
+func packageInspectionDTO(inspection instances.PackageInspection) PackageInspectionDTO {
 	mods := make([]PackageModCheckDTO, 0, len(inspection.Mods))
 	for _, mod := range inspection.Mods {
 		mods = append(mods, packageModCheckDTO(mod))
@@ -181,7 +181,7 @@ type ImportReportDTO struct {
 	Warnings      []string               `json:"warnings"`
 }
 
-func importReportDTO(report domain.ImportReport) ImportReportDTO {
+func importReportDTO(report instances.ImportReport) ImportReportDTO {
 	mods := make([]ImportedModResultDTO, 0, len(report.Mods))
 	for _, mod := range report.Mods {
 		mods = append(mods, ImportedModResultDTO{

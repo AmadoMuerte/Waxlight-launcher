@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const (
@@ -82,11 +82,11 @@ func (service *QueryService) repair(ctx context.Context, version GameVersion) (G
 
 func (service *QueryService) ListAvailable(ctx context.Context) ([]AvailableGameVersion, error) {
 	if service.catalog == nil {
-		return nil, domain.NewError(domain.ErrVersionCatalog, "The game version catalog is not configured")
+		return nil, errs.NewError(errs.ErrVersionCatalog, "The game version catalog is not configured")
 	}
 	available, err := service.catalog.List(ctx)
 	if err != nil {
-		return nil, &domain.AppError{Code: domain.ErrVersionCatalog, Message: "Could not load the official game version catalog", Retryable: true, Cause: err}
+		return nil, &errs.AppError{Code: errs.ErrVersionCatalog, Message: "Could not load the official game version catalog", Retryable: true, Cause: err}
 	}
 	installed, err := service.repository.ListVersions(ctx)
 	if err != nil {
@@ -109,14 +109,14 @@ func (service *QueryService) ListAvailable(ctx context.Context) ([]AvailableGame
 func validateID(id string) (string, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return "", domain.NewError(domain.ErrValidation, "Enter a version ID")
+		return "", errs.NewError(errs.ErrValidation, "Enter a version ID")
 	}
 	if len([]byte(id)) > 180 {
-		return "", domain.NewError(domain.ErrValidation, "Version ID cannot exceed 180 bytes")
+		return "", errs.NewError(errs.ErrValidation, "Version ID cannot exceed 180 bytes")
 	}
 	for _, char := range id {
 		if unicode.IsControl(char) {
-			return "", domain.NewError(domain.ErrValidation, "Version ID cannot contain control characters")
+			return "", errs.NewError(errs.ErrValidation, "Version ID cannot contain control characters")
 		}
 	}
 	return id, nil
@@ -124,13 +124,13 @@ func validateID(id string) (string, error) {
 
 func validateCatalogFilename(filename string) error {
 	if filename == "" || filename == "." || filepath.IsAbs(filename) || filepath.Base(filename) != filename || strings.ContainsAny(filename, `/\\`) {
-		return domain.NewError(domain.ErrVersionCatalog, "The game version catalog contains an invalid package filename")
+		return errs.NewError(errs.ErrVersionCatalog, "The game version catalog contains an invalid package filename")
 	}
 	return nil
 }
 
 func isCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }
 

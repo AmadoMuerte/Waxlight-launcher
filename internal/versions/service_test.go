@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/versionfs"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/versionfs"
 )
 
 type testRepository struct {
@@ -43,7 +43,7 @@ func (repository *testRepository) GetVersion(_ context.Context, id string) (Game
 	defer repository.mu.Unlock()
 	version, ok := repository.versions[id]
 	if !ok {
-		return GameVersion{}, domain.NewError(domain.ErrVersionNotFound, "Game version not found")
+		return GameVersion{}, errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	}
 	return version, nil
 }
@@ -55,7 +55,7 @@ func (repository *testRepository) SaveVersion(_ context.Context, version GameVer
 		return repository.saveErr
 	}
 	if _, exists := repository.versions[version.ID]; exists {
-		return domain.NewError(domain.ErrVersionExists, "This game version is already installed")
+		return errs.NewError(errs.ErrVersionExists, "This game version is already installed")
 	}
 	repository.versions[version.ID] = version
 	return nil
@@ -314,7 +314,7 @@ func TestCatalogFilenameTraversalIsRejected(t *testing.T) {
 	service, _ := newTestService(repository, testCatalog{release}, downloader, testLocalInstaller{}, &testFilesystem{})
 
 	_, err := service.InstallCatalog(context.Background(), release.ID)
-	if !hasCode(err, domain.ErrVersionCatalog) {
+	if !hasCode(err, errs.ErrVersionCatalog) {
 		t.Fatalf("expected catalog error, got %v", err)
 	}
 	if downloader.calls != 0 {
@@ -326,7 +326,7 @@ func TestVersionIDRejectsControlCharactersAndExcessiveLength(t *testing.T) {
 	repository := newTestRepository()
 	service, _ := newTestService(repository, nil, nil, testLocalInstaller{}, &testFilesystem{})
 	for _, id := range []string{"bad\x00id", "bad\u0085id", strings.Repeat("a", 181)} {
-		if _, err := service.InstallLocal(context.Background(), id, id, "/source", "", ""); !hasCode(err, domain.ErrValidation) {
+		if _, err := service.InstallLocal(context.Background(), id, id, "/source", "", ""); !hasCode(err, errs.ErrValidation) {
 			t.Fatalf("unsafe version ID %q error = %v", id, err)
 		}
 	}
@@ -343,7 +343,7 @@ func TestLocalAndCatalogInstallsShareClaim(t *testing.T) {
 	}()
 	<-local.started
 
-	if _, err := service.InstallCatalog(context.Background(), "1.22"); !hasCode(err, domain.ErrVersionExists) {
+	if _, err := service.InstallCatalog(context.Background(), "1.22"); !hasCode(err, errs.ErrVersionExists) {
 		t.Fatalf("catalog install raced local install: %v", err)
 	}
 	close(local.release)
@@ -501,7 +501,7 @@ func TestListRepairsExecutableAndRemoveChecksReferences(t *testing.T) {
 		t.Fatalf("version was not repaired: %+v", installed[0])
 	}
 	repository.reference = "World"
-	if err := service.Remove(context.Background(), "1.20", true); !hasCode(err, domain.ErrValidation) {
+	if err := service.Remove(context.Background(), "1.20", true); !hasCode(err, errs.ErrValidation) {
 		t.Fatalf("referenced version removal error = %v", err)
 	}
 	repository.reference = ""
@@ -514,6 +514,6 @@ func TestListRepairsExecutableAndRemoveChecksReferences(t *testing.T) {
 }
 
 func hasCode(err error, code string) bool {
-	var appError *domain.AppError
+	var appError *errs.AppError
 	return errors.As(err, &appError) && appError.Code == code
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // Service owns favorite-server persistence, validation, instance
@@ -58,7 +58,7 @@ func (service *Service) Save(ctx context.Context, input SaveInput) (FavoriteServ
 	name := strings.TrimSpace(input.Name)
 	address := strings.TrimSpace(input.Address)
 	if name == "" || len(name) > 100 || len(address) > 255 || strings.ContainsAny(address, "\r\n\t ") {
-		return FavoriteServer{}, domain.NewError(domain.ErrValidation, "Enter a server name and an address without spaces")
+		return FavoriteServer{}, errs.NewError(errs.ErrValidation, "Enter a server name and an address without spaces")
 	}
 	if input.InstanceID != nil {
 		if _, err := service.instances.GetInstance(ctx, *input.InstanceID); err != nil {

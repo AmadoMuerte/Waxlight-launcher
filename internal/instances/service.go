@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const (
@@ -97,7 +97,7 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 	}
 	if input.DefaultAccountID != nil {
 		if service.accounts == nil {
-			return Instance{}, domain.NewError(domain.ErrAccountNotFound, "Account not found")
+			return Instance{}, errs.NewError(errs.ErrAccountNotFound, "Account not found")
 		}
 		if _, err := service.accounts.GetAccount(ctx, *input.DefaultAccountID); err != nil {
 			return Instance{}, err
@@ -118,7 +118,7 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		return Instance{}, err
 	}
 	if used {
-		return Instance{}, domain.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
+		return Instance{}, errs.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
 	}
 
 	allocation, err := service.directories.Allocate(directory, id)
@@ -140,7 +140,7 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		return Instance{}, err
 	}
 	if used {
-		return Instance{}, domain.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
+		return Instance{}, errs.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
 	}
 
 	now := service.now().UTC()
@@ -222,14 +222,14 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 	}
 	if previous.GameVersionID != updated.GameVersionID {
 		if service.lock == nil {
-			return updated, domain.NewError(domain.ErrValidation, "Instance version changes are unavailable")
+			return updated, errs.NewError(errs.ErrValidation, "Instance version changes are unavailable")
 		}
 		release, lockErr := service.lock.Lock(updated.ID, MutationMarker)
 		if lockErr != nil {
 			return updated, lockErr
 		}
 		if release == nil {
-			return updated, domain.NewError(domain.ErrValidation, "Instance version change lock is unavailable")
+			return updated, errs.NewError(errs.ErrValidation, "Instance version change lock is unavailable")
 		}
 		defer release()
 		if service.snapshotter != nil {
@@ -309,14 +309,14 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	defer service.gate.End()
 
 	if service.lock == nil {
-		return domain.NewError(domain.ErrValidation, "Instance deletion guard is unavailable")
+		return errs.NewError(errs.ErrValidation, "Instance deletion guard is unavailable")
 	}
 	guardRelease, err := service.lock.Guard(id, MutationMarker, "Stop the game before deleting this instance")
 	if err != nil {
 		return err
 	}
 	if guardRelease == nil {
-		return domain.NewError(domain.ErrValidation, "Instance deletion reservation is unavailable")
+		return errs.NewError(errs.ErrValidation, "Instance deletion reservation is unavailable")
 	}
 	defer guardRelease()
 	instance, err := service.repository.GetInstance(ctx, id)
@@ -325,7 +325,7 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	}
 	if deleteFiles {
 		if service.removeDirectory == nil {
-			return domain.NewError(domain.ErrValidation, "Instance directory removal is unavailable")
+			return errs.NewError(errs.ErrValidation, "Instance directory removal is unavailable")
 		}
 		if err := service.removeDirectory(instance.Directory); err != nil {
 			return err
@@ -364,10 +364,10 @@ func sameOptionalString(left, right *string) bool {
 func cleanName(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", domain.NewError(domain.ErrValidation, "Name cannot be empty")
+		return "", errs.NewError(errs.ErrValidation, "Name cannot be empty")
 	}
 	if len([]rune(value)) > 80 {
-		return "", domain.NewError(domain.ErrValidation, "Name cannot exceed 80 characters")
+		return "", errs.NewError(errs.ErrValidation, "Name cannot exceed 80 characters")
 	}
 	return value, nil
 }

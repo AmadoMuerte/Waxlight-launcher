@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 type CloneService struct {
@@ -52,20 +52,20 @@ func (service *CloneService) Clone(ctx context.Context, sourceID, name string) (
 	}
 	defer service.gate.End()
 	if service.storage == nil {
-		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone storage is unavailable")
+		return Instance{}, errs.NewError(errs.ErrValidation, "Instance clone storage is unavailable")
 	}
 	if service.removeDirectory == nil {
-		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone cleanup is unavailable")
+		return Instance{}, errs.NewError(errs.ErrValidation, "Instance clone cleanup is unavailable")
 	}
 	if service.lock == nil {
-		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone guard is unavailable")
+		return Instance{}, errs.NewError(errs.ErrValidation, "Instance clone guard is unavailable")
 	}
 	guardRelease, err := service.lock.Guard(sourceID, MutationMarker, "Stop the game before cloning this instance")
 	if err != nil {
 		return Instance{}, err
 	}
 	if guardRelease == nil {
-		return Instance{}, domain.NewError(domain.ErrValidation, "Instance clone reservation is unavailable")
+		return Instance{}, errs.NewError(errs.ErrValidation, "Instance clone reservation is unavailable")
 	}
 	defer guardRelease()
 
@@ -131,7 +131,7 @@ func (service *CloneService) replicateMods(ctx context.Context, source, clone In
 		copied.InstanceID = clone.ID
 		relative, relErr := filepath.Rel(source.Directory, mod.FilePath)
 		if relErr != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			return domain.NewError(domain.ErrValidation, "Instance mod path is outside the instance directory")
+			return errs.NewError(errs.ErrValidation, "Instance mod path is outside the instance directory")
 		}
 		copied.FilePath = filepath.Join(clone.Directory, relative)
 		if err := service.mods.SaveMod(ctx, copied); err != nil {

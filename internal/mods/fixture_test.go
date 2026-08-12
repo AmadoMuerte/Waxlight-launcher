@@ -8,17 +8,18 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
 	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/modstorage"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -40,7 +41,7 @@ func (repository *testRepository) GetInstance(ctx context.Context, id string) (m
 	defer repository.mu.Unlock()
 	instance, ok := repository.instances[id]
 	if !ok {
-		return mods.InstanceRef{}, domain.NewError(domain.ErrValidation, "instance not found")
+		return mods.InstanceRef{}, errs.NewError(errs.ErrValidation, "instance not found")
 	}
 	return instance, nil
 }
@@ -64,6 +65,11 @@ func (repository *testRepository) ListMods(ctx context.Context, instanceID strin
 			result = append(result, mod)
 		}
 	}
+	// The production store lists mods ordered by name (ORDER BY name); mirror
+	// that contract so tests are deterministic instead of map-iteration order.
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
 	return result, nil
 }
 
@@ -72,7 +78,7 @@ func (repository *testRepository) GetMod(ctx context.Context, id string) (mods.I
 	defer repository.mu.Unlock()
 	mod, ok := repository.mods[id]
 	if !ok {
-		return mods.InstalledMod{}, domain.NewError(mods.ErrModNotFound, "Mod not found")
+		return mods.InstalledMod{}, errs.NewError(mods.ErrModNotFound, "Mod not found")
 	}
 	return mod, nil
 }
@@ -122,7 +128,7 @@ type testInstanceLock struct {
 func (lock testInstanceLock) Lock(instanceID string, marker string) (func(), error) {
 	release, holder := lock.slot.TryAcquire(instanceID, marker)
 	if holder != "" {
-		return nil, domain.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
+		return nil, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	return release, nil
 }
@@ -470,7 +476,7 @@ func (catalog staticModCatalog) Get(_ context.Context, modID string) (mods.ModDe
 			return details, nil
 		}
 	}
-	return mods.ModDetails{}, domain.NewError(mods.ErrModNotFound, "Mod not found")
+	return mods.ModDetails{}, errs.NewError(mods.ErrModNotFound, "Mod not found")
 }
 
 func (catalog staticModCatalog) ListTags(context.Context) ([]mods.ModTag, error) {

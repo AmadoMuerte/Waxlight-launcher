@@ -18,8 +18,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
@@ -77,7 +77,7 @@ func (store *Store) SnapshotDir(instanceID string, snapshotID string) (string, e
 	}
 	dir := filepath.Join(store.root, instanceID, snapshotID)
 	if filepath.Dir(filepath.Dir(dir)) != store.root || filepath.Dir(dir) != filepath.Join(store.root, instanceID) {
-		return "", domain.NewError(domain.ErrValidation, "Unsafe snapshot path")
+		return "", errs.NewError(errs.ErrValidation, "Unsafe snapshot path")
 	}
 	return dir, nil
 }
@@ -205,13 +205,13 @@ func (store *Store) Remove(instanceID string, snapshotID string) error {
 	}
 	info, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return domain.NewError(snapshots.ErrSnapshotNotFound, "Snapshot not found")
+		return errs.NewError(snapshots.ErrSnapshotNotFound, "Snapshot not found")
 	}
 	if err != nil {
 		return err
 	}
 	if !info.IsDir() {
-		return domain.NewError(snapshots.ErrSnapshotInvalid, "Snapshot path is not a directory")
+		return errs.NewError(snapshots.ErrSnapshotInvalid, "Snapshot path is not a directory")
 	}
 	return os.RemoveAll(dir)
 }
@@ -242,7 +242,7 @@ func (store *Store) Size(snapshotDir string) (int64, error) {
 func safeSegment(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" || value == "." || value == ".." || filepath.Base(value) != value || strings.ContainsAny(value, `/\\`) {
-		return "", domain.NewError(domain.ErrValidation, "Invalid snapshot identifier")
+		return "", errs.NewError(errs.ErrValidation, "Invalid snapshot identifier")
 	}
 	return value, nil
 }

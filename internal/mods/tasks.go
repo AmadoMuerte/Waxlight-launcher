@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // ModTaskManager tracks active ModDB download tasks separately from the
@@ -43,7 +43,7 @@ func (manager *ModTaskManager) Begin(
 	if existingTask, active := manager.active[key]; active {
 		manager.mu.Unlock()
 		cancel()
-		return nil, existingTask, domain.NewError(ErrModAlreadyActive, "This mod is already downloading")
+		return nil, existingTask, errs.NewError(ErrModAlreadyActive, "This mod is already downloading")
 	}
 	manager.active[key] = taskID
 	manager.cancels[taskID] = cancel
@@ -82,7 +82,7 @@ func (manager *ModTaskManager) Cancel(taskID string) error {
 	cancel, ok := manager.cancels[taskID]
 	manager.mu.Unlock()
 	if !ok {
-		return domain.NewError(domain.ErrOperationNotFound, "Mod task not found")
+		return errs.NewError(errs.ErrOperationNotFound, "Mod task not found")
 	}
 	cancel()
 	return nil

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
@@ -208,13 +208,13 @@ func TestCreateServiceDefaultAndLocalizedNames(t *testing.T) {
 }
 
 func TestCreateServiceValidatesVersionAndAccount(t *testing.T) {
-	versionErr := domain.NewError(domain.ErrVersionNotFound, "Game version not found")
+	versionErr := errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	service := newCreateServiceForTest(&createRepository{}, versionReader{err: versionErr}, nil, &testGate{}, &testAllocation{}, "en", nil, nil)
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "missing"}); !errors.Is(err, versionErr) {
 		t.Fatalf("version error = %v", err)
 	}
 
-	accountErr := domain.NewError(domain.ErrAccountNotFound, "Account not found")
+	accountErr := errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	accountID := "missing"
 	service = newCreateServiceForTest(&createRepository{}, versionReader{}, accountReader{err: accountErr}, &testGate{}, &testAllocation{}, "en", nil, nil)
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20", DefaultAccountID: &accountID}); !errors.Is(err, accountErr) {
@@ -223,7 +223,7 @@ func TestCreateServiceValidatesVersionAndAccount(t *testing.T) {
 }
 
 func TestCreateServiceRejectsMutationGate(t *testing.T) {
-	want := domain.NewError(domain.ErrDataFolderBusy, "The data folder is being moved; wait for the relocation to finish")
+	want := errs.NewError(errs.ErrDataFolderBusy, "The data folder is being moved; wait for the relocation to finish")
 	gate := &testGate{err: want}
 	service := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, gate, &testAllocation{}, "en", nil, nil)
 
@@ -250,7 +250,7 @@ func TestCreateServiceRejectsDatabaseConflictBeforeAllocation(t *testing.T) {
 	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil, nil)
 
 	_, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20", Directory: directory})
-	var appError *domain.AppError
+	var appError *errs.AppError
 	if !errors.As(err, &appError) || appError.Code != ErrDirectoryConflict || appError.Message != "The directory is already used by another instance" {
 		t.Fatalf("error = %v", err)
 	}
@@ -289,7 +289,7 @@ func TestCreateServiceRollsBackOnPostAllocationConflictAndPersistenceFailure(t *
 				t.Fatal("expected failure")
 			}
 			if test.wantCode != "" {
-				var appError *domain.AppError
+				var appError *errs.AppError
 				if !errors.As(err, &appError) || appError.Code != test.wantCode {
 					t.Fatalf("error = %v", err)
 				}

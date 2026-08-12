@@ -12,9 +12,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
 	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/mousenavigation"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/mousenavigation"
+	"github.com/waxlight/waxlight-launcher/internal/platform/updater"
 )
 
 // appIcon is embedded into the executable so Linux window managers can use

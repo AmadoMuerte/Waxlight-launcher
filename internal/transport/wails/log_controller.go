@@ -10,12 +10,12 @@ import (
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/nativefs"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
@@ -73,7 +73,7 @@ func (controller *LogController) WriteLog(level string, message string, attrs ma
 	}
 	message = strings.TrimSpace(message)
 	if message == "" {
-		return domain.NewError(domain.ErrValidation, "Log message must not be empty")
+		return errs.NewError(errs.ErrValidation, "Log message must not be empty")
 	}
 	if len(message) > maxFrontendLogMessage {
 		message = message[:maxFrontendLogMessage]
@@ -107,7 +107,7 @@ func frontendLogLevel(level string) (slog.Level, error) {
 	case "error":
 		return slog.LevelError, nil
 	default:
-		return 0, domain.NewError(domain.ErrValidation, "Unsupported log level: "+level)
+		return 0, errs.NewError(errs.ErrValidation, "Unsupported log level: "+level)
 	}
 }
 
@@ -116,13 +116,13 @@ func frontendLogLevel(level string) (slog.Level, error) {
 func (controller *LogController) OpenLogsDirectory() error {
 	dir := logging.LogDirectory()
 	if dir == "" {
-		return domain.NewError(domain.ErrValidation, "Log directory is not configured")
+		return errs.NewError(errs.ErrValidation, "Log directory is not configured")
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not create the log directory", Cause: err}
+		return &errs.AppError{Code: errs.ErrFilePermission, Message: "Could not create the log directory", Cause: err}
 	}
 	if err := (nativefs.Opener{}).OpenDirectory(dir); err != nil {
-		return &domain.AppError{Code: domain.ErrFilePermission, Message: "Could not open the log directory", Cause: err}
+		return &errs.AppError{Code: errs.ErrFilePermission, Message: "Could not open the log directory", Cause: err}
 	}
 	return nil
 }

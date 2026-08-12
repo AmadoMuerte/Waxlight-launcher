@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 

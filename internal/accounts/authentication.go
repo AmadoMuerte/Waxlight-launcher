@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const defaultLoginFlowTTL = 5 * time.Minute
@@ -79,10 +79,10 @@ func (service *Service) ReauthenticateAccount(ctx context.Context, accountID, em
 func (service *Service) startLogin(ctx context.Context, expectedAccountID, email, password string) (LoginResult, error) {
 	email = strings.TrimSpace(email)
 	if email == "" || !strings.Contains(email, "@") {
-		return LoginResult{}, domain.NewError(domain.ErrValidation, "Enter a valid email address")
+		return LoginResult{}, errs.NewError(errs.ErrValidation, "Enter a valid email address")
 	}
 	if password == "" {
-		return LoginResult{}, domain.NewError(domain.ErrValidation, "Enter your password")
+		return LoginResult{}, errs.NewError(errs.ErrValidation, "Enter your password")
 	}
 
 	session, challenge, err := service.authenticator.Login(ctx, email, password, "", "")
@@ -108,7 +108,7 @@ func (service *Service) startLogin(ctx context.Context, expectedAccountID, email
 func (service *Service) CompleteTOTP(ctx context.Context, flowID, code string) (LoginResult, error) {
 	code = strings.TrimSpace(code)
 	if code == "" || len(code) > 16 {
-		return LoginResult{}, domain.NewError(domain.ErrValidation, "Enter the authentication code")
+		return LoginResult{}, errs.NewError(errs.ErrValidation, "Enter the authentication code")
 	}
 	service.flowMu.Lock()
 	service.purgeExpiredLocked()
@@ -119,7 +119,7 @@ func (service *Service) CompleteTOTP(ctx context.Context, flowID, code string) (
 	}
 	service.flowMu.Unlock()
 	if !ok {
-		return LoginResult{}, domain.NewError(domain.ErrAuthFlowExpired, "The login attempt has expired")
+		return LoginResult{}, errs.NewError(errs.ErrAuthFlowExpired, "The login attempt has expired")
 	}
 	session, _, err := service.authenticator.Login(ctx, flow.Email, flow.Password, code, flow.PreLoginToken)
 	if err != nil {
