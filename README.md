@@ -44,7 +44,7 @@ Get the latest version from [GitHub Releases](https://github.com/AmadoMuerte/Wax
 
 Each release includes `SHA256SUMS` for integrity checks.
 
-> On Windows, early unsigned builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
+> On Windows, unsigned Waxlight builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
 
 ## Getting started
 

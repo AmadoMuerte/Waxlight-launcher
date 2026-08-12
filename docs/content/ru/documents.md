@@ -14,7 +14,7 @@ order: 70
 | --- | --- |
 | [PRIVACY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/PRIVACY.md) | Локальные данные, опциональная телеметрия (выключена по умолчанию), сторонние сервисы, контакты для запросов. |
 | [SECURITY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/SECURITY.md) | Приватные отчёты об уязвимостях, область безопасности, модель угроз, хранение учётных данных, поддерживаемые версии. |
-| [CODE_SIGNING_POLICY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md) | SignPath Foundation, роли и подтверждения, происхождение сборок, правила артефактов и метаданных. |
+| [CODE_SIGNING_POLICY.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/CODE_SIGNING_POLICY.md) | Текущий статус подписи Windows-релизов, происхождение сборок и проверка артефактов. |
 
 Те же политики в удобном для чтения виде: [Конфиденциальность](./policies/privacy.md), [Безопасность](./policies/security.md), [Подпись кода](./policies/code-signing.md).
 
@@ -40,7 +40,7 @@ order: 70
 | [game-versions.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/game-versions.md) | Официальная лента версий, выбор платформы, конвейер установки, MD5/SHA-256, известные ограничения. |
 | [modpack.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/modpack.md) | Библиотека анализа обновлений модов: контракт Catalog, статусы, выбор кандидата, совместимость, зависимости. |
 | [operations-page.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/operations-page.md) | Контракт страницы операций: статусы, отмена как откат, удаление и очистка истории, требуемые регрессионные тесты. |
-| [windows-updater.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/windows-updater.md) | Архитектура автообновления Windows: SHA256SUMS vs Authenticode, модель доверия, план подписи SignPath, режимы установки. |
+| [windows-updater.md](https://github.com/AmadoMuerte/Waxlight-launcher/blob/main/docs/windows-updater.md) | Архитектура автообновления Windows: SHA256SUMS vs Authenticode, модель доверия и режимы установки. |
 
 ## Для контрибьюторов
 

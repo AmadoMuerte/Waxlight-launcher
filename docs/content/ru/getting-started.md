@@ -21,7 +21,7 @@ order: 10
 | Прочие Linux x64 | Портативный архив (нужны GTK 3 и WebKitGTK 4.1) | `*-linux-amd64.tar.gz` |
 
 > [!WARNING] SmartScreen в Windows
-> Ранние неподписанные сборки могут вызывать предупреждение Microsoft Defender SmartScreen. Скачивайте Waxlight только со страницы Releases официального репозитория. Подробнее — в разделе [«Подпись кода»](./policies/code-signing.md).
+> Неподписанные сборки Waxlight могут вызывать предупреждение Microsoft Defender SmartScreen. Скачивайте Waxlight только со страницы Releases официального репозитория. Подробнее — в разделе [«Подпись кода»](./policies/code-signing.md).
 
 ## Проверка целостности
 

@@ -66,8 +66,6 @@ else
 
 
 Enjoy the game! ❤️
-
-❤️ [Support Waxlight](https://hipolink.net/amadomuerte)
 EOF
   echo "Created release notes:"
   echo "  ${relative_file}"
@@ -75,9 +73,8 @@ fi
 echo
 
 ensure_footer() {
-  if ! grep -q "^Enjoy the game" "$notes_file" ||
-    ! grep -q "^❤️ \[Support Waxlight\]" "$notes_file"; then
-    printf '\nEnjoy the game! ❤️\n\n❤️ [Support Waxlight](https://hipolink.net/amadomuerte)\n' >> "$notes_file"
+  if ! grep -q "^Enjoy the game" "$notes_file"; then
+    printf '\nEnjoy the game! ❤️\n' >> "$notes_file"
     echo "Restored the release notes footer."
     echo
   fi

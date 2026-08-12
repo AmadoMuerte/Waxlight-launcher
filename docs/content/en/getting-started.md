@@ -21,7 +21,7 @@ Official builds are published **only** on the [GitHub Releases](https://github.c
 | Other Linux x64 | Portable archive (requires GTK 3 and WebKitGTK 4.1) | `*-linux-amd64.tar.gz` |
 
 > [!WARNING] Windows SmartScreen
-> Early unsigned builds may trigger a Microsoft Defender SmartScreen warning. Download Waxlight only from the official repository's Releases page. See [Code signing](./policies/code-signing.md) for details.
+> Unsigned Waxlight builds may trigger a Microsoft Defender SmartScreen warning. Download Waxlight only from the official repository's Releases page. See [Code signing](./policies/code-signing.md) for details.
 
 ## Integrity check
 

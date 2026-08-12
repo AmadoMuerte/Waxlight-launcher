@@ -111,7 +111,7 @@ window.WIKI_DATA = {
         {
           "slug": "policies/code-signing",
           "title": "Подпись кода",
-          "description": "Правила подписи Windows-релизов через SignPath Foundation и проверка артефактов.",
+          "description": "Текущий статус подписи Windows-релизов и проверка артефактов.",
           "section": "policies",
           "path": "policies/code-signing.html"
         }
@@ -237,7 +237,7 @@ window.WIKI_DATA = {
         {
           "slug": "policies/code-signing",
           "title": "Code signing",
-          "description": "Windows release signing policy via the SignPath Foundation and artifact verification.",
+          "description": "Current Windows release signing status and artifact verification.",
           "section": "policies",
           "path": "policies/code-signing.html"
         }

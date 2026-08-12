@@ -54,4 +54,4 @@ Waxlight is currently an early preview. Security fixes are provided for the most
 
 ## Windows release signing
 
-Release signing rules are defined by the [code signing policy](./code-signing.md). Key point: a "Verified" Git tag on GitHub is not the same as an Authenticode signature on an executable; always verify the specific downloaded artifact. For releases signed through the Foundation program: *"Free code signing provided by SignPath.io, certificate by SignPath Foundation."*
+Windows release artifacts are currently unsigned. Release verification guidance is defined by the [code signing policy](./code-signing.md). A "Verified" Git tag on GitHub is not the same as an Authenticode signature on an executable.

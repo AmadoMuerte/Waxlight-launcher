@@ -10,14 +10,16 @@
  * No router, sidebar, or registry edits are required.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
-import React from "react";
-import ReactDOMServer from "react-dom/server";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(join(ROOT, "../frontend/package.json"));
+const React = (await import(require.resolve("react"))).default;
+const ReactDOMServer = (await import(require.resolve("react-dom/server"))).default;
+const ReactMarkdown = (await import(require.resolve("react-markdown"))).default;
+const remarkGfm = (await import(require.resolve("remark-gfm"))).default;
 const CONTENT = join(ROOT, "content");
 const LANGS = ["ru", "en"];
 const DEFAULT_SECTION_ORDER = 50;
