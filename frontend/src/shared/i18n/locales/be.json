@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Аднаўленне са здымка",
   "operation_restoring_files": "Аднаўленне файлаў…",
   "operation_downloading_mods": "Спампоўка модаў…",
+  "operation_importing_instance": "Імпарт экзэмпляра",
   "operation_finishing_restore": "Завяршэнне аднаўлення…",
   "operation_restoring_mods_progress": "Аднаўленне модаў {{done}} / {{total}}",
   "last_known_good": "Апошні працоўны стан",

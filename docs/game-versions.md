@@ -56,6 +56,6 @@ optional user-supplied SHA-256 checksum.
   matching the project's MVP platforms and the feed's available packages.
 - The feed is an official production endpoint but is not accompanied by a
   published schema or stability guarantee. Its contract is isolated in
-  `internal/infrastructure/vintagestory` and covered by parser tests.
+  `internal/platform/vintagestory` and covered by parser tests.
 - Waxlight does not bypass game authentication. A valid Vintage Story account
   session is still required by the launch pipeline.

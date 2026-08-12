@@ -1,12 +1,14 @@
 package telemetry
 
+import "github.com/waxlight/waxlight-launcher/internal/mods"
+
 // Allowlisted lifecycle event names. Every event here maps to a completed
 // authoritative operation; the backend accepts no other event names.
 const (
 	EventInstanceCreated     = "instance_created"
 	EventInstanceDeleted     = "instance_deleted"
-	EventModDownloaded       = "mod_downloaded"
-	EventModRemoved          = "mod_removed"
+	EventModDownloaded       = mods.EventModDownloaded
+	EventModRemoved          = mods.EventModRemoved
 	EventUpdateStarted       = "update_started"
 	EventUpdateSucceeded     = "update_succeeded"
 	EventUpdateFailed        = "update_failed"
@@ -30,8 +32,8 @@ var allowedEvents = map[string]struct{}{
 // codes from this taxonomy; they describe failure categories, never raw
 // error text.
 const (
-	ErrorModDownloadHTTP404     = "MOD_DOWNLOAD_HTTP_404"
-	ErrorModDownloadFailed      = "MOD_DOWNLOAD_FAILED"
+	ErrorModDownloadHTTP404     = mods.ErrorModDownloadHTTP404
+	ErrorModDownloadFailed      = mods.ErrorModDownloadFailed
 	ErrorUpdateDownloadFailed   = "UPDATE_DOWNLOAD_FAILED"
 	ErrorUpdateInstallFailed    = "UPDATE_INSTALL_FAILED"
 	ErrorUpdateSignatureInvalid = "UPDATE_SIGNATURE_INVALID"
@@ -53,7 +55,7 @@ var allowedErrorCodes = map[string]struct{}{
 const (
 	ComponentLauncher       = "launcher"
 	ComponentInstances      = "instances"
-	ComponentModDownloader  = "mod_downloader"
+	ComponentModDownloader  = mods.ComponentModDownloader
 	ComponentUpdater        = "updater"
 	ComponentGameLauncher   = "game_launcher"
 	ComponentAuthentication = "authentication"
@@ -72,7 +74,7 @@ var allowedComponents = map[string]struct{}{
 const (
 	OperationCreateInstance = "create_instance"
 	OperationDeleteInstance = "delete_instance"
-	OperationDownloadMod    = "download_mod"
+	OperationDownloadMod    = mods.OperationDownloadMod
 	OperationRemoveMod      = "remove_mod"
 	OperationDownloadUpdate = "download_update"
 	OperationInstallUpdate  = "install_update"

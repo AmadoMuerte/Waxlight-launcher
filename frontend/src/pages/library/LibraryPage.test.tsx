@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
 
 const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
+const instancePackageApi = vi.hoisted(() => ({ import: vi.fn(), selectPackageFile: vi.fn() }));
 
 vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
 vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
@@ -26,7 +27,7 @@ vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
 vi.mock("../../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../../shared/api/mods", () => ({ modsApi: {} }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi: {} }));
-vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: {} }));
+vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi }));
 
 const versions: GameVersion[] = [
   {
@@ -86,6 +87,8 @@ describe("library instance creation", () => {
     vi.clearAllMocks();
     api.create.mockResolvedValue({});
     api.clone.mockResolvedValue({ id: "inst-2", name: "Warm home copy" });
+    instancePackageApi.selectPackageFile.mockResolvedValue("/tmp/cozy-camp.waxlight");
+    instancePackageApi.import.mockResolvedValue({ id: "operation-1", status: "queued" });
   });
 
   it("submits an empty name so the backend generates a unique default", async () => {
@@ -132,6 +135,25 @@ describe("library instance creation", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Warm home" })).toBeNull();
+    });
+  });
+
+  it("starts import immediately after selecting a package", async () => {
+    await renderPage();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /Import instance/ }));
+
+    await waitFor(() => {
+      expect(instancePackageApi.import).toHaveBeenCalledWith({
+        packagePath: "/tmp/cozy-camp.waxlight",
+        name: "",
+        description: "",
+        directory: "",
+        gameVersionId: "",
+        installVersion: true,
+        allowIncompatible: false,
+        skipUnavailable: true,
+      });
     });
   });
 });

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DownloadedMod, GameVersion, Instance, ModDetails } from "../../shared/api";
 import { InstancePickerDialog } from "./InstancePickerDialog";
@@ -101,6 +102,11 @@ function renderDialog(downloadedMod?: DownloadedMod) {
 
 describe("instance picker installed indicator", () => {
   afterEach(() => cleanup());
+  beforeEach(() => {
+    api.download.mockReset();
+    api.installDownloaded.mockReset();
+    api.cancelTask.mockReset();
+  });
 
   it("marks instances that already have the mod as installed", async () => {
     renderDialog(downloaded);
@@ -120,5 +126,47 @@ describe("instance picker installed indicator", () => {
     renderDialog(undefined);
     expect(document.querySelectorAll(".instanceChoice input")).toHaveLength(2);
     expect(screen.queryByText("Installed")).toBeNull();
+  });
+
+  it("does not cancel a task that already finished", async () => {
+    api.download.mockResolvedValue({
+      taskId: "task-1",
+      downloaded: {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+      installations: [],
+    });
+    const onClose = vi.fn();
+    render(
+      <InstancePickerDialog
+        mod={mod}
+        instances={[instance("inst-1", "Survival")]}
+        gameVersions={versions}
+        onClose={onClose}
+        onDone={async () => {}}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Download only"));
+    await waitFor(() => expect(screen.getByText("Done")).toBeTruthy());
+
+    // The task completed; closing the dialog (here via Escape through the
+    // modal chrome) must not ask the backend to cancel it (a finished task
+    // would answer "Mod task not found").
+    await user.keyboard("{Escape}");
+    expect(api.cancelTask).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 });

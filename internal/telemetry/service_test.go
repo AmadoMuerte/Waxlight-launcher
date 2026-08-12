@@ -9,31 +9,43 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
+
+// testWorkers runs telemetry delivery in plain background goroutines without a
+// lifecycle, preserving the asynchronous delivery semantics the service tests
+// rely on.
+type testWorkers struct{}
+
+func (testWorkers) Go(worker func(context.Context)) bool {
+	go worker(context.Background())
+	return true
+}
 
 // fakeStore implements Store with in-memory state.
 type fakeStore struct {
 	mu        sync.Mutex
 	enabled   bool
 	values    map[string]string
-	instances []domain.Instance
-	mods      map[string][]domain.InstalledMod
+	instances []instances.Instance
+	mods      map[string][]mods.InstalledMod
 	err       error
 }
 
 func newFakeStore(t *testing.T, values map[string]string) *fakeStore {
 	t.Helper()
-	return &fakeStore{values: values, mods: map[string][]domain.InstalledMod{}}
+	return &fakeStore{values: values, mods: map[string][]mods.InstalledMod{}}
 }
 
-func (s *fakeStore) GetSettings(context.Context) (domain.Settings, error) {
+func (s *fakeStore) Get(context.Context) (settings.Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
-		return domain.Settings{}, s.err
+		return settings.Settings{}, s.err
 	}
-	return domain.Settings{TelemetryEnabled: s.enabled}, nil
+	return settings.Settings{TelemetryEnabled: s.enabled}, nil
 }
 
 func (s *fakeStore) GetSettingValue(_ context.Context, key string) (string, error) {
@@ -55,22 +67,22 @@ func (s *fakeStore) SetSettingValue(_ context.Context, key, value string) error 
 	return nil
 }
 
-func (s *fakeStore) ListInstances(context.Context) ([]domain.Instance, error) {
+func (s *fakeStore) ListInstances(context.Context) ([]instances.Instance, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return nil, s.err
 	}
-	return append([]domain.Instance(nil), s.instances...), nil
+	return append([]instances.Instance(nil), s.instances...), nil
 }
 
-func (s *fakeStore) ListMods(_ context.Context, instanceID string) ([]domain.InstalledMod, error) {
+func (s *fakeStore) ListMods(_ context.Context, instanceID string) ([]mods.InstalledMod, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return nil, s.err
 	}
-	return append([]domain.InstalledMod(nil), s.mods[instanceID]...), nil
+	return append([]mods.InstalledMod(nil), s.mods[instanceID]...), nil
 }
 
 func (s *fakeStore) setEnabled(enabled bool) {
@@ -100,7 +112,7 @@ type blockingHeartbeatStore struct {
 	release chan struct{}
 }
 
-func (s *blockingHeartbeatStore) ListInstances(ctx context.Context) ([]domain.Instance, error) {
+func (s *blockingHeartbeatStore) ListInstances(ctx context.Context) ([]instances.Instance, error) {
 	close(s.listed)
 	<-s.release
 	return s.fakeStore.ListInstances(ctx)
@@ -173,7 +185,7 @@ func TestDisabledTelemetrySendsNothing(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(false)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Event(context.Background(), EventInstanceCreated)
 	service.Error(context.Background(), ErrorGameLaunchFailed, ComponentGameLauncher, OperationLaunchGame)
@@ -188,10 +200,10 @@ func TestDisabledTelemetrySendsNothing(t *testing.T) {
 func TestFirstEligibleHeartbeatIsSent(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
-	store.instances = []domain.Instance{{ID: "a"}, {ID: "b"}}
-	store.mods["a"] = []domain.InstalledMod{{ID: "m1"}, {ID: "m2"}}
+	store.instances = []instances.Instance{{ID: "a"}, {ID: "b"}}
+	store.mods["a"] = []mods.InstalledMod{{ID: "m1"}, {ID: "m2"}}
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.MaybeSendHeartbeat()
 	waitFor(t, func() bool { return sender.heartbeatCount() == 1 })
@@ -214,7 +226,7 @@ func TestSecondHeartbeatWithin24hIsNotSent(t *testing.T) {
 	})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.MaybeSendHeartbeat()
 	time.Sleep(50 * time.Millisecond)
@@ -229,7 +241,7 @@ func TestEligibleHeartbeatAfterIntervalIsSent(t *testing.T) {
 	})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.MaybeSendHeartbeat()
 	waitFor(t, func() bool { return sender.heartbeatCount() == 1 })
@@ -242,7 +254,7 @@ func TestHeartbeatEligibilityUsesInjectableClock(t *testing.T) {
 	})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 	service.now = func() time.Time { return now }
 
 	service.MaybeSendHeartbeat()
@@ -260,7 +272,7 @@ func TestFailedHeartbeatDoesNotAdvanceLastSuccess(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{heartbeatError: errors.New("server down")}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.MaybeSendHeartbeat()
 	waitFor(t, func() bool { return sender.heartbeatCount() == 1 })
@@ -274,7 +286,7 @@ func TestFailedHeartbeatStaysEligible(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.sendHeartbeat(context.Background())
 	service.sendHeartbeat(context.Background())
@@ -287,7 +299,7 @@ func TestConcurrentHeartbeatsSendOnce(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	var wg sync.WaitGroup
 	for range 8 {
@@ -309,7 +321,7 @@ func TestEventDeliveredWhenEnabled(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Event(context.Background(), EventInstanceCreated)
 	waitFor(t, func() bool { return sender.eventCount() == 1 })
@@ -329,7 +341,7 @@ func TestUnknownEventNamesAreDropped(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Event(context.Background(), "not_in_allowlist")
 	service.Event(context.Background(), "clicked_delete_button")
@@ -343,7 +355,7 @@ func TestDisablingPreventsFurtherEvents(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Event(context.Background(), EventInstanceCreated)
 	waitFor(t, func() bool { return sender.eventCount() == 1 })
@@ -367,7 +379,7 @@ func TestDisablingBeforeHeartbeatDeliveryPreventsTransmission(t *testing.T) {
 	}
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	done := make(chan struct{})
 	go func() {
@@ -388,7 +400,7 @@ func TestErrorTaxonomyRejectsUnknownValues(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Error(context.Background(), "UNKNOWN_ERROR", ComponentLauncher, OperationLaunchGame)
 	service.Error(context.Background(), ErrorGameLaunchFailed, "not_a_component", OperationLaunchGame)
@@ -403,7 +415,7 @@ func TestStructuredErrorPayloadHasNoRawText(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Error(context.Background(), ErrorModDownloadHTTP404, ComponentModDownloader, OperationDownloadMod)
 	waitFor(t, func() bool { return sender.errorCount() == 1 })
@@ -419,10 +431,10 @@ func TestStructuredErrorPayloadHasNoRawText(t *testing.T) {
 func TestHeartbeatPayloadContainsOnlyApprovedFields(t *testing.T) {
 	store := newFakeStore(t, map[string]string{})
 	store.setEnabled(true)
-	store.instances = []domain.Instance{{ID: "a", Name: "secret-instance-name"}}
-	store.mods["a"] = []domain.InstalledMod{{ID: "m1", Name: "secret-mod-name", FilePath: "/home/user/.waxlight/instances/a/Mods/secret.zip"}}
+	store.instances = []instances.Instance{{ID: "a", Name: "secret-instance-name"}}
+	store.mods["a"] = []mods.InstalledMod{{ID: "m1", Name: "secret-mod-name", FilePath: "/home/user/.waxlight/instances/a/Mods/secret.zip"}}
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.sendHeartbeat(context.Background())
 	heartbeat, ok := sender.lastHeartbeat()
@@ -445,7 +457,7 @@ func TestSettingsErrorFailsClosed(t *testing.T) {
 	store.setEnabled(true)
 	store.setErr(errors.New("database locked"))
 	sender := &fakeSender{}
-	service := NewService(sender, store)
+	service := NewService(sender, store, store, store, testWorkers{})
 
 	service.Event(context.Background(), EventInstanceCreated)
 	service.MaybeSendHeartbeat()

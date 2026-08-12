@@ -1,5 +1,5 @@
 import { call } from "./bridge";
-import type { ImportReport, PackageAuthor, PackageInspection, PackageManifest } from "./types";
+import type { Operation, PackageAuthor, PackageInspection, PackageManifest } from "./types";
 
 export const instancePackageApi = {
   export: (request: {
@@ -20,7 +20,7 @@ export const instancePackageApi = {
     installVersion: boolean;
     allowIncompatible: boolean;
     skipUnavailable: boolean;
-  }) => call<ImportReport>("InstancePackageController", "ImportPackage", request),
+  }) => call<Operation>("InstancePackageController", "ImportPackage", request),
   selectExportPath: (suggestedName: string) =>
     call<string>("InstancePackageController", "SelectExportPath", suggestedName),
   selectPackageFile: () => call<string>("InstancePackageController", "SelectPackageFile"),

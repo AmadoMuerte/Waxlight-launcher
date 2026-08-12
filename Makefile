@@ -43,8 +43,10 @@ RELEASE_TAG = v$(VERSION)
 	race \
 	vet \
 	security \
+	architecture \
 	security-patterns \
 	vulncheck \
+	api-inventory \
 	package-linux \
 	release-check \
 	check-version-argument \
@@ -90,6 +92,9 @@ help:
 	@echo
 	@echo "  make security"
 	@echo "      Run security-pattern and vulnerability checks."
+	@echo
+	@echo "  make api-inventory"
+	@echo "      Regenerate the checked-in Wails API inventory."
 	@echo
 	@echo "  make release-check VERSION=X.Y.Z"
 	@echo "      Run all checks for a release."
@@ -196,6 +201,9 @@ wails-build:
 		-clean \
 		-trimpath \
 		-ldflags="-s -w"
+	# The generated models.ts carries whitespace-only blank lines; normalize
+	# them so the checked-in bindings stay diff-check clean.
+	sed -i 's/[[:space:]]*$$//' frontend/src/wailsjs/go/models.ts
 
 build-windows:
 	@if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then \
@@ -222,6 +230,9 @@ test-frontend:
 
 test: frontend test-backend test-frontend
 
+api-inventory:
+	$(GO) run ./internal/transport/wails/inventory
+
 format:
 	$(GOFMT) -w $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done)
 	$(NPM) --prefix frontend run format
@@ -246,6 +257,9 @@ race:
 vet:
 	$(GO) vet ./...
 
+architecture:
+	./scripts/check-architecture.sh
+
 security-patterns:
 	./scripts/check-security-patterns.sh
 
@@ -255,7 +269,7 @@ vulncheck:
 		golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) \
 		./...
 
-security: security-patterns vulncheck
+security: security-patterns vulncheck architecture
 
 package-linux: check-version-argument
 	./scripts/build-linux.sh "$(VERSION)" "$(RELEASE_DIR)"

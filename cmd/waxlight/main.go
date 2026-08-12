@@ -10,12 +10,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
-	"github.com/waxlight/waxlight-launcher/internal/bootstrap"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/logging"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/mousenavigation"
-	"github.com/waxlight/waxlight-launcher/internal/infrastructure/updater"
+	"github.com/waxlight/waxlight-launcher/internal/app"
+	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
+	"github.com/waxlight/waxlight-launcher/internal/platform/mousenavigation"
+	"github.com/waxlight/waxlight-launcher/internal/platform/updater"
 )
 
 // appIcon is embedded into the executable so Linux window managers can use
@@ -26,7 +25,7 @@ var appIcon []byte
 
 func main() {
 	// Set up the shared launcher logger before anything else so every log
-	// line, including bootstrap failures, reaches the in-memory console.
+	// line, including construction failures, reaches the in-memory console.
 	logging.Setup(logging.DefaultCapacity)
 
 	// The updated portable binary is launched by the old process with
@@ -37,9 +36,9 @@ func main() {
 		updater.WaitForParent(pid, 30*time.Second)
 	}
 
-	container, err := bootstrap.New()
+	container, err := app.New()
 	if err != nil {
-		logging.Fatal("Failed to bootstrap the launcher", err)
+		logging.Fatal("Failed to construct the launcher", err)
 	}
 
 	err = wails.Run(&options.App{
@@ -53,7 +52,7 @@ func main() {
 		OnStartup:        container.Startup,
 		OnDomReady: func(ctx context.Context) {
 			mousenavigation.Install(func(direction int) {
-				runtime.EventsEmit(ctx, "navigation:mouse", direction)
+				container.Events.Publish("navigation:mouse", direction)
 			})
 		},
 		OnShutdown: container.Shutdown,

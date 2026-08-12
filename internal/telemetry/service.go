@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/domain"
+	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/version"
 )
 
@@ -19,15 +21,14 @@ const HeartbeatInterval = 24 * time.Hour
 // the normal Waxlight settings storage.
 const lastHeartbeatKey = "telemetry_last_heartbeat"
 
-// Store is the subset of application state telemetry reads. The application
-// Service satisfies it; the count sources are the same authoritative stores
-// the rest of Waxlight uses, so telemetry never scans directories or parses
-// archives by itself.
+// Store contains only authoritative instance and mod count sources.
 type Store interface {
-	KVStore
-	GetSettings(context.Context) (domain.Settings, error)
-	ListInstances(context.Context) ([]domain.Instance, error)
-	ListMods(context.Context, string) ([]domain.InstalledMod, error)
+	ListInstances(context.Context) ([]instances.Instance, error)
+	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+}
+
+type SettingsReader interface {
+	Get(context.Context) (settings.Settings, error)
 }
 
 // Sender delivers telemetry payloads. The HTTP Client implements it; tests
@@ -38,6 +39,14 @@ type Sender interface {
 	SendError(context.Context, ErrorEvent) error
 }
 
+// WorkerGroup starts background telemetry delivery derived from the
+// application lifecycle context. In-flight deliveries are cancellable through
+// the worker context and are joined when the lifecycle shuts down; a refused
+// worker (shutdown already begun) is safely abandoned.
+type WorkerGroup interface {
+	Go(func(context.Context)) bool
+}
+
 // Service coordinates telemetry collection, scheduling, and delivery.
 //
 // Telemetry is strictly best-effort: it is never required for launcher
@@ -46,7 +55,10 @@ type Sender interface {
 type Service struct {
 	sender           Sender
 	store            Store
+	settings         SettingsReader
+	values           settings.ValueRepository
 	identity         *identity
+	workers          WorkerGroup
 	now              func() time.Time
 	deliveryMu       sync.RWMutex
 	heartbeatMu      sync.Mutex
@@ -61,11 +73,14 @@ func (s *Service) SynchronizeConsent(change func() error) error {
 	return change()
 }
 
-func NewService(sender Sender, store Store) *Service {
+func NewService(sender Sender, reader SettingsReader, values settings.ValueRepository, store Store, workers WorkerGroup) *Service {
 	return &Service{
 		sender:   sender,
 		store:    store,
-		identity: newIdentity(store),
+		settings: reader,
+		values:   values,
+		identity: newIdentity(values),
+		workers:  workers,
 		now:      func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -74,7 +89,7 @@ func NewService(sender Sender, store Store) *Service {
 // any settings error is treated as disabled, and nothing is ever transmitted
 // while the setting forbids it.
 func (s *Service) Enabled(ctx context.Context) bool {
-	settings, err := s.store.GetSettings(ctx)
+	settings, err := s.settings.Get(ctx)
 	if err != nil {
 		slog.Debug("telemetry: settings unavailable, treating as disabled", "error", err)
 		return false
@@ -93,7 +108,9 @@ func (s *Service) Event(ctx context.Context, name string) {
 	if !s.Enabled(ctx) {
 		return
 	}
-	go s.sendEvent(context.Background(), name)
+	s.workers.Go(func(workerCtx context.Context) {
+		s.sendEvent(workerCtx, name)
+	})
 }
 
 func (s *Service) sendEvent(ctx context.Context, name string) {
@@ -140,7 +157,9 @@ func (s *Service) Error(ctx context.Context, code, component, operation string) 
 	if !s.Enabled(ctx) {
 		return
 	}
-	go s.sendError(context.Background(), code, component, operation)
+	s.workers.Go(func(workerCtx context.Context) {
+		s.sendError(workerCtx, code, component, operation)
+	})
 }
 
 func (s *Service) sendError(ctx context.Context, code, component, operation string) {
@@ -182,26 +201,35 @@ func (s *Service) MaybeSendHeartbeat() {
 		return
 	}
 	s.heartbeatMu.Lock()
-	defer s.heartbeatMu.Unlock()
-	if raw, err := s.store.GetSettingValue(ctx, lastHeartbeatKey); err == nil {
+	if raw, err := s.values.GetSettingValue(ctx, lastHeartbeatKey); err == nil {
 		if last, parseErr := time.Parse(time.RFC3339, raw); parseErr == nil {
 			if s.now().Sub(last) < HeartbeatInterval {
+				s.heartbeatMu.Unlock()
 				return
 			}
 		}
 	}
 	if s.heartbeatPending {
+		s.heartbeatMu.Unlock()
 		return
 	}
 	s.heartbeatPending = true
-	go func() {
+	s.heartbeatMu.Unlock()
+	started := s.workers.Go(func(ctx context.Context) {
 		defer func() {
 			s.heartbeatMu.Lock()
 			s.heartbeatPending = false
 			s.heartbeatMu.Unlock()
 		}()
-		s.sendHeartbeat(context.Background())
-	}()
+		s.sendHeartbeat(ctx)
+	})
+	if !started {
+		// Shutdown already began; the delivery is safely abandoned and the
+		// pending flag must not keep future heartbeats blocked.
+		s.heartbeatMu.Lock()
+		s.heartbeatPending = false
+		s.heartbeatMu.Unlock()
+	}
 }
 
 func (s *Service) sendHeartbeat(ctx context.Context) {
@@ -246,7 +274,7 @@ func (s *Service) sendHeartbeat(ctx context.Context) {
 		slog.Debug("telemetry: heartbeat delivery failed")
 		return
 	}
-	if err := s.store.SetSettingValue(ctx, lastHeartbeatKey, s.now().Format(time.RFC3339)); err != nil {
+	if err := s.values.SetSettingValue(ctx, lastHeartbeatKey, s.now().Format(time.RFC3339)); err != nil {
 		slog.Debug("telemetry: could not persist heartbeat time", "error", err)
 	}
 	slog.Debug("telemetry: heartbeat sent")

@@ -587,6 +587,7 @@
   "operation_restoring_snapshot": "Återställer ögonblicksbild",
   "operation_restoring_files": "Återställer filer…",
   "operation_downloading_mods": "Laddar ner moddar…",
+  "operation_importing_instance": "Importerar instans",
   "operation_finishing_restore": "Slutför återställning…",
   "operation_restoring_mods_progress": "Återställer moddar {{done}} / {{total}}",
   "last_known_good": "Senast kända fungerande tillstånd",

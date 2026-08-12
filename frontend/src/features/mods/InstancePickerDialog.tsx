@@ -237,9 +237,13 @@ export function InstancePickerDialog({
   }
 
   async function cancel() {
-    if (taskId.current) {
+    const id = taskId.current;
+    const finished = progress?.phase === "complete" || progress?.phase === "failed";
+    // A finished task has no cancelable backend state; asking the backend to
+    // cancel it would surface a harmless "Mod task not found" error.
+    if (taskStarted.current && phase !== "result" && !finished && id) {
       try {
-        await modCatalogApi.cancelTask(taskId.current);
+        await modCatalogApi.cancelTask(id);
       } catch {
         // The task may have completed between the click and cancellation.
       }
