@@ -30,6 +30,7 @@ import { errorMessage } from "../../shared/api/bridge";
 import { FAVORITE_SERVERS_QUERY_KEY } from "../../shared/api/keys";
 import { launcherApi } from "../../shared/api/launcher";
 import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
 import { Empty } from "../../shared/ui/empty";
 import { Modal } from "../../shared/ui/modal";
 import { PageHeader } from "../../shared/ui/page-header";
@@ -48,6 +49,10 @@ const SERVER_PAGE_SIZE = 60;
 
 function serverKey(server: { name: string; address: string }) {
   return `${server.address}\u0000${server.name}`;
+}
+
+function canRequestServerLaunch(server: PublicServer) {
+  return server.joinable || (server.accessRestricted && !server.address);
 }
 
 function PlayButton({
@@ -128,7 +133,7 @@ const PublicServerCard = memo(function PublicServerCard({
         </Button>
         <PlayButton
           blockedByWhitelist={server.requiresWhitelist}
-          disabled={!server.joinable}
+          disabled={!canRequestServerLaunch(server)}
           onClick={(event) => {
             event.stopPropagation();
             onPlay(server, favorite);
@@ -271,6 +276,7 @@ export function ServersPage() {
   const [activeTab, setActiveTab] = useState<ServerTab>("public");
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [showWhitelistServers, setShowWhitelistServers] = useState(false);
   const [visibleServerCount, setVisibleServerCount] = useState(SERVER_PAGE_SIZE);
   const [detailsServer, setDetailsServer] = useState<PublicServer>();
   const [launchServer, setLaunchServer] = useState<{
@@ -327,14 +333,19 @@ export function ServersPage() {
     if (!launchServer || !launchInstanceID) return;
     setBusy(true);
     try {
-      await launcherApi.launchServer(launchInstanceID, launchServer.server.address);
-      await serversApi.saveFavorite({
-        id: launchServer.favorite?.id ?? "",
-        name: launchServer.server.name,
-        address: launchServer.server.address,
-        instanceId: launchInstanceID,
-      });
-      await refreshFavorites();
+      const address = launchServer.server.address.trim();
+      if (address) {
+        await launcherApi.launchServer(launchInstanceID, address);
+        await serversApi.saveFavorite({
+          id: launchServer.favorite?.id ?? "",
+          name: launchServer.server.name,
+          address,
+          instanceId: launchInstanceID,
+        });
+        await refreshFavorites();
+      } else {
+        await launcherApi.launch(launchInstanceID);
+      }
       setLaunchServer(undefined);
       notify(t("server_opened_in_game"));
     } catch (error) {
@@ -360,6 +371,7 @@ export function ServersPage() {
   const favoriteByKey = new Map(favorites.map((server) => [serverKey(server), server]));
   const normalizedSearch = deferredSearch.trim().toLocaleLowerCase();
   const catalog = (publicServers.data ?? []).filter((server) => {
+    if (server.requiresWhitelist && !showWhitelistServers) return false;
     return (
       !normalizedSearch ||
       `${server.name} ${server.address} ${server.description}`
@@ -373,10 +385,11 @@ export function ServersPage() {
 
   useEffect(() => {
     setVisibleServerCount(SERVER_PAGE_SIZE);
-  }, [deferredSearch]);
+  }, [deferredSearch, showWhitelistServers]);
 
   function resetFilters() {
     setSearch("");
+    setShowWhitelistServers(false);
   }
 
   return (
@@ -414,6 +427,12 @@ export function ServersPage() {
               aria-label={t("search_servers")}
             />
           </label>
+          <Checkbox
+            className="serversWhitelistFilter"
+            label={t("show_whitelist_servers")}
+            checked={showWhitelistServers}
+            onChange={(event) => setShowWhitelistServers(event.target.checked)}
+          />
           <Button variant="ghost" className="serversReset" onClick={resetFilters}>
             <RotateCcw size={16} /> {t("reset")}
           </Button>
@@ -491,7 +510,7 @@ export function ServersPage() {
                 </Button>
                 <PlayButton
                   blockedByWhitelist={featuredServer.requiresWhitelist}
-                  disabled={!featuredServer.joinable}
+                  disabled={!canRequestServerLaunch(featuredServer)}
                   onClick={() =>
                     requestPlay(featuredServer, favoriteByKey.get(serverKey(featuredServer)))
                   }
@@ -578,7 +597,7 @@ export function ServersPage() {
             </Button>
             <PlayButton
               blockedByWhitelist={detailsServer.requiresWhitelist}
-              disabled={!detailsServer.joinable}
+              disabled={!canRequestServerLaunch(detailsServer)}
               onClick={() =>
                 requestPlay(detailsServer, favoriteByKey.get(serverKey(detailsServer)))
               }
@@ -591,7 +610,12 @@ export function ServersPage() {
         <Modal title={t("play")} onClose={() => setLaunchServer(undefined)}>
           <div className="modalBody formFields">
             <p className="serverLaunchName">{launchServer.server.name}</p>
-            <p className="serverDetailsAddress">{launchServer.server.address}</p>
+            {launchServer.server.address && (
+              <p className="serverDetailsAddress">{launchServer.server.address}</p>
+            )}
+            {launchServer.server.accessRestricted && (
+              <p className="serverPasswordNotice">{t("server_password_enter_in_game")}</p>
+            )}
             <label className="field">
               <span>{t("linked_instance")}</span>
               <Select value={launchInstanceID} onValueChange={setLaunchInstanceID}>

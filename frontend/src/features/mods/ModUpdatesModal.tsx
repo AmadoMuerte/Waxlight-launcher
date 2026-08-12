@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../shared/ui/select";
+import { Spinner } from "../../shared/ui/spinner";
 import { plainText, releaseTypeLabel } from "./lib";
 
 interface ModUpdatesModalProps {
@@ -43,12 +44,15 @@ export function ModUpdatesModal({
     Object.fromEntries(updates.map((mod) => [mod.modId, mod.targetVersionId])),
   );
   const [versionsByModId, setVersionsByModId] = useState<Record<string, ModVersion[]>>({});
+  const [versionsLoading, setVersionsLoading] = useState(updates.length > 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const applyingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     const updateable = report.mods.filter((mod) => mod.status === "update_available");
+    setVersionsLoading(updateable.length > 0);
     void (async () => {
       const entries = await Promise.all(
         updateable.map(async (mod) => {
@@ -60,7 +64,10 @@ export function ModUpdatesModal({
           }
         }),
       );
-      if (active) setVersionsByModId(Object.fromEntries(entries));
+      if (active) {
+        setVersionsByModId(Object.fromEntries(entries));
+        setVersionsLoading(false);
+      }
     })();
     return () => {
       active = false;
@@ -85,6 +92,8 @@ export function ModUpdatesModal({
   const notUpdatable = report.summary.notUpdatableLocal + report.summary.notUpdatableAbsent;
 
   async function applyUpdates() {
+    if (versionsLoading || applyingRef.current || pending.length === 0) return;
+    applyingRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -104,6 +113,7 @@ export function ModUpdatesModal({
     } catch (applyError) {
       setError(errorMessage(applyError));
     } finally {
+      applyingRef.current = false;
       setBusy(false);
     }
   }
@@ -111,68 +121,77 @@ export function ModUpdatesModal({
   return (
     <Modal title={t("update_mods")} className="modUpdatesDialog" onClose={onClose}>
       <div className="modalBody formFields">
-        <p className="muted">
-          {t("mod_updates_for", { name: instanceName })}
-          {report.gameVersion ? ` · ${t("vintage_story")} ${report.gameVersion}` : ""}
-        </p>
-
-        {updates.length === 0 ? (
-          <div className="inlineNotice">{t("no_mod_updates")}</div>
+        {versionsLoading ? (
+          <output className="modUpdatesLoading">
+            <Spinner />
+            <span>{t("loading_mods")}</span>
+          </output>
         ) : (
-          <ul className="modUpdateList">
-            {updates.map((mod) => {
-              const selectedVersionId = versionIds[mod.modId] ?? mod.targetVersionId;
-              const versions = (versionsByModId[mod.modId] ?? []).filter(
-                (version) => version.version !== mod.installedVersion,
-              );
-              return (
-                <ModUpdateRow
-                  key={mod.modId}
-                  mod={mod}
-                  gameVersion={report.gameVersion}
-                  versions={versions}
-                  selected={selectedModIds.has(mod.modId)}
-                  selectedVersionId={selectedVersionId}
-                  compatible={selectedVersionIsCompatible(mod)}
-                  onSelectedChange={(selected) => {
-                    setSelectedModIds((current) => {
-                      const next = new Set(current);
-                      if (selected) next.add(mod.modId);
-                      else next.delete(mod.modId);
-                      return next;
-                    });
-                  }}
-                  onVersionChange={(versionId) =>
-                    setVersionIds((current) => ({ ...current, [mod.modId]: versionId }))
-                  }
-                />
-              );
-            })}
-          </ul>
-        )}
+          <>
+            <p className="muted">
+              {t("mod_updates_for", { name: instanceName })}
+              {report.gameVersion ? ` · ${t("vintage_story")} ${report.gameVersion}` : ""}
+            </p>
 
-        {skipped.length > 0 && (
-          <div className="inlineNotice warning">
-            {t("mod_updates_skipped", { count: skipped.length })}
-          </div>
-        )}
+            {updates.length === 0 ? (
+              <div className="inlineNotice">{t("no_mod_updates")}</div>
+            ) : (
+              <ul className="modUpdateList">
+                {updates.map((mod) => {
+                  const selectedVersionId = versionIds[mod.modId] ?? mod.targetVersionId;
+                  const versions = (versionsByModId[mod.modId] ?? []).filter(
+                    (version) => version.version !== mod.installedVersion,
+                  );
+                  return (
+                    <ModUpdateRow
+                      key={mod.modId}
+                      mod={mod}
+                      gameVersion={report.gameVersion}
+                      versions={versions}
+                      selected={selectedModIds.has(mod.modId)}
+                      selectedVersionId={selectedVersionId}
+                      compatible={selectedVersionIsCompatible(mod)}
+                      onSelectedChange={(selected) => {
+                        setSelectedModIds((current) => {
+                          const next = new Set(current);
+                          if (selected) next.add(mod.modId);
+                          else next.delete(mod.modId);
+                          return next;
+                        });
+                      }}
+                      onVersionChange={(versionId) =>
+                        setVersionIds((current) => ({ ...current, [mod.modId]: versionId }))
+                      }
+                    />
+                  );
+                })}
+              </ul>
+            )}
 
-        {notUpdatable > 0 && (
-          <div className="inlineNotice">
-            {t("mods_not_updatable_hint", { count: notUpdatable })}
-          </div>
-        )}
+            {skipped.length > 0 && (
+              <div className="inlineNotice warning">
+                {t("mod_updates_skipped", { count: skipped.length })}
+              </div>
+            )}
 
-        <Checkbox
-          label={t("allow_incompatible_mod_updates")}
-          checked={allowIncompatible}
-          onChange={(event) => setAllowIncompatible(event.target.checked)}
-        />
+            {notUpdatable > 0 && (
+              <div className="inlineNotice">
+                {t("mods_not_updatable_hint", { count: notUpdatable })}
+              </div>
+            )}
 
-        {error && (
-          <div className="inlineError" role="alert">
-            {error}
-          </div>
+            <Checkbox
+              label={t("allow_incompatible_mod_updates")}
+              checked={allowIncompatible}
+              onChange={(event) => setAllowIncompatible(event.target.checked)}
+            />
+
+            {error && (
+              <div className="inlineError" role="alert">
+                {error}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -183,10 +202,10 @@ export function ModUpdatesModal({
         <Button
           type="button"
           busy={busy}
-          disabled={updates.length === 0 || pending.length === 0}
+          disabled={versionsLoading || updates.length === 0 || pending.length === 0}
           onClick={() => void applyUpdates()}
         >
-          {t("update_mods_count", { count: pending.length })}
+          {versionsLoading ? t("loading_mods") : t("update_mods_count", { count: pending.length })}
         </Button>
       </div>
     </Modal>

@@ -119,7 +119,6 @@ type PackageInspection struct {
 type ExportInstanceOptions struct {
 	Name        string
 	Description string
-	Author      *PackageAuthor
 }
 
 // ImportInstanceOptions controls how a package is installed as a new instance.

@@ -37,6 +37,16 @@ func TestPublicAuthenticationDTOsAreAllowListed(t *testing.T) {
 	}
 }
 
+func TestExportInstanceRequestHasNoAuthorMetadata(t *testing.T) {
+	typeOf := reflect.TypeOf(ExportInstanceRequest{})
+	for index := 0; index < typeOf.NumField(); index++ {
+		field := typeOf.Field(index)
+		if strings.Contains(strings.ToLower(field.Name+" "+field.Tag.Get("json")), "author") {
+			t.Fatalf("%s exposes removed author field %s", typeOf.Name(), field.Name)
+		}
+	}
+}
+
 func TestGeneratedWailsBindingsContainNoSecretFields(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
