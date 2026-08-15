@@ -204,6 +204,13 @@ func (service *CatalogService) listDownloadedMods(ctx context.Context) ([]Downlo
 		}
 	}
 	for index := range items {
+		if items[index].Tags == nil {
+			details, catalogErr := service.catalog.Get(ctx, items[index].ModID)
+			if catalogErr == nil {
+				items[index].Tags = append([]string{}, details.Tags...)
+				_ = service.downloads.Save(ctx, items[index])
+			}
+		}
 		items[index].InstalledInstances = installedBySource[modDownloadKey(items[index].ModID, items[index].VersionID)]
 	}
 	sort.Slice(items, func(left, right int) bool {

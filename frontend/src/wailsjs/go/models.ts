@@ -98,6 +98,7 @@ export namespace wails {
 	    versionId: string;
 	    downloadedVersion: string;
 	    gameVersions: string[];
+	    tags: string[];
 	    fileName: string;
 	    fileSize: number;
 	    downloadedAt: string;
@@ -120,6 +121,7 @@ export namespace wails {
 	        this.versionId = source["versionId"];
 	        this.downloadedVersion = source["downloadedVersion"];
 	        this.gameVersions = source["gameVersions"];
+	        this.tags = source["tags"];
 	        this.fileName = source["fileName"];
 	        this.fileSize = source["fileSize"];
 	        this.downloadedAt = source["downloadedAt"];
