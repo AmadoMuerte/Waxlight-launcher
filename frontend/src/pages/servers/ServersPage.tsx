@@ -4,6 +4,7 @@ import {
   Gamepad2,
   Globe2,
   Heart,
+  Link,
   LockKeyhole,
   RotateCcw,
   Search,
@@ -20,6 +21,7 @@ import {
   type MouseEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useInstancesQuery } from "../../entities/instance/queries";
@@ -29,6 +31,7 @@ import { useFavoriteServersQuery, usePublicServersQuery } from "../../entities/s
 import { errorMessage } from "../../shared/api/bridge";
 import { FAVORITE_SERVERS_QUERY_KEY } from "../../shared/api/keys";
 import { launcherApi } from "../../shared/api/launcher";
+import { normalizeServerAddress, serverShareURL } from "../../shared/lib/waxlight-links";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { Empty } from "../../shared/ui/empty";
@@ -42,13 +45,14 @@ import {
   SelectValue,
 } from "../../shared/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/ui/tooltip";
+import { ClipboardSetText } from "../../wailsjs/runtime/runtime";
 
 type ServerTab = "favorites" | "public";
 
 const SERVER_PAGE_SIZE = 60;
 
 function serverKey(server: { name: string; address: string }) {
-  return `${server.address}\u0000${server.name}`;
+  return normalizeServerAddress(server.address) ?? `${server.address}\u0000${server.name}`;
 }
 
 function canRequestServerLaunch(server: PublicServer) {
@@ -268,9 +272,12 @@ const FavoriteServerCard = memo(function FavoriteServerCard({
 
 export function ServersPage() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
-  const { data: favorites = [] } = useFavoriteServersQuery();
+  const favoriteServers = useFavoriteServersQuery();
+  const { data: favorites = [] } = favoriteServers;
   const publicServers = usePublicServersQuery();
   const { data: instances = [] } = useInstancesQuery();
   const [activeTab, setActiveTab] = useState<ServerTab>("public");
@@ -384,12 +391,74 @@ export function ServersPage() {
   const visiblePublicGridServers = publicGridServers.slice(0, visibleServerCount);
 
   useEffect(() => {
+    const address = normalizeServerAddress(
+      location.state && typeof location.state === "object"
+        ? Reflect.get(location.state, "deepLinkAddress")
+        : undefined,
+    );
+    if (!address || publicServers.isLoading || favoriteServers.isLoading) return;
+
+    const publicServer = (publicServers.data ?? []).find(
+      (server) => normalizeServerAddress(server.address) === address,
+    );
+    const favorite = favorites.find((server) => normalizeServerAddress(server.address) === address);
+    setActiveTab("public");
+    setDetailsServer(
+      publicServer ??
+        (favorite
+          ? {
+              name: favorite.name,
+              address: favorite.address,
+              description: "",
+              players: 0,
+              modCount: 0,
+              requiresWhitelist: false,
+              accessRestricted: false,
+              joinable: true,
+            }
+          : {
+              name: t("server"),
+              address,
+              description: t("server_not_in_catalog"),
+              players: 0,
+              modCount: 0,
+              requiresWhitelist: false,
+              accessRestricted: false,
+              joinable: true,
+            }),
+    );
+    void navigate("/servers", { replace: true, state: null });
+  }, [
+    favoriteServers.isLoading,
+    favorites,
+    location.state,
+    navigate,
+    publicServers.data,
+    publicServers.isLoading,
+    t,
+  ]);
+
+  useEffect(() => {
     setVisibleServerCount(SERVER_PAGE_SIZE);
   }, [deferredSearch, showWhitelistServers]);
 
   function resetFilters() {
     setSearch("");
     setShowWhitelistServers(false);
+  }
+
+  async function copyWaxlightLink(address: string) {
+    const url = serverShareURL(address);
+    if (!url) {
+      notify(t("invalid_waxlight_link"), "error");
+      return;
+    }
+    try {
+      if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
+      notify(t("server_link_copied"));
+    } catch {
+      notify(t("waxlight_link_copy_failed"), "error");
+    }
   }
 
   return (
@@ -594,6 +663,13 @@ export function ServersPage() {
           <div className="dialogFooter">
             <Button variant="ghost" onClick={() => setDetailsServer(undefined)}>
               {t("close")}
+            </Button>
+            <Button
+              variant="ghost"
+              aria-label={t("copy_waxlight_link")}
+              onClick={() => void copyWaxlightLink(detailsServer.address)}
+            >
+              <Link size={16} /> {t("copy_waxlight_link")}
             </Button>
             <PlayButton
               blockedByWhitelist={detailsServer.requiresWhitelist}

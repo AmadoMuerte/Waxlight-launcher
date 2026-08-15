@@ -4054,6 +4054,24 @@ main {
   flex-direction: column;
   gap: 6px;
 }
+.modActionButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modShareButton {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  border: 1px solid #403a3d;
+  color: #c9b99d;
+  background: #242125;
+}
+.modShareButton:hover {
+  border-color: #b9823d;
+  color: #f2bf6c;
+  background: #302720;
+}
 .modPrimaryAction small {
   color: #918a85;
   font-size: 12px;
