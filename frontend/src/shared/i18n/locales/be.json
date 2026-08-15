@@ -593,6 +593,7 @@
   "loading_snapshots": "Загрузка рэзервовых копій…",
   "operation_creating_safety_backup": "Стварэнне рэзервовай копіі…",
   "operation_installing_game_version": "Устаноўка Vintage Story {{name}}",
+  "operation_installing_windows_game_version": "Устаноўка Vintage Story {{name}}. Выберыце «Не», калі ўсталёўшчык прапануе выдаліць старую версію",
   "operation_downloading_game_version": "Спампоўка Vintage Story {{name}}",
   "operation_installing_mod": "Устаноўка мода",
   "operation_creating_snapshot": "Стварэнне здымка",

@@ -593,6 +593,7 @@
   "loading_snapshots": "Сақтық көшірмелер жүктелуде…",
   "operation_creating_safety_backup": "Қауіпсіздік резервтік көшірмесі жасалуда…",
   "operation_installing_game_version": "Vintage Story {{name}} орнатылуда",
+  "operation_installing_windows_game_version": "Vintage Story {{name}} орнатылуда. Орнатушы ескі нұсқаны жоюды ұсынса, «Жоқ» таңдаңыз",
   "operation_downloading_game_version": "Vintage Story {{name}} жүктелуде",
   "operation_installing_mod": "Мод орнатылуда",
   "operation_creating_snapshot": "Снимок жасалуда",

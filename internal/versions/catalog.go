@@ -186,6 +186,10 @@ func (service *CatalogInstallService) installDownloaded(ctx context.Context, rel
 	}
 	operation.Type = "game_version_install"
 	operation.Title, operation.TitleKey = "Installing Vintage Story "+release.Name, titleInstalling
+	if release.Platform == "windows" {
+		operation.Title = "Installing Vintage Story " + release.Name + " - choose No if Setup asks to uninstall the old version"
+		operation.TitleKey = titleInstallingWindows
+	}
 	operation.TitleParams, operation.Progress, operation.BytesPerSecond = titleParams(release.Name), 0.9, 0
 	service.runtime.operations.SaveBestEffort(operation, operations.EventUpdated)
 	target := service.runtime.filesystem.VersionPath(release.ID)
