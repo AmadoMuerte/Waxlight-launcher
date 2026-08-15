@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { Copy, Download, Eraser, FolderOpen, Terminal as TerminalIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
@@ -51,6 +51,19 @@ export function LogConsole() {
     terminalRef.current?.write(lines.join("\r\n") + "\r\n");
   }
 
+  const copyText = useEffectEvent(async (text: string) => {
+    if (!text) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      notify(t("logs_copy_failed"), "error");
+    }
+  });
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
@@ -72,6 +85,17 @@ export function LogConsole() {
     fitAddon.fit();
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "c" &&
+        terminal.hasSelection()
+      ) {
+        void copyText(terminal.getSelection());
+        return false;
+      }
+      return true;
+    });
 
     const unsubscribe = EventsOn("logs:append", (line: unknown) => {
       pushLines([typeof line === "string" ? line : ""]);
@@ -114,18 +138,8 @@ export function LogConsole() {
     }
   }
 
-  async function copyAll() {
-    const text = linesRef.current.join("\n");
-    if (!text) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      notify(t("logs_copy_failed"), "error");
-    }
+  function copyAll() {
+    return copyText(linesRef.current.join("\n"));
   }
 
   function clearConsole() {

@@ -69,6 +69,9 @@ vi.mock("../shared/api/updates", () => ({
     openReleasePage: vi.fn(),
   },
 }));
+vi.mock("../shared/api/deep-links", () => ({
+  deepLinksApi: { consumePending: vi.fn().mockResolvedValue([]) },
+}));
 vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
 vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi: {} }));
@@ -80,6 +83,9 @@ vi.mock("@xterm/xterm", () => ({
     dispose = vi.fn();
     loadAddon = vi.fn();
     open = vi.fn();
+    attachCustomKeyEventHandler = vi.fn();
+    hasSelection = vi.fn(() => false);
+    getSelection = vi.fn(() => "");
   },
 }));
 

@@ -163,6 +163,7 @@ type DownloadedMod struct {
 	VersionID          string                 `json:"versionId"`
 	DownloadedVersion  string                 `json:"downloadedVersion"`
 	GameVersions       []string               `json:"gameVersions"`
+	Tags               []string               `json:"tags"`
 	FileName           string                 `json:"fileName"`
 	FilePath           string                 `json:"filePath"`
 	FileSize           int64                  `json:"fileSize"`

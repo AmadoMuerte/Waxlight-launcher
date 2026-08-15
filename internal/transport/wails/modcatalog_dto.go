@@ -198,6 +198,7 @@ type DownloadedModDTO struct {
 	VersionID          string                    `json:"versionId"`
 	DownloadedVersion  string                    `json:"downloadedVersion"`
 	GameVersions       []string                  `json:"gameVersions"`
+	Tags               []string                  `json:"tags"`
 	FileName           string                    `json:"fileName"`
 	FileSize           int64                     `json:"fileSize"`
 	DownloadedAt       string                    `json:"downloadedAt"`
@@ -212,7 +213,7 @@ func downloadedModDTO(mod mods.DownloadedMod) DownloadedModDTO {
 		AuthorName: mod.AuthorName, ImageURL: mod.ImageURL,
 		Side: string(mod.Side), VersionID: mod.VersionID,
 		DownloadedVersion: mod.DownloadedVersion,
-		GameVersions:      nonNilStrings(mod.GameVersions), FileName: mod.FileName,
+		GameVersions:      nonNilStrings(mod.GameVersions), Tags: nonNilStrings(mod.Tags), FileName: mod.FileName,
 		FileSize: mod.FileSize, DownloadedAt: iso(mod.DownloadedAt),
 		InstalledInstances: []InstalledModInstanceDTO{},
 		LatestVersion:      mod.LatestVersion, UpdateAvailable: mod.UpdateAvailable,

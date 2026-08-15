@@ -12,4 +12,6 @@ export function GetInstance(arg1:string):Promise<wails.InstanceDTO>;
 
 export function ListInstances():Promise<Array<wails.InstanceDTO>>;
 
+export function SelectInstanceCover():Promise<string>;
+
 export function UpdateInstance(arg1:wails.UpdateInstanceRequest):Promise<wails.InstanceDTO>;

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "../../shared/ui/tooltip";
@@ -34,15 +35,17 @@ function publicServer(name: string, requiresWhitelist: boolean) {
   };
 }
 
-function renderPage() {
+function renderPage(deepLinkAddress?: string) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ServersPage />
-      </TooltipProvider>
+      <MemoryRouter initialEntries={[{ pathname: "/servers", state: { deepLinkAddress } }]}>
+        <TooltipProvider>
+          <ServersPage />
+        </TooltipProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -119,5 +122,36 @@ describe("server visibility filters", () => {
     expect(launcherApi.launch).toHaveBeenCalledWith("instance-1");
     expect(launcherApi.launchServer).not.toHaveBeenCalled();
     expect(serversApi.saveFavorite).not.toHaveBeenCalled();
+  });
+
+  it("opens catalog server details from a server deep link", async () => {
+    const server = publicServer("Catalog Server", false);
+    server.address = "catalog.example.com:42420";
+    serversApi.listPublic.mockResolvedValue([server]);
+    renderPage("catalog.example.com:42420");
+
+    expect(await screen.findByRole("dialog", { name: "Catalog Server" })).toBeTruthy();
+  });
+
+  it("opens favorite server details from a server deep link", async () => {
+    serversApi.listFavorites.mockResolvedValue([
+      { id: "favorite-1", name: "Favorite Server", address: "favorite.example.com:42420" },
+    ]);
+    renderPage("favorite.example.com:42420");
+
+    expect(await screen.findByRole("dialog", { name: "Favorite Server" })).toBeTruthy();
+  });
+
+  it("shows a playable fallback when a deep-linked server is not listed", async () => {
+    renderPage("missing.example.com:42420");
+
+    const dialog = await screen.findByRole("dialog", { name: "Server" });
+    expect(within(dialog).getByText("missing.example.com:42420")).toBeTruthy();
+    expect(
+      within(dialog).getByText("This server is not currently listed in the public server catalog."),
+    ).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Play" }).hasAttribute("disabled")).toBe(
+      false,
+    );
   });
 });

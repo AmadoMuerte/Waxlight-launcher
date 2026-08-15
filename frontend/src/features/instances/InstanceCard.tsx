@@ -36,6 +36,7 @@ export const InstanceCard = memo(function InstanceCard({
       <div className="cover">
         <span className="coverLetter">W</span>
         <div className="coverGlow" />
+        {instance.coverUrl && <img className="coverImage" src={instance.coverUrl} alt="" />}
         <StatusPill status={instance.status} />
         {updateCount > 0 && (
           <span

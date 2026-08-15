@@ -1,3 +1,24 @@
+export namespace deeplink {
+
+	export class Target {
+	    type: string;
+	    modId?: string;
+	    address?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new Target(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.modId = source["modId"];
+	        this.address = source["address"];
+	    }
+	}
+
+}
+
 export namespace wails {
 
 	export class AccountDTO {
@@ -98,6 +119,7 @@ export namespace wails {
 	    versionId: string;
 	    downloadedVersion: string;
 	    gameVersions: string[];
+	    tags: string[];
 	    fileName: string;
 	    fileSize: number;
 	    downloadedAt: string;
@@ -120,6 +142,7 @@ export namespace wails {
 	        this.versionId = source["versionId"];
 	        this.downloadedVersion = source["downloadedVersion"];
 	        this.gameVersions = source["gameVersions"];
+	        this.tags = source["tags"];
 	        this.fileName = source["fileName"];
 	        this.fileSize = source["fileSize"];
 	        this.downloadedAt = source["downloadedAt"];
@@ -663,6 +686,7 @@ export namespace wails {
 	    enabledModCount: number;
 	    totalModCount: number;
 	    playtimeSeconds: number;
+	    coverUrl?: string;
 
 	    static createFrom(source: any = {}) {
 	        return new InstanceDTO(source);
@@ -684,6 +708,7 @@ export namespace wails {
 	        this.enabledModCount = source["enabledModCount"];
 	        this.totalModCount = source["totalModCount"];
 	        this.playtimeSeconds = source["playtimeSeconds"];
+	        this.coverUrl = source["coverUrl"];
 	    }
 	}
 	export class ModUpdateSummaryDTO {
@@ -1809,6 +1834,7 @@ export namespace wails {
 	    gameClient?: string;
 	    defaultAccountId?: string;
 	    launchArguments: string[];
+	    coverSourcePath?: string;
 
 	    static createFrom(source: any = {}) {
 	        return new UpdateInstanceRequest(source);
@@ -1823,6 +1849,7 @@ export namespace wails {
 	        this.gameClient = source["gameClient"];
 	        this.defaultAccountId = source["defaultAccountId"];
 	        this.launchArguments = source["launchArguments"];
+	        this.coverSourcePath = source["coverSourcePath"];
 	    }
 	}
 	export class UploadModsResultDTO {

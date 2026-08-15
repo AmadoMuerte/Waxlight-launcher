@@ -142,6 +142,7 @@ type InstanceDTO struct {
 	EnabledModCount  int      `json:"enabledModCount"`
 	TotalModCount    int      `json:"totalModCount"`
 	PlaytimeSeconds  int64    `json:"playtimeSeconds"`
+	CoverURL         *string  `json:"coverUrl,omitempty"`
 }
 
 func instanceDTO(instance instances.Instance) InstanceDTO {
@@ -165,6 +166,10 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 	if instance.LastPlayedAt != nil {
 		value := iso(*instance.LastPlayedAt)
 		result.LastPlayedAt = &value
+	}
+	if instance.CoverPath != nil {
+		value := "/instance-covers/" + instance.ID + "?v=" + iso(instance.UpdatedAt)
+		result.CoverURL = &value
 	}
 	return result
 }

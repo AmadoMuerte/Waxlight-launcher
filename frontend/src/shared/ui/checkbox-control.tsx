@@ -7,6 +7,7 @@ export function Checkbox({
   className = "",
   onChange,
   checked,
+  title,
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: string;
 }) {
@@ -22,7 +23,7 @@ export function Checkbox({
           } as React.ChangeEvent<HTMLInputElement>);
         }}
       />
-      <span>{label}</span>
+      <span title={title}>{label}</span>
     </label>
   );
 }

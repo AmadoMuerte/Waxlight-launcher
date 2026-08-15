@@ -180,12 +180,6 @@ export function ModUpdatesModal({
               </div>
             )}
 
-            <Checkbox
-              label={t("allow_incompatible_mod_updates")}
-              checked={allowIncompatible}
-              onChange={(event) => setAllowIncompatible(event.target.checked)}
-            />
-
             {error && (
               <div className="inlineError" role="alert">
                 {error}
@@ -196,17 +190,27 @@ export function ModUpdatesModal({
       </div>
 
       <div className="dialogFooter">
-        <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
-          {t("cancel")}
-        </Button>
-        <Button
-          type="button"
-          busy={busy}
-          disabled={versionsLoading || updates.length === 0 || pending.length === 0}
-          onClick={() => void applyUpdates()}
-        >
-          {versionsLoading ? t("loading_mods") : t("update_mods_count", { count: pending.length })}
-        </Button>
+        <Checkbox
+          label={t("allow_incompatible_mod_updates")}
+          title={t("allow_incompatible_mod_updates")}
+          checked={allowIncompatible}
+          onChange={(event) => setAllowIncompatible(event.target.checked)}
+        />
+        <div className="row">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+            {t("cancel")}
+          </Button>
+          <Button
+            type="button"
+            busy={busy}
+            disabled={versionsLoading || updates.length === 0 || pending.length === 0}
+            onClick={() => void applyUpdates()}
+          >
+            {versionsLoading
+              ? t("loading_mods")
+              : t("update_mods_count", { count: pending.length })}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

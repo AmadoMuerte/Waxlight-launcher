@@ -124,7 +124,7 @@ export function ModsPage() {
   const downloadedQuery = useDownloadedModsQuery();
   const downloaded = downloadedQuery.data ?? EMPTY_DOWNLOADED_MODS;
 
-  const tagsQuery = useModTagsQuery(view === "all");
+  const tagsQuery = useModTagsQuery(true);
   const tags = tagsQuery.data ?? [];
 
   const catalog = useMemo(
@@ -208,6 +208,8 @@ export function ModsPage() {
       ) {
         return false;
       }
+      if (query.tags.length > 0 && !query.tags.every((tag) => item.tags?.includes(tag)))
+        return false;
       return true;
     });
     const sorted = [...result];
@@ -217,7 +219,7 @@ export function ModsPage() {
       return new Date(right.downloadedAt).getTime() - new Date(left.downloadedAt).getTime();
     });
     return sorted;
-  }, [downloaded, query.gameVersion, query.side, query.sort, query.text]);
+  }, [downloaded, query.gameVersion, query.side, query.sort, query.tags, query.text]);
 
   function updateParams(values: Record<string, string | undefined>, replace = false) {
     const next = new URLSearchParams(searchParams);

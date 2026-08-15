@@ -22,6 +22,10 @@ export function ListInstances() {
   return window['go']['wails']['InstanceController']['ListInstances']();
 }
 
+export function SelectInstanceCover() {
+  return window['go']['wails']['InstanceController']['SelectInstanceCover']();
+}
+
 export function UpdateInstance(arg1) {
   return window['go']['wails']['InstanceController']['UpdateInstance'](arg1);
 }

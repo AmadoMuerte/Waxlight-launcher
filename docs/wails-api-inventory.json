@@ -14,6 +14,9 @@
     "AppController": [
       "AppInfo"
     ],
+    "DeepLinkController": [
+      "ConsumePendingDeepLinks"
+    ],
     "GameVersionController": [
       "InstallLocalVersion",
       "InstallVersion",
@@ -27,6 +30,7 @@
       "DeleteInstance",
       "GetInstance",
       "ListInstances",
+      "SelectInstanceCover",
       "UpdateInstance"
     ],
     "InstancePackageController": [

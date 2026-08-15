@@ -66,6 +66,7 @@ export interface Instance {
   enabledModCount: number;
   totalModCount: number;
   playtimeSeconds: number;
+  coverUrl?: string;
 }
 
 export interface FavoriteServer {
@@ -262,6 +263,7 @@ export interface DownloadedMod {
   versionId: string;
   downloadedVersion: string;
   gameVersions: string[];
+  tags?: string[];
   fileName: string;
   fileSize: number;
   downloadedAt: string;

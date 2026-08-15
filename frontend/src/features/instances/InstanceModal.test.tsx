@@ -14,6 +14,7 @@ const instancesApi = vi.hoisted(() => ({
   list: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  selectCover: vi.fn(),
 }));
 
 const modsApi = vi.hoisted(() => ({
@@ -159,6 +160,7 @@ describe("confirmDeletion gate", () => {
     });
     instancesApi.remove.mockResolvedValue(undefined);
     instancesApi.update.mockResolvedValue(instance);
+    instancesApi.selectCover.mockResolvedValue("/pictures/cover.png");
     modsApi.list.mockResolvedValue([installedMod]);
     modsApi.checkInstanceUpdates.mockResolvedValue({
       gameVersion: "1.20",
@@ -323,6 +325,25 @@ describe("confirmDeletion gate", () => {
     await waitFor(() =>
       expect(instancesApi.update).toHaveBeenCalledWith(
         expect.objectContaining({ id: "instance-1", gameClient: "optimum" }),
+      ),
+    );
+  });
+
+  it("saves a selected cover only after submitting settings", async () => {
+    renderModal();
+    const user = await openSettingsTab();
+
+    await user.click(screen.getByText("Instance cover"));
+    expect(instancesApi.selectCover).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Select" }));
+    expect(instancesApi.selectCover).toHaveBeenCalledOnce();
+    expect(instancesApi.update).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(instancesApi.update).toHaveBeenCalledWith(
+        expect.objectContaining({ coverSourcePath: "/pictures/cover.png" }),
       ),
     );
   });

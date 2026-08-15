@@ -12,6 +12,10 @@ const api = vi.hoisted(() => ({
   exportLogs: vi.fn(),
   openDirectory: vi.fn(),
   eventsOn: vi.fn(),
+  copyHandler: undefined as ((event: KeyboardEvent) => boolean) | undefined,
+  hasSelection: false,
+  selection: "",
+  clipboardWrite: vi.fn(),
 }));
 
 vi.mock("../../shared/api/logs", () => ({
@@ -29,6 +33,11 @@ vi.mock("@xterm/xterm", () => ({
     dispose = vi.fn();
     loadAddon = vi.fn();
     open = vi.fn();
+    attachCustomKeyEventHandler = vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+      api.copyHandler = handler;
+    });
+    hasSelection = vi.fn(() => api.hasSelection);
+    getSelection = vi.fn(() => api.selection);
   },
 }));
 
@@ -71,6 +80,11 @@ describe("LogConsole", () => {
     api.list.mockResolvedValue([]);
     api.exportLogs.mockResolvedValue("");
     api.openDirectory.mockResolvedValue(undefined);
+    api.copyHandler = undefined;
+    api.hasSelection = false;
+    api.selection = "";
+    api.clipboardWrite.mockReset();
+    vi.stubGlobal("navigator", { clipboard: { writeText: api.clipboardWrite } });
   });
 
   afterEach(() => {
@@ -110,6 +124,18 @@ describe("LogConsole", () => {
     renderConsole();
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(1));
     expect(api.eventsOn).toHaveBeenCalledWith("logs:append", expect.any(Function));
+  });
+
+  it("copies the selected terminal text with Ctrl+C", async () => {
+    renderConsole();
+    await waitFor(() => expect(api.copyHandler).toBeTypeOf("function"));
+    api.hasSelection = true;
+    api.selection = "selected log line";
+
+    expect(api.copyHandler?.(new KeyboardEvent("keydown", { key: "c", ctrlKey: true }))).toBe(
+      false,
+    );
+    await waitFor(() => expect(api.clipboardWrite).toHaveBeenCalledWith("selected log line"));
   });
 
   it("exports logs and reports the saved path", async () => {
