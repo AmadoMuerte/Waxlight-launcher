@@ -184,6 +184,7 @@
   "launch_anyway": "Starta ändå?",
   "delete_instance_confirmation": "Ta bort ”{{name}}” och alla dess filer?",
   "instance_settings_saved": "Instansinställningarna har sparats",
+  "instance_cover": "Instansomslag",
   "unsaved_changes": "Det finns osparade ändringar",
   "all_changes_saved": "Alla ändringar har sparats",
   "mods": "Moddar",

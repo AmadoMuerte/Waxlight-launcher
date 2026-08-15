@@ -64,6 +64,7 @@ type Container struct {
 	Lifecycle      *Lifecycle
 	Events         events.Publisher
 	Controllers    []any
+	CoverHandler   *wailstransport.InstanceCoverHandler
 	store          *sqlite.SQLiteStore
 	telemetry      *telemetry.Service
 }
@@ -422,20 +423,23 @@ func NewWithHome(home string) (*Container, error) {
 		version.Version(),
 		telemetryService,
 	)
+	dialogs := wailstransport.NewDialogAdapter(lifecycle)
+	instanceController := wailstransport.NewInstanceController(
+		instanceCreator,
+		instanceQueries,
+		instanceUpdater,
+		instanceDeleter,
+		instanceCloner,
+		statisticsService,
+		modsService,
+		lifecycle,
+		dialogs,
+	)
 	controllers := []any{
 		wailstransport.NewAppController(),
 		wailstransport.NewAccountController(accountService, lifecycle),
 		wailstransport.NewGameVersionController(versionService, lifecycle),
-		wailstransport.NewInstanceController(
-			instanceCreator,
-			instanceQueries,
-			instanceUpdater,
-			instanceDeleter,
-			instanceCloner,
-			statisticsService,
-			modsService,
-			lifecycle,
-		),
+		instanceController,
 		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
 		wailstransport.NewModManagerController(modsService, modsCatalogService, lifecycle),
 		wailstransport.NewModCatalogController(modsCatalogService, lifecycle),
@@ -452,7 +456,7 @@ func NewWithHome(home string) (*Container, error) {
 			dataRootService,
 			optimumService,
 			lifecycle,
-			wailstransport.NewDialogAdapter(lifecycle),
+			dialogs,
 			nativefs.Opener{},
 		),
 		wailstransport.NewLauncherUpdateController(updateService, lifecycle, eventPublisher),
@@ -465,6 +469,7 @@ func NewWithHome(home string) (*Container, error) {
 		Lifecycle:      lifecycle,
 		Events:         eventPublisher,
 		Controllers:    controllers,
+		CoverHandler:   wailstransport.NewInstanceCoverHandler(instanceQueries),
 		store:          store,
 		telemetry:      telemetryService,
 	}, nil

@@ -184,6 +184,7 @@
   "launch_anyway": "Усё роўна запусціць?",
   "delete_instance_confirmation": "Выдаліць «{{name}}» і ўсе яе файлы?",
   "instance_settings_saved": "Налады зборкі захаваны",
+  "instance_cover": "Вокладка зборкі",
   "unsaved_changes": "Ёсць незахаваныя змены",
   "all_changes_saved": "Усе змены захаваны",
   "mods": "Моды",

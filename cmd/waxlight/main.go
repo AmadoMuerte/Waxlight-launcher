@@ -47,7 +47,7 @@ func main() {
 		Height:           780,
 		MinWidth:         620,
 		MinHeight:        640,
-		AssetServer:      &assetserver.Options{Assets: frontendassets.Assets},
+		AssetServer:      &assetserver.Options{Assets: frontendassets.Assets, Handler: container.CoverHandler},
 		BackgroundColour: &options.RGBA{R: 13, G: 13, B: 16, A: 1},
 		OnStartup:        container.Startup,
 		OnDomReady: func(ctx context.Context) {

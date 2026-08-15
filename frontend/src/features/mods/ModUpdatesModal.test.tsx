@@ -120,7 +120,7 @@ describe("ModUpdatesModal", () => {
     expect(apply.disabled).toBe(true);
     expect(screen.getByRole("status").textContent).toBe("Loading mods");
     expect(screen.queryByText("Stone Quarry")).toBeNull();
-    expect(screen.queryByLabelText(/allow updates/i)).toBeNull();
+    expect(screen.getByLabelText(/allow updates/i)).toBeTruthy();
     await user.click(apply);
     expect(api.updateInstance).not.toHaveBeenCalled();
 

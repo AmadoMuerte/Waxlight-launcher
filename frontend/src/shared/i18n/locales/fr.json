@@ -184,6 +184,7 @@
   "launch_anyway": "Lancer quand même ?",
   "delete_instance_confirmation": "Supprimer « {{name}} » et tous ses fichiers ?",
   "instance_settings_saved": "Paramètres de l’instance enregistrés",
+  "instance_cover": "Image de l’instance",
   "unsaved_changes": "Des modifications ne sont pas enregistrées",
   "all_changes_saved": "Toutes les modifications sont enregistrées",
   "mods": "Mods",

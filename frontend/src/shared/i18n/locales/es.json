@@ -184,6 +184,7 @@
   "launch_anyway": "¿Iniciar de todos modos?",
   "delete_instance_confirmation": "¿Eliminar «{{name}}» y todos sus archivos?",
   "instance_settings_saved": "Configuración de la instancia guardada",
+  "instance_cover": "Portada de la instancia",
   "unsaved_changes": "Hay cambios sin guardar",
   "all_changes_saved": "Todos los cambios están guardados",
   "mods": "Mods",

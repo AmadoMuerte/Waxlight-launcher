@@ -184,6 +184,7 @@
   "launch_anyway": "Бәрібір іске қосу керек пе?",
   "delete_instance_confirmation": "«{{name}}» жинағын және оның барлық файлдарын жою керек пе?",
   "instance_settings_saved": "Жинақ параметрлері сақталды",
+  "instance_cover": "Жинақ мұқабасы",
   "unsaved_changes": "Сақталмаған өзгерістер бар",
   "all_changes_saved": "Барлық өзгерістер сақталды",
   "mods": "Модтар",

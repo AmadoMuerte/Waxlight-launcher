@@ -27,6 +27,7 @@
       "DeleteInstance",
       "GetInstance",
       "ListInstances",
+      "SelectInstanceCover",
       "UpdateInstance"
     ],
     "InstancePackageController": [

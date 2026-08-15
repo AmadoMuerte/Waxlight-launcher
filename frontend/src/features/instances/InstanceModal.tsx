@@ -71,6 +71,8 @@ export function InstanceModal({
   const [gameClient, setGameClient] = useState(instance.gameClient ?? "vanilla");
   const [accountID, setAccountID] = useState(instance.defaultAccountId ?? "");
   const [argumentsText, setArgumentsText] = useState(instance.launchArguments.join(" "));
+  const [coverUrl, setCoverUrl] = useState(instance.coverUrl);
+  const [coverSourcePath, setCoverSourcePath] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
@@ -289,7 +291,7 @@ export function InstanceModal({
   async function saveSettings() {
     setBusy(true);
     try {
-      await instancesApi.update({
+      const updated = await instancesApi.update({
         id: instance.id,
         name,
         description,
@@ -297,7 +299,10 @@ export function InstanceModal({
         gameClient,
         defaultAccountId: accountID || undefined,
         launchArguments: argumentsText.trim() ? argumentsText.trim().split(/\s+/) : [],
+        coverSourcePath,
       });
+      setCoverUrl(updated.coverUrl);
+      setCoverSourcePath(undefined);
       await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
       notify(t("instance_settings_saved"));
     } catch (error) {
@@ -350,7 +355,8 @@ export function InstanceModal({
     versionID !== instance.gameVersionId ||
     gameClient !== (instance.gameClient ?? "vanilla") ||
     accountID !== (instance.defaultAccountId ?? "") ||
-    argumentsText !== instance.launchArguments.join(" ");
+    argumentsText !== instance.launchArguments.join(" ") ||
+    coverSourcePath !== undefined;
 
   function resetSettings() {
     setName(instance.name);
@@ -359,6 +365,7 @@ export function InstanceModal({
     setGameClient(instance.gameClient ?? "vanilla");
     setAccountID(instance.defaultAccountId ?? "");
     setArgumentsText(instance.launchArguments.join(" "));
+    setCoverSourcePath(undefined);
   }
 
   return (
@@ -406,7 +413,7 @@ export function InstanceModal({
         <div className="instanceTabBody detailOverview" role="tabpanel">
           <section className="instanceHero">
             <div className="heroMark" aria-hidden="true">
-              W
+              W{coverUrl && <img src={coverUrl} alt="" />}
             </div>
             <div className="instanceHeroCopy">
               <div className="instanceHeroTitle">
@@ -640,6 +647,33 @@ export function InstanceModal({
                     onChange={(event) => setDescription(event.target.value)}
                   />
                 </Field>
+
+                <div className="field">
+                  <span>{t("instance_cover")}</span>
+                  <div className="row">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          const path = await instancesApi.selectCover();
+                          if (path) {
+                            setCoverSourcePath(path);
+                          }
+                        } catch (error) {
+                          notify(errorMessage(error), "error");
+                        }
+                      }}
+                    >
+                      {t("select")}
+                    </Button>
+                    {(coverUrl || (coverSourcePath !== undefined && coverSourcePath !== "")) && (
+                      <Button type="button" variant="ghost" onClick={() => setCoverSourcePath("")}>
+                        {t("remove")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
 
                 <div className="formRow">
                   <Field label={t("game_version")}>

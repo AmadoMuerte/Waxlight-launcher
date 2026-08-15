@@ -66,6 +66,7 @@ export interface Instance {
   enabledModCount: number;
   totalModCount: number;
   playtimeSeconds: number;
+  coverUrl?: string;
 }
 
 export interface FavoriteServer {

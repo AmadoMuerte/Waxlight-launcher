@@ -184,6 +184,7 @@
   "launch_anyway": "Trotzdem starten?",
   "delete_instance_confirmation": "„{{name}}“ und alle zugehörigen Dateien löschen?",
   "instance_settings_saved": "Instanzeinstellungen gespeichert",
+  "instance_cover": "Instanz-Cover",
   "unsaved_changes": "Es gibt nicht gespeicherte Änderungen",
   "all_changes_saved": "Alle Änderungen wurden gespeichert",
   "mods": "Mods",

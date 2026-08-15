@@ -54,6 +54,13 @@ func (adapter *DialogAdapter) SelectModFiles() ([]string, error) {
 	})
 }
 
+func (adapter *DialogAdapter) SelectInstanceCover() (string, error) {
+	return wruntime.OpenFileDialog(adapter.lifecycle.Context(), wruntime.OpenDialogOptions{
+		Title:   "Select an instance cover",
+		Filters: []wruntime.FileFilter{{DisplayName: "Images (*.png, *.jpg, *.jpeg, *.gif)", Pattern: "*.png;*.jpg;*.jpeg;*.gif"}},
+	})
+}
+
 type QuitAdapter struct{}
 
 func (QuitAdapter) Quit(ctx context.Context) {
