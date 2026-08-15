@@ -7,6 +7,7 @@ export const instancesApi = {
     name: string;
     description: string;
     gameVersionId: string;
+    gameClient?: "vanilla" | "optimum";
     defaultAccountId?: string;
     directory: string;
     launchArguments: string[];
@@ -16,6 +17,7 @@ export const instancesApi = {
     name: string;
     description: string;
     gameVersionId: string;
+    gameClient?: "vanilla" | "optimum";
     defaultAccountId?: string;
     launchArguments: string[];
   }) => call<Instance>("InstanceController", "UpdateInstance", request),

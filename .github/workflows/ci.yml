@@ -82,12 +82,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # govulncheck v1.6.0 requires Go 1.25 or newer.
-      # The application itself may remain on Go 1.24.
       - name: Set up Go for security tools
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: "1.25.x"
+          go-version-file: go.mod
           cache: true
 
       - name: Run govulncheck

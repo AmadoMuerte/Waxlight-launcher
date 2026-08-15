@@ -19,6 +19,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/platform/dataroot"
 	"github.com/waxlight/waxlight-launcher/internal/platform/downloader"
@@ -30,6 +31,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/platform/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
+	platformoptimum "github.com/waxlight/waxlight-launcher/internal/platform/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 	"github.com/waxlight/waxlight-launcher/internal/platform/servercatalog"
@@ -320,6 +322,7 @@ func NewWithHome(home string) (*Container, error) {
 		},
 		mutationGate,
 	)
+	optimumService := optimumfeature.NewService(platformoptimum.NewLocator())
 	launchCoordinator := launching.NewCoordinator(
 		launchRegistry,
 		mutationGate,
@@ -329,6 +332,8 @@ func NewWithHome(home string) (*Container, error) {
 		clientSettingsService,
 		settingsReader,
 		filesystem.ModFileManager{},
+		optimumLaunchAdapter{service: optimumService},
+		enabledModAdapter{files: filesystem.ModFileManager{}},
 		sessionService,
 		process.OSLauncher{},
 		instancedirectory.LaunchLogs{},
@@ -445,6 +450,7 @@ func NewWithHome(home string) (*Container, error) {
 			settingsReader,
 			settingsService,
 			dataRootService,
+			optimumService,
 			lifecycle,
 			wailstransport.NewDialogAdapter(lifecycle),
 			nativefs.Opener{},

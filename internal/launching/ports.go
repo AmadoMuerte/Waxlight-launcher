@@ -46,6 +46,20 @@ type ModLayout interface {
 	EnsureLayout(string) error
 }
 
+type OptimumTarget struct {
+	Executable       string
+	WorkingDirectory string
+	Exclusive        bool
+}
+
+type OptimumResolver interface {
+	Resolve(configuredPath, vanillaDirectory string) (OptimumTarget, error)
+}
+
+type EnabledModChecker interface {
+	HasEnabledMod(instanceDirectory, modID string) (bool, error)
+}
+
 type SessionRecorder interface {
 	Create(context.Context, sessions.PlaySession) error
 	Finish(context.Context, string, int, bool, int64) error

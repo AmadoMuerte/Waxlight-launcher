@@ -217,6 +217,14 @@ func (testPackageInstaller) Install(_ context.Context, _, target string, progres
 	return target + "/Vintagestory", 4, nil
 }
 
+type blockingPackageInstaller struct{ started chan struct{} }
+
+func (installer blockingPackageInstaller) Install(ctx context.Context, _, _ string, _ func(int64, int64)) (string, int64, error) {
+	close(installer.started)
+	<-ctx.Done()
+	return "", 0, ctx.Err()
+}
+
 type testDownloader struct {
 	started chan struct{}
 	block   bool
@@ -402,6 +410,38 @@ func TestCatalogCancellationRemovesOperationAndDownload(t *testing.T) {
 	}
 	if _, exists := repository.operations[install.Operation.ID]; exists {
 		t.Fatal("cancelled operation was retained")
+	}
+}
+
+func TestCatalogCancellationDuringInstallRemovesOperationAndFiles(t *testing.T) {
+	repository := newTestRepository()
+	filesystem := &testFilesystem{}
+	manager := operations.NewManager(repository, testOwner{ctx: context.Background()}, nil)
+	runtime := NewInstallRuntime(filesystem, testGate{}, manager, time.Now, func() string { return "catalog-install-cancel" })
+	release := catalogVersion("1.22")
+	release.Platform = "windows"
+	query := NewQueryService(repository, testCatalog{release}, testLocalInstaller{}, filesystem, time.Now)
+	installer := blockingPackageInstaller{started: make(chan struct{})}
+	service := NewCatalogInstallService(repository, query, &testDownloader{}, installer, testSpace(1<<30), runtime, nil, "/data")
+	install, err := service.InstallCatalog(context.Background(), "1.22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-installer.started
+	repository.mu.Lock()
+	operation := repository.operations[install.Operation.ID]
+	repository.mu.Unlock()
+	if operation.TitleKey != titleInstallingWindows {
+		t.Fatalf("Windows install title key = %q, want %q", operation.TitleKey, titleInstallingWindows)
+	}
+	if err := manager.Cancel(install.Operation.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !filesystem.removedInstall || !filesystem.removedDownload {
+		t.Fatal("cancelled install did not remove its target and download")
+	}
+	if _, exists := repository.operations[install.Operation.ID]; exists {
+		t.Fatal("cancelled install operation was retained")
 	}
 }
 

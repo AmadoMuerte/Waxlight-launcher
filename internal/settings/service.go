@@ -39,6 +39,7 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 	}
 	value.UpdateChannel = channel
 	value.SkippedUpdateVersion = strings.TrimSpace(value.SkippedUpdateVersion)
+	value.OptimumPath = strings.TrimSpace(value.OptimumPath)
 	if len(value.SkippedUpdateVersion) > 64 {
 		return value, errs.NewError(errs.ErrValidation, "Skipped update version is too long")
 	}

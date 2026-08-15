@@ -33,7 +33,8 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 	lastPlayedAt := now.Add(2 * time.Hour)
 	primary := instances.Instance{
 		ID: "primary", Name: "Primary", Description: "Description", GameVersionID: "version",
-		Directory: "/instances/primary", CoverPath: &coverPath,
+		GameClient: instances.GameClientOptimum,
+		Directory:  "/instances/primary", CoverPath: &coverPath,
 		Status: instances.StatusReady, LaunchArguments: []string{"--foo", "bar baz"},
 		LastPlayedAt: &lastPlayedAt, CreatedAt: now, UpdatedAt: now.Add(time.Hour),
 	}
@@ -52,8 +53,15 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored.Name != primary.Name || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" {
+	if stored.Name != primary.Name || stored.GameClient != instances.GameClientOptimum || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" {
 		t.Fatalf("unexpected stored instance: %+v", stored)
+	}
+	storedSecondary, err := store.GetInstance(ctx, secondary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if storedSecondary.GameClient != instances.GameClientVanilla {
+		t.Fatalf("default game client = %q", storedSecondary.GameClient)
 	}
 	listed, err := store.ListInstances(ctx)
 	if err != nil {

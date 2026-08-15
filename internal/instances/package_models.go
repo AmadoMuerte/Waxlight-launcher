@@ -2,7 +2,10 @@ package instances
 
 import "time"
 
-const InstancePackageSchemaVersion = 1
+const (
+	InstancePackageLegacySchemaVersion = 1
+	InstancePackageSchemaVersion       = 2
+)
 
 type PackageModSource string
 
@@ -51,6 +54,7 @@ type PackageManifest struct {
 	Description     string             `json:"description,omitempty"`
 	Author          *PackageAuthor     `json:"author,omitempty"`
 	GameVersion     PackageGameVersion `json:"gameVersion"`
+	GameClient      GameClient         `json:"gameClient,omitempty"`
 	LaunchArguments []string           `json:"launchArguments,omitempty"`
 	Mods            []PackageMod       `json:"mods,omitempty"`
 	ConfigFiles     []string           `json:"configFiles,omitempty"`

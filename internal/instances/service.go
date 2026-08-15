@@ -95,6 +95,10 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 	if _, err := service.versions.Get(ctx, input.GameVersionID); err != nil {
 		return Instance{}, err
 	}
+	gameClient, valid := NormalizeGameClient(input.GameClient)
+	if !valid {
+		return Instance{}, errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
+	}
 	if input.DefaultAccountID != nil {
 		if service.accounts == nil {
 			return Instance{}, errs.NewError(errs.ErrAccountNotFound, "Account not found")
@@ -149,6 +153,7 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		Name:             name,
 		Description:      strings.TrimSpace(input.Description),
 		GameVersionID:    input.GameVersionID,
+		GameClient:       gameClient,
 		DefaultAccountID: input.DefaultAccountID,
 		Directory:        directory,
 		Status:           StatusReady,
@@ -220,6 +225,11 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 	if _, err = service.versions.Get(ctx, updated.GameVersionID); err != nil {
 		return updated, err
 	}
+	gameClient, valid := NormalizeGameClient(updated.GameClient)
+	if !valid {
+		return updated, errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
+	}
+	updated.GameClient = gameClient
 	if previous.GameVersionID != updated.GameVersionID {
 		if service.lock == nil {
 			return updated, errs.NewError(errs.ErrValidation, "Instance version changes are unavailable")

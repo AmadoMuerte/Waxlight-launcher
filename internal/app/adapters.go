@@ -2,13 +2,46 @@ package app
 
 import (
 	"context"
+	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 	"github.com/waxlight/waxlight-launcher/internal/recovery"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
+
+type optimumLaunchAdapter struct {
+	service *optimumfeature.Service
+}
+
+func (adapter optimumLaunchAdapter) Resolve(configuredPath, vanillaDirectory string) (launching.OptimumTarget, error) {
+	installation, err := adapter.service.Resolve(configuredPath, vanillaDirectory)
+	return launching.OptimumTarget{
+		Executable: installation.Executable, WorkingDirectory: installation.WorkingDirectory,
+		Exclusive: installation.Exclusive,
+	}, err
+}
+
+type enabledModAdapter struct {
+	files filesystem.ModFileManager
+}
+
+func (adapter enabledModAdapter) HasEnabledMod(instanceDirectory, modID string) (bool, error) {
+	found, err := adapter.files.Scan(instanceDirectory)
+	if err != nil {
+		return false, err
+	}
+	for _, mod := range found {
+		if mod.Enabled && strings.EqualFold(strings.TrimSpace(mod.ModID), modID) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 // modsStoreAdapter maps the shared store to the mods repository port,
 // converting instance records into the minimal instance view of the mods

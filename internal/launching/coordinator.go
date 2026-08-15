@@ -20,6 +20,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"github.com/waxlight/waxlight-launcher/internal/telemetry"
+	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // gameStartupWindow is how long a game process must survive for its launch to
@@ -59,6 +60,8 @@ type Coordinator struct {
 	clientSettings ClientSettingsPatcher
 	settings       SettingsReader
 	modLayout      ModLayout
+	optimum        OptimumResolver
+	mods           EnabledModChecker
 	sessions       SessionRecorder
 	launcher       ProcessLauncher
 	logs           LaunchLogs
@@ -80,6 +83,8 @@ func NewCoordinator(
 	clientSettings ClientSettingsPatcher,
 	settings SettingsReader,
 	modLayout ModLayout,
+	optimum OptimumResolver,
+	mods EnabledModChecker,
 	sessions SessionRecorder,
 	launcher ProcessLauncher,
 	logs LaunchLogs,
@@ -100,6 +105,8 @@ func NewCoordinator(
 		clientSettings: clientSettings,
 		settings:       settings,
 		modLayout:      modLayout,
+		optimum:        optimum,
+		mods:           mods,
 		sessions:       sessions,
 		launcher:       launcher,
 		logs:           logs,
@@ -149,11 +156,21 @@ func (coordinator *Coordinator) ValidateLaunch(
 		validation.Issues = append(validation.Issues, issue)
 		return validation, nil
 	}
+	target, targetErr := coordinator.resolveLaunchTarget(ctx, instance, version)
+	if targetErr != nil {
+		validation.Valid = false
+		validation.Issues = append(validation.Issues, launchIssue(targetErr))
+		return validation, nil
+	}
 
-	executableInfo, err := os.Stat(version.ExecutablePath)
+	executableInfo, err := os.Stat(target.Executable)
 	if err != nil || executableInfo.IsDir() {
 		validation.Valid = false
-		validation.Issues = append(validation.Issues, "The Vintagestory executable could not be found")
+		if instance.GameClient == instances.GameClientOptimum {
+			validation.Issues = append(validation.Issues, "The configured Optimum executable could not be found. Configure Optimum or switch this instance to Vanilla")
+		} else {
+			validation.Issues = append(validation.Issues, "The Vintagestory executable could not be found")
+		}
 	}
 	chosen, chooseErr := coordinator.resolveAccountID(ctx, instance, accountID)
 	if chooseErr != nil {
@@ -173,6 +190,13 @@ func (coordinator *Coordinator) ValidateLaunch(
 	if coordinator.registry.Running(instanceID) {
 		validation.Valid = false
 		validation.Issues = append(validation.Issues, "This instance is already running")
+	}
+	if instance.GameClient == instances.GameClientOptimum && coordinator.mods != nil {
+		if found, modErr := coordinator.mods.HasEnabledMod(instance.Directory, "optitime"); modErr != nil {
+			slog.Debug("could not check the instance for OptiTime", "instance", instance.Name, "error", modErr)
+		} else if found {
+			validation.Warnings = append(validation.Warnings, "OptiTime is installed in this instance. Optimum already provides the functionality of OptiTime and using both may cause problems.")
+		}
 	}
 
 	return validation, nil
@@ -238,6 +262,10 @@ func (coordinator *Coordinator) launch(
 	if err != nil {
 		return sessions.PlaySession{}, err
 	}
+	target, err := coordinator.resolveLaunchTarget(ctx, instance, version)
+	if err != nil {
+		return sessions.PlaySession{}, err
+	}
 	slog.Info("launching instance", "instance", instance.Name, "version", version.Name)
 	accountID, err = coordinator.resolveAccountID(ctx, instance, accountID)
 	if err != nil {
@@ -288,12 +316,12 @@ func (coordinator *Coordinator) launch(
 		coordinator.clearInjectedCredentials(cleanupCredentials, instance)
 		return sessions.PlaySession{}, err
 	}
-	arguments := append([]string{}, settings.GlobalLaunchArguments...)
-	arguments = append(arguments, instance.LaunchArguments...)
-	arguments = append(arguments, "--dataPath", instance.Directory)
-	if serverAddress != "" {
-		arguments = append(arguments, "--connect", serverAddress)
-	}
+	arguments := buildLaunchArguments(
+		settings.GlobalLaunchArguments,
+		instance.LaunchArguments,
+		instance.Directory,
+		serverAddress,
+	)
 
 	logPath := filepath.Join(logsDirectory, coordinator.now().Format("20060102-150405.000000000")+".log")
 	logFile, err := coordinator.logs.Open(logPath)
@@ -307,7 +335,7 @@ func (coordinator *Coordinator) launch(
 	if _, writeErr := fmt.Fprintf(
 		logFile,
 		"Executing: %s %s\n",
-		version.ExecutablePath,
+		target.Executable,
 		strings.Join(quoteLaunchArguments(arguments), " "),
 	); writeErr != nil {
 		closeLaunchLog(logFile, instance.Name)
@@ -319,12 +347,11 @@ func (coordinator *Coordinator) launch(
 		}
 	}
 
-	workingDirectory := filepath.Dir(version.ExecutablePath)
 	process, err := coordinator.launcher.Start(
 		context.Background(),
-		version.ExecutablePath,
+		target.Executable,
 		arguments,
-		workingDirectory,
+		target.WorkingDirectory,
 		map[string]string{"WAXLIGHT_INSTANCE_DIR": instance.Directory},
 		logFile,
 	)
@@ -335,7 +362,7 @@ func (coordinator *Coordinator) launch(
 		coordinator.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
 		return sessions.PlaySession{}, &errs.AppError{
 			Code:    errs.ErrProcessStart,
-			Message: "Failed to start Vintage Story",
+			Message: processStartMessage(instance.GameClient),
 			Cause:   err,
 		}
 	}
@@ -370,6 +397,7 @@ func (coordinator *Coordinator) launch(
 		process:   process,
 		sessionID: session.ID,
 		started:   now,
+		client:    instance.GameClient,
 		log:       logFile,
 		cleanup:   cleanupCredentials,
 	})
@@ -389,6 +417,46 @@ func (coordinator *Coordinator) launch(
 	return session, nil
 }
 
+func (coordinator *Coordinator) resolveLaunchTarget(
+	ctx context.Context,
+	instance instances.Instance,
+	version versions.GameVersion,
+) (OptimumTarget, error) {
+	if instance.GameClient != instances.GameClientOptimum {
+		return OptimumTarget{Executable: version.ExecutablePath, WorkingDirectory: filepath.Dir(version.ExecutablePath)}, nil
+	}
+	if coordinator.optimum == nil {
+		return OptimumTarget{}, errs.NewError(errs.ErrValidation, "Optimum support is unavailable. Switch this instance to Vanilla")
+	}
+	settings, err := coordinator.settings.Get(ctx)
+	if err != nil {
+		return OptimumTarget{}, err
+	}
+	target, err := coordinator.optimum.Resolve(settings.OptimumPath, filepath.Dir(version.ExecutablePath))
+	if err != nil {
+		return OptimumTarget{}, err
+	}
+	if target.Exclusive && coordinator.registry.ClientRunning(instances.GameClientOptimum) {
+		return OptimumTarget{}, errs.NewError(errs.ErrValidation, "This Optimum installation is already being used by another running instance")
+	}
+	return target, nil
+}
+
+func launchIssue(err error) string {
+	var appError *errs.AppError
+	if errors.As(err, &appError) && strings.TrimSpace(appError.Message) != "" {
+		return appError.Message
+	}
+	return "Optimum could not be prepared for launch. Configure Optimum or switch this instance to Vanilla"
+}
+
+func processStartMessage(client instances.GameClient) string {
+	if client == instances.GameClientOptimum {
+		return "Failed to start Optimum. Check the configured installation or switch this instance to Vanilla"
+	}
+	return "Failed to start Vintage Story"
+}
+
 func quoteLaunchArguments(arguments []string) []string {
 	result := make([]string, 0, len(arguments))
 	for _, argument := range arguments {
@@ -399,6 +467,16 @@ func quoteLaunchArguments(arguments []string) []string {
 		}
 	}
 	return result
+}
+
+func buildLaunchArguments(global, instance []string, dataPath, serverAddress string) []string {
+	arguments := append([]string{}, global...)
+	arguments = append(arguments, instance...)
+	arguments = append(arguments, "--dataPath", dataPath)
+	if serverAddress != "" {
+		arguments = append(arguments, "--connect", serverAddress)
+	}
+	return arguments
 }
 
 func (coordinator *Coordinator) resolveAccountID(

@@ -13,6 +13,7 @@ const settings: Settings = {
   downloadsParallel: 3,
   confirmDeletion: true,
   globalLaunchArguments: [],
+  optimumPath: "",
   checkForUpdates: true,
   updateChannel: "stable",
   skippedUpdateVersion: "0.2.0",
@@ -20,12 +21,19 @@ const settings: Settings = {
   automaticSafetySnapshots: true,
 };
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = vi.hoisted(() => ({
+  useSettingsQuery: vi.fn(),
+  useOptimumStatusQuery: vi.fn(),
+}));
 
 const settingsApi = vi.hoisted(() => ({
   get: vi.fn(),
   update: vi.fn(),
   getDataFolder: vi.fn(),
+  detectOptimum: vi.fn(),
+  inspectOptimum: vi.fn(),
+  selectOptimumInstallation: vi.fn(),
+  openOptimumInstallationGuide: vi.fn(),
   selectDataFolder: vi.fn(),
   moveDataFolder: vi.fn(),
 }));
@@ -81,6 +89,7 @@ function renderPage() {
 
 beforeEach(() => {
   settingsQuery.useSettingsQuery.mockReturnValue({ data: settings });
+  settingsQuery.useOptimumStatusQuery.mockReturnValue({ data: undefined });
   settingsApi.get.mockResolvedValue(settings);
   settingsApi.update.mockImplementation(async (next: unknown) => next);
   settingsApi.getDataFolder.mockResolvedValue({
@@ -127,4 +136,33 @@ it("persists the automatic safety backups switch", async () => {
       expect.objectContaining({ automaticSafetySnapshots: false }),
     ),
   );
+});
+
+it("stores a manually selected Optimum installation", async () => {
+  settingsApi.selectOptimumInstallation.mockResolvedValue("/selected/optimum");
+  settingsApi.inspectOptimum.mockResolvedValue({
+    path: "/selected/optimum",
+    executable: "/selected/optimum/run.sh",
+    gameVersion: "1.22.5",
+    ready: true,
+    message: "",
+  });
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Browse" }));
+
+  await waitFor(() =>
+    expect(settingsApi.update).toHaveBeenCalledWith(
+      expect.objectContaining({ optimumPath: "/selected/optimum" }),
+    ),
+  );
+  expect(settingsApi.inspectOptimum).toHaveBeenCalledWith("/selected/optimum");
+});
+
+it("opens the official Optimum installation guide", async () => {
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Installation guide" }));
+
+  expect(settingsApi.openOptimumInstallationGuide).toHaveBeenCalledOnce();
 });

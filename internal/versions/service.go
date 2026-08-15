@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	titleInstalling  = "operation_installing_game_version"
-	titleDownloading = "operation_downloading_game_version"
+	titleInstalling        = "operation_installing_game_version"
+	titleInstallingWindows = "operation_installing_windows_game_version"
+	titleDownloading       = "operation_downloading_game_version"
 )
 
 type QueryService struct {

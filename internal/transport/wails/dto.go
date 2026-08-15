@@ -7,6 +7,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 	"github.com/waxlight/waxlight-launcher/internal/statistics"
@@ -131,6 +132,7 @@ type InstanceDTO struct {
 	Name             string   `json:"name"`
 	Description      string   `json:"description"`
 	GameVersionID    string   `json:"gameVersionId"`
+	GameClient       string   `json:"gameClient"`
 	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
 	Directory        string   `json:"directory"`
 	Status           string   `json:"status"`
@@ -153,6 +155,7 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 		Name:             instance.Name,
 		Description:      instance.Description,
 		GameVersionID:    instance.GameVersionID,
+		GameClient:       string(instance.GameClient),
 		DefaultAccountID: instance.DefaultAccountID,
 		Directory:        instance.Directory,
 		Status:           instance.Status,
@@ -311,6 +314,7 @@ type SettingsDTO struct {
 	DownloadsParallel        int      `json:"downloadsParallel"`
 	ConfirmDeletion          bool     `json:"confirmDeletion"`
 	GlobalLaunchArguments    []string `json:"globalLaunchArguments"`
+	OptimumPath              string   `json:"optimumPath"`
 	CheckForUpdates          bool     `json:"checkForUpdates"`
 	UpdateChannel            string   `json:"updateChannel"`
 	SkippedUpdateVersion     string   `json:"skippedUpdateVersion"`
@@ -329,6 +333,7 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 		DownloadsParallel:        settings.DownloadsParallel,
 		ConfirmDeletion:          settings.ConfirmDeletion,
 		GlobalLaunchArguments:    launchArguments,
+		OptimumPath:              settings.OptimumPath,
 		CheckForUpdates:          settings.CheckForUpdates,
 		UpdateChannel:            settings.UpdateChannel,
 		SkippedUpdateVersion:     settings.SkippedUpdateVersion,
@@ -341,6 +346,21 @@ type DataFolderDTO struct {
 	CurrentPath string `json:"currentPath"`
 	DefaultPath string `json:"defaultPath"`
 	LastError   string `json:"lastError"`
+}
+
+type OptimumStatusDTO struct {
+	Path        string `json:"path"`
+	Executable  string `json:"executable"`
+	GameVersion string `json:"gameVersion"`
+	Ready       bool   `json:"ready"`
+	Message     string `json:"message"`
+}
+
+func optimumStatusDTO(status optimum.Status) OptimumStatusDTO {
+	return OptimumStatusDTO{
+		Path: status.Path, Executable: status.Executable, GameVersion: status.GameVersion,
+		Ready: status.Ready, Message: status.Message,
+	}
 }
 
 type DataFolderProgressDTO struct {

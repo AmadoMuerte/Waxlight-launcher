@@ -288,6 +288,7 @@ export namespace wails {
 	    name: string;
 	    description: string;
 	    gameVersionId: string;
+	    gameClient: string;
 	    defaultAccountId?: string;
 	    directory: string;
 	    launchArguments: string[];
@@ -301,6 +302,7 @@ export namespace wails {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.gameVersionId = source["gameVersionId"];
+	        this.gameClient = source["gameClient"];
 	        this.defaultAccountId = source["defaultAccountId"];
 	        this.directory = source["directory"];
 	        this.launchArguments = source["launchArguments"];
@@ -651,6 +653,7 @@ export namespace wails {
 	    name: string;
 	    description: string;
 	    gameVersionId: string;
+	    gameClient: string;
 	    defaultAccountId?: string;
 	    directory: string;
 	    status: string;
@@ -671,6 +674,7 @@ export namespace wails {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.gameVersionId = source["gameVersionId"];
+	        this.gameClient = source["gameClient"];
 	        this.defaultAccountId = source["defaultAccountId"];
 	        this.directory = source["directory"];
 	        this.status = source["status"];
@@ -1395,6 +1399,26 @@ export namespace wails {
 	        this.finishedAt = source["finishedAt"];
 	    }
 	}
+	export class OptimumStatusDTO {
+	    path: string;
+	    executable: string;
+	    gameVersion: string;
+	    ready: boolean;
+	    message: string;
+
+	    static createFrom(source: any = {}) {
+	        return new OptimumStatusDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.executable = source["executable"];
+	        this.gameVersion = source["gameVersion"];
+	        this.ready = source["ready"];
+	        this.message = source["message"];
+	    }
+	}
 	export class PackageAuthorDTO {
 	    name?: string;
 	    homepage?: string;
@@ -1680,6 +1704,7 @@ export namespace wails {
 	    downloadsParallel: number;
 	    confirmDeletion: boolean;
 	    globalLaunchArguments: string[];
+	    optimumPath: string;
 	    checkForUpdates: boolean;
 	    updateChannel: string;
 	    skippedUpdateVersion: string;
@@ -1696,6 +1721,7 @@ export namespace wails {
 	        this.downloadsParallel = source["downloadsParallel"];
 	        this.confirmDeletion = source["confirmDeletion"];
 	        this.globalLaunchArguments = source["globalLaunchArguments"];
+	        this.optimumPath = source["optimumPath"];
 	        this.checkForUpdates = source["checkForUpdates"];
 	        this.updateChannel = source["updateChannel"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
@@ -1780,6 +1806,7 @@ export namespace wails {
 	    name: string;
 	    description: string;
 	    gameVersionId: string;
+	    gameClient?: string;
 	    defaultAccountId?: string;
 	    launchArguments: string[];
 
@@ -1793,6 +1820,7 @@ export namespace wails {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.gameVersionId = source["gameVersionId"];
+	        this.gameClient = source["gameClient"];
 	        this.defaultAccountId = source["defaultAccountId"];
 	        this.launchArguments = source["launchArguments"];
 	    }
