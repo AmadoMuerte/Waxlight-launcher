@@ -168,13 +168,13 @@ check-synced:
 	@$(GIT) fetch "$(REMOTE)" "$(BRANCH)"
 	@local_commit="$$($(GIT) rev-parse HEAD)"; \
 	remote_commit="$$($(GIT) rev-parse "$(REMOTE)/$(BRANCH)")"; \
-	if [[ "$$local_commit" != "$$remote_commit" ]]; then \
-		echo "error: local $(BRANCH) is not synchronized with $(REMOTE)/$(BRANCH)"; \
+	if ! $(GIT) merge-base --is-ancestor "$$remote_commit" "$$local_commit"; then \
+		echo "error: local $(BRANCH) is behind or diverged from $(REMOTE)/$(BRANCH)"; \
 		echo; \
 		echo "Local:  $$local_commit"; \
 		echo "Remote: $$remote_commit"; \
 		echo; \
-		echo "Push or pull your changes before releasing."; \
+		echo "Update local $(BRANCH) before releasing."; \
 		exit 1; \
 	fi
 
