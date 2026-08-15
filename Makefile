@@ -8,7 +8,7 @@ GIT ?= git
 
 VERSION ?=
 RELEASE_DIR ?= release
-BRANCH ?= main
+BRANCH ?= dev
 REMOTE ?= origin
 AUTO ?=
 
@@ -23,6 +23,7 @@ endif
 
 CURRENT_VERSION := $(shell node -p "require('./wails.json').info.productVersion" 2>/dev/null || echo unknown)
 RELEASE_TAG = v$(VERSION)
+RELEASE_BRANCH = release/$(RELEASE_TAG)
 
 .DEFAULT_GOAL := help
 
@@ -102,8 +103,8 @@ help:
 	@echo "  make release VERSION=X.Y.Z [AUTO=1]"
 	@echo "      Prepare releases/vX.Y.Z.md, wait for you to write the"
 	@echo "      release notes (or generate them from commit history with"
-	@echo "      AUTO=1), then update versions, commit, push main,"
-	@echo "      create a tag and start the automatic GitHub release workflow."
+	@echo "      AUTO=1), then update versions, validate, push a release branch,"
+	@echo "      and open a pull request into dev. Merging dev into main publishes it."
 	@echo
 	@echo "  make release-notes VERSION=X.Y.Z [AUTO=1]"
 	@echo "      Prepare or reuse releases/vX.Y.Z.md and wait for you to"
@@ -125,7 +126,7 @@ check-version-argument:
 	fi
 
 check-tools:
-	@for command in "$(GO)" "$(NPM)" "$(GIT)" node; do \
+	@for command in "$(GO)" "$(NPM)" "$(GIT)" node gh; do \
 		if ! command -v "$$command" >/dev/null 2>&1; then \
 			echo "error: required command is unavailable: $$command"; \
 			exit 1; \
@@ -294,8 +295,9 @@ release: \
 	check-clean \
 	check-branch \
 	check-tag \
-	check-synced \
-	release-notes
+	check-synced
+	@gh auth status >/dev/null
+	$(MAKE) release-notes VERSION="$(VERSION)" AUTO="$(AUTO)"
 	@echo
 	@echo "Preparing Waxlight Launcher $(RELEASE_TAG)..."
 	@echo
@@ -304,33 +306,21 @@ release: \
 	$(MAKE) release-check VERSION="$(VERSION)"
 
 	@echo
-	@echo "Creating release commit..."
+	@echo "Creating $(RELEASE_BRANCH)..."
+	$(GIT) switch -c "$(RELEASE_BRANCH)"
 	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json releases/v$(VERSION).md
 	$(GIT) commit -m "chore(release): $(RELEASE_TAG)"
 
 	@echo
-	@echo "Pushing $(BRANCH)..."
-	$(GIT) push "$(REMOTE)" "$(BRANCH)"
+	@echo "Pushing $(RELEASE_BRANCH)..."
+	$(GIT) push -u "$(REMOTE)" "$(RELEASE_BRANCH)"
 
 	@echo
-	@echo "Creating annotated tag $(RELEASE_TAG)..."
-	$(GIT) tag \
-		-a "$(RELEASE_TAG)" \
-		-m "Waxlight Launcher $(RELEASE_TAG)"
-
-	@echo
-	@echo "Pushing release tag..."
-	$(GIT) push "$(REMOTE)" "$(RELEASE_TAG)"
-
-	@echo
-	@echo "Release workflow started for $(RELEASE_TAG)."
-	@echo "GitHub Actions will build Linux and Windows packages"
-	@echo "and publish the GitHub Release automatically."
-	@if command -v gh >/dev/null 2>&1; then \
-		echo; \
-		echo "Recent GitHub Actions runs:"; \
-		gh run list --limit 5 || true; \
-	fi
+	gh pr create \
+		--base "$(BRANCH)" \
+		--head "$(RELEASE_BRANCH)" \
+		--title "chore(release): $(RELEASE_TAG)" \
+		--body "Prepare Waxlight Launcher $(RELEASE_TAG). After this is merged into dev, promote dev to main to publish the release."
 
 clean:
 	$(GO) clean -cache

@@ -10,8 +10,8 @@
 - Run `make lint` for Linux-targeted Go static analysis and frontend `oxlint`; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
 - Pre-commit runs `make format-check lint` and blocks commits on failure. Use `git commit --no-verify` only for an emergency bypass.
 - Full release validation requires a version: `make release-check VERSION=X.Y.Z`.
-- `make release VERSION=X.Y.Z` is a release-only command and must be run from a clean, synchronized `main` branch. It commits version files, pushes `main`, and creates and pushes a release tag.
-- Never run release commands from `dev`, feature branches, fix branches, or pull request branches.
+- `make release VERSION=X.Y.Z` must be run from a clean, synchronized `dev` branch. It creates and pushes `release/vX.Y.Z`, then opens a pull request into `dev`.
+- Never run release commands from `main`, feature branches, fix branches, or pull request branches.
 - Run `wails dev` only from `cmd/waxlight`. Build supported desktop artifacts with `make wails-build`; plain `go build` without Wails desktop tags is not a supported GUI build.
 - Native credential-store integration tests are tagged and require Linux Secret Service or Windows Credential Manager; CI provides those platform services.
 
@@ -26,7 +26,7 @@
 - Never commit or push directly to `dev` unless the task explicitly requires an administrative branch-maintenance change that cannot reasonably go through a pull request.
 - Never force-push `main` or `dev`.
 - Never delete `main` or `dev`.
-- Never create a release tag from `dev` or any working branch.
+- Never create a release tag locally. The release workflow creates it from the promoted `main` commit after successful builds.
 
 ### Working branches
 
@@ -96,13 +96,13 @@ feat/* / fix/* / refactor/* / chore/* / docs/* / test/* / ci/*
 Before promoting `dev` to `main`:
 
 1. Ensure `dev` is up to date and CI is green.
-2. Run the relevant local validation for the accumulated changes.
-3. Test the launcher behavior that cannot be fully covered by automated CI.
-4. Open a pull request from `dev` to `main`.
-5. Merge only after all required checks pass.
-6. Update local `main` with `git pull --ff-only origin main`.
-7. Run release validation from `main`.
-8. Run `make release VERSION=X.Y.Z` only when the release is intentionally being published.
+2. Run `make release VERSION=X.Y.Z` from `dev` to open the release preparation pull request.
+3. Merge the release preparation into `dev` after its required checks pass.
+4. Test the resulting `dev` state, including behavior that cannot be fully covered by automated CI.
+5. Open a pull request from `dev` to `main`.
+6. Merge only after all required checks pass.
+7. Let the release workflow validate, tag, and publish the promoted commit.
+8. Update local `main` with `git pull --ff-only origin main`.
 
 ## Structure
 
@@ -238,4 +238,4 @@ Before promoting `dev` to `main`:
 
 - Frontend localization rules live in the Frontend section above.
 - Release versions must match both `wails.json` and `cmd/waxlight/wails.json`; use `make set-version VERSION=X.Y.Z` rather than changing one file.
-- Releases are produced only from `main`, after `dev` has been promoted through a successful `dev -> main` pull request.
+- Releases are produced automatically from `main`, after `dev` has been promoted through a successful `dev -> main` pull request.
