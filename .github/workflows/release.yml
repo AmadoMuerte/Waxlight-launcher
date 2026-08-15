@@ -2,23 +2,58 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
-env:
-  RELEASE_TAG: ${{ github.ref_name }}
-
 jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-24.04
+
+    outputs:
+      release-tag: ${{ steps.release.outputs.release-tag }}
+      should-release: ${{ steps.release.outputs.should-release }}
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Read release metadata
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version="$(node -p "require('./wails.json').info.productVersion")"
+          tag="v${version}"
+          echo "release-tag=$tag" >> "$GITHUB_OUTPUT"
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; nothing to publish."
+            echo "should-release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Preparing release $tag."
+            echo "should-release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
     name: Verify release source
     runs-on: ubuntu-24.04
+    needs: prepare
+    if: needs.prepare.outputs.should-release == 'true'
+
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.release-tag }}
+
+    outputs:
+      release-tag: ${{ needs.prepare.outputs.release-tag }}
 
     steps:
       - name: Validate release tag
@@ -29,10 +64,9 @@ jobs:
             exit 1
           fi
 
-      - name: Check out release tag
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
 
       - name: Verify release notes file
@@ -97,11 +131,12 @@ jobs:
     needs:
       - verify
 
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.release-tag }}
+
     steps:
-      - name: Check out release tag
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -172,11 +207,12 @@ jobs:
     needs:
       - verify
 
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.release-tag }}
+
     steps:
-      - name: Check out release tag
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -395,17 +431,21 @@ jobs:
     runs-on: ubuntu-24.04
 
     needs:
+      - verify
       - linux
       - windows
+
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.release-tag }}
 
     permissions:
       contents: write
 
     steps:
-      - name: Check out release tag
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
 
       - name: Download release packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -533,6 +573,16 @@ jobs:
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Refusing to replace assets for existing release $RELEASE_TAG" >&2
             exit 1
+          fi
+
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [[ "$(git rev-list -n 1 "$RELEASE_TAG")" != "$GITHUB_SHA" ]]; then
+              echo "Tag $RELEASE_TAG does not point to $GITHUB_SHA" >&2
+              exit 1
+            fi
+          else
+            git tag -a "$RELEASE_TAG" -m "Waxlight Launcher $RELEASE_TAG" "$GITHUB_SHA"
+            git push origin "$RELEASE_TAG"
           fi
 
           gh release create \
