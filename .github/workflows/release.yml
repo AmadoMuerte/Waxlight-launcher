@@ -580,7 +580,7 @@ jobs:
               exit 1
             fi
           else
-            git tag -a "$RELEASE_TAG" -m "Waxlight Launcher $RELEASE_TAG" "$GITHUB_SHA"
+            git tag "$RELEASE_TAG" "$GITHUB_SHA"
             git push origin "$RELEASE_TAG"
           fi
 
