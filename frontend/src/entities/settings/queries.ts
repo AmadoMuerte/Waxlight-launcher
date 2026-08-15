@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { SETTINGS_QUERY_KEY } from "../../shared/api/keys";
+import { OPTIMUM_STATUS_QUERY_KEY, SETTINGS_QUERY_KEY } from "../../shared/api/keys";
 import { settingsApi } from "./api";
 import type { Settings } from "./model";
 
@@ -14,6 +14,13 @@ export function useSettingsQuery(options?: QueryOptions) {
     queryFn: settingsApi.get,
     staleTime: Number.POSITIVE_INFINITY,
     ...options,
+  });
+}
+
+export function useOptimumStatusQuery() {
+  return useQuery({
+    queryKey: OPTIMUM_STATUS_QUERY_KEY,
+    queryFn: settingsApi.getOptimumStatus,
   });
 }
 

@@ -24,6 +24,7 @@ const instance = (id: string, name: string): Instance => ({
   name,
   description: "",
   gameVersionId: "1.20",
+  gameClient: "vanilla",
   directory: "/data",
   status: "ready",
   launchArguments: [],

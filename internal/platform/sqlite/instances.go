@@ -12,7 +12,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
-const instanceColumns = `id, name, description, game_version_id, default_account_id,
+const instanceColumns = `id, name, description, game_version_id, game_client, default_account_id,
 	directory, cover_path, status, launch_arguments, last_played_at, created_at, updated_at`
 
 func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, error) {
@@ -36,8 +36,16 @@ func scanInstance(row scanner) (instances.Instance, error) {
 	var instance instances.Instance
 	var account, cover, last sql.NullString
 	var arguments, created, updated string
-	err := row.Scan(&instance.ID, &instance.Name, &instance.Description, &instance.GameVersionID, &account,
+	err := row.Scan(&instance.ID, &instance.Name, &instance.Description, &instance.GameVersionID, &instance.GameClient, &account,
 		&instance.Directory, &cover, &instance.Status, &arguments, &last, &created, &updated)
+	if err != nil {
+		return instance, err
+	}
+	var valid bool
+	instance.GameClient, valid = instances.NormalizeGameClient(instance.GameClient)
+	if !valid {
+		return instance, errs.NewError(errs.ErrValidation, "Stored instance has an invalid game client")
+	}
 	if account.Valid {
 		instance.DefaultAccountID = &account.String
 	}
@@ -48,7 +56,7 @@ func scanInstance(row scanner) (instances.Instance, error) {
 	_ = json.Unmarshal([]byte(arguments), &instance.LaunchArguments)
 	instance.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
 	instance.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
-	return instance, err
+	return instance, nil
 }
 
 func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
@@ -61,12 +69,17 @@ func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (instances.Ins
 
 func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Instance) error {
 	arguments, _ := json.Marshal(instance.LaunchArguments)
-	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	var valid bool
+	instance.GameClient, valid = instances.NormalizeGameClient(instance.GameClient)
+	if !valid {
+		return errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description,
-		game_version_id=excluded.game_version_id, default_account_id=excluded.default_account_id,
+		game_version_id=excluded.game_version_id, game_client=excluded.game_client, default_account_id=excluded.default_account_id,
 		directory=excluded.directory, cover_path=excluded.cover_path, status=excluded.status,
 		launch_arguments=excluded.launch_arguments, last_played_at=excluded.last_played_at, updated_at=excluded.updated_at`,
-		instance.ID, instance.Name, instance.Description, instance.GameVersionID, instance.DefaultAccountID,
+		instance.ID, instance.Name, instance.Description, instance.GameVersionID, instance.GameClient, instance.DefaultAccountID,
 		instance.Directory, instance.CoverPath, instance.Status, string(arguments), optTS(instance.LastPlayedAt),
 		ts(instance.CreatedAt), ts(instance.UpdatedAt))
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed: instances.directory") {

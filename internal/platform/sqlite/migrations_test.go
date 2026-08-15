@@ -61,7 +61,8 @@ func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {
 	assertColumns(t, path, "accounts", "email", "uid", "last_validated_at")
 	assertColumns(t, path, "operations", "title_key", "title_params")
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5)
+	assertColumns(t, path, "instances", "game_client")
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6)
 }
 
 func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
@@ -100,7 +101,7 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6)
 
 	db = openRawDatabase(t, path)
 	defer db.Close()
@@ -110,6 +111,43 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatal("versioned migration did not preserve account data")
+	}
+}
+
+func TestGameClientMigrationBackfillsVanilla(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "game-client.db")
+	db := openRawDatabase(t, path)
+	_, err := db.Exec(`
+		CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+		CREATE TABLE instances (
+		 id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, game_version_id TEXT NOT NULL,
+		 default_account_id TEXT, directory TEXT NOT NULL UNIQUE, cover_path TEXT, status TEXT NOT NULL,
+		 launch_arguments TEXT NOT NULL DEFAULT '[]', last_played_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations(version, applied_at) VALUES
+		 (1, datetime('now')), (2, datetime('now')), (3, datetime('now')),
+		 (4, datetime('now')), (5, datetime('now'));
+		INSERT INTO instances(id, name, description, game_version_id, directory, status, created_at, updated_at)
+		 VALUES ('legacy', 'Legacy', '', '1.22.5', '/legacy', 'ready', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	instance, err := store.GetInstance(context.Background(), "legacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instance.GameClient != "vanilla" {
+		t.Fatalf("migrated game client = %q", instance.GameClient)
 	}
 }
 

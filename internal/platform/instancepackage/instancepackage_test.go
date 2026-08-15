@@ -225,7 +225,7 @@ func TestRejectUnsupportedSchemaVersion(t *testing.T) {
 		GameVersion   instances.PackageGameVersion `json:"gameVersion"`
 		ConfigFiles   []string                     `json:"configFiles"`
 	}{
-		SchemaVersion: 2,
+		SchemaVersion: instances.InstancePackageSchemaVersion + 1,
 		Name:          "Future pack",
 		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
 	}
@@ -237,6 +237,43 @@ func TestRejectUnsupportedSchemaVersion(t *testing.T) {
 		t.Fatal("expected unsupported schema version to be rejected")
 	} else if code := appErrorCode(err); code != errs.ErrPackageUnsupported {
 		t.Fatalf("expected unsupported error, got %v", err)
+	}
+}
+
+func TestAcceptLegacySchemaVersion(t *testing.T) {
+	manifest := instances.PackageManifest{
+		SchemaVersion: instances.InstancePackageLegacySchemaVersion,
+		Name:          "Legacy pack",
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := craftArchive(t, map[string]zipContent{
+		"manifest.json": {data: encoded},
+	})
+	if _, err := Open(path); err != nil {
+		t.Fatalf("legacy schema was rejected: %v", err)
+	}
+}
+
+func TestRejectInvalidGameClient(t *testing.T) {
+	manifest := instances.PackageManifest{
+		SchemaVersion: instances.InstancePackageSchemaVersion,
+		Name:          "Invalid client pack",
+		GameVersion:   instances.PackageGameVersion{ID: "1.20", Name: "1.20"},
+		GameClient:    "unknown",
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := craftArchive(t, map[string]zipContent{
+		"manifest.json": {data: encoded},
+	})
+	if _, err := Open(path); appErrorCode(err) != errs.ErrPackageInvalid {
+		t.Fatalf("invalid game client error = %v", err)
 	}
 }
 

@@ -13,7 +13,7 @@ import type { Instance } from "../../entities/instance/model";
 import { modCatalogApi, modsApi } from "../../entities/mod/api";
 import type { InstalledMod, InstanceModUpdateReport, ModVersion } from "../../entities/mod/model";
 import { settingsApi } from "../../entities/settings/api";
-import { useSettingsQuery } from "../../entities/settings/queries";
+import { useOptimumStatusQuery, useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import { formatDuration } from "../../shared/lib";
@@ -55,6 +55,7 @@ export function InstanceModal({
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const { data: settings } = useSettingsQuery();
+  const { data: optimumStatus } = useOptimumStatusQuery();
   const [tab, setTab] = useState<InstanceTab>("overview");
   const [mods, setMods] = useState<InstalledMod[]>([]);
   const [versionsByModID, setVersionsByModID] = useState<Record<string, ModVersion[]>>({});
@@ -67,6 +68,7 @@ export function InstanceModal({
   const [name, setName] = useState(instance.name);
   const [description, setDescription] = useState(instance.description);
   const [versionID, setVersionID] = useState(instance.gameVersionId);
+  const [gameClient, setGameClient] = useState(instance.gameClient ?? "vanilla");
   const [accountID, setAccountID] = useState(instance.defaultAccountId ?? "");
   const [argumentsText, setArgumentsText] = useState(instance.launchArguments.join(" "));
   const [busy, setBusy] = useState(false);
@@ -292,6 +294,7 @@ export function InstanceModal({
         name,
         description,
         gameVersionId: versionID,
+        gameClient,
         defaultAccountId: accountID || undefined,
         launchArguments: argumentsText.trim() ? argumentsText.trim().split(/\s+/) : [],
       });
@@ -333,11 +336,19 @@ export function InstanceModal({
   }
 
   const selectedVersion = versions.find((version) => version.id === instance.gameVersionId);
+  const settingsVersion = versions.find((version) => version.id === versionID);
   const selectedAccount = accounts.find((account) => account.id === instance.defaultAccountId);
+  const optimumVersionMismatch =
+    gameClient === "optimum" &&
+    optimumStatus?.ready === true &&
+    optimumStatus.gameVersion !== "" &&
+    settingsVersion !== undefined &&
+    optimumStatus.gameVersion !== settingsVersion.id;
   const settingsDirty =
     name !== instance.name ||
     description !== instance.description ||
     versionID !== instance.gameVersionId ||
+    gameClient !== (instance.gameClient ?? "vanilla") ||
     accountID !== (instance.defaultAccountId ?? "") ||
     argumentsText !== instance.launchArguments.join(" ");
 
@@ -345,6 +356,7 @@ export function InstanceModal({
     setName(instance.name);
     setDescription(instance.description);
     setVersionID(instance.gameVersionId);
+    setGameClient(instance.gameClient ?? "vanilla");
     setAccountID(instance.defaultAccountId ?? "");
     setArgumentsText(instance.launchArguments.join(" "));
   }
@@ -666,6 +678,70 @@ export function InstanceModal({
                     </Select>
                   </Field>
                 </div>
+
+                <Field label={t("game_client")} hint={t("game_client_description")}>
+                  <Select
+                    value={gameClient}
+                    onValueChange={(client) => {
+                      if (client === "vanilla" || client === "optimum") {
+                        setGameClient(client);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vanilla">{t("vanilla")}</SelectItem>
+                      <SelectItem value="optimum">Optimum</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                {gameClient === "optimum" && (
+                  <>
+                    {optimumVersionMismatch ? (
+                      <div className="inlineNotice warning" role="alert">
+                        <strong>{t("optimum_version_mismatch")}</strong>
+                        <div>
+                          {t("optimum_version_mismatch_description", {
+                            optimumVersion: optimumStatus.gameVersion,
+                            instanceVersion: settingsVersion.id,
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="settingTile">
+                        <div className="settingRowText">
+                          <strong>
+                            {optimumStatus?.ready ? t("optimum_ready") : t("optimum_missing")}
+                          </strong>
+                          <small className="settingRowDescription">
+                            {optimumStatus?.ready
+                              ? optimumStatus.gameVersion
+                                ? t("optimum_vintage_story_version", {
+                                    version: optimumStatus.gameVersion,
+                                  })
+                                : optimumStatus.path
+                              : optimumStatus?.message || t("optimum_not_configured_description")}
+                          </small>
+                        </div>
+                        {!optimumStatus?.ready && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              onClose();
+                              void navigate("/settings");
+                            }}
+                          >
+                            {t("configure_optimum")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </section>
 

@@ -56,6 +56,7 @@ export interface Instance {
   name: string;
   description: string;
   gameVersionId: string;
+  gameClient: "vanilla" | "optimum";
   defaultAccountId?: string;
   directory: string;
   status: string;
@@ -423,6 +424,7 @@ export interface Settings {
   downloadsParallel: number;
   confirmDeletion: boolean;
   globalLaunchArguments: string[];
+  optimumPath: string;
   checkForUpdates: boolean;
   updateChannel: "stable" | "prerelease";
   skippedUpdateVersion: string;
@@ -434,6 +436,14 @@ export interface DataFolder {
   currentPath: string;
   defaultPath: string;
   lastError: string;
+}
+
+export interface OptimumStatus {
+  path: string;
+  executable: string;
+  gameVersion: string;
+  ready: boolean;
+  message: string;
 }
 
 export interface DataFolderProgress {

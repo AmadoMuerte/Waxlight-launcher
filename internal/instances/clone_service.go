@@ -78,6 +78,7 @@ func (service *CloneService) Clone(ctx context.Context, sourceID, name string) (
 		Name:             name,
 		Description:      source.Description,
 		GameVersionID:    source.GameVersionID,
+		GameClient:       source.GameClient,
 		DefaultAccountID: source.DefaultAccountID,
 		LaunchArguments:  append([]string(nil), source.LaunchArguments...),
 	})

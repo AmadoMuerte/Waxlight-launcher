@@ -26,6 +26,7 @@ type runningGame struct {
 	process   process.Running
 	sessionID string
 	started   time.Time
+	client    instances.GameClient
 	log       io.Closer
 	cleanup   func() error
 }
@@ -97,6 +98,17 @@ func (registry *Registry) Running(instanceID string) bool {
 	defer registry.mu.Unlock()
 	_, running := registry.running[instanceID]
 	return running
+}
+
+func (registry *Registry) ClientRunning(client instances.GameClient) bool {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	for _, game := range registry.running {
+		if game.client == client {
+			return true
+		}
+	}
+	return false
 }
 
 // Start registers a started game process.
