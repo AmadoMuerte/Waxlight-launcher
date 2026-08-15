@@ -1,6 +1,6 @@
 module github.com/waxlight/waxlight-launcher
 
-go 1.25.0
+go 1.25.13
 
 require (
 	github.com/AmadoMuerte/vintagestory-go v0.2.1
