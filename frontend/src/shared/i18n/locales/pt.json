@@ -184,6 +184,7 @@
   "launch_anyway": "Iniciar mesmo assim?",
   "delete_instance_confirmation": "Excluir “{{name}}” e todos os seus arquivos?",
   "instance_settings_saved": "Configurações da instância salvas",
+  "instance_cover": "Capa da instância",
   "unsaved_changes": "Há alterações não salvas",
   "all_changes_saved": "Todas as alterações foram salvas",
   "mods": "Mods",

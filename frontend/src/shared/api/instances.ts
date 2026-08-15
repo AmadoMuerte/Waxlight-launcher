@@ -20,9 +20,11 @@ export const instancesApi = {
     gameClient?: "vanilla" | "optimum";
     defaultAccountId?: string;
     launchArguments: string[];
+    coverSourcePath?: string;
   }) => call<Instance>("InstanceController", "UpdateInstance", request),
   remove: (id: string, deleteFiles: boolean) =>
     call<void>("InstanceController", "DeleteInstance", id, deleteFiles),
   clone: (request: { sourceId: string; name: string }) =>
     call<Instance>("InstanceController", "CloneInstance", request),
+  selectCover: () => call<string>("InstanceController", "SelectInstanceCover"),
 };

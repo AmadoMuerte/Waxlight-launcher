@@ -18,7 +18,11 @@ type instanceQueries interface {
 }
 
 type instanceUpdater interface {
-	Update(context.Context, instances.Instance) (instances.Instance, error)
+	UpdateWithCover(context.Context, instances.Instance, *string) (instances.Instance, error)
+}
+
+type instanceCoverDialog interface {
+	SelectInstanceCover() (string, error)
 }
 
 type instanceDeleter interface {
@@ -47,6 +51,7 @@ type InstanceController struct {
 	cloner     instanceCloner
 	sessions   instancePlaytime
 	modCounter instanceModCounter
+	dialogs    instanceCoverDialog
 	lifecycle  lifecycle
 }
 
@@ -59,12 +64,18 @@ func NewInstanceController(
 	sessionQueries instancePlaytime,
 	modCounter instanceModCounter,
 	lifecycle lifecycle,
+	dialogs instanceCoverDialog,
 ) *InstanceController {
 	return &InstanceController{
 		creator: creator, queries: queries, updater: updater,
 		deleter: deleter, cloner: cloner, sessions: sessionQueries, lifecycle: lifecycle,
 		modCounter: modCounter,
+		dialogs:    dialogs,
 	}
+}
+
+func (controller *InstanceController) SelectInstanceCover() (string, error) {
+	return controller.dialogs.SelectInstanceCover()
 }
 
 type CreateInstanceRequest struct {
@@ -85,6 +96,7 @@ type UpdateInstanceRequest struct {
 	GameClient       *string  `json:"gameClient,omitempty"`
 	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
 	LaunchArguments  []string `json:"launchArguments"`
+	CoverSourcePath  *string  `json:"coverSourcePath,omitempty"`
 }
 
 type CloneInstanceRequest struct {
@@ -164,7 +176,7 @@ func (controller *InstanceController) UpdateInstance(
 	instance.DefaultAccountID = request.DefaultAccountID
 	instance.LaunchArguments = request.LaunchArguments
 
-	updated, err := controller.updater.Update(ctx, instance)
+	updated, err := controller.updater.UpdateWithCover(ctx, instance, request.CoverSourcePath)
 	return instanceDTO(updated), err
 }
 

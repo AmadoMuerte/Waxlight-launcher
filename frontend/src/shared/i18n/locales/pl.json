@@ -184,6 +184,7 @@
   "launch_anyway": "Uruchomić mimo to?",
   "delete_instance_confirmation": "Usunąć „{{name}}” i wszystkie jej pliki?",
   "instance_settings_saved": "Zapisano ustawienia instancji",
+  "instance_cover": "Okładka instancji",
   "unsaved_changes": "Istnieją niezapisane zmiany",
   "all_changes_saved": "Wszystkie zmiany zostały zapisane",
   "mods": "Mody",

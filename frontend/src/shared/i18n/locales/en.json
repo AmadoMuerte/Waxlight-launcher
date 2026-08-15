@@ -188,6 +188,7 @@
   "launch_anyway": "Launch anyway?",
   "delete_instance_confirmation": "Delete “{{name}}” and all of its files?",
   "instance_settings_saved": "Instance settings saved",
+  "instance_cover": "Instance cover",
   "unsaved_changes": "Unsaved changes",
   "all_changes_saved": "All changes saved",
   "mods": "Mods",
