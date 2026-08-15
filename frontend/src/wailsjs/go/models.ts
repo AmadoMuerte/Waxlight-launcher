@@ -2,7 +2,8 @@ export namespace deeplink {
 
 	export class Target {
 	    type: string;
-	    modId: string;
+	    modId?: string;
+	    address?: string;
 
 	    static createFrom(source: any = {}) {
 	        return new Target(source);
@@ -12,6 +13,7 @@ export namespace deeplink {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
 	        this.modId = source["modId"];
+	        this.address = source["address"];
 	    }
 	}
 

@@ -223,6 +223,8 @@
   "source_code_external": "Källkod ↗",
   "copy_waxlight_link": "Kopiera Waxlight-länk",
   "waxlight_link_copied": "Waxlight-länk kopierad",
+  "server_link_copied": "Waxlight-serverlänk kopierad",
+  "server_not_in_catalog": "Den här servern finns för närvarande inte i den offentliga serverkatalogen.",
   "waxlight_link_copy_failed": "Kunde inte kopiera Waxlight-länk",
   "invalid_waxlight_link": "Ogiltig Waxlight-länk",
   "screenshots": "Skärmbilder",

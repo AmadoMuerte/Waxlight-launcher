@@ -2,7 +2,8 @@ import { call } from "./bridge";
 
 export interface DeepLinkTarget {
   type: string;
-  modId: string;
+  modId?: string;
+  address?: string;
 }
 
 export const deepLinksApi = {

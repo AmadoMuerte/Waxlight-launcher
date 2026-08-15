@@ -223,6 +223,8 @@
   "source_code_external": "Бастапқы код ↗",
   "copy_waxlight_link": "Waxlight сілтемесін көшіру",
   "waxlight_link_copied": "Waxlight сілтемесі көшірілді",
+  "server_link_copied": "Waxlight сервер сілтемесі көшірілді",
+  "server_not_in_catalog": "Бұл сервер қазір ашық серверлер каталогында жоқ.",
   "waxlight_link_copy_failed": "Waxlight сілтемесін көшіру мүмкін болмады",
   "invalid_waxlight_link": "Waxlight сілтемесі жарамсыз",
   "screenshots": "Скриншоттар",

@@ -26,7 +26,7 @@ import type { LauncherUpdateProgress, Operation, Settings } from "../shared/api/
 import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
 import { log } from "../shared/lib/logger";
-import { deepLinkPath } from "../shared/lib/waxlight-links";
+import { deepLinkPath, normalizeServerAddress } from "../shared/lib/waxlight-links";
 import { Spinner } from "../shared/ui/spinner";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 import { AppToast } from "../widgets/layout/AppToast";
@@ -73,7 +73,11 @@ export function App() {
   useEffect(() => {
     const open = (target: unknown) => {
       const path = deepLinkPath(target);
-      if (path) void navigate(path);
+      const address =
+        target && typeof target === "object" && Reflect.get(target, "type") === "server"
+          ? normalizeServerAddress(Reflect.get(target, "address"))
+          : undefined;
+      if (path) void navigate(path, { state: address ? { deepLinkAddress: address } : undefined });
     };
 
     let unsubscribe: (() => void) | undefined;

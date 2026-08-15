@@ -17,6 +17,22 @@ func TestParseMod(t *testing.T) {
 	}
 }
 
+func TestParseServer(t *testing.T) {
+	for _, test := range []struct {
+		raw, address string
+	}{
+		{"waxlight://server/play.example.com", "play.example.com"},
+		{"waxlight://server/PLAY.example.com:42420", "play.example.com:42420"},
+		{"waxlight://server/127.0.0.1:42420", "127.0.0.1:42420"},
+		{"waxlight://server/%5B2001:DB8::1%5D:42420", "[2001:db8::1]:42420"},
+	} {
+		target, err := Parse(test.raw)
+		if err != nil || target.Type != ServerKind || target.Address != test.address {
+			t.Errorf("Parse(%q) = %#v, %v", test.raw, target, err)
+		}
+	}
+}
+
 func TestParseRejectsInvalidLinks(t *testing.T) {
 	for _, raw := range []string{
 		"waxlight://mod/",
@@ -27,7 +43,11 @@ func TestParseRejectsInvalidLinks(t *testing.T) {
 		"waxlight://mod/javascript:alert(1)",
 		"http://mod/optimum",
 		"file:///etc/passwd",
-		"waxlight://server/foo",
+		"waxlight://server/",
+		"waxlight://server/javascript:foo",
+		"waxlight://server/http://evil.example",
+		"waxlight://server/file:///etc/passwd",
+		"waxlight://server/../../foo",
 		"waxlight://unknown/foo",
 		"https://waxlight.by/mod/optimum",
 		"javascript://mod/foo",

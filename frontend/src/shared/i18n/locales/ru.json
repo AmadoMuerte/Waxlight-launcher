@@ -223,6 +223,8 @@
   "source_code_external": "Исходный код ↗",
   "copy_waxlight_link": "Копировать ссылку Waxlight",
   "waxlight_link_copied": "Ссылка Waxlight скопирована",
+  "server_link_copied": "Ссылка на сервер Waxlight скопирована",
+  "server_not_in_catalog": "Этот сервер сейчас не указан в публичном каталоге серверов.",
   "waxlight_link_copy_failed": "Не удалось скопировать ссылку Waxlight",
   "invalid_waxlight_link": "Недопустимая ссылка Waxlight",
   "screenshots": "Снимки экрана",
