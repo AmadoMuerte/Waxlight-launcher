@@ -286,6 +286,35 @@ describe("mods browser", () => {
     expect(await screen.findByText("Tag: Utility")).toBeTruthy();
   });
 
+  it("filters downloaded mods by tags from the tag dropdown", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        tags: ["Utility"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    api.tags.mockResolvedValue([{ name: "Graphics", count: 1 }]);
+    renderPage("/mods?view=downloaded");
+    await screen.findByText("Player Corpse");
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tags" }));
+    await userEvent.setup().click(screen.getByRole("menuitemcheckbox", { name: /Graphics/ }));
+
+    expect(await screen.findByText("No downloaded mods yet")).toBeTruthy();
+  });
+
   it("lists game version series from the official catalog in the filter", async () => {
     renderPage("/mods");
     await screen.findByText("Player Corpse");

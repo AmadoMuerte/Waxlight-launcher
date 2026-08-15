@@ -263,6 +263,7 @@ export interface DownloadedMod {
   versionId: string;
   downloadedVersion: string;
   gameVersions: string[];
+  tags?: string[];
   fileName: string;
   fileSize: number;
   downloadedAt: string;

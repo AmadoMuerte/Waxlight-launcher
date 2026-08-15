@@ -220,6 +220,7 @@ func (service *CatalogService) linkLocalModFile(
 		VersionID:         version.ID,
 		DownloadedVersion: version.Version,
 		GameVersions:      append([]string(nil), version.GameVersions...),
+		Tags:              append([]string{}, details.Tags...),
 		FileName:          filepath.Base(destination),
 		FilePath:          destination,
 		FileSize:          size.Size(),

@@ -264,6 +264,7 @@ func (service *CatalogService) downloadCatalogVersion(
 		VersionID:         selected.ID,
 		DownloadedVersion: selected.Version,
 		GameVersions:      append([]string(nil), selected.GameVersions...),
+		Tags:              append([]string{}, details.Tags...),
 		FileName:          filepath.Base(destination),
 		FilePath:          destination,
 		FileSize:          info.Size(),
