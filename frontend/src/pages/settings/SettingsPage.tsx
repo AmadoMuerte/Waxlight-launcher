@@ -11,15 +11,20 @@ import { useToastStore } from "../../app/stores/toast";
 import { modCatalogApi } from "../../entities/mod/api";
 import { settingsApi } from "../../entities/settings/api";
 import type { DataFolder, DataFolderProgress, Settings } from "../../entities/settings/model";
-import { useSettingsQuery } from "../../entities/settings/queries";
+import { useOptimumStatusQuery, useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
-import { DOWNLOADED_MODS_QUERY_KEY, SETTINGS_QUERY_KEY } from "../../shared/api/keys";
+import {
+  DOWNLOADED_MODS_QUERY_KEY,
+  OPTIMUM_STATUS_QUERY_KEY,
+  SETTINGS_QUERY_KEY,
+} from "../../shared/api/keys";
 import type { DownloadedModCleanupResult } from "../../shared/api/types";
 import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { PageHeader } from "../../shared/ui/page-header";
+import { StatusPill } from "../../shared/ui/status-pill";
 import { Stepper } from "../../shared/ui/stepper";
 import { Switch } from "../../shared/ui/switch";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
@@ -31,6 +36,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.language === right.language &&
     left.downloadsParallel === right.downloadsParallel &&
     left.confirmDeletion === right.confirmDeletion &&
+    left.optimumPath === right.optimumPath &&
     left.checkForUpdates === right.checkForUpdates &&
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
@@ -47,6 +53,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: settings } = useSettingsQuery();
+  const { data: queriedOptimumStatus } = useOptimumStatusQuery();
   const notify = useToastStore((state) => state.notify);
   const currentVersion = useAppShellStore((state) => state.launcherVersion);
   const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
@@ -59,6 +66,7 @@ export function SettingsPage() {
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
   const [checking, setChecking] = useState(false);
+  const [checkingOptimum, setCheckingOptimum] = useState(false);
   const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
   const [cleaning, setCleaning] = useState(false);
   const persistedRef = useRef<Settings | undefined>(undefined);
@@ -66,6 +74,7 @@ export function SettingsPage() {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const notifyRef = useRef(notify);
   const translateRef = useRef(t);
+  const optimumRevisionRef = useRef(0);
 
   notifyRef.current = notify;
   translateRef.current = t;
@@ -101,12 +110,13 @@ export function SettingsPage() {
 
         try {
           const saved = await settingsApi.update(next);
+          persistedRef.current = saved;
           if (revision !== revisionRef.current) {
             return;
           }
-          persistedRef.current = saved;
           setValue(saved);
           queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
+          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
           await changeAppLanguage(saved.language);
           notifyRef.current(translateRef.current("settings_saved"));
         } catch (error) {
@@ -119,6 +129,7 @@ export function SettingsPage() {
             setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
             await changeAppLanguage(previous.language);
           }
+          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
           notifyRef.current(errorMessage(error), "error");
         }
       }
@@ -142,6 +153,49 @@ export function SettingsPage() {
       .then(setDataFolder)
       .catch(() => undefined);
   }, []);
+
+  async function detectOptimum() {
+    const revision = ++optimumRevisionRef.current;
+    setCheckingOptimum(true);
+    try {
+      await queryClient.cancelQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+      const status = await settingsApi.detectOptimum();
+      if (revision !== optimumRevisionRef.current) {
+        return;
+      }
+      queryClient.setQueryData(OPTIMUM_STATUS_QUERY_KEY, status);
+      setValue((current) => (current ? { ...current, optimumPath: "" } : current));
+    } catch (error) {
+      if (revision === optimumRevisionRef.current) {
+        notify(errorMessage(error), "error");
+      }
+    } finally {
+      if (revision === optimumRevisionRef.current) {
+        setCheckingOptimum(false);
+      }
+    }
+  }
+
+  async function browseOptimum() {
+    const revision = ++optimumRevisionRef.current;
+    try {
+      await queryClient.cancelQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+      const path = await settingsApi.selectOptimumInstallation();
+      if (!path || revision !== optimumRevisionRef.current) {
+        return;
+      }
+      const status = await settingsApi.inspectOptimum(path);
+      if (revision !== optimumRevisionRef.current) {
+        return;
+      }
+      queryClient.setQueryData(OPTIMUM_STATUS_QUERY_KEY, status);
+      setValue((current) => (current ? { ...current, optimumPath: status.path } : current));
+    } catch (error) {
+      if (revision === optimumRevisionRef.current) {
+        notify(errorMessage(error), "error");
+      }
+    }
+  }
 
   useEffect(() => {
     try {
@@ -234,6 +288,8 @@ export function SettingsPage() {
   if (!value) {
     return null;
   }
+
+  const optimumStatus = queriedOptimumStatus;
 
   return (
     <>
@@ -466,6 +522,67 @@ export function SettingsPage() {
                     }}
                   >
                     {t("check_for_updates")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="settingsPageSection">
+            <header>
+              <h2>Optimum</h2>
+              <p>
+                {t("optimum_settings_description")}{" "}
+                <button
+                  type="button"
+                  className="linkButton"
+                  onClick={() => void settingsApi.openOptimumInstallationGuide()}
+                >
+                  {t("optimum_installation_guide")}
+                </button>
+              </p>
+            </header>
+            <div className="downloadsPanel">
+              <div className="settingRow settingRowColumn">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("installation")}</span>
+                </div>
+                <input
+                  className="settingTileInput codeInput"
+                  value={optimumStatus?.path || t("optimum_not_detected")}
+                  readOnly
+                  aria-label={t("optimum_installation")}
+                />
+              </div>
+              <div className="settingRowDivider" />
+              <div className="settingRow">
+                <div className="settingRowText">
+                  <span className="settingRowTitle">{t("status")}</span>
+                  <small className="settingRowDescription">
+                    {optimumStatus?.ready
+                      ? optimumStatus.gameVersion
+                        ? t("optimum_vintage_story_version", {
+                            version: optimumStatus.gameVersion,
+                          })
+                        : t("optimum_ready")
+                      : optimumStatus?.message || t("optimum_not_configured_description")}
+                  </small>
+                </div>
+                <StatusPill status={optimumStatus?.ready ? "ready" : "unknown"} />
+              </div>
+              <div className="settingRowDivider" />
+              <div className="settingRow">
+                <div className="settingRowControl row">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    busy={checkingOptimum}
+                    onClick={() => void detectOptimum()}
+                  >
+                    {t("detect")}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => void browseOptimum()}>
+                    {t("browse")}
                   </Button>
                 </div>
               </div>

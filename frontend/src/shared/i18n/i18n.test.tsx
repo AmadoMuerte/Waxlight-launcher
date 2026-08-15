@@ -14,6 +14,13 @@ const api = vi.hoisted(() => ({
   get: vi.fn(),
   update: vi.fn(),
   getDataFolder: vi.fn().mockResolvedValue({ currentPath: "", defaultPath: "", lastError: "" }),
+  getOptimumStatus: vi.fn().mockResolvedValue({
+    path: "",
+    executable: "",
+    gameVersion: "",
+    ready: false,
+    message: "",
+  }),
 }));
 vi.mock("../api/settings", () => ({ settingsApi: api }));
 
@@ -22,6 +29,7 @@ const settings: Settings = {
   downloadsParallel: 3,
   confirmDeletion: true,
   globalLaunchArguments: [],
+  optimumPath: "",
   checkForUpdates: true,
   updateChannel: "stable",
   skippedUpdateVersion: "",

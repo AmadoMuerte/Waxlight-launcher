@@ -121,6 +121,7 @@ func (service *PackageService) ExportInstance(
 		Name:            name,
 		Description:     strings.TrimSpace(options.Description),
 		GameVersion:     PackageGameVersion{ID: version.ID, Name: version.Name},
+		GameClient:      instance.GameClient,
 		LaunchArguments: append([]string(nil), instance.LaunchArguments...),
 		CreatedAt:       service.now().UTC(),
 	}
@@ -525,10 +526,12 @@ func (service *PackageService) importPackage(
 	if description == "" {
 		description = pkg.Manifest().Description
 	}
+	gameClient := pkg.Manifest().GameClient
 	instance, err := service.creator.Create(ctx, CreateInput{
 		Name:            name,
 		Description:     description,
 		GameVersionID:   versionID,
+		GameClient:      gameClient,
 		Directory:       strings.TrimSpace(options.Directory),
 		LaunchArguments: append([]string(nil), pkg.Manifest().LaunchArguments...),
 	})

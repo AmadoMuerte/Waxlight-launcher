@@ -137,11 +137,18 @@ func readManifest(archive *zip.ReadCloser) (instances.PackageManifest, error) {
 	if manifest.SchemaVersion == 0 {
 		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageUnsupported, "The package does not declare a format version")
 	}
-	if manifest.SchemaVersion != instances.InstancePackageSchemaVersion {
+	if manifest.SchemaVersion < instances.InstancePackageLegacySchemaVersion || manifest.SchemaVersion > instances.InstancePackageSchemaVersion {
 		return instances.PackageManifest{}, errs.NewError(
 			errs.ErrPackageUnsupported,
 			fmt.Sprintf("The package format version %d is not supported by this launcher", manifest.SchemaVersion),
 		)
+	}
+	if manifest.SchemaVersion == instances.InstancePackageLegacySchemaVersion {
+		manifest.GameClient = instances.GameClientVanilla
+	} else if normalized, valid := instances.NormalizeGameClient(manifest.GameClient); !valid {
+		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest declares an invalid game client")
+	} else {
+		manifest.GameClient = normalized
 	}
 	if strings.TrimSpace(manifest.Name) == "" {
 		return instances.PackageManifest{}, errs.NewError(errs.ErrPackageInvalid, "The package manifest does not name the instance")

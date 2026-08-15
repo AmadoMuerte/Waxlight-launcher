@@ -7,6 +7,7 @@ type Settings struct {
 	DownloadsParallel        int
 	ConfirmDeletion          bool
 	GlobalLaunchArguments    []string
+	OptimumPath              string
 	CheckForUpdates          bool
 	UpdateChannel            string
 	SkippedUpdateVersion     string

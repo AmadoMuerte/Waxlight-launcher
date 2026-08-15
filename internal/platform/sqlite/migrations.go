@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 5
+const currentSchemaVersion = 6
 
 type migration struct {
 	version int
@@ -19,6 +19,7 @@ var migrations = []migration{
 	{version: 3, apply: addAccountUIDIndex},
 	{version: 4, apply: addLastKnownGood},
 	{version: 5, apply: addFavoriteServers},
+	{version: 6, apply: addInstanceGameClient},
 }
 
 func (s *SQLiteStore) migrate(ctx context.Context) error {
@@ -89,7 +90,7 @@ CREATE TABLE IF NOT EXISTS game_versions (
 );
 CREATE TABLE IF NOT EXISTS instances (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, game_version_id TEXT NOT NULL,
- default_account_id TEXT, directory TEXT NOT NULL UNIQUE, cover_path TEXT, status TEXT NOT NULL,
+ game_client TEXT NOT NULL DEFAULT 'vanilla', default_account_id TEXT, directory TEXT NOT NULL UNIQUE, cover_path TEXT, status TEXT NOT NULL,
  launch_arguments TEXT NOT NULL DEFAULT '[]', last_played_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
  FOREIGN KEY(game_version_id) REFERENCES game_versions(id), FOREIGN KEY(default_account_id) REFERENCES accounts(id) ON DELETE SET NULL
 );
@@ -153,6 +154,17 @@ func addFavoriteServers(ctx context.Context, tx *sql.Tx) error {
 	 FOREIGN KEY(instance_id) REFERENCES instances(id) ON DELETE SET NULL
 	)`)
 	return err
+}
+
+func addInstanceGameClient(ctx context.Context, tx *sql.Tx) error {
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='instances'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return nil
+	}
+	return ensureColumn(ctx, tx, "instances", "game_client", "TEXT NOT NULL DEFAULT 'vanilla'")
 }
 
 func ensureColumn(ctx context.Context, tx *sql.Tx, table, column, definition string) error {

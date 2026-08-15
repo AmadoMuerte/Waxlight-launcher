@@ -4,14 +4,19 @@ import (
 	"errors"
 	"os"
 
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
+
+const optimumInstallationGuideURL = "https://github.com/Zaldaryon/Optimum/wiki/Installation"
 
 type settingsDialogs interface {
 	SelectDataFolder() (string, error)
 	SelectGameArchive() (string, error)
 	SelectGameDirectory() (string, error)
+	SelectOptimumInstallation() (string, error)
 	SelectModFile() (string, error)
 	SelectModFiles() ([]string, error)
 }
@@ -27,6 +32,7 @@ type SettingsController struct {
 	reader    *settings.Reader
 	service   *settings.Service
 	dataRoot  *settings.DataRootService
+	optimum   *optimum.Service
 	lifecycle lifecycle
 	dialogs   settingsDialogs
 	opener    directoryOpener
@@ -36,11 +42,12 @@ func NewSettingsController(
 	reader *settings.Reader,
 	service *settings.Service,
 	dataRoot *settings.DataRootService,
+	optimumService *optimum.Service,
 	lifecycle lifecycle,
 	dialogs settingsDialogs,
 	opener directoryOpener,
 ) *SettingsController {
-	return &SettingsController{reader: reader, service: service, dataRoot: dataRoot, lifecycle: lifecycle, dialogs: dialogs, opener: opener}
+	return &SettingsController{reader: reader, service: service, dataRoot: dataRoot, optimum: optimumService, lifecycle: lifecycle, dialogs: dialogs, opener: opener}
 }
 
 func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
@@ -52,6 +59,7 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 	value, err := controller.service.Update(controller.lifecycle.Context(), settings.Settings{
 		Language: request.Language, DownloadsParallel: request.DownloadsParallel,
 		ConfirmDeletion: request.ConfirmDeletion, GlobalLaunchArguments: request.GlobalLaunchArguments,
+		OptimumPath:     request.OptimumPath,
 		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
 		SkippedUpdateVersion: request.SkippedUpdateVersion, TelemetryEnabled: request.TelemetryEnabled,
 		AutomaticSafetySnapshots: request.AutomaticSafetySnapshots,
@@ -78,6 +86,31 @@ func (controller *SettingsController) SelectGameArchive() (string, error) {
 
 func (controller *SettingsController) SelectGameDirectory() (string, error) {
 	return controller.dialogs.SelectGameDirectory()
+}
+
+func (controller *SettingsController) GetOptimumStatus() (OptimumStatusDTO, error) {
+	settings, err := controller.reader.Get(controller.lifecycle.Context())
+	if err != nil {
+		return OptimumStatusDTO{}, err
+	}
+	return optimumStatusDTO(controller.optimum.Status(settings.OptimumPath)), nil
+}
+
+func (controller *SettingsController) DetectOptimum() OptimumStatusDTO {
+	return optimumStatusDTO(controller.optimum.Status(""))
+}
+
+func (controller *SettingsController) InspectOptimum(path string) (OptimumStatusDTO, error) {
+	status, err := controller.optimum.Inspect(path)
+	return optimumStatusDTO(status), err
+}
+
+func (controller *SettingsController) SelectOptimumInstallation() (string, error) {
+	return controller.dialogs.SelectOptimumInstallation()
+}
+
+func (controller *SettingsController) OpenOptimumInstallationGuide() {
+	wruntime.BrowserOpenURL(controller.lifecycle.Context(), optimumInstallationGuideURL)
 }
 
 func (controller *SettingsController) SelectModFile() (string, error) {

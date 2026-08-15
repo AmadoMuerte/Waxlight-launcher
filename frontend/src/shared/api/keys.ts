@@ -5,6 +5,7 @@ export const AVAILABLE_GAME_VERSIONS_QUERY_KEY = ["game-versions", "available"] 
 export const OPERATIONS_QUERY_KEY = ["operations"] as const;
 export const STATISTICS_QUERY_KEY = ["statistics"] as const;
 export const SETTINGS_QUERY_KEY = ["settings"] as const;
+export const OPTIMUM_STATUS_QUERY_KEY = ["settings", "optimum"] as const;
 export const FAVORITE_SERVERS_QUERY_KEY = ["favorite-servers"] as const;
 export const PUBLIC_SERVERS_QUERY_KEY = ["public-servers"] as const;
 

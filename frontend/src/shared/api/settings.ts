@@ -1,11 +1,18 @@
 import { call } from "./bridge";
-import type { DataFolder, Settings } from "./types";
+import type { DataFolder, OptimumStatus, Settings } from "./types";
 
 export const settingsApi = {
   get: () => call<Settings>("SettingsController", "GetSettings"),
   update: (settings: Settings) => call<Settings>("SettingsController", "UpdateSettings", settings),
   selectGameArchive: () => call<string>("SettingsController", "SelectGameArchive"),
   selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
+  getOptimumStatus: () => call<OptimumStatus>("SettingsController", "GetOptimumStatus"),
+  detectOptimum: () => call<OptimumStatus>("SettingsController", "DetectOptimum"),
+  inspectOptimum: (path: string) =>
+    call<OptimumStatus>("SettingsController", "InspectOptimum", path),
+  selectOptimumInstallation: () => call<string>("SettingsController", "SelectOptimumInstallation"),
+  openOptimumInstallationGuide: () =>
+    call<void>("SettingsController", "OpenOptimumInstallationGuide"),
   selectModFile: () => call<string>("SettingsController", "SelectModFile"),
   selectModFiles: () => call<string[]>("SettingsController", "SelectModFiles"),
   openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),

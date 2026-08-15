@@ -71,6 +71,7 @@ type CreateInstanceRequest struct {
 	Name             string   `json:"name"`
 	Description      string   `json:"description"`
 	GameVersionID    string   `json:"gameVersionId"`
+	GameClient       string   `json:"gameClient"`
 	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
 	Directory        string   `json:"directory"`
 	LaunchArguments  []string `json:"launchArguments"`
@@ -81,6 +82,7 @@ type UpdateInstanceRequest struct {
 	Name             string   `json:"name"`
 	Description      string   `json:"description"`
 	GameVersionID    string   `json:"gameVersionId"`
+	GameClient       *string  `json:"gameClient,omitempty"`
 	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
 	LaunchArguments  []string `json:"launchArguments"`
 }
@@ -135,6 +137,7 @@ func (controller *InstanceController) CreateInstance(
 			Name:             request.Name,
 			Description:      request.Description,
 			GameVersionID:    request.GameVersionID,
+			GameClient:       instances.GameClient(request.GameClient),
 			DefaultAccountID: request.DefaultAccountID,
 			Directory:        request.Directory,
 			LaunchArguments:  request.LaunchArguments,
@@ -155,6 +158,9 @@ func (controller *InstanceController) UpdateInstance(
 	instance.Name = request.Name
 	instance.Description = request.Description
 	instance.GameVersionID = request.GameVersionID
+	if request.GameClient != nil {
+		instance.GameClient = instances.GameClient(*request.GameClient)
+	}
 	instance.DefaultAccountID = request.DefaultAccountID
 	instance.LaunchArguments = request.LaunchArguments
 

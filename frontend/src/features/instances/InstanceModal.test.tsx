@@ -36,7 +36,10 @@ const settingsApi = vi.hoisted(() => ({
   openDirectory: vi.fn(),
 }));
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = vi.hoisted(() => ({
+  useSettingsQuery: vi.fn(),
+  useOptimumStatusQuery: vi.fn(),
+}));
 
 vi.mock("../../shared/api/instances", () => ({ instancesApi }));
 vi.mock("../../shared/api/mods", () => ({ modsApi }));
@@ -49,6 +52,7 @@ const instance: Instance = {
   name: "Survival",
   description: "",
   gameVersionId: "1.20",
+  gameClient: "vanilla",
   directory: "/data",
   status: "ready",
   launchArguments: [],
@@ -139,6 +143,7 @@ describe("confirmDeletion gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    settingsQuery.useOptimumStatusQuery.mockReturnValue({ data: undefined });
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -296,5 +301,50 @@ describe("confirmDeletion gate", () => {
     await user.click(screen.getByRole("button", { name: "Remove" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(modsApi.remove).not.toHaveBeenCalled();
+  });
+
+  it("saves Optimum as the instance game client", async () => {
+    settingsQuery.useOptimumStatusQuery.mockReturnValue({
+      data: {
+        path: "/optimum",
+        executable: "/optimum/run.sh",
+        gameVersion: "1.20",
+        ready: true,
+        message: "",
+      },
+    });
+    renderModal();
+    const user = await openSettingsTab();
+
+    await user.click(screen.getByRole("combobox", { name: /Game client/ }));
+    await user.click(screen.getByRole("option", { name: "Optimum" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(instancesApi.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "instance-1", gameClient: "optimum" }),
+      ),
+    );
+  });
+
+  it("warns when Optimum targets a different game version", async () => {
+    settingsQuery.useOptimumStatusQuery.mockReturnValue({
+      data: {
+        path: "/optimum",
+        executable: "/optimum/run.sh",
+        gameVersion: "1.22.5",
+        ready: true,
+        message: "",
+      },
+    });
+    renderModal();
+    const user = await openSettingsTab();
+
+    await user.click(screen.getByRole("combobox", { name: /Game client/ }));
+    await user.click(screen.getByRole("option", { name: "Optimum" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "This Optimum installation targets Vintage Story 1.22.5, but this instance uses 1.20.",
+    );
   });
 });

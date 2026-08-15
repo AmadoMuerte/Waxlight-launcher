@@ -99,15 +99,20 @@
       "SaveFavoriteServer"
     ],
     "SettingsController": [
+      "DetectOptimum",
       "GetDataFolder",
+      "GetOptimumStatus",
       "GetSettings",
+      "InspectOptimum",
       "MoveDataFolder",
       "OpenDirectory",
+      "OpenOptimumInstallationGuide",
       "SelectDataFolder",
       "SelectGameArchive",
       "SelectGameDirectory",
       "SelectModFile",
       "SelectModFiles",
+      "SelectOptimumInstallation",
       "UpdateSettings"
     ],
     "SnapshotController": [

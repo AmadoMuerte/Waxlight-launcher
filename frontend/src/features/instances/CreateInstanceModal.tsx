@@ -59,6 +59,7 @@ export function CreateInstanceModal({
         name: name.trim(),
         description,
         gameVersionId: versionID,
+        gameClient: "vanilla",
         defaultAccountId: accountID || undefined,
         directory: "",
         launchArguments: [],
