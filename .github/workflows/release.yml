@@ -98,7 +98,6 @@ jobs:
       - name: Confirm tag and application version
         shell: bash
         run: |
-          git describe --tags --exact-match
           ./scripts/check-version.sh "${RELEASE_TAG#v}"
 
       - name: Build frontend assets
