@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Download, Link } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -20,10 +21,11 @@ import {
 import { ModArtwork } from "../../features/mods/ModArtwork";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
+import { modShareURL } from "../../shared/lib/waxlight-links";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
-import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
+import { BrowserOpenURL, ClipboardSetText } from "../../wailsjs/runtime/runtime";
 
 export function ModDetailsPage() {
   const { t, i18n } = useTranslation();
@@ -112,6 +114,20 @@ export function ModDetailsPage() {
     setPendingExternalUrl(undefined);
   }
 
+  async function copyWaxlightLink() {
+    const url = modShareURL(modId);
+    if (!url) {
+      notify(t("invalid_waxlight_link"), "error");
+      return;
+    }
+    try {
+      if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
+      notify(t("waxlight_link_copied"));
+    } catch {
+      notify(t("waxlight_link_copy_failed"), "error");
+    }
+  }
+
   return (
     <>
       <button className="backToMods" onClick={() => navigate(`/mods${from}`)}>
@@ -145,21 +161,33 @@ export function ModDetailsPage() {
           </div>
         </div>
         <div className="modPrimaryAction">
-          <Button
-            onClick={() =>
-              setInstallVersion(
-                local?.updateAvailable
-                  ? mod.versions[0]?.id
-                  : (local?.versionId ?? mod.versions[0]?.id),
-              )
-            }
-          >
-            {local?.updateAvailable
-              ? t("update_to_version", { version: local.latestVersion })
-              : local
-                ? t("install_to_instance")
-                : t("download")}
-          </Button>
+          <div className="modActionButtons">
+            <Button
+              onClick={() =>
+                setInstallVersion(
+                  local?.updateAvailable
+                    ? mod.versions[0]?.id
+                    : (local?.versionId ?? mod.versions[0]?.id),
+                )
+              }
+            >
+              <Download size={16} />
+              {local?.updateAvailable
+                ? t("update_to_version", { version: local.latestVersion })
+                : local
+                  ? t("install_to_instance")
+                  : t("download")}
+            </Button>
+            <Button
+              variant="ghost"
+              className="modShareButton"
+              aria-label={t("copy_waxlight_link")}
+              title={t("copy_waxlight_link")}
+              onClick={() => void copyWaxlightLink()}
+            >
+              <Link size={17} />
+            </Button>
+          </div>
           {local && <small>{t("downloaded_version", { version: local.downloadedVersion })}</small>}
         </div>
       </header>

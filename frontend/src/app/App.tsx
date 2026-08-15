@@ -20,11 +20,13 @@ import { SettingsPage } from "../pages/settings/SettingsPage";
 import { StatisticsPage } from "../pages/statistics/StatisticsPage";
 import { VersionsPage } from "../pages/versions/VersionsPage";
 import { errorMessage } from "../shared/api/bridge";
+import { deepLinksApi, type DeepLinkTarget } from "../shared/api/deep-links";
 import { OPERATIONS_QUERY_KEY } from "../shared/api/keys";
 import type { LauncherUpdateProgress, Operation, Settings } from "../shared/api/types";
 import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
 import { log } from "../shared/lib/logger";
+import { deepLinkPath } from "../shared/lib/waxlight-links";
 import { Spinner } from "../shared/ui/spinner";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 import { AppToast } from "../widgets/layout/AppToast";
@@ -67,6 +69,25 @@ export function App() {
   const settings = settingsQuery.data;
   const updateCheckedOnceRef = useRef(false);
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
+
+  useEffect(() => {
+    const open = (target: unknown) => {
+      const path = deepLinkPath(target);
+      if (path) void navigate(path);
+    };
+
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = EventsOn("deeplink:open", open);
+      void deepLinksApi
+        .consumePending()
+        .then((targets: DeepLinkTarget[]) => targets.forEach(open))
+        .catch((error) => log.warn(errorMessage(error), { source: "deep-link" }));
+    } catch (error) {
+      log.warn(errorMessage(error), { source: "deep-link" });
+    }
+    return () => unsubscribe?.();
+  }, [navigate]);
 
   useEffect(() => {
     const navigateWithMouseButton = (event: MouseEvent) => {

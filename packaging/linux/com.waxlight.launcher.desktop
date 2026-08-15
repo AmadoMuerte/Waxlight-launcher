@@ -2,9 +2,10 @@
 Type=Application
 Name=Waxlight Launcher
 Comment=Unofficial launcher for Vintage Story
-Exec=waxlight
+Exec=waxlight %u
 Icon=com.waxlight.launcher
 Terminal=false
 Categories=Game;
 StartupNotify=true
 StartupWMClass=waxlight
+MimeType=x-scheme-handler/waxlight;
