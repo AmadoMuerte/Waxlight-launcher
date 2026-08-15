@@ -593,6 +593,7 @@
   "loading_snapshots": "Läser in säkerhetskopior…",
   "operation_creating_safety_backup": "Skapar säkerhetskopia…",
   "operation_installing_game_version": "Installerar Vintage Story {{name}}",
+  "operation_installing_windows_game_version": "Installerar Vintage Story {{name}}. Välj Nej om installationsprogrammet vill avinstallera den gamla versionen",
   "operation_downloading_game_version": "Laddar ner Vintage Story {{name}}",
   "operation_installing_mod": "Installerar modd",
   "operation_creating_snapshot": "Skapar ögonblicksbild",

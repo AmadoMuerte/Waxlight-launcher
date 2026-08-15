@@ -593,6 +593,7 @@
   "loading_snapshots": "Sicherungen werden geladen…",
   "operation_creating_safety_backup": "Sicherheits-Backup wird erstellt…",
   "operation_installing_game_version": "Vintage Story {{name}} wird installiert",
+  "operation_installing_windows_game_version": "Vintage Story {{name}} wird installiert. Wählen Sie Nein, wenn Setup die alte Version deinstallieren möchte",
   "operation_downloading_game_version": "Vintage Story {{name}} wird heruntergeladen",
   "operation_installing_mod": "Mod wird installiert",
   "operation_creating_snapshot": "Momentaufnahme wird erstellt",

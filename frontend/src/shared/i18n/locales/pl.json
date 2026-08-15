@@ -593,6 +593,7 @@
   "loading_snapshots": "Ładowanie kopii zapasowych…",
   "operation_creating_safety_backup": "Tworzenie kopii zapasowej…",
   "operation_installing_game_version": "Instalowanie Vintage Story {{name}}",
+  "operation_installing_windows_game_version": "Instalowanie Vintage Story {{name}}. Wybierz Nie, jeśli instalator zaproponuje odinstalowanie starej wersji",
   "operation_downloading_game_version": "Pobieranie Vintage Story {{name}}",
   "operation_installing_mod": "Instalowanie moda",
   "operation_creating_snapshot": "Tworzenie migawki",
