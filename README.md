@@ -46,12 +46,6 @@ Each release includes `SHA256SUMS` for integrity checks.
 
 > On Windows, unsigned Waxlight builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
 
-## Waxlight Links
-
-Share a mod from its details page with **Copy Waxlight link**. The public link, such as `https://waxlight.by/mod/optimum`, opens the same Mod Details page in an installed Waxlight Launcher. Links only open a mod; they never install it automatically.
-
-Windows protocol handling is registered by the NSIS installer. Portable Windows builds do not modify the registry. Debian and RPM packages install the Linux desktop handler; the portable Linux archive includes the desktop file but requires the user to install it with their desktop environment before `waxlight://` links can be associated.
-
 ## Getting started
 
 1. Sign in under **Accounts**.
