@@ -49,3 +49,11 @@ func TestDeepLinksQueuesServerColdStartThenDispatches(t *testing.T) {
 		t.Fatalf("published = %#v", published)
 	}
 }
+
+func TestDeepLinksConsumeReturnsEmptyList(t *testing.T) {
+	links := NewDeepLinks(events.PublisherFunc(func(string, any) {}))
+
+	if pending := links.Consume(); pending == nil {
+		t.Fatal("pending deep links must serialize as an empty list, not null")
+	}
+}
