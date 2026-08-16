@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 6
+const currentSchemaVersion = 7
 
 type migration struct {
 	version int
@@ -20,6 +20,7 @@ var migrations = []migration{
 	{version: 4, apply: addLastKnownGood},
 	{version: 5, apply: addFavoriteServers},
 	{version: 6, apply: addInstanceGameClient},
+	{version: 7, apply: repairOperationLocalizedTitles},
 }
 
 func (s *SQLiteStore) migrate(ctx context.Context) error {
@@ -165,6 +166,13 @@ func addInstanceGameClient(ctx context.Context, tx *sql.Tx) error {
 		return nil
 	}
 	return ensureColumn(ctx, tx, "instances", "game_client", "TEXT NOT NULL DEFAULT 'vanilla'")
+}
+
+func repairOperationLocalizedTitles(ctx context.Context, tx *sql.Tx) error {
+	if err := ensureColumn(ctx, tx, "operations", "title_key", "TEXT"); err != nil {
+		return err
+	}
+	return ensureColumn(ctx, tx, "operations", "title_params", "TEXT")
 }
 
 func ensureColumn(ctx context.Context, tx *sql.Tx, table, column, definition string) error {
