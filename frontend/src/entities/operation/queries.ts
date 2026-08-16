@@ -13,6 +13,9 @@ export function useOperationsQuery(options?: QueryOptions) {
     queryKey: OPERATIONS_QUERY_KEY,
     queryFn: operationsApi.list,
     ...options,
+    refetchInterval: options?.refetchInterval
+      ? (query) => (query.state.error ? false : options.refetchInterval)
+      : false,
   });
 }
 

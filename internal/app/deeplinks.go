@@ -52,6 +52,9 @@ func (links *DeepLinks) Consume() []deeplink.Target {
 	links.ready = true
 	pending := links.pending
 	links.pending = nil
+	if pending == nil {
+		pending = []deeplink.Target{}
+	}
 	if len(pending) > 0 {
 		slog.Info("deep link dispatched", "count", len(pending))
 	}
