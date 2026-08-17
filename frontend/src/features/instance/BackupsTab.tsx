@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Archive } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -124,7 +125,7 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
         <p className="muted">{t("loading_snapshots")}</p>
       ) : snapshots.length === 0 ? (
         <Empty
-          icon="◈"
+          icon={<Archive size={24} aria-hidden="true" />}
           title={t("no_snapshots")}
           description={t("no_snapshots_description")}
           action={
@@ -192,8 +193,7 @@ export function BackupsTab({ instanceId, onCreated, onRestored }: BackupsTabProp
                     {t("restore")}
                   </Button>
                   <Button
-                    variant="ghost"
-                    className="dangerGhost"
+                    variant="danger"
                     disabled={busy}
                     onClick={() => setDeleteConfirm(snapshot)}
                   >

@@ -1,16 +1,26 @@
+import {
+  ChartNoAxesColumn,
+  Layers3,
+  Library,
+  ListTodo,
+  PanelsTopLeft,
+  Puzzle,
+  Server,
+  Settings,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
 
 import { useOperationsQuery } from "../../entities/operation/queries";
+import { NavItem } from "./NavItem";
 
 const navigation = [
-  { to: "/library", icon: "▦", labelKey: "library" },
-  { to: "/mods", icon: "◇", labelKey: "mods" },
-  { to: "/versions", icon: "⬡", labelKey: "game_versions" },
-  { to: "/servers", icon: "◎", labelKey: "servers" },
-  { to: "/operations", icon: "⇣", labelKey: "operations" },
-  { to: "/statistics", icon: "◷", labelKey: "statistics" },
-  { to: "/settings", icon: "⚙", labelKey: "settings" },
+  { to: "/library", icon: Library, labelKey: "library" },
+  { to: "/mods", icon: Puzzle, labelKey: "mods" },
+  { to: "/versions", icon: Layers3, labelKey: "game_versions" },
+  { to: "/servers", icon: Server, labelKey: "servers" },
+  { to: "/operations", icon: ListTodo, labelKey: "operations" },
+  { to: "/statistics", icon: ChartNoAxesColumn, labelKey: "statistics" },
+  { to: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;
 
 export function SideNav() {
@@ -18,21 +28,20 @@ export function SideNav() {
   const { data: operations = [] } = useOperationsQuery();
 
   return (
-    <nav>
+    <nav className="sideNav">
       {navigation.map((item) => (
-        <NavLink
+        <NavItem
           key={item.to}
           to={item.to}
-          className={({ isActive }) => (isActive ? "active" : "")}
-        >
-          <i>{item.icon}</i>
-          <span>{t(item.labelKey)}</span>
-          {item.to === "/operations" &&
-            operations.some((operation) => operation.status === "running") && (
-              <b className="navPulse" />
-            )}
-        </NavLink>
+          icon={item.icon}
+          label={t(item.labelKey)}
+          indicator={
+            item.to === "/operations" &&
+            operations.some((operation) => operation.status === "running")
+          }
+        />
       ))}
+      {import.meta.env.DEV && <NavItem to="/dev/ui" icon={PanelsTopLeft} label="UI Lab" />}
     </nav>
   );
 }

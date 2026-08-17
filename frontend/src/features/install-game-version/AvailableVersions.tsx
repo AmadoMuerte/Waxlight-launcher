@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,10 +10,16 @@ import { versionsApi } from "../../entities/game-version/api";
 import type { AvailableGameVersion } from "../../entities/game-version/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { GAME_VERSIONS_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
-import { formatBytes } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
+import { Card } from "../../shared/ui/card";
 import { Empty } from "../../shared/ui/empty";
-import { StatusPill } from "../../shared/ui/status-pill";
+import { ErrorState } from "../../shared/ui/error-state";
+import { Input } from "../../shared/ui/input";
+import { LoadingState } from "../../shared/ui/loading-state";
+import { PageSection } from "../../shared/ui/page";
+import { SectionHeader } from "../../shared/ui/section-header";
+import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
+import { VersionItem } from "./VersionItem";
 
 interface AvailableVersionsProps {
   installedVersionIDs: string[];
@@ -85,93 +92,77 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
   }
 
   if (loading) {
-    return <div className="catalogState">{t("loading_official_version_catalog")}</div>;
+    return <LoadingState>{t("loading_official_version_catalog")}</LoadingState>;
   }
 
   if (error) {
-    return (
-      <div className="catalogState errorText">
-        <strong>{t("could_not_load_available_versions")}</strong>
-        <span>{error}</span>
-      </div>
-    );
+    return <ErrorState title={t("could_not_load_available_versions")} description={error} />;
   }
 
   return (
-    <section className="versionCatalog">
-      <div className="sectionHeading">
-        <div>
-          <span className="eyebrow">{t("official_releases")}</span>
-          <h2>{t("available_to_download")}</h2>
-        </div>
-        <div className="versionFilters">
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setVisibleCount(20);
-            }}
-            placeholder={t("search_versions")}
-            aria-label={t("search_versions")}
-          />
-          <Select
-            value={channel}
-            onValueChange={(value) => {
-              setChannel(channelFilter(value));
-              setVisibleCount(20);
-            }}
-          >
-            <SelectTrigger aria-label={t("release_channel")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stable">{t("stable")}</SelectItem>
-              <SelectItem value="unstable">{t("preview_and_release_candidates")}</SelectItem>
-              <SelectItem value="all">{t("all_channels")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <PageSection className="versionCatalog">
+      <SectionHeader
+        eyebrow={t("official_releases")}
+        title={t("available_to_download")}
+        actions={
+          <Toolbar className="versionToolbar">
+            <ToolbarGroup>
+              <Input
+                type="search"
+                className="w-[210px]"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setVisibleCount(20);
+                }}
+                placeholder={t("search_versions")}
+                aria-label={t("search_versions")}
+              />
+              <Select
+                value={channel}
+                onValueChange={(value) => {
+                  setChannel(channelFilter(value));
+                  setVisibleCount(20);
+                }}
+              >
+                <SelectTrigger className="w-[220px]" aria-label={t("release_channel")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="stable">{t("stable")}</SelectItem>
+                  <SelectItem value="unstable">{t("preview_and_release_candidates")}</SelectItem>
+                  <SelectItem value="all">{t("all_channels")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </ToolbarGroup>
+          </Toolbar>
+        }
+      />
 
       {filtered.length === 0 ? (
         <Empty
-          icon="⌕"
+          icon={<Search size={24} aria-hidden="true" />}
           title={t("no_matching_versions")}
           description={t("try_other_version_filter")}
         />
       ) : (
         <>
-          <div className="availableVersionList">
+          <Card variant="subtle" className="divide-y divide-border-subtle">
             {filtered.slice(0, visibleCount).map((version) => {
               const isInstalled = installed.has(version.id) || version.installed;
               return (
-                <article className="availableVersion" key={version.id}>
-                  <div className="versionIdentity">
-                    <div className="row">
-                      <strong>{version.name}</strong>
-                      {version.latest && <span className="latestMark">{t("latest")}</span>}
-                    </div>
-                    <small>
-                      {version.platform} · {version.architecture} ·{" "}
-                      {formatBytes(version.downloadSize)}
-                    </small>
-                  </div>
-                  <StatusPill status={version.channel} />
-                  <Button
-                    variant={isInstalled ? "ghost" : "secondary"}
-                    busy={startingVersionID === version.id}
-                    disabled={isInstalled}
-                    onClick={() => void install(version)}
-                  >
-                    {isInstalled ? t("installed") : t("download")}
-                  </Button>
-                </article>
+                <VersionItem
+                  key={version.id}
+                  version={version}
+                  installed={isInstalled}
+                  busy={startingVersionID === version.id}
+                  onInstall={() => void install(version)}
+                />
               );
             })}
-          </div>
+          </Card>
           {visibleCount < filtered.length && (
-            <div className="loadMore">
+            <div className="flex justify-center pt-7">
               <Button variant="ghost" onClick={() => setVisibleCount((count) => count + 20)}>
                 {t("show_more_versions")}
               </Button>
@@ -179,7 +170,7 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
           )}
         </>
       )}
-    </section>
+    </PageSection>
   );
 }
 

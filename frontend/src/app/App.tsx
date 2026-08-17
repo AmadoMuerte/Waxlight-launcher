@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router";
 
 import { useAccountsQuery } from "../entities/account/queries";
@@ -27,16 +27,20 @@ import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
 import { log } from "../shared/lib/logger";
 import { deepLinkPath, normalizeServerAddress } from "../shared/lib/waxlight-links";
-import { Spinner } from "../shared/ui/spinner";
+import { LoadingState } from "../shared/ui/loading-state";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
-import { AppToast } from "../widgets/layout/AppToast";
+import { AppShell } from "../widgets/layout/AppShell";
 import { ErrorBanner } from "../widgets/layout/ErrorBanner";
-import { Sidebar } from "../widgets/layout/Sidebar";
 import { UpdateDialog } from "../widgets/layout/UpdateDialog";
 import { useAppShellStore } from "./stores/app-shell";
 import { useRecoveryStore } from "./stores/recovery";
 
 const POLL_INTERVAL = 8_000;
+const UiLabPage = import.meta.env.DEV
+  ? lazy(() =>
+      import("../pages/dev-ui/UiLabPage").then((module) => ({ default: module.UiLabPage })),
+    )
+  : undefined;
 
 export function App() {
   const navigate = useNavigate();
@@ -265,37 +269,37 @@ export function App() {
   }, [queryClient]);
 
   if (loading) {
-    return (
-      <div className="appLoading">
-        <Spinner />
-      </div>
-    );
+    return <LoadingState className="appLoading">Loading Waxlight…</LoadingState>;
   }
 
   return (
-    <div className="shell">
-      <Sidebar />
+    <AppShell>
+      <ErrorBanner />
+      <UpdateDialog />
+      <RecoveryDialog />
 
-      <main>
-        <ErrorBanner />
-        <UpdateDialog />
-        <RecoveryDialog />
-
-        <Routes>
-          <Route path="/library" element={<LibraryPage />} />
-          <Route path="/mods/:modId" element={<ModDetailsPage />} />
-          <Route path="/mods" element={<ModsPage />} />
-          <Route path="/versions" element={<VersionsPage />} />
-          <Route path="/servers" element={<ServersPage />} />
-          <Route path="/operations" element={<OperationsPage />} />
-          <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/statistics" element={<StatisticsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/library" replace />} />
-        </Routes>
-      </main>
-
-      <AppToast />
-    </div>
+      <Routes>
+        <Route path="/library" element={<LibraryPage />} />
+        <Route path="/mods/:modId" element={<ModDetailsPage />} />
+        <Route path="/mods" element={<ModsPage />} />
+        <Route path="/versions" element={<VersionsPage />} />
+        <Route path="/servers" element={<ServersPage />} />
+        <Route path="/operations" element={<OperationsPage />} />
+        <Route path="/accounts" element={<AccountsPage />} />
+        <Route path="/statistics" element={<StatisticsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        {UiLabPage && (
+          <Route
+            path="/dev/ui"
+            element={
+              <Suspense fallback={<LoadingState>Loading UI Lab…</LoadingState>}>
+                <UiLabPage />
+              </Suspense>
+            }
+          />
+        )}
+        <Route path="*" element={<Navigate to="/library" replace />} />
+      </Routes>
+    </AppShell>
   );
 }

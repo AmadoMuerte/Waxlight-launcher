@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
+import { LayoutGrid, List, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -45,8 +46,15 @@ import {
 } from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
-import { Empty } from "../../shared/ui/empty";
+import { EmptyState } from "../../shared/ui/empty";
+import { ErrorState } from "../../shared/ui/error-state";
+import { LoadingState } from "../../shared/ui/loading-state";
+import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
+import { SearchInput } from "../../shared/ui/search-input";
+import { SegmentedControl } from "../../shared/ui/segmented-control";
+import { Tabs } from "../../shared/ui/tabs";
+import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
 
 const EMPTY_DOWNLOADED_MODS: DownloadedMod[] = [];
 
@@ -63,7 +71,6 @@ export function ModsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [installing, setInstalling] = useState<{
     details: ModDetails;
     downloaded?: DownloadedMod;
@@ -249,6 +256,15 @@ export function ModsPage() {
   function clearFilters() {
     const next = new URLSearchParams(searchParams);
     ["gameVersion", "side", "updatedAfter", "tag", "compatible", "page"].forEach((key) =>
+      next.delete(key),
+    );
+    setSearchParams(next);
+  }
+
+  function resetSearchAndFilters() {
+    setSearchText("");
+    const next = new URLSearchParams(searchParams);
+    ["q", "gameVersion", "side", "updatedAfter", "tag", "compatible", "page"].forEach((key) =>
       next.delete(key),
     );
     setSearchParams(next);
@@ -446,193 +462,227 @@ export function ModsPage() {
 
   const displayed =
     view === "all" ? syncedCatalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
+  const hasActiveFilters =
+    Boolean(query.gameVersion) ||
+    Boolean(query.side) ||
+    Boolean(query.updatedAfter) ||
+    query.tags.length > 0 ||
+    Boolean(query.text);
 
   return (
-    <>
+    <Page>
       <PageHeader
         eyebrow={t("mod_browser")}
         title={t("mods")}
         description={t("mods_description")}
-        action={
-          <div className="modsHeaderActions">
-            {view === "downloaded" && (
-              <Button variant="danger" onClick={() => void previewUnusedDownloadedMods()}>
-                {t("remove_unused_downloaded_mods")}
-              </Button>
-            )}
-            <div className="modsSearch">
-              <span>⌕</span>
-              <input
-                aria-label={t("search_mods")}
-                placeholder={t("search_mods_placeholder")}
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-              />
-              {searchText && (
-                <button aria-label={t("clear_search")} onClick={() => setSearchText("")}>
-                  ×
-                </button>
-              )}
-            </div>
-            {view === "downloaded" && (
-              <Button variant="secondary" onClick={() => void uploadMods()}>
-                <span aria-hidden="true">＋</span> {t("upload_mods")}
-              </Button>
-            )}
+      />
+
+      <PageContent>
+        {contextInstance && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+            <span className="text-text-muted">{t("browsing_for")}</span>
+            <strong>{contextInstance.name}</strong>
+            <span className="text-text-muted">
+              {t("vintage_story")} {contextVersion?.name ?? contextInstance.gameVersionId}
+            </span>
+            <button
+              type="button"
+              className="ml-auto rounded-full px-2 py-1 text-xs font-semibold text-accent transition-colors hover:bg-surface-ghost-hover hover:text-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={() => updateParams({ instanceId: undefined, compatible: undefined })}
+            >
+              {t("clear_instance_context")}
+            </button>
           </div>
-        }
-      />
+        )}
 
-      {contextInstance && (
-        <div className="instanceContext">
-          <span>{t("browsing_for")}</span>
-          <strong>{contextInstance.name}</strong>
-          <span>· Vintage Story {contextVersion?.name ?? contextInstance.gameVersionId}</span>
-          <button onClick={() => updateParams({ instanceId: undefined, compatible: undefined })}>
-            {t("clear_instance_context")}
-          </button>
-        </div>
-      )}
+        {selectedModIds.length > 0 && (
+          <div className="fixed bottom-5 left-1/2 z-40 flex w-[min(760px,calc(100vw-32px))] -translate-x-1/2 flex-wrap items-center gap-4 rounded-xl border border-accent/50 bg-surface-2/95 px-5 py-3.5 shadow-elevated backdrop-blur">
+            <strong className="text-sm">
+              {t("selected_mods_count", { count: selectedModIds.length })}
+            </strong>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Button variant="ghost" onClick={clearSelectedMods}>
+                {t("cancel")}
+              </Button>
+              <Button busy={openingBatch} onClick={() => void openBatchInstaller()}>
+                {t("add_mods_or_create_instance")}
+              </Button>
+            </div>
+          </div>
+        )}
 
-      {selectedModIds.length > 0 && (
-        <div className="selectedModsBar">
-          <strong>{t("selected_mods_count", { count: selectedModIds.length })}</strong>
-          <Button variant="ghost" onClick={clearSelectedMods}>
-            {t("cancel")}
-          </Button>
-          <Button busy={openingBatch} onClick={() => void openBatchInstaller()}>
-            {t("add_mods_or_create_instance")}
-          </Button>
-        </div>
-      )}
-
-      <div className="modsTabs" role="tablist">
-        <button
-          role="tab"
-          aria-selected={view === "all"}
-          className={view === "all" ? "active" : ""}
-          onClick={() => updateParams({ view: "all" })}
-        >
-          {t("all_mods")}
-        </button>
-        <button
-          role="tab"
-          aria-selected={view === "downloaded"}
-          className={view === "downloaded" ? "active" : ""}
-          onClick={() => updateParams({ view: "downloaded" })}
-        >
-          {t("downloaded")} <b>{downloaded.length || ""}</b>
-        </button>
-      </div>
-
-      <ModsFilters
-        query={query}
-        series={versionSeries}
-        tags={tags}
-        mobileOpen={filtersOpen}
-        onMobileOpenChange={setFiltersOpen}
-        onChange={patchFilters}
-        onClear={clearFilters}
-      />
-
-      <div className="modsResultsHeader">
-        <span>
-          {view === "downloaded"
-            ? t("downloaded_count", { count: filteredDownloaded.length })
-            : t("mods_count", { count: total })}
-        </span>
-        <div className="viewToggle" aria-label={t("results_layout")}>
-          <button
-            className={layout === "grid" ? "active" : ""}
-            aria-label={t("grid_view")}
-            onClick={() => {
-              setLayout("grid");
-              writeStorage("localStorage", "waxlight.mods.layout", "grid");
-            }}
-          >
-            ▦
-          </button>
-          <button
-            className={layout === "list" ? "active" : ""}
-            aria-label={t("list_view")}
-            onClick={() => {
-              setLayout("list");
-              writeStorage("localStorage", "waxlight.mods.layout", "list");
-            }}
-          >
-            ☷
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className={`modGrid modGrid-${layout} modSkeletonGrid`} aria-label={t("loading_mods")}>
-          {Array.from({ length: 8 }, (_, index) => (
-            <i key={index} />
-          ))}
-        </div>
-      ) : error ? (
-        <Empty
-          icon="!"
-          title={t("could_not_load_mods")}
-          description={error}
-          action={<Button onClick={retry}>{t("retry")}</Button>}
+        <Tabs
+          label={t("mods")}
+          value={view}
+          options={[
+            {
+              value: "all",
+              label: t("all_mods"),
+              tabId: "mods-all-tab",
+              panelId: "mods-results-panel",
+            },
+            {
+              value: "downloaded",
+              tabId: "mods-downloaded-tab",
+              panelId: "mods-results-panel",
+              label: (
+                <>
+                  {t("downloaded")} <b>{downloaded.length || ""}</b>
+                </>
+              ),
+            },
+          ]}
+          onValueChange={(value) => updateParams({ view: value })}
         />
-      ) : displayed.length === 0 ? (
-        <Empty
-          icon="◇"
-          title={view === "downloaded" ? t("no_downloaded_mods") : t("no_mods_found")}
-          description={
-            view === "downloaded"
-              ? t("downloaded_mods_empty_description")
-              : t("try_changing_mod_filters")
-          }
-          action={
-            view === "downloaded" ? (
-              <div className="row">
-                <Button onClick={() => updateParams({ view: "all" })}>{t("browse_mods")}</Button>
-                <Button variant="secondary" onClick={() => void uploadMods()}>
-                  <span aria-hidden="true">＋</span> {t("upload_mods")}
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={clearFilters}>{t("clear_filters")}</Button>
-            )
-          }
-        />
-      ) : (
-        <div className={`modGrid modGrid-${layout}`}>
-          {displayed.map((mod) => {
-            const local = view === "downloaded" ? localByModId.get(mod.id) : undefined;
-            return (
-              <ModCard
-                key={`${mod.id}:${local?.versionId ?? "catalog"}`}
-                mod={mod}
-                downloaded={local}
-                layout={layout}
-                onOpen={handleOpen}
-                onInstall={handleInstall}
-                selected={selectedModIds.includes(mod.id)}
-                onSelectedChange={toggleSelectedMod}
-                installBusy={openingModId === mod.id}
-                onDelete={local ? handleDelete : undefined}
+
+        <div
+          id="mods-results-panel"
+          className="flex flex-col gap-5"
+          role="tabpanel"
+          aria-labelledby={view === "all" ? "mods-all-tab" : "mods-downloaded-tab"}
+        >
+          <section className="rounded-lg border border-border-subtle bg-surface-1">
+            <Toolbar className="flex-wrap gap-3 p-3">
+              <ToolbarGroup className="min-w-[240px] flex-1">
+                <SearchInput
+                  wrapperClassName="w-full max-w-md"
+                  aria-label={t("search_mods")}
+                  placeholder={t("search_mods_placeholder")}
+                  value={searchText}
+                  onValueChange={setSearchText}
+                />
+              </ToolbarGroup>
+              {view === "downloaded" && (
+                <ToolbarGroup align="end">
+                  <Button variant="danger" onClick={() => void previewUnusedDownloadedMods()}>
+                    <Trash2 size={15} aria-hidden="true" />
+                    {t("remove_unused_downloaded_mods")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => void uploadMods()}>
+                    <Upload size={15} aria-hidden="true" />
+                    {t("upload_mods")}
+                  </Button>
+                </ToolbarGroup>
+              )}
+            </Toolbar>
+            <div className="border-t border-border-subtle p-3">
+              <ModsFilters
+                query={query}
+                series={versionSeries}
+                tags={tags}
+                onChange={patchFilters}
+                onClear={clearFilters}
               />
-            );
-          })}
-        </div>
-      )}
+            </div>
+          </section>
 
-      {view === "all" && hasNext && !loading && (
-        <div className="loadMore">
-          <Button
-            variant="secondary"
-            busy={loadingMore}
-            onClick={() => void searchQuery.fetchNextPage()}
-          >
-            {t("load_more")}
-          </Button>
+          <Toolbar>
+            <ToolbarGroup>
+              <span className="text-xs text-text-muted">
+                {view === "downloaded"
+                  ? t("downloaded_count", { count: filteredDownloaded.length })
+                  : t("mods_count", { count: total })}
+              </span>
+            </ToolbarGroup>
+            <ToolbarGroup align="end">
+              <SegmentedControl
+                label={t("results_layout")}
+                value={layout}
+                options={[
+                  {
+                    value: "grid",
+                    label: <LayoutGrid size={15} aria-hidden="true" />,
+                    accessibleLabel: t("grid_view"),
+                  },
+                  {
+                    value: "list",
+                    label: <List size={17} aria-hidden="true" />,
+                    accessibleLabel: t("list_view"),
+                  },
+                ]}
+                onValueChange={(value) => {
+                  setLayout(value);
+                  writeStorage("localStorage", "waxlight.mods.layout", value);
+                }}
+              />
+            </ToolbarGroup>
+          </Toolbar>
+
+          {loading ? (
+            <LoadingState>{t("loading_mods")}</LoadingState>
+          ) : error ? (
+            <ErrorState
+              title={t("could_not_load_mods")}
+              description={error}
+              action={<Button onClick={retry}>{t("retry")}</Button>}
+            />
+          ) : displayed.length === 0 ? (
+            <EmptyState
+              title={view === "downloaded" ? t("no_downloaded_mods") : t("no_mods_found")}
+              description={
+                view === "downloaded"
+                  ? t("downloaded_mods_empty_description")
+                  : t("try_changing_mod_filters")
+              }
+              action={
+                view === "downloaded" ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => updateParams({ view: "all" })}>
+                      {t("browse_mods")}
+                    </Button>
+                    <Button variant="secondary" onClick={() => void uploadMods()}>
+                      <Upload size={15} aria-hidden="true" />
+                      {t("upload_mods")}
+                    </Button>
+                  </div>
+                ) : (
+                  hasActiveFilters && (
+                    <Button onClick={resetSearchAndFilters}>{t("clear_filters")}</Button>
+                  )
+                )
+              }
+            />
+          ) : (
+            <div
+              className={
+                layout === "grid"
+                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4"
+                  : "grid grid-cols-1 gap-4"
+              }
+            >
+              {displayed.map((mod) => {
+                const local = view === "downloaded" ? localByModId.get(mod.id) : undefined;
+                return (
+                  <ModCard
+                    key={`${mod.id}:${local?.versionId ?? "catalog"}`}
+                    mod={mod}
+                    downloaded={local}
+                    layout={layout}
+                    onOpen={handleOpen}
+                    onInstall={handleInstall}
+                    selected={selectedModIds.includes(mod.id)}
+                    onSelectedChange={toggleSelectedMod}
+                    installBusy={openingModId === mod.id}
+                    onDelete={local ? handleDelete : undefined}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {view === "all" && hasNext && !loading && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="secondary"
+                busy={loadingMore}
+                onClick={() => void searchQuery.fetchNextPage()}
+              >
+                {t("load_more")}
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+      </PageContent>
 
       {installing && (
         <InstancePickerDialog
@@ -695,7 +745,7 @@ export function ModsPage() {
         onConfirm={() => void removeUnusedDownloadedMods()}
         onCancel={() => setCleanupPreview(undefined)}
       />
-    </>
+    </Page>
   );
 }
 

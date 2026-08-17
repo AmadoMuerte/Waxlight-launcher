@@ -1,28 +1,18 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { cn } from "@/shared/lib/utils";
+import { CoverArt } from "@/shared/ui/cover-art";
 
 export function ModArtwork({
   src,
   alt,
+  seed,
   className = "",
 }: {
   src?: string;
   alt: string;
+  seed?: string;
   className?: string;
 }) {
-  const { t } = useTranslation();
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return (
-      <div className={`modArtwork modArtworkFallback ${className}`} aria-label={alt}>
-        <span>W</span>
-        <small>{t("mods_uppercase")}</small>
-      </div>
-    );
-  }
   return (
-    <div className={`modArtwork ${className}`}>
-      <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />
-    </div>
+    <CoverArt src={src} alt={alt} seed={seed ?? alt} className={cn("aspect-[16/9]", className)} />
   );
 }

@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router";
 
@@ -34,15 +35,15 @@ export function AccountSwitcher() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="mt-[5px] flex select-none items-center gap-2.5 rounded-[10px] border border-[#2e2a2d] bg-[#171619] px-2.5 py-2.5 outline-none transition-colors hover:border-[#4a4035] focus-visible:ring-[3px] focus-visible:ring-[var(--amber)]/15">
+      <DropdownMenuTrigger className="sidebarAccountTrigger">
         <span className="miniAvatar">
           {(defaultAccount?.displayName ?? "?").slice(0, 1).toUpperCase()}
         </span>
         <span className="min-w-0 text-left">
-          <small className="block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] uppercase tracking-wider text-[#77716d]">
+          <small className="block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] tracking-wider text-text-disabled uppercase">
             {t("account")}
           </small>
-          <strong className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-[#d9d2ca]">
+          <strong className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-text-primary">
             {defaultAccount?.displayName ?? t("account_not_selected")}
           </strong>
         </span>
@@ -51,12 +52,14 @@ export function AccountSwitcher() {
       <DropdownMenuContent side="bottom" align="start" sideOffset={7} className="w-[240px]">
         {accounts.map((account) => (
           <DropdownMenuItem key={account.id} onSelect={() => void handleSelect(account)}>
-            <span className="flex-0-0 w-3 text-[var(--amber)]">{account.isDefault ? "✓" : ""}</span>
+            <span className="grid w-3.5 shrink-0 place-items-center text-accent">
+              {account.isDefault && <Check size={13} strokeWidth={3} aria-hidden="true" />}
+            </span>
             <span className="min-w-0">
-              <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-[#eee8e1]">
+              <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-text-primary">
                 {account.displayName}
               </strong>
-              <small className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#716b68]">
+              <small className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-text-muted">
                 {account.email}
               </small>
             </span>

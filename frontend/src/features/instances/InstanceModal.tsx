@@ -1,4 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowUp,
+  Boxes,
+  Clock3,
+  Download,
+  Gamepad2,
+  PackageOpen,
+  Plus,
+  UserRound,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -20,11 +30,15 @@ import { formatDuration } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { CoverArt } from "../../shared/ui/cover-art";
+import { DialogFooter } from "../../shared/ui/dialog";
 import { Empty } from "../../shared/ui/empty";
 import { Field } from "../../shared/ui/field";
+import { Input } from "../../shared/ui/input";
 import { Modal } from "../../shared/ui/modal";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { SubmitForm } from "../../shared/ui/submit-form";
+import { Tabs } from "../../shared/ui/tabs";
 import { BackupsTab } from "../instance/BackupsTab";
 import { LastKnownGoodSection } from "../instance/LastKnownGoodSection";
 import { ModUpdatesModal } from "../mods/ModUpdatesModal";
@@ -33,6 +47,7 @@ type InstanceTab = "overview" | "mods" | "settings" | "backups";
 
 interface InstanceModalProps {
   instance: Instance;
+  initialTab?: Extract<InstanceTab, "overview" | "settings">;
   versions: GameVersion[];
   accounts: Account[];
   onClose: () => void;
@@ -43,6 +58,7 @@ interface InstanceModalProps {
 
 export function InstanceModal({
   instance,
+  initialTab = "overview",
   versions,
   accounts,
   onClose,
@@ -56,7 +72,7 @@ export function InstanceModal({
   const notify = useToastStore((state) => state.notify);
   const { data: settings } = useSettingsQuery();
   const { data: optimumStatus } = useOptimumStatusQuery();
-  const [tab, setTab] = useState<InstanceTab>("overview");
+  const [tab, setTab] = useState<InstanceTab>(initialTab);
   const [mods, setMods] = useState<InstalledMod[]>([]);
   const [versionsByModID, setVersionsByModID] = useState<Record<string, ModVersion[]>>({});
   const [loadingVersionModIDs, setLoadingVersionModIDs] = useState<Set<string>>(new Set());
@@ -370,52 +386,53 @@ export function InstanceModal({
 
   return (
     <Modal title={instance.name} className="instanceDialog" onClose={onClose}>
-      <div className="tabs" role="tablist" aria-label={t("instance_details")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "overview"}
-          className={tab === "overview" ? "active" : ""}
-          onClick={() => setTab("overview")}
-        >
-          {t("overview")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "mods"}
-          className={tab === "mods" ? "active" : ""}
-          onClick={() => setTab("mods")}
-        >
-          {t("mods")} <b className="tabBadge">{mods.length}</b>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "settings"}
-          className={tab === "settings" ? "active" : ""}
-          onClick={() => setTab("settings")}
-        >
-          {t("settings")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "backups"}
-          className={tab === "backups" ? "active" : ""}
-          onClick={() => setTab("backups")}
-        >
-          {t("backups")}
-        </button>
-      </div>
+      <Tabs
+        className="shrink-0 overflow-x-auto border-b border-border-subtle bg-surface-1 px-6"
+        label={t("instance_details")}
+        value={tab}
+        options={[
+          {
+            value: "overview",
+            label: t("overview"),
+            tabId: "instance-overview-tab",
+            panelId: "instance-tab-panel",
+          },
+          {
+            value: "mods",
+            label: (
+              <>
+                {t("mods")} <b className="tabBadge">{mods.length}</b>
+              </>
+            ),
+            tabId: "instance-mods-tab",
+            panelId: "instance-tab-panel",
+          },
+          {
+            value: "settings",
+            label: t("settings"),
+            tabId: "instance-settings-tab",
+            panelId: "instance-tab-panel",
+          },
+          {
+            value: "backups",
+            label: t("backups"),
+            tabId: "instance-backups-tab",
+            panelId: "instance-tab-panel",
+          },
+        ]}
+        onValueChange={setTab}
+      />
 
       {tab === "overview" && (
-        <div className="instanceTabBody detailOverview" role="tabpanel">
-          <section className="instanceHero">
-            <div className="heroMark" aria-hidden="true">
-              W{coverUrl && <img src={coverUrl} alt="" />}
-            </div>
-            <div className="instanceHeroCopy">
+        <div
+          id="instance-tab-panel"
+          className="instanceTabBody detailOverview"
+          role="tabpanel"
+          aria-labelledby="instance-overview-tab"
+        >
+          <section className="instanceHeroBanner">
+            <CoverArt className="instanceHeroBannerArt" src={coverUrl} seed={instance.name} />
+            <div className="instanceHeroBannerCopy">
               <div className="instanceHeroTitle">
                 <h2 title={instance.name}>{instance.name}</h2>
                 <StatusPill status={instance.status} />
@@ -428,10 +445,18 @@ export function InstanceModal({
 
           <section className="instanceStats" aria-label={t("instance_statistics")}>
             <article>
+              <div className="statTileIcon" aria-hidden="true">
+                <Gamepad2 size={15} />
+              </div>
               <span>{t("game_version")}</span>
-              <strong>{selectedVersion?.name ?? instance.gameVersionId}</strong>
+              <strong title={selectedVersion?.name ?? instance.gameVersionId}>
+                {selectedVersion?.name ?? instance.gameVersionId}
+              </strong>
             </article>
             <article>
+              <div className="statTileIcon" aria-hidden="true">
+                <Boxes size={15} />
+              </div>
               <span>{t("mods")}</span>
               <strong>
                 {t("installed_count", { count: mods.filter((mod) => mod.enabled).length })}
@@ -439,12 +464,20 @@ export function InstanceModal({
               <small>{t("total_count", { count: mods.length })}</small>
             </article>
             <article>
+              <div className="statTileIcon" aria-hidden="true">
+                <Clock3 size={15} />
+              </div>
               <span>{t("playtime")}</span>
               <strong>{formatDuration(instance.playtimeSeconds)}</strong>
             </article>
             <article>
+              <div className="statTileIcon" aria-hidden="true">
+                <UserRound size={15} />
+              </div>
               <span>{t("launch_account")}</span>
-              <strong>{selectedAccount?.displayName ?? t("global_default")}</strong>
+              <strong title={selectedAccount?.displayName ?? t("global_default")}>
+                {selectedAccount?.displayName ?? t("global_default")}
+              </strong>
             </article>
           </section>
 
@@ -467,7 +500,9 @@ export function InstanceModal({
               <Button variant="secondary" onClick={onClone}>
                 {t("clone_instance")}
               </Button>
-              <Button onClick={onExport}>⤓ {t("export_instance")}</Button>
+              <Button onClick={onExport}>
+                <Download className="size-4" aria-hidden="true" /> {t("export_instance")}
+              </Button>
             </div>
             <div className="storageCopy">
               <span>{t("data_directory")}</span>
@@ -478,7 +513,12 @@ export function InstanceModal({
       )}
 
       {tab === "mods" && (
-        <div className="instanceTabBody modsTab" role="tabpanel">
+        <div
+          id="instance-tab-panel"
+          className="instanceTabBody modsTab"
+          role="tabpanel"
+          aria-labelledby="instance-mods-tab"
+        >
           <header className="instanceToolbar">
             <div>
               <h3>{t("mods")}</h3>
@@ -492,7 +532,7 @@ export function InstanceModal({
                 {t("browse_mods")}
               </Button>
               <Button onClick={() => void installMods()}>
-                <span aria-hidden="true">＋</span> {t("install_files")}
+                <Plus className="size-4" aria-hidden="true" /> {t("install_files")}
               </Button>
               <Button
                 variant="secondary"
@@ -507,7 +547,7 @@ export function InstanceModal({
                 {t("update_mods")}
                 {updateReport && updateReport.summary.updatesAvailable > 0 && (
                   <span className="updateCountBadge" aria-hidden="true">
-                    ▲ {updateReport.summary.updatesAvailable}
+                    <ArrowUp className="size-3" /> {updateReport.summary.updatesAvailable}
                   </span>
                 )}
               </Button>
@@ -516,7 +556,7 @@ export function InstanceModal({
 
           {mods.length === 0 ? (
             <Empty
-              icon="◇"
+              icon={<Boxes size={24} aria-hidden="true" />}
               title={t("no_mods_installed")}
               description={t("browse_or_install_mod_file")}
               action={
@@ -542,7 +582,7 @@ export function InstanceModal({
                 return (
                   <article className="installedModRow" key={mod.id}>
                     <div className="modRowIcon" aria-hidden="true">
-                      ◇
+                      <PackageOpen className="size-5" />
                     </div>
                     <div className="modRowCopy">
                       <strong>
@@ -612,11 +652,7 @@ export function InstanceModal({
                           }
                         }}
                       />
-                      <Button
-                        variant="ghost"
-                        className="dangerGhost"
-                        onClick={() => void requestModRemoval(mod)}
-                      >
+                      <Button variant="danger" onClick={() => void requestModRemoval(mod)}>
                         {t("remove")}
                       </Button>
                     </div>
@@ -629,8 +665,13 @@ export function InstanceModal({
       )}
 
       {tab === "settings" && (
-        <SubmitForm className="dialogForm settingsForm" onSubmit={saveSettings}>
-          <div className="modalBody settingsBody" role="tabpanel">
+        <SubmitForm className="dialogForm" onSubmit={saveSettings}>
+          <div
+            id="instance-tab-panel"
+            className="modalBody settingsBody"
+            role="tabpanel"
+            aria-labelledby="instance-settings-tab"
+          >
             <section className="settingsSection">
               <header>
                 <h3>{t("general")}</h3>
@@ -638,7 +679,7 @@ export function InstanceModal({
               </header>
               <div className="formFields">
                 <Field label={t("name")}>
-                  <input value={name} onChange={(event) => setName(event.target.value)} />
+                  <Input value={name} onChange={(event) => setName(event.target.value)} />
                 </Field>
 
                 <Field label={t("description")}>
@@ -745,7 +786,7 @@ export function InstanceModal({
                         </div>
                       </div>
                     ) : (
-                      <div className="settingTile">
+                      <div>
                         <div className="settingRowText">
                           <strong>
                             {optimumStatus?.ready ? t("optimum_ready") : t("optimum_missing")}
@@ -779,13 +820,13 @@ export function InstanceModal({
               </div>
             </section>
 
-            <section className="settingsSection advancedSection">
+            <section className="settingsSection">
               <header>
                 <h3>{t("advanced")}</h3>
                 <p>{t("optional_vintage_story_launch_arguments")}</p>
               </header>
               <Field label={t("launch_arguments")} hint={t("launch_arguments_hint")}>
-                <input
+                <Input
                   className="codeInput"
                   value={argumentsText}
                   onChange={(event) => setArgumentsText(event.target.value)}
@@ -811,7 +852,7 @@ export function InstanceModal({
             </section>
           </div>
 
-          <div className="settingsFooter">
+          <DialogFooter className="settingsFooter">
             <span className={settingsDirty ? "unsavedStatus active" : "unsavedStatus"}>
               {settingsDirty ? t("unsaved_changes") : t("all_changes_saved")}
             </span>
@@ -824,26 +865,28 @@ export function InstanceModal({
               >
                 {t("reset")}
               </Button>
-              <Button busy={busy} disabled={!settingsDirty}>
+              <Button type="submit" busy={busy} disabled={!settingsDirty}>
                 {t("save_changes")}
               </Button>
             </div>
-          </div>
+          </DialogFooter>
         </SubmitForm>
       )}
 
       {tab === "backups" && (
-        <BackupsTab
-          instanceId={instance.id}
-          onCreated={() => {
-            onClose();
-            void navigate("/operations");
-          }}
-          onRestored={() => {
-            void loadMods();
-            void loadUpdates();
-          }}
-        />
+        <div id="instance-tab-panel" role="tabpanel" aria-labelledby="instance-backups-tab">
+          <BackupsTab
+            instanceId={instance.id}
+            onCreated={() => {
+              onClose();
+              void navigate("/operations");
+            }}
+            onRestored={() => {
+              void loadMods();
+              void loadUpdates();
+            }}
+          />
+        </div>
       )}
 
       <ConfirmDialog
@@ -888,7 +931,7 @@ export function InstanceModal({
               ))}
             </ul>
           </div>
-          <div className="dialogFooter">
+          <DialogFooter>
             <Button type="button" variant="ghost" onClick={closeRemoveModDepsDialog}>
               {t("cancel")}
             </Button>
@@ -902,7 +945,7 @@ export function InstanceModal({
             >
               {t("remove_mod_with_dependencies")}
             </Button>
-          </div>
+          </DialogFooter>
         </Modal>
       )}
 

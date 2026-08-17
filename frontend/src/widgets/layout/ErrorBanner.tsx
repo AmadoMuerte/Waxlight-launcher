@@ -1,8 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
 import { WATCHED_QUERY_KEYS } from "../../shared/api/keys";
+import { Button } from "../../shared/ui/button";
 
 export function ErrorBanner() {
   const { t } = useTranslation();
@@ -23,12 +25,16 @@ export function ErrorBanner() {
 
   return (
     <div className="backendError">
-      <span>!</span>
+      <span>
+        <CircleAlert size={13} aria-hidden="true" />
+      </span>
       <div>
         <strong>{t("could_not_connect_to_core")}</strong>
         <p>{message}</p>
       </div>
-      <button onClick={handleRetry}>{t("retry")}</button>
+      <Button type="button" variant="ghost" onClick={handleRetry}>
+        {t("retry")}
+      </Button>
     </div>
   );
 }

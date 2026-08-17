@@ -21,14 +21,14 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-[42px] w-full items-center justify-between gap-2 rounded-[9px] border border-border bg-input px-3 py-2 text-left text-sm text-foreground outline-none transition-[border-color,background-color,box-shadow] hover:border-[#504b51] hover:bg-accent focus-visible:border-[#c48740] focus-visible:ring-[3px] focus-visible:ring-ring/15 disabled:cursor-not-allowed disabled:opacity-65 data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
+        "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-border bg-input px-3 py-2 text-left text-sm text-foreground outline-none transition-[border-color,background-color,box-shadow] hover:border-border-strong hover:bg-control-hover focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-ring/15 disabled:cursor-not-allowed disabled:opacity-65 data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-4 shrink-0 text-[#aaa39c]" aria-hidden="true" />
+        <ChevronDown className="size-4 shrink-0 text-text-secondary" aria-hidden="true" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -76,14 +76,14 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center rounded-md py-3 pr-8 pl-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-default items-center rounded-md py-2 pr-8 pl-2 text-sm outline-none select-none focus:bg-control-hover focus:text-control-hover-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
       <span className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Check className="size-4 text-[#ffc96c]" aria-hidden="true" />
+          <Check className="size-4 text-accent-hover" aria-hidden="true" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
