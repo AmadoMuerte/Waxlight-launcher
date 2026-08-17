@@ -129,11 +129,12 @@ describe("batch instance picker installed indicator", () => {
 
     const survival = screen.getByText("Survival").closest("label");
     const creative = screen.getByText("Creative").closest("label");
-    expect(survival?.className).toContain("installed");
-    expect(creative?.className).not.toContain("installed");
+    expect(survival?.getAttribute("aria-label")).toBe("Survival");
+    expect(creative?.getAttribute("aria-label")).toBe("Creative");
 
     // The installed instance cannot be selected again; the other can.
     expect(screen.getAllByRole("radio", { name: /Creative/ })).toHaveLength(1);
+    expect(screen.queryByRole("radio", { name: /Survival/ })).toBeNull();
     expect(screen.getAllByText("Installed")).toHaveLength(1);
     expect(screen.getByText("Installed 2.0.0")).toBeTruthy();
   });
@@ -152,7 +153,7 @@ describe("batch instance picker installed indicator", () => {
     ]);
 
     const survival = screen.getByText("Survival").closest("label");
-    expect(survival?.className).not.toContain("installed");
+    expect(survival?.getAttribute("aria-label")).toBe("Survival");
     expect(screen.getAllByRole("radio", { name: /Survival/ })).toHaveLength(1);
     expect(screen.getByText("Installed 1 of 2 mods")).toBeTruthy();
     expect(screen.queryAllByText("Installed")).toHaveLength(0);
@@ -201,8 +202,6 @@ describe("batch instance picker installed indicator", () => {
     await user.click(screen.getByRole("button", { name: "Add to instance" }));
 
     await waitFor(() => expect(api.downloadBatch).toHaveBeenCalled());
-    const survival = screen.getByText("Survival").closest("label");
-    expect(survival?.className).toContain("installed");
     expect(screen.queryAllByRole("radio", { name: /Survival/ })).toHaveLength(0);
     expect(screen.getAllByText("Installed")).toHaveLength(1);
   });
@@ -241,8 +240,7 @@ describe("batch instance picker installed indicator", () => {
       await screen.findByText(/A different mod file with this name already exists/),
     ).toBeTruthy();
     expect(screen.queryByText(/Downloaded and installed/)).toBeNull();
-    const survival = screen.getByText("Survival").closest("label");
-    expect(survival?.className).not.toContain("installed");
+    expect(screen.getAllByRole("radio", { name: /Survival/ })).toHaveLength(1);
   });
 
   it("installs version selected in the batch dialog", async () => {

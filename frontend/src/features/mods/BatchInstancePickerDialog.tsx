@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../shared/ui/select";
+import { Spinner } from "../../shared/ui/spinner";
 import { CreateInstanceModal } from "../instances/CreateInstanceModal";
 import { instanceGameVersion, releaseTypeLabel } from "./lib";
 
@@ -145,68 +147,78 @@ export function BatchInstancePickerDialog({
   }
 
   return (
-    <Modal title={t("add_mods_to_instance")} className="batchModDialog" onClose={onClose}>
-      <div className="batchModLayout">
-        <section className="batchModMain">
+    <Modal
+      title={t("add_mods_to_instance")}
+      className="w-[min(980px,calc(100vw-32px))]"
+      onClose={onClose}
+    >
+      <div className="grid min-h-[400px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(260px,34%)]">
+        <section className="flex min-h-0 flex-col gap-4 p-6">
           <p className="muted">{t("choose_instance_for_mods", { count: mods.length })}</p>
           {instances.length === 0 ? (
             <Empty
-              icon="◌"
               title={t("no_instances_available")}
               description={t("create_instance_before_mods")}
             />
           ) : (
-            <div className="instanceChoices">
-              {instances.map((item) => {
-                const installedCount = installedCounts.get(item.id) ?? 0;
-                const fullyInstalled = installedCount === modsList.length;
-                const partiallyInstalled = installedCount > 0 && !fullyInstalled;
-                const installedVersion = modsList[0]?.downloaded?.installedInstances.find(
-                  (entry) => entry.instanceId === item.id,
-                )?.version;
-                return (
-                  <label
-                    key={item.id}
-                    className={`instanceChoice ${item.id === instanceID ? "selected" : ""} ${
-                      fullyInstalled ? "installed" : ""
-                    }`}
-                    aria-label={item.name}
-                  >
-                    {fullyInstalled ? (
-                      <span className="installedCheck" aria-hidden="true">
-                        ✓
+            <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-input">
+              <div className="divide-y divide-border-subtle">
+                {instances.map((item) => {
+                  const installedCount = installedCounts.get(item.id) ?? 0;
+                  const fullyInstalled = installedCount === modsList.length;
+                  const partiallyInstalled = installedCount > 0 && !fullyInstalled;
+                  const installedVersion = modsList[0]?.downloaded?.installedInstances.find(
+                    (entry) => entry.instanceId === item.id,
+                  )?.version;
+                  return (
+                    <label
+                      key={item.id}
+                      className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-ghost-hover ${
+                        item.id === instanceID ? "bg-accent-muted/40" : ""
+                      }`}
+                      aria-label={item.name}
+                    >
+                      {fullyInstalled ? (
+                        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success/15 text-success">
+                          <Check size={12} aria-hidden="true" />
+                        </span>
+                      ) : (
+                        <input
+                          type="radio"
+                          name="batch-instance"
+                          className="size-4 shrink-0 accent-[var(--color-accent)]"
+                          checked={item.id === instanceID}
+                          onChange={() => setInstanceID(item.id)}
+                        />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-sm">{item.name}</strong>
+                        <small className="block truncate text-xs text-text-muted">
+                          {t("vintage_story")} {instanceGameVersion(item, gameVersions)}
+                        </small>
+                        {fullyInstalled && modsList.length === 1 && installedVersion && (
+                          <small className="block truncate text-xs text-text-muted">
+                            {t("installed_version_value", { version: installedVersion })}
+                          </small>
+                        )}
+                        {partiallyInstalled && (
+                          <small className="block truncate text-xs text-text-muted">
+                            {t("batch_mods_partially_installed", {
+                              count: installedCount,
+                              total: modsList.length,
+                            })}
+                          </small>
+                        )}
                       </span>
-                    ) : (
-                      <input
-                        type="radio"
-                        name="batch-instance"
-                        checked={item.id === instanceID}
-                        onChange={() => setInstanceID(item.id)}
-                      />
-                    )}
-                    <span>
-                      <strong>{item.name}</strong>
-                      <small>Vintage Story {instanceGameVersion(item, gameVersions)}</small>
-                      {fullyInstalled && modsList.length === 1 && installedVersion && (
-                        <small className="installedHint">
-                          {t("installed_version_value", { version: installedVersion })}
-                        </small>
+                      {fullyInstalled && (
+                        <span className="shrink-0 text-xs font-medium text-success">
+                          {t("installed")}
+                        </span>
                       )}
-                      {partiallyInstalled && (
-                        <small className="installedHint">
-                          {t("batch_mods_partially_installed", {
-                            count: installedCount,
-                            total: modsList.length,
-                          })}
-                        </small>
-                      )}
-                    </span>
-                    {fullyInstalled ? (
-                      <span className="installedPill">{t("installed")}</span>
-                    ) : null}
-                  </label>
-                );
-              })}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           )}
           {error && (
@@ -214,9 +226,14 @@ export function BatchInstancePickerDialog({
               {error}
             </div>
           )}
-          {busy && <p className="batchDownloading">{t("downloading_mods")}</p>}
+          {busy && (
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-accent-hover">
+              <Spinner />
+              {t("downloading_mods")}
+            </p>
+          )}
           {results && (
-            <div className="batchInstallResults">
+            <div className="space-y-1.5 text-[13px]">
               {results.map((result) => {
                 const failedInstallations = (result.result?.installations ?? []).filter(
                   (item) => !item.installed,
@@ -232,7 +249,7 @@ export function BatchInstancePickerDialog({
                 return (
                   <p
                     key={`${result.modId}:${result.versionId}`}
-                    className={failed ? "resultError" : "resultOk"}
+                    className={failed ? "text-danger" : "text-success"}
                   >
                     <strong>{modNameByID.get(result.modId) ?? result.modId}</strong>: {message}
                   </p>
@@ -240,7 +257,7 @@ export function BatchInstancePickerDialog({
               })}
             </div>
           )}
-          <div className="modalActions">
+          <div className="modalActions mt-auto">
             <Button variant="secondary" onClick={() => setCreating(true)}>
               {t("create_new_instance")}
             </Button>
@@ -252,8 +269,13 @@ export function BatchInstancePickerDialog({
             </Button>
           </div>
         </section>
-        <aside className="batchModList" aria-label={t("selected_mods")}>
-          <h3>{t("selected_mods")}</h3>
+        <aside
+          className="flex min-h-0 max-h-[50vh] flex-col overflow-y-auto border-border-subtle bg-surface-1 md:border-l"
+          aria-label={t("selected_mods")}
+        >
+          <h3 className="border-b border-border-subtle px-5 py-4 font-display text-lg font-semibold">
+            {t("selected_mods")}
+          </h3>
           {modsList.map(({ details, release }) => {
             const incompatible =
               instance &&
@@ -261,9 +283,11 @@ export function BatchInstancePickerDialog({
             return (
               <div
                 key={details.id}
-                className={`batchModItem ${incompatible ? "incompatible" : ""}`}
+                className={`flex flex-col gap-1.5 border-b border-border-subtle px-5 py-3.5 ${
+                  incompatible ? "border-l-2 border-l-warning bg-warning/10" : ""
+                }`}
               >
-                <strong>{details.name}</strong>
+                <strong className="text-sm">{details.name}</strong>
                 <Select
                   value={release.id}
                   onValueChange={(releaseId) => {
@@ -278,7 +302,10 @@ export function BatchInstancePickerDialog({
                     );
                   }}
                 >
-                  <SelectTrigger aria-label={t("update_to_version", { version: details.name })}>
+                  <SelectTrigger
+                    className="h-8 text-xs"
+                    aria-label={t("update_to_version", { version: details.name })}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -289,7 +316,11 @@ export function BatchInstancePickerDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                {incompatible && <span>{t("mod_version_mismatch")}</span>}
+                {incompatible && (
+                  <span className="text-xs leading-5 text-warning">
+                    {t("mod_version_mismatch")}
+                  </span>
+                )}
               </div>
             );
           })}

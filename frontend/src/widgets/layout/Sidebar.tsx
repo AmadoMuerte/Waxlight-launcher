@@ -10,7 +10,9 @@ export function Sidebar() {
       <div className="sidebarContent">
         <SideNav />
       </div>
-      <AccountSwitcher />
+      <div className="sidebarAccount">
+        <AccountSwitcher />
+      </div>
       <SidebarFooter />
     </aside>
   );

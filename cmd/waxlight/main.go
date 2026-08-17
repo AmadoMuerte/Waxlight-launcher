@@ -34,7 +34,6 @@ func main() {
 	if err := deeplink.RegisterHandler(); err != nil {
 		slog.Warn("Failed to register Waxlight links", "error", err)
 	}
-
 	// The updated portable binary is launched by the old process with
 	// --update-wait-pid <oldpid> before the old process exits. Wait for it to
 	// release the database and the native credential store before bootstrapping
@@ -42,13 +41,11 @@ func main() {
 	if pid := updateWaitPID(); pid > 0 {
 		updater.WaitForParent(pid, 30*time.Second)
 	}
-
 	container, err := app.New()
 	if err != nil {
 		logging.Fatal("Failed to construct the launcher", err)
 	}
 	container.DeepLinks.ReceiveArgs(os.Args[1:])
-
 	err = wails.Run(&options.App{
 		Title:            "Waxlight Launcher",
 		Width:            1240,
@@ -74,8 +71,9 @@ func main() {
 			},
 		},
 		Linux: &linux.Options{
-			Icon:        appIcon,
-			ProgramName: "waxlight",
+			Icon:             appIcon,
+			ProgramName:      "waxlight",
+			WebviewGpuPolicy: linux.WebviewGpuPolicyNever,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent: false,

@@ -189,6 +189,13 @@ it("supports browser navigation shortcuts sent by mouse drivers", async () => {
   await waitFor(() => expect(settingsLink.className).toContain("active"));
 });
 
+it("exposes the UI Lab through development navigation", async () => {
+  renderApp(["/dev/ui"]);
+
+  expect(await screen.findByRole("heading", { level: 1, name: "Waxlight UI Lab" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: /UI Lab/ })).toBeTruthy();
+});
+
 it("navigates when the native window reports a side mouse button", async () => {
   const listeners = new Map<string, (payload: unknown) => void>();
   vi.stubGlobal("runtime", {
@@ -279,7 +286,7 @@ it("updates the operations list live from backend events", async () => {
     }),
   );
   await waitFor(() => {
-    const bar = document.querySelector(".progress i") as HTMLElement | null;
+    const bar = document.querySelector(".progressIndicator") as HTMLElement | null;
     expect(bar?.style.width).toBe("75%");
   });
 

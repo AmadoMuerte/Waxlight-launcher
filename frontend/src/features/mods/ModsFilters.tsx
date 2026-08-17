@@ -1,9 +1,9 @@
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import type { ModSearchQuery, ModTag } from "../../shared/api";
-import { Button } from "../../shared/ui/button";
 import { Field } from "../../shared/ui/field";
 import { sideLabel } from "./lib";
 import { TagMultiSelect } from "./TagMultiSelect";
@@ -12,21 +12,11 @@ interface ModsFiltersProps {
   query: Omit<ModSearchQuery, "page">;
   series: string[];
   tags: ModTag[];
-  mobileOpen: boolean;
-  onMobileOpenChange: (open: boolean) => void;
   onChange: (patch: Partial<ModSearchQuery>) => void;
   onClear: () => void;
 }
 
-export function ModsFilters({
-  query,
-  series,
-  tags,
-  mobileOpen,
-  onMobileOpenChange,
-  onChange,
-  onClear,
-}: ModsFiltersProps) {
+export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFiltersProps) {
   const { t } = useTranslation();
   const active: { key: string; label: string; onRemove: () => void }[] = [];
   if (query.gameVersion) {
@@ -59,32 +49,8 @@ export function ModsFilters({
   }
 
   return (
-    <>
-      <Button
-        variant="secondary"
-        className="mobileFiltersButton"
-        onClick={() => onMobileOpenChange(true)}
-      >
-        {active.length > 0 ? t("filters_count", { count: active.length }) : t("filters")}
-      </Button>
-      {mobileOpen && (
-        <button
-          className="filterScrim"
-          aria-label={t("close_filters")}
-          onClick={() => onMobileOpenChange(false)}
-        />
-      )}
-      <section className={`modsFilters ${mobileOpen ? "mobileOpen" : ""}`}>
-        <div className="filterPanelTitle">
-          <strong>{t("filters_and_sorting")}</strong>
-          <button
-            className="iconButton mobileOnly"
-            aria-label={t("close_filters")}
-            onClick={() => onMobileOpenChange(false)}
-          >
-            ×
-          </button>
-        </div>
+    <div className="space-y-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         <Field label={t("game_version")}>
           <Select
             value={query.gameVersion ? `version:${query.gameVersion}` : "all"}
@@ -162,21 +128,31 @@ export function ModsFilters({
             </SelectContent>
           </Select>
         </Field>
-      </section>
+      </div>
 
       {active.length > 0 && (
-        <div className="filterChips" aria-label={t("active_filters")}>
+        <div className="flex flex-wrap items-center gap-2" aria-label={t("active_filters")}>
           {active.map((filter) => (
-            <button key={filter.key} onClick={filter.onRemove}>
-              {filter.label} <span>×</span>
+            <button
+              key={filter.key}
+              type="button"
+              onClick={filter.onRemove}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-surface-3 px-3 text-xs font-semibold text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {filter.label}
+              <X size={12} className="text-text-muted" aria-hidden="true" />
             </button>
           ))}
-          <button className="clearFilters" onClick={onClear}>
+          <button
+            type="button"
+            onClick={onClear}
+            className="inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold text-text-muted transition-colors hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
             {t("clear_filters")}
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

@@ -88,4 +88,35 @@ describe("official version catalog", () => {
       throw new Error("installed control is not a button");
     expect(installedButton.disabled).toBe(true);
   });
+
+  it("shows a loading state while the catalog is being fetched", async () => {
+    let resolveAvailable!: (value: unknown) => void;
+    api.available.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAvailable = resolve;
+      }),
+    );
+    renderCatalog();
+
+    expect(await screen.findByText("Loading the official version catalog…")).toBeTruthy();
+    resolveAvailable([]);
+  });
+
+  it("shows an empty state when nothing matches the current filter", async () => {
+    renderCatalog();
+    await screen.findByText("1.22.6");
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Search versions"), "9.99");
+    expect(await screen.findByText("No matching versions")).toBeTruthy();
+    expect(screen.getByText("Try another version number or release channel.")).toBeTruthy();
+  });
+
+  it("surfaces catalog load errors with an error state", async () => {
+    api.available.mockRejectedValue(new Error("the catalog is unreachable"));
+    renderCatalog();
+
+    expect(await screen.findByText("Could not load available versions")).toBeTruthy();
+    expect(screen.getByText("the catalog is unreachable")).toBeTruthy();
+  });
 });

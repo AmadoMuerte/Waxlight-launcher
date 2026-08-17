@@ -2,6 +2,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router";
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/newsreader";
 
 import "@xterm/xterm/css/xterm.css";
 import "../shared/i18n";

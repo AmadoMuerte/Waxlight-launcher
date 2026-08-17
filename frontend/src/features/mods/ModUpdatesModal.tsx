@@ -7,6 +7,8 @@ import type { InstanceModUpdateReport, ModUpdate, ModVersion } from "../../entit
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
+import { DialogFooter } from "../../shared/ui/dialog";
+import { LoadingState } from "../../shared/ui/loading-state";
 import { Modal } from "../../shared/ui/modal";
 import {
   Select,
@@ -15,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../shared/ui/select";
-import { Spinner } from "../../shared/ui/spinner";
 import { plainText, releaseTypeLabel } from "./lib";
 
 interface ModUpdatesModalProps {
@@ -119,15 +120,12 @@ export function ModUpdatesModal({
   }
 
   return (
-    <Modal title={t("update_mods")} className="modUpdatesDialog" onClose={onClose}>
-      <div className="modalBody formFields">
+    <Modal title={t("update_mods")} className="w-[min(720px,calc(100vw-48px))]" onClose={onClose}>
+      <div className="max-h-[60vh] overflow-y-auto p-6">
         {versionsLoading ? (
-          <output className="modUpdatesLoading">
-            <Spinner />
-            <span>{t("loading_mods")}</span>
-          </output>
+          <LoadingState>{t("loading_mods")}</LoadingState>
         ) : (
-          <>
+          <div className="space-y-4">
             <p className="muted">
               {t("mod_updates_for", { name: instanceName })}
               {report.gameVersion ? ` · ${t("vintage_story")} ${report.gameVersion}` : ""}
@@ -136,7 +134,7 @@ export function ModUpdatesModal({
             {updates.length === 0 ? (
               <div className="inlineNotice">{t("no_mod_updates")}</div>
             ) : (
-              <ul className="modUpdateList">
+              <ul className="divide-y divide-border-subtle">
                 {updates.map((mod) => {
                   const selectedVersionId = versionIds[mod.modId] ?? mod.targetVersionId;
                   const versions = (versionsByModId[mod.modId] ?? []).filter(
@@ -185,11 +183,11 @@ export function ModUpdatesModal({
                 {error}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
-      <div className="dialogFooter">
+      <DialogFooter>
         <Checkbox
           label={t("allow_incompatible_mod_updates")}
           title={t("allow_incompatible_mod_updates")}
@@ -211,7 +209,7 @@ export function ModUpdatesModal({
               : t("update_mods_count", { count: pending.length })}
           </Button>
         </div>
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -237,8 +235,8 @@ function ModUpdateRow({
 }) {
   const { t } = useTranslation();
   return (
-    <li className="modUpdateRow">
-      <div className="modUpdateHeader">
+    <li className="py-4">
+      <div className="flex flex-wrap items-center gap-3">
         <Checkbox
           label={mod.name}
           checked={selected}
@@ -247,7 +245,7 @@ function ModUpdateRow({
         {versions.length > 0 ? (
           <Select value={selectedVersionId} onValueChange={onVersionChange}>
             <SelectTrigger
-              className="modUpdateVersions"
+              className="h-8 w-auto min-w-44 text-xs"
               aria-label={t("update_to_version", { version: mod.name })}
             >
               <SelectValue />
@@ -265,7 +263,7 @@ function ModUpdateRow({
             </SelectContent>
           </Select>
         ) : (
-          <span className="modUpdateVersions">
+          <span className="text-sm text-text-secondary">
             {t("mod_update_versions", {
               installed: mod.installedVersion,
               latest: mod.targetVersion,
@@ -275,32 +273,38 @@ function ModUpdateRow({
       </div>
 
       {(!compatible || mod.prerelease) && (
-        <div className="modUpdateTags">
+        <div className="mt-2 flex flex-wrap gap-2">
           {!compatible && (
-            <span className="tag tagDanger">
+            <span className="rounded-full border border-danger-border bg-danger-surface px-2 py-0.5 text-[11px] font-semibold text-danger-foreground">
               {t("update_incompatible_with", { version: gameVersion })}
             </span>
           )}
-          {mod.prerelease && <span className="tag">{t("mod_update_prerelease")}</span>}
+          {mod.prerelease && (
+            <span className="rounded-full border border-border-default bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+              {t("mod_update_prerelease")}
+            </span>
+          )}
         </div>
       )}
 
       {mod.changelog && (
-        <details className="modUpdateChangelog">
-          <summary>{t("mod_update_changelog")}</summary>
-          <p>{plainText(mod.changelog)}</p>
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-semibold text-text-muted transition-colors hover:text-text-primary">
+            {t("mod_update_changelog")}
+          </summary>
+          <p className="mt-2 text-xs leading-5 text-text-muted">{plainText(mod.changelog)}</p>
         </details>
       )}
 
       {mod.addedDeps.length > 0 && (
-        <p className="modUpdateDeps">
+        <p className="mt-2 text-xs leading-5 text-text-muted">
           {t("dependencies_added", {
             names: mod.addedDeps.map((dep) => dep.name || dep.modId).join(", "),
           })}
         </p>
       )}
       {mod.removedDeps.length > 0 && (
-        <p className="modUpdateDeps">
+        <p className="mt-2 text-xs leading-5 text-text-muted">
           {t("dependencies_removed", {
             names: mod.removedDeps.map((dep) => dep.name || dep.modId).join(", "),
           })}

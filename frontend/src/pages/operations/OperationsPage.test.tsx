@@ -248,7 +248,7 @@ describe("operations history controls", () => {
 
   it("collapses and expands the console", async () => {
     const user = userEvent.setup();
-    void renderPageLoaded([operation("completed", "Completed download", "completed")]);
+    await renderPageLoaded([operation("completed", "Completed download", "completed")]);
 
     expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
 
@@ -355,5 +355,83 @@ describe("confirmDeletion gate", () => {
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(api.clearHistory).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("operations page states", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("runtime", {
+      EventsOn: () => () => undefined,
+      EventsOnMultiple: () => () => undefined,
+      EventsEmit: () => undefined,
+    });
+    api.cancel.mockResolvedValue(undefined);
+    api.remove.mockResolvedValue(undefined);
+    api.clearHistory.mockResolvedValue(3);
+    api.logsList.mockResolvedValue([]);
+    api.logsExport.mockResolvedValue("");
+    api.logsOpenDirectory.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the empty state when there are no operations", async () => {
+    renderPage([]);
+    expect(await screen.findByText("No operations yet")).toBeTruthy();
+    expect(screen.getByText(/installation progress will appear here/)).toBeTruthy();
+  });
+
+  it("shows a loading state while operations are pending", () => {
+    api.list.mockImplementation(() => new Promise(() => {}));
+    renderPage([]);
+    expect(screen.getByText("Loading operations")).toBeTruthy();
+  });
+
+  it("shows an error state with a working retry action", async () => {
+    const user = userEvent.setup();
+    api.list.mockRejectedValueOnce(new Error("boom")).mockResolvedValue([]);
+    renderPage([]);
+
+    expect(await screen.findByText("Could not load operations")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("No operations yet")).toBeTruthy();
+  });
+
+  it("groups active and finished operations into distinct sections", async () => {
+    await renderPageLoaded([
+      operation("running", "Active download", "running"),
+      operation("queued", "Queued download", "queued"),
+      operation("completed", "Finished download", "completed"),
+    ]);
+
+    expect(screen.getByRole("heading", { name: "Active operations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeTruthy();
+    expect(screen.getByText("Active download")).toBeTruthy();
+    expect(screen.getByText("Finished download")).toBeTruthy();
+  });
+
+  it("shows a quiet hint when only history exists", async () => {
+    await renderPageLoaded([operation("completed", "Finished download", "completed")]);
+
+    expect(screen.getByRole("heading", { name: "Active operations" })).toBeTruthy();
+    expect(screen.getByText("Nothing is running right now.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeTruthy();
   });
 });

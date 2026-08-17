@@ -9,7 +9,9 @@ import { instancesApi } from "../../entities/instance/api";
 import type { Instance } from "../../entities/instance/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
+import { DialogFooter } from "../../shared/ui/dialog";
 import { Field } from "../../shared/ui/field";
+import { Input } from "../../shared/ui/input";
 import { Modal } from "../../shared/ui/modal";
 import { SubmitForm } from "../../shared/ui/submit-form";
 
@@ -77,7 +79,7 @@ export function CreateInstanceModal({
       <SubmitForm className="dialogForm" onSubmit={createInstance}>
         <div className="modalBody formFields">
           <Field label={t("name")}>
-            <input
+            <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t("default_instance_name")}
@@ -137,14 +139,14 @@ export function CreateInstanceModal({
           )}
         </div>
 
-        <div className="dialogFooter">
+        <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose}>
             {t("cancel")}
           </Button>
-          <Button busy={busy} disabled={versions.length === 0}>
+          <Button type="submit" busy={busy} disabled={versions.length === 0}>
             {t("create")}
           </Button>
-        </div>
+        </DialogFooter>
       </SubmitForm>
     </Modal>
   );

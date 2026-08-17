@@ -23,6 +23,10 @@ export function formatBytes(bytes: number): string {
   return `${new Intl.NumberFormat(i18n.resolvedLanguage, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)} ${units[unitIndex]}`;
 }
 
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat(i18n.resolvedLanguage).format(value);
+}
+
 export function formatDate(value?: string): string {
   if (!value) {
     return i18n.t("never");

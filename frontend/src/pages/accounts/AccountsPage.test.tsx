@@ -179,7 +179,7 @@ describe("account authentication UI", () => {
     const user = userEvent.setup();
 
     const expiredName = await screen.findByText("Expired", { selector: "strong" });
-    const expiredCard = expiredName.closest("article");
+    const expiredCard = expiredName.closest(".accountCard") as HTMLElement | null;
     if (!expiredCard) throw new Error("expired account card not found");
     await user.click(within(expiredCard).getByRole("button", { name: "Select" }));
     expect(api.setDefault).toHaveBeenCalledWith("expired");
@@ -192,7 +192,7 @@ describe("account authentication UI", () => {
     expect(emailInput.value).toBe("expired@example.com");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-    const validCard = screen.getByText("Waxlighter").closest("article");
+    const validCard = screen.getByText("Waxlighter").closest(".accountCard") as HTMLElement | null;
     if (!validCard) throw new Error("valid account card not found");
     await user.click(within(validCard).getByRole("button", { name: "Validate" }));
     expect(api.validate).toHaveBeenCalledWith("first");
