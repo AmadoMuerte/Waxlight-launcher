@@ -222,7 +222,7 @@ export function UpdateDialog() {
         {currentUpdate && !installingUpdate && (
           <div className="updateDialogBody">
             <DialogTitle className="updateDialogTitle">
-              <Rocket className="size-5 shrink-0 text-[var(--amber)]" />
+              <Rocket className="size-5 shrink-0 text-accent" />
               <span>
                 {currentUpdate.prerelease
                   ? t("prerelease_available")
@@ -236,7 +236,7 @@ export function UpdateDialog() {
               <Trans
                 i18nKey="update_version_transition"
                 values={{ current: currentUpdate.installedVersion, new: currentUpdate.version }}
-                components={{ new: <span className="text-[var(--amber)] font-semibold" /> }}
+                components={{ new: <span className="text-accent font-semibold" /> }}
               />
             </p>
 

@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,7 +7,10 @@ import { accountsApi } from "../../entities/account/api";
 import type { Account, LoginResult, LoginStatus } from "../../entities/account/model";
 import { errorMessage } from "../../shared/api/bridge";
 import { Button } from "../../shared/ui/button";
+import { DialogFooter } from "../../shared/ui/dialog";
 import { Field } from "../../shared/ui/field";
+import { IconButton } from "../../shared/ui/icon-button";
+import { Input } from "../../shared/ui/input";
 import { Modal } from "../../shared/ui/modal";
 import { SubmitForm } from "../../shared/ui/submit-form";
 
@@ -149,7 +153,7 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
         <SubmitForm className="dialogForm" noValidate onSubmit={submitCredentials}>
           <div className="modalBody formFields">
             <Field label={t("email")}>
-              <input
+              <Input
                 required
                 type="email"
                 autoComplete="username"
@@ -161,20 +165,26 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
 
             <Field label={t("password")}>
               <div className="passwordField">
-                <input
+                <Input
                   required
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                 />
-                <button
-                  type="button"
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
                   aria-label={showPassword ? t("hide_password") : t("show_password")}
-                  onClick={() => setShowPassword((value) => !value)}
+                  onClick={() => setShowPassword((shown) => !shown)}
                 >
-                  {showPassword ? t("hide") : t("show")}
-                </button>
+                  {showPassword ? (
+                    <EyeOff size={16} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} aria-hidden="true" />
+                  )}
+                </IconButton>
               </div>
             </Field>
 
@@ -190,12 +200,14 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
             )}
           </div>
 
-          <div className="dialogFooter">
+          <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
               {t("cancel")}
             </Button>
-            <Button busy={busy}>{t("sign_in")}</Button>
-          </div>
+            <Button type="submit" busy={busy}>
+              {t("sign_in")}
+            </Button>
+          </DialogFooter>
         </SubmitForm>
       ) : (
         <SubmitForm className="dialogForm" onSubmit={submitTOTP}>
@@ -206,7 +218,7 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
             </div>
 
             <Field label={t("verification_code")}>
-              <input
+              <Input
                 required
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -223,15 +235,17 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
             )}
           </div>
 
-          <div className="dialogFooter">
+          <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => void cancelFlow(false)}>
               {t("back")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
               {t("cancel")}
             </Button>
-            <Button busy={busy}>{t("verify")}</Button>
-          </div>
+            <Button type="submit" busy={busy}>
+              {t("verify")}
+            </Button>
+          </DialogFooter>
         </SubmitForm>
       )}
     </Modal>

@@ -1,0 +1,73 @@
+@theme static {
+  --font-sans: "Manrope Variable", Manrope, system-ui, sans-serif;
+  --font-display: "Newsreader Variable", Newsreader, Georgia, serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --color-bg-app: #0c0c0e;
+  --color-bg-sidebar: var(--color-bg-app);
+  --color-overlay: rgb(0 0 0 / 78%);
+  --color-surface-1: #141317;
+  --color-surface-2: #1a181e;
+  --color-surface-3: #252229;
+  --color-surface-input: #100f13;
+  --color-surface-input-hover: #19171d;
+  --color-surface-hover: var(--color-surface-3);
+  --color-surface-ghost-hover: #ffffff0a;
+
+  --color-border-subtle: #29262e;
+  --color-border-default: #39353d;
+  --color-border-strong: #514b56;
+
+  --color-text-primary: #f1efec;
+  --color-text-secondary: #b8b3ae;
+  --color-text-muted: #97928d;
+  --color-text-disabled: #736e69;
+
+  --color-accent: #f2a93b;
+  --color-accent-hover: #ffc668;
+  --color-accent-muted: #4a351c;
+  --color-accent-foreground: #241503;
+
+  --color-success: #8fc49a;
+  --color-success-surface: #1d3322;
+  --color-success-border: #31533a;
+  --color-warning: #ffd58f;
+  --color-warning-surface: #4a351d;
+  --color-warning-border: #745329;
+  --color-danger: #e07168;
+  --color-danger-foreground: #ffaaa2;
+  --color-danger-surface: #4b2525;
+  --color-danger-surface-hover: #5b2a2a;
+  --color-danger-border: #753635;
+  --color-danger-border-hover: #9a4c48;
+
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  --shadow-surface: 0 12px 32px #0002;
+  --shadow-elevated: 0 16px 38px #0008;
+  --shadow-dialog: 0 30px 100px #000b;
+}
+
+:root {
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+
+  --focus-outline: 2px solid var(--color-accent);
+  --focus-ring: 0 0 0 3px #d5953a12;
+  --focus-ring-danger: 0 0 0 3px #e071681a;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+
+  --gradient-accent: linear-gradient(135deg, #f6bc55, #dd9227);
+  --shadow-accent: 0 8px 24px #dd922733;
+  --glow-accent: 0 0 22px #f2a93b40;
+}

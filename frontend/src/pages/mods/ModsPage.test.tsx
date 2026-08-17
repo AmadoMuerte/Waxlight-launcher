@@ -7,6 +7,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
+import { ModDetailsPage } from "../mod-details/ModDetailsPage";
 import { ModsPage } from "./ModsPage";
 
 const api = vi.hoisted(() => ({
@@ -165,6 +166,56 @@ function renderPage(path = "/mods?q=corpse", notify = vi.fn()) {
   );
 }
 
+function renderPageWithDetails(path = "/mods?q=corpse") {
+  instancesList.mockResolvedValue([
+    {
+      id: "instance-1",
+      name: "Survival",
+      description: "",
+      gameVersionId: "1.20",
+      directory: "/data",
+      status: "ready",
+      launchArguments: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      enabledModCount: 0,
+      totalModCount: 0,
+      playtimeSeconds: 0,
+    },
+  ]);
+  versionsList.mockResolvedValue([
+    {
+      id: "1.20",
+      name: "1.20",
+      channel: "stable",
+      platform: "linux",
+      architecture: "amd64",
+      installationDir: "/game",
+      executablePath: "/game/Vintagestory",
+      status: "installed",
+      sizeBytes: 1,
+      installedAt: "2026-01-01T00:00:00Z",
+    },
+  ]);
+  availableVersionsList.mockResolvedValue([]);
+  useToastStore.setState({ notify: vi.fn() });
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/mods" element={<ModsPage />} />
+          <Route path="/mods/:modId" element={<ModDetailsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 describe("mods browser", () => {
   afterEach(() => cleanup());
 
@@ -248,7 +299,7 @@ describe("mods browser", () => {
     expect(await screen.findByRole("dialog", { name: "Add mods to an instance" })).toBeTruthy();
 
     const survival = screen.getByText("Survival").closest("label");
-    expect(survival?.className).toContain("installed");
+    expect(survival?.getAttribute("aria-label")).toBe("Survival");
     expect(screen.queryAllByRole("radio", { name: /Survival/ })).toHaveLength(0);
     expect(screen.getAllByText("Installed")).toHaveLength(1);
   });
@@ -431,6 +482,40 @@ describe("mods browser", () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("linked"));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("not found"));
   });
+
+  it("shows an empty state with a reset action when nothing matches the search", async () => {
+    api.search.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 24,
+      totalItems: 0,
+      totalPages: 0,
+      hasNext: false,
+    });
+    const user = userEvent.setup();
+    renderPage("/mods?q=nonexistent");
+
+    expect(await screen.findByText("No mods found")).toBeTruthy();
+    expect(screen.getByText("Try changing your search or filters.")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() =>
+      expect(api.search).toHaveBeenLastCalledWith(
+        expect.objectContaining({ text: "", gameVersion: "" }),
+      ),
+    );
+  });
+
+  it("opens Mod Details from a mod card", async () => {
+    renderPageWithDetails("/mods?q=corpse");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Open Player Corpse" }));
+
+    expect(await screen.findByRole("heading", { name: "Player Corpse" })).toBeTruthy();
+    expect(screen.getByText("Full description")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Download" }).length).toBeGreaterThan(0);
+  });
 });
 
 describe("confirmDeletion gate", () => {
@@ -476,7 +561,8 @@ describe("confirmDeletion gate", () => {
     await screen.findByRole("tab", { name: /Downloaded/ });
     await screen.findByText("Player Corpse");
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Player Corpse mod actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
 
     await waitFor(() => expect(api.removeDownloaded).toHaveBeenCalledWith("51", "7"));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -489,7 +575,8 @@ describe("confirmDeletion gate", () => {
     await screen.findByRole("tab", { name: /Downloaded/ });
     await screen.findByText("Player Corpse");
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Player Corpse mod actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(api.removeDownloaded).not.toHaveBeenCalled();
 
@@ -504,7 +591,8 @@ describe("confirmDeletion gate", () => {
     await screen.findByRole("tab", { name: /Downloaded/ });
     await screen.findByText("Player Corpse");
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Player Corpse mod actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(api.removeDownloaded).not.toHaveBeenCalled();
   });

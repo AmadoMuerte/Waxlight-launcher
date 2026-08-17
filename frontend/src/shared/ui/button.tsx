@@ -16,17 +16,18 @@ export function Button({
   busy = false,
   className = "",
   disabled = false,
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
     <button
       {...props}
+      type={type}
       className={`button ${variant} ${busy ? "busy" : ""} ${className}`.trim()}
+      aria-busy={busy || undefined}
       disabled={busy || disabled}
     >
-      <span className="buttonLabel" aria-hidden={busy}>
-        {children}
-      </span>
+      <span className="buttonLabel">{children}</span>
       {busy && <Spinner className="buttonSpinner" />}
     </button>
   );

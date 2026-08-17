@@ -112,20 +112,19 @@ describe("instance picker installed indicator", () => {
   it("marks instances that already have the mod as installed", async () => {
     renderDialog(downloaded);
 
-    const survival = screen.getByText("Survival").closest("label");
-    const creative = screen.getByText("Creative").closest("label");
-    expect(survival?.className).toContain("installed");
-    expect(creative?.className).not.toContain("installed");
-
     // The installed instance cannot be selected again; the other can.
-    const instanceChecks = document.querySelectorAll(".instanceChoice input");
-    expect(instanceChecks).toHaveLength(1);
+    expect(
+      screen.queryByRole("checkbox", { name: "Select Survival for Player Corpse" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("checkbox", { name: "Select Creative for Player Corpse" }),
+    ).toBeTruthy();
     expect(screen.getAllByText("Installed")).toHaveLength(1);
   });
 
   it("shows plain checkboxes when the mod is not downloaded", async () => {
     renderDialog(undefined);
-    expect(document.querySelectorAll(".instanceChoice input")).toHaveLength(2);
+    expect(screen.getAllByRole("checkbox", { name: /for Player Corpse/ })).toHaveLength(2);
     expect(screen.queryByText("Installed")).toBeNull();
   });
 

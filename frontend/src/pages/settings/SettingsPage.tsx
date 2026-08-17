@@ -1,10 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Archive, Download, HardDrive, Package, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
-import { Progress } from "@/shared/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
 import { useToastStore } from "../../app/stores/toast";
@@ -23,13 +20,37 @@ import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
+import { Card } from "../../shared/ui/card";
+import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { Input } from "../../shared/ui/input";
+import { LoadingState } from "../../shared/ui/loading-state";
+import { Page, PageContent, PageSection } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
+import { Progress } from "../../shared/ui/progress";
+import { SectionHeader } from "../../shared/ui/section-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../shared/ui/select";
+import { SettingRow } from "../../shared/ui/setting-row";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { Stepper } from "../../shared/ui/stepper";
 import { Switch } from "../../shared/ui/switch";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const autosaveDelayMs = 400;
+
+const SETTINGS_SECTIONS = [
+  { id: "downloads", icon: Download, labelKey: "downloads_and_game" },
+  { id: "backups", icon: Archive, labelKey: "backups" },
+  { id: "updates", icon: RefreshCw, labelKey: "launcher_updates" },
+  { id: "optimum", icon: Package, labelKey: "" },
+  { id: "data-folder", icon: HardDrive, labelKey: "data_folder" },
+  { id: "privacy", icon: ShieldCheck, labelKey: "privacy_and_telemetry" },
+] as const;
 
 function settingsEqual(left: Settings, right: Settings) {
   return (
@@ -69,6 +90,7 @@ export function SettingsPage() {
   const [checkingOptimum, setCheckingOptimum] = useState(false);
   const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
   const [cleaning, setCleaning] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>(SETTINGS_SECTIONS[0].id);
   const persistedRef = useRef<Settings | undefined>(undefined);
   const revisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -285,33 +307,104 @@ export function SettingsPage() {
     }
   }
 
+  const sectionsReady = Boolean(value);
+  useEffect(() => {
+    if (!sectionsReady || typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id.replace("settings-", ""));
+          }
+        }
+      },
+      { rootMargin: "-15% 0px -70% 0px" },
+    );
+    for (const section of SETTINGS_SECTIONS) {
+      const element = document.getElementById(`settings-${section.id}`);
+      if (element) {
+        observer.observe(element);
+      }
+    }
+    // Short trailing sections can never reach the observer band; when the
+    // scroller hits the bottom, activate the last section instead.
+    const scroller = document.querySelector(".appMain");
+    const lastSection = SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id;
+    const handleScroll = () => {
+      if (scroller && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 8) {
+        setActiveSection(lastSection);
+      }
+    };
+    scroller?.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      scroller?.removeEventListener("scroll", handleScroll);
+    };
+  }, [sectionsReady]);
+
   if (!value) {
-    return null;
+    return (
+      <Page>
+        <PageHeader
+          eyebrow={t("make_it_yours")}
+          title={t("settings")}
+          description={t("basic_launcher_preferences")}
+        />
+        <PageContent>
+          <LoadingState />
+        </PageContent>
+      </Page>
+    );
   }
 
   const optimumStatus = queriedOptimumStatus;
+  const folderError = moveError
+    ? moveError
+    : dataFolder?.lastError
+      ? t("data_folder_previous_error", { message: dataFolder.lastError })
+      : undefined;
 
   return (
-    <>
+    <Page>
       <PageHeader
         eyebrow={t("make_it_yours")}
         title={t("settings")}
         description={t("basic_launcher_preferences")}
       />
 
-      <section className="settingsPanel">
-        <div className="settingsPageForm">
-          <section className="settingsPageSection">
-            <header>
-              <h2>{t("downloads_and_game")}</h2>
-              <p>{t("background_work_and_launch_configuration")}</p>
-            </header>
-            <div className="downloadsPanel">
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("language")}</span>
-                </div>
-                <div className="settingRowControl">
+      <PageContent>
+        <div className="settingsLayout">
+          <nav className="settingsNav" aria-label={t("settings")}>
+            {SETTINGS_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={activeSection === section.id ? "active" : ""}
+                aria-current={activeSection === section.id ? "true" : undefined}
+                onClick={() => {
+                  setActiveSection(section.id);
+                  document
+                    .getElementById(`settings-${section.id}`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                <section.icon size={15} aria-hidden="true" />
+                {section.labelKey ? t(section.labelKey) : "Optimum"}
+              </button>
+            ))}
+          </nav>
+
+          <div className="settingsSections">
+            <PageSection id="settings-downloads">
+              <SectionHeader
+                variant="compact"
+                title={t("downloads_and_game")}
+                description={t("background_work_and_launch_configuration")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow title={t("language")}>
                   <Select
                     value={normalizeLanguage(value.language)}
                     onValueChange={(language) => {
@@ -331,19 +424,12 @@ export function SettingsPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
+                </SettingRow>
 
-              <div className="settingRowDivider" />
-
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("parallel_downloads")}</span>
-                  <small className="settingRowDescription">
-                    {t("parallel_downloads_description")}
-                  </small>
-                </div>
-                <div className="settingRowControl">
+                <SettingRow
+                  title={t("parallel_downloads")}
+                  description={t("parallel_downloads_description")}
+                >
                   <Stepper
                     label={t("parallel_downloads")}
                     value={value.downloadsParallel}
@@ -353,69 +439,56 @@ export function SettingsPage() {
                     increaseLabel={t("increase")}
                     onChange={(downloadsParallel) => setValue({ ...value, downloadsParallel })}
                   />
-                </div>
-              </div>
+                </SettingRow>
 
-              <div className="settingRowDivider" />
+                <SettingRow
+                  column
+                  title={t("global_launch_arguments")}
+                  description={t("global_launch_arguments_description")}
+                >
+                  <Input
+                    className="codeInput"
+                    aria-label={t("global_launch_arguments")}
+                    value={launchArgumentsText}
+                    onChange={(event) => {
+                      const argumentsValue = event.target.value;
+                      setLaunchArgumentsText(argumentsValue);
+                      const trimmedArguments = argumentsValue.trim();
+                      setValue({
+                        ...value,
+                        globalLaunchArguments: trimmedArguments
+                          ? trimmedArguments.split(/\s+/)
+                          : [],
+                      });
+                    }}
+                    placeholder="--debug"
+                  />
+                </SettingRow>
 
-              <div className="settingRow settingRowColumn">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("global_launch_arguments")}</span>
-                  <small className="settingRowDescription">
-                    {t("global_launch_arguments_description")}
-                  </small>
-                </div>
-                <input
-                  className="settingTileInput codeInput"
-                  aria-label={t("global_launch_arguments")}
-                  value={launchArgumentsText}
-                  onChange={(event) => {
-                    const argumentsValue = event.target.value;
-                    setLaunchArgumentsText(argumentsValue);
-                    const trimmedArguments = argumentsValue.trim();
-                    setValue({
-                      ...value,
-                      globalLaunchArguments: trimmedArguments ? trimmedArguments.split(/\s+/) : [],
-                    });
-                  }}
-                  placeholder="--debug"
-                />
-              </div>
-
-              <div className="settingRowDivider" />
-
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("confirm_deletion")}</span>
-                  <small className="settingRowDescription">
-                    {t("confirm_before_removing_items")}
-                  </small>
-                </div>
-                <div className="settingRowControl">
+                <SettingRow
+                  title={t("confirm_deletion")}
+                  description={t("confirm_before_removing_items")}
+                >
                   <Switch
                     label={t("confirm_deletion")}
                     checked={value.confirmDeletion}
                     onCheckedChange={(confirmDeletion) => setValue({ ...value, confirmDeletion })}
                   />
-                </div>
-              </div>
-            </div>
-          </section>
+                </SettingRow>
+              </Card>
+            </PageSection>
 
-          <section className="settingsPageSection">
-            <header>
-              <h2>{t("backups")}</h2>
-              <p>{t("backups_settings_description")}</p>
-            </header>
-            <div className="downloadsPanel">
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("automatic_safety_backups")}</span>
-                  <small className="settingRowDescription">
-                    {t("automatic_safety_backups_description")}
-                  </small>
-                </div>
-                <div className="settingRowControl">
+            <PageSection id="settings-backups">
+              <SectionHeader
+                variant="compact"
+                title={t("backups")}
+                description={t("backups_settings_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow
+                  title={t("automatic_safety_backups")}
+                  description={t("automatic_safety_backups_description")}
+                >
                   <Switch
                     label={t("automatic_safety_backups")}
                     checked={value.automaticSafetySnapshots}
@@ -423,40 +496,29 @@ export function SettingsPage() {
                       setValue({ ...value, automaticSafetySnapshots })
                     }
                   />
-                </div>
-              </div>
-            </div>
-          </section>
+                </SettingRow>
+              </Card>
+            </PageSection>
 
-          <section className="settingsPageSection">
-            <header>
-              <h2>{t("launcher_updates")}</h2>
-              <p>{t("launcher_updates_description")}</p>
-            </header>
-            <div className="downloadsPanel">
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("automatically_check_for_updates")}</span>
-                  <small className="settingRowDescription">
-                    {t("automatic_updates_consent_notice")}
-                  </small>
-                </div>
-                <div className="settingRowControl">
+            <PageSection id="settings-updates">
+              <SectionHeader
+                variant="compact"
+                title={t("launcher_updates")}
+                description={t("launcher_updates_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow
+                  title={t("automatically_check_for_updates")}
+                  description={t("automatic_updates_consent_notice")}
+                >
                   <Switch
                     label={t("automatically_check_for_updates")}
                     checked={value.checkForUpdates}
                     onCheckedChange={(checkForUpdates) => setValue({ ...value, checkForUpdates })}
                   />
-                </div>
-              </div>
+                </SettingRow>
 
-              <div className="settingRowDivider" />
-
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("update_channel")}</span>
-                </div>
-                <div className="settingRowControl">
+                <SettingRow title={t("update_channel")}>
                   <Select
                     value={value.updateChannel}
                     onValueChange={(updateChannel) => {
@@ -478,32 +540,18 @@ export function SettingsPage() {
                       <SelectItem value="prerelease">{t("prerelease")}</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
+                </SettingRow>
 
-              <div className="settingRowDivider" />
-
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("current_launcher_version")}</span>
-                </div>
-                <div className="settingRowControl">
-                  <input
-                    className="settingTileInput w-[220px]"
+                <SettingRow title={t("current_launcher_version")}>
+                  <Input
+                    className="w-[220px]"
                     value={currentVersion || "—"}
                     readOnly
                     aria-label={t("current_launcher_version")}
                   />
-                </div>
-              </div>
+                </SettingRow>
 
-              <div className="settingRowDivider" />
-
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("check_for_updates")}</span>
-                </div>
-                <div className="settingRowControl">
+                <SettingRow title={t("check_for_updates")}>
                   <Button
                     type="button"
                     variant="secondary"
@@ -523,113 +571,100 @@ export function SettingsPage() {
                   >
                     {t("check_for_updates")}
                   </Button>
-                </div>
-              </div>
-            </div>
-          </section>
+                </SettingRow>
+              </Card>
+            </PageSection>
 
-          <section className="settingsPageSection">
-            <header>
-              <h2>Optimum</h2>
-              <p>
-                {t("optimum_settings_description")}{" "}
-                <button
-                  type="button"
-                  className="linkButton"
-                  onClick={() => void settingsApi.openOptimumInstallationGuide()}
-                >
-                  {t("optimum_installation_guide")}
-                </button>
-              </p>
-            </header>
-            <div className="downloadsPanel">
-              <div className="settingRow settingRowColumn">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("installation")}</span>
-                </div>
-                <input
-                  className="settingTileInput codeInput"
-                  value={optimumStatus?.path || t("optimum_not_detected")}
-                  readOnly
-                  aria-label={t("optimum_installation")}
-                />
-              </div>
-              <div className="settingRowDivider" />
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("status")}</span>
-                  <small className="settingRowDescription">
-                    {optimumStatus?.ready
+            <PageSection id="settings-optimum">
+              <SectionHeader
+                variant="compact"
+                title="Optimum"
+                description={
+                  <>
+                    {t("optimum_settings_description")}{" "}
+                    <button
+                      type="button"
+                      className="linkButton"
+                      onClick={() => void settingsApi.openOptimumInstallationGuide()}
+                    >
+                      {t("optimum_installation_guide")}
+                    </button>
+                  </>
+                }
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow column title={t("installation")}>
+                  <Input
+                    className="codeInput"
+                    value={optimumStatus?.path || t("optimum_not_detected")}
+                    readOnly
+                    aria-label={t("optimum_installation")}
+                  />
+                </SettingRow>
+                <SettingRow
+                  title={t("status")}
+                  description={
+                    optimumStatus?.ready
                       ? optimumStatus.gameVersion
                         ? t("optimum_vintage_story_version", {
                             version: optimumStatus.gameVersion,
                           })
                         : t("optimum_ready")
-                      : optimumStatus?.message || t("optimum_not_configured_description")}
-                  </small>
-                </div>
-                <StatusPill status={optimumStatus?.ready ? "ready" : "unknown"} />
-              </div>
-              <div className="settingRowDivider" />
-              <div className="settingRow">
-                <div className="settingRowControl row">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    busy={checkingOptimum}
-                    onClick={() => void detectOptimum()}
-                  >
-                    {t("detect")}
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => void browseOptimum()}>
-                    {t("browse")}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </section>
+                      : optimumStatus?.message || t("optimum_not_configured_description")
+                  }
+                >
+                  <StatusPill status={optimumStatus?.ready ? "ready" : "unknown"} />
+                </SettingRow>
+                <SettingRow>
+                  <div className="row">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      busy={checkingOptimum}
+                      onClick={() => void detectOptimum()}
+                    >
+                      {t("detect")}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => void browseOptimum()}>
+                      {t("browse")}
+                    </Button>
+                  </div>
+                </SettingRow>
+              </Card>
+            </PageSection>
 
-          <section className="settingsPageSection">
-            <header>
-              <h2>{t("data_folder")}</h2>
-              <p>{t("data_folder_description")}</p>
-            </header>
-            <div className="downloadsPanel">
-              {moving ? (
-                <div className="settingRow settingRowColumn">
-                  <div className="settingRowText">
-                    <span className="settingRowTitle">{t("data_folder_moving")}</span>
-                  </div>
-                  <Progress value={dataFolderProgress?.progress ?? 0} />
-                  {dataFolderProgress?.totalBytes ? (
-                    <small className="settingRowDescription">
-                      {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
-                      {formatBytes(dataFolderProgress.totalBytes)}
-                    </small>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <div className="settingRow settingRowColumn">
-                    <div className="settingRowText">
-                      <span className="settingRowTitle">{t("data_folder_current_location")}</span>
-                    </div>
-                    <input
-                      className="settingTileInput codeInput"
-                      value={dataFolder?.currentPath ?? "—"}
-                      readOnly
-                      aria-label={t("data_folder_current_location")}
-                    />
-                  </div>
-                  {moveError && <p className="updateHint">{moveError}</p>}
-                  {dataFolder?.lastError && (
-                    <p className="updateHint">
-                      {t("data_folder_previous_error", { message: dataFolder.lastError })}
-                    </p>
-                  )}
-                  <div className="settingRowDivider" />
-                  <div className="settingRow">
-                    <div className="settingRowControl">
+            <PageSection id="settings-data-folder">
+              <SectionHeader
+                variant="compact"
+                title={t("data_folder")}
+                description={t("data_folder_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                {moving ? (
+                  <SettingRow column title={t("data_folder_moving")}>
+                    <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
+                    {dataFolderProgress?.totalBytes ? (
+                      <small className="settingRowDescription">
+                        {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
+                        {formatBytes(dataFolderProgress.totalBytes)}
+                      </small>
+                    ) : null}
+                  </SettingRow>
+                ) : (
+                  <>
+                    <SettingRow
+                      column
+                      title={t("data_folder_current_location")}
+                      warning={folderError}
+                    >
+                      <Input
+                        className="codeInput"
+                        value={dataFolder?.currentPath ?? "—"}
+                        readOnly
+                        aria-label={t("data_folder_current_location")}
+                      />
+                    </SettingRow>
+                    <SettingRow>
                       <Button
                         type="button"
                         variant="secondary"
@@ -637,11 +672,8 @@ export function SettingsPage() {
                       >
                         {t("data_folder_change")}
                       </Button>
-                    </div>
-                  </div>
-                  <div className="settingRowDivider" />
-                  <div className="settingRow">
-                    <div className="settingRowControl">
+                    </SettingRow>
+                    <SettingRow>
                       <Button
                         type="button"
                         variant="danger"
@@ -649,36 +681,38 @@ export function SettingsPage() {
                       >
                         {t("remove_unused_downloaded_mods")}
                       </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
+                    </SettingRow>
+                  </>
+                )}
+              </Card>
+            </PageSection>
 
-          <section className="settingsPageSection">
-            <header>
-              <h2>{t("privacy_and_telemetry")}</h2>
-              <p>{t("privacy_and_telemetry_description")}</p>
-            </header>
-            <div className="downloadsPanel">
-              <div className="settingRow">
-                <div className="settingRowText">
-                  <span className="settingRowTitle">{t("send_usage_analytics")}</span>
-                  <small className="settingRowDescription">{t("telemetry_consent_notice")}</small>
-                </div>
-                <div className="settingRowControl">
+            <PageSection id="settings-privacy">
+              <SectionHeader
+                variant="compact"
+                title={t("privacy_and_telemetry")}
+                description={t("privacy_and_telemetry_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow
+                  title={t("send_usage_analytics")}
+                  description={t("telemetry_consent_notice")}
+                >
                   <Switch
                     label={t("send_usage_analytics")}
                     checked={value.telemetryEnabled}
                     onCheckedChange={(telemetryEnabled) => setValue({ ...value, telemetryEnabled })}
                   />
-                </div>
-              </div>
-            </div>
-          </section>
+                </SettingRow>
+              </Card>
+            </PageSection>
+
+            <p className="px-1 text-[12px] leading-relaxed text-text-disabled">
+              {t("not_affiliated_notice")}
+            </p>
+          </div>
         </div>
-      </section>
+      </PageContent>
 
       <ConfirmDialog
         open={moveDialogOpen}
@@ -702,8 +736,6 @@ export function SettingsPage() {
         onConfirm={() => void removeUnusedDownloadedMods()}
         onCancel={() => setCleanupPreview(undefined)}
       />
-
-      <footer className="legal">{t("not_affiliated_notice")}</footer>
-    </>
+    </Page>
   );
 }

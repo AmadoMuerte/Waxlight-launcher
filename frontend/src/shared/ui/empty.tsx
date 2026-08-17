@@ -1,18 +1,25 @@
-import type { ReactNode } from "react";
+import { Sparkles } from "lucide-react";
+import type { HTMLAttributes, ReactNode } from "react";
 
-export function Empty({
-  icon = "✦",
+import { cn } from "@/shared/lib/utils";
+
+const DEFAULT_ICON = <Sparkles size={30} aria-hidden="true" />;
+
+export function EmptyState({
+  icon = DEFAULT_ICON,
   title,
   description,
   action,
-}: {
-  icon?: string;
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
+  icon?: ReactNode;
   title: string;
-  description: string;
+  description: ReactNode;
   action?: ReactNode;
 }) {
   return (
-    <div className="empty">
+    <div className={cn("empty", className)} {...props}>
       <div className="emptyIcon">{icon}</div>
       <h2>{title}</h2>
       <p>{description}</p>
@@ -20,3 +27,5 @@ export function Empty({
     </div>
   );
 }
+
+export { EmptyState as Empty };

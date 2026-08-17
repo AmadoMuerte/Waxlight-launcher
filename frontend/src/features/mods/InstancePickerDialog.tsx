@@ -1,3 +1,4 @@
+import { Check, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,10 +15,13 @@ import type {
   ModTaskProgress,
 } from "../../shared/api/types";
 import { Button } from "../../shared/ui/button";
+import { Checkbox } from "../../shared/ui/checkbox-control";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
 import { Field } from "../../shared/ui/field";
 import { Modal } from "../../shared/ui/modal";
+import { Progress } from "../../shared/ui/progress";
+import { SearchInput } from "../../shared/ui/search-input";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
   chooseRelease,
@@ -51,6 +55,13 @@ interface InstancePickerDialogProps {
   onClose: () => void;
   onDone: () => Promise<void>;
 }
+
+const compatibilityColor: Record<string, string> = {
+  compatible: "text-success",
+  possibly_compatible: "text-warning",
+  incompatible: "text-danger",
+  unknown: "text-text-muted",
+};
 
 export function InstancePickerDialog({
   mod,
@@ -257,9 +268,9 @@ export function InstancePickerDialog({
       onClose={() => void cancel()}
     >
       {phase === "select" && (
-        <div className="instancePicker">
+        <div className="flex min-h-0 flex-col gap-4 p-6">
           <p className="muted">{t("select_one_or_more_instances")}</p>
-          <div className="formRow">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <Field label={t("mod_version")}>
               <Select value={releaseId} onValueChange={setReleaseId}>
                 <SelectTrigger>
@@ -274,96 +285,106 @@ export function InstancePickerDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <div className="releaseSummary">
+            <div className="pb-1 text-right text-[13px] leading-5 text-text-secondary">
               <span>
                 {release && release.gameVersions.length > 0
                   ? formatGameVersions(release.gameVersions)
                   : t("compatibility_unknown")}
               </span>
-              <small>{formatBytes(release?.fileSize ?? 0)}</small>
+              <small className="block text-xs text-text-muted">
+                {formatBytes(release?.fileSize ?? 0)}
+              </small>
             </div>
           </div>
 
           {instances.length === 0 ? (
             <Empty
-              icon="◌"
               title={t("no_instances_available")}
               description={t("create_instance_before_mods")}
             />
           ) : (
-            <>
-              <input
-                className="instanceSearch"
+            <div className="flex min-h-0 flex-col gap-3">
+              <SearchInput
                 aria-label={t("search_instances")}
                 placeholder={t("search_instances_placeholder")}
                 value={instanceQuery}
-                onChange={(event) => setInstanceQuery(event.target.value)}
+                onValueChange={setInstanceQuery}
               />
-              <div className="instanceChoices">
-                {visibleInstances.map((instance) => {
-                  const compatibility = release
-                    ? compatibilityFor(instance, gameVersions, release)
-                    : "unknown";
-                  const installed = installedById.get(instance.id);
-                  return (
-                    <label
-                      key={instance.id}
-                      className={`instanceChoice ${installed ? "installed" : ""}`}
-                    >
-                      {installed ? (
-                        <span className="installedCheck" aria-hidden="true">
-                          ✓
-                        </span>
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(instance.id)}
-                          disabled={compatibility === "incompatible" && !showIncompatible}
-                          onChange={(event) =>
-                            setSelected((items) =>
-                              event.target.checked
-                                ? [...items, instance.id]
-                                : items.filter((id) => id !== instance.id),
-                            )
-                          }
-                        />
-                      )}
-                      <span>
-                        <strong>{instance.name}</strong>
-                        <small>Vintage Story {instanceGameVersion(instance, gameVersions)}</small>
-                        {installed && (
-                          <small className="installedHint">
-                            {t("installed_version_value", { version: installed.version })}
-                          </small>
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-border-subtle bg-surface-input">
+                <div className="divide-y divide-border-subtle">
+                  {visibleInstances.map((instance) => {
+                    const compatibility = release
+                      ? compatibilityFor(instance, gameVersions, release)
+                      : "unknown";
+                    const installed = installedById.get(instance.id);
+                    return (
+                      <label
+                        key={instance.id}
+                        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-ghost-hover"
+                      >
+                        {installed ? (
+                          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success/15 text-success">
+                            <Check size={12} aria-hidden="true" />
+                          </span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            aria-label={t("select_instance", {
+                              instance: instance.name,
+                              mod: mod.name,
+                            })}
+                            className="size-4 shrink-0 accent-[var(--color-accent)]"
+                            checked={selected.includes(instance.id)}
+                            disabled={compatibility === "incompatible" && !showIncompatible}
+                            onChange={(event) =>
+                              setSelected((items) =>
+                                event.target.checked
+                                  ? [...items, instance.id]
+                                  : items.filter((id) => id !== instance.id),
+                              )
+                            }
+                          />
                         )}
-                      </span>
-                      {installed ? (
-                        <span className="installedPill">{t("installed")}</span>
-                      ) : (
-                        <span className={`compatibility compatibility-${compatibility}`}>
-                          {compatibilityLabel(compatibility)}
+                        <span className="min-w-0 flex-1">
+                          <strong className="block truncate text-sm">{instance.name}</strong>
+                          <small className="block truncate text-xs text-text-muted">
+                            {t("vintage_story")} {instanceGameVersion(instance, gameVersions)}
+                          </small>
+                          {installed && (
+                            <small className="block truncate text-xs text-text-muted">
+                              {t("installed_version_value", { version: installed.version })}
+                            </small>
+                          )}
                         </span>
-                      )}
-                    </label>
-                  );
-                })}
+                        {installed ? (
+                          <span className="shrink-0 text-xs font-medium text-success">
+                            {t("installed")}
+                          </span>
+                        ) : (
+                          <span
+                            className={`shrink-0 text-xs font-medium ${compatibilityColor[compatibility] ?? "text-text-muted"}`}
+                          >
+                            {compatibilityLabel(compatibility)}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-              <label className="checkRow">
-                <input
-                  type="checkbox"
-                  checked={showIncompatible}
-                  onChange={(event) => setShowIncompatible(event.target.checked)}
-                />
-                {t("show_incompatible_instances")}
-              </label>
-            </>
+              <Checkbox
+                label={t("show_incompatible_instances")}
+                checked={showIncompatible}
+                onChange={(event) => setShowIncompatible(event.target.checked)}
+              />
+            </div>
           )}
           {error && (
             <div className="inlineError" role="alert">
               {error}
             </div>
           )}
-          <div className="modalActions">
+          <div className="modalActions mt-auto pt-2">
             <Button variant="ghost" onClick={onClose}>
               {t("cancel")}
             </Button>
@@ -380,13 +401,23 @@ export function InstancePickerDialog({
       )}
 
       {phase === "progress" && (
-        <div className="taskProgress" aria-live="polite">
-          <div className="progressOrb">⇣</div>
-          <h3>{progress?.message || t("preparing_mod", { name: mod.name })}</h3>
-          <div className="progressTrack">
-            <i style={{ width: `${Math.round((progress?.progress ?? 0.05) * 100)}%` }} />
+        <div
+          className="flex min-h-80 flex-col items-center justify-center gap-4 p-6 text-center"
+          aria-live="polite"
+        >
+          <div className="grid size-16 place-items-center rounded-full bg-accent-muted text-2xl text-accent-hover">
+            <Download size={26} aria-hidden="true" />
           </div>
-          <p>
+          <h3 className="font-display text-2xl font-semibold">
+            {progress?.message || t("preparing_mod", { name: mod.name })}
+          </h3>
+          <div className="w-[min(420px,100%)]">
+            <Progress
+              value={Math.round((progress?.progress ?? 0.05) * 100)}
+              aria-label={t("download_progress_header")}
+            />
+          </div>
+          <p className="text-[13px] text-text-muted">
             {progress?.totalBytes
               ? t("download_progress", {
                   downloaded: formatBytes(progress.downloadedBytes),
@@ -401,9 +432,11 @@ export function InstancePickerDialog({
       )}
 
       {phase === "result" && result && (
-        <div className="installResult">
-          <div className="successMark">✓</div>
-          <h3>
+        <div className="flex min-h-80 flex-col items-center justify-center gap-4 p-6 text-center">
+          <div className="grid size-16 place-items-center rounded-full bg-success/15 text-2xl text-success">
+            <Check size={26} aria-hidden="true" />
+          </div>
+          <h3 className="font-display text-2xl font-semibold">
             {result.installations.length === 0
               ? t("mod_downloaded_successfully")
               : t("installed_to_instances", {
@@ -412,11 +445,14 @@ export function InstancePickerDialog({
                 })}
           </h3>
           {result.installations.length > 0 && (
-            <div className="resultList">
+            <div className="w-[min(460px,100%)] divide-y divide-border-subtle">
               {result.installations.map((item) => (
-                <div key={item.instanceId}>
+                <div
+                  key={item.instanceId}
+                  className="flex justify-between gap-3 py-2.5 text-[13px]"
+                >
                   <strong>{item.instanceName}</strong>
-                  <span className={item.installed ? "resultOk" : "resultError"}>
+                  <span className={item.installed ? "text-success" : "text-danger"}>
                     {item.message}
                   </span>
                 </div>
@@ -424,19 +460,24 @@ export function InstancePickerDialog({
             </div>
           )}
           {downloadedDependencies.length > 0 && (
-            <div className="resultList">
-              <div>
+            <div className="w-[min(460px,100%)] divide-y divide-border-subtle">
+              <div className="flex justify-between gap-3 py-2.5 text-[13px]">
                 <strong>
                   {t("required_dependencies_downloaded", {
                     count: downloadedDependencies.length,
                   })}
                 </strong>
-                <span className="resultOk">✓</span>
+                <span className="text-success">
+                  <Check size={14} aria-hidden="true" />
+                </span>
               </div>
               {downloadedDependencies.map((dependency) => (
-                <div key={`${dependency.modId}:${dependency.version}`}>
+                <div
+                  key={`${dependency.modId}:${dependency.version}`}
+                  className="flex justify-between gap-3 py-2.5 text-[13px]"
+                >
                   <strong>{dependency.name}</strong>
-                  <span>{dependency.version}</span>
+                  <span className="text-text-muted">{dependency.version}</span>
                 </div>
               ))}
             </div>

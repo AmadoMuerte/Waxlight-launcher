@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +14,10 @@ import { GAME_VERSIONS_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/
 import { formatBytes, formatDate } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
+import { IconButton } from "../../shared/ui/icon-button";
+import { Page, PageContent, PageSection } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
+import { SectionHeader } from "../../shared/ui/section-header";
 import { StatusPill } from "../../shared/ui/status-pill";
 
 export function VersionsPage() {
@@ -61,59 +65,61 @@ export function VersionsPage() {
   }
 
   return (
-    <>
+    <Page>
       <PageHeader
         eyebrow={t("game_runtime")}
         title={t("game_versions")}
         description={t("versions_description")}
-        action={
+        actions={
           <Button variant="secondary" onClick={() => setInstallDialogOpen(true)}>
             {t("install_from_file")}
           </Button>
         }
       />
 
-      {versions.length > 0 && (
-        <section className="installedVersions">
-          <div className="sectionHeading">
-            <div>
-              <span className="eyebrow">{t("shared_runtime_library")}</span>
-              <h2>{t("installed_versions")}</h2>
-            </div>
-          </div>
-          <div className="table versionTable">
-            <div className="tableHead">
-              <span>{t("version")}</span>
-              <span>{t("platform")}</span>
-              <span>{t("size")}</span>
-              <span>{t("installed")}</span>
-              <span />
-            </div>
-
-            {versions.map((version) => (
-              <div className="tableRow" key={version.id}>
-                <span className="versionIdentity">
-                  <strong title={version.executablePath}>{version.name}</strong>
-                  <small>{version.id}</small>
-                </span>
-                <span>
-                  {version.platform} · {version.architecture}
-                </span>
-                <span>{formatBytes(version.sizeBytes)}</span>
-                <span>{formatDate(version.installedAt)}</span>
-                <span className="row tableActions">
-                  <StatusPill status={version.status} />
-                  <Button variant="ghost" onClick={() => removeVersion(version)}>
-                    {t("remove")}
-                  </Button>
-                </span>
+      <PageContent>
+        {versions.length > 0 && (
+          <PageSection>
+            <SectionHeader eyebrow={t("shared_runtime_library")} title={t("installed_versions")} />
+            <div className="table versionTable">
+              <div className="tableHead">
+                <span>{t("version")}</span>
+                <span>{t("platform")}</span>
+                <span>{t("size")}</span>
+                <span>{t("installed")}</span>
+                <span />
               </div>
-            ))}
-          </div>
-        </section>
-      )}
 
-      <AvailableVersions installedVersionIDs={versions.map((version) => version.id)} />
+              {versions.map((version) => (
+                <div className="tableRow" key={version.id}>
+                  <span className="versionIdentity">
+                    <strong title={version.executablePath}>{version.name}</strong>
+                    <small>{version.id}</small>
+                  </span>
+                  <span>
+                    {version.platform} · {version.architecture}
+                  </span>
+                  <span>{formatBytes(version.sizeBytes)}</span>
+                  <span>{formatDate(version.installedAt)}</span>
+                  <span className="row tableActions">
+                    <StatusPill status={version.status} />
+                    <IconButton
+                      variant="danger"
+                      size="sm"
+                      aria-label={t("remove")}
+                      onClick={() => removeVersion(version)}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </IconButton>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </PageSection>
+        )}
+
+        <AvailableVersions installedVersionIDs={versions.map((version) => version.id)} />
+      </PageContent>
 
       {installDialogOpen && (
         <InstallLocalVersionModal
@@ -139,6 +145,6 @@ export function VersionsPage() {
         }}
         onCancel={() => setConfirmState((s) => ({ ...s, open: false }))}
       />
-    </>
+    </Page>
   );
 }

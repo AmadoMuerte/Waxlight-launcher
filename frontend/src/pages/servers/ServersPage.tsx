@@ -1,274 +1,52 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Boxes,
-  Gamepad2,
-  Globe2,
-  Heart,
-  Link,
-  LockKeyhole,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
-import {
-  memo,
-  startTransition,
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useState,
-  type MouseEvent,
-} from "react";
+import { Globe2, Heart, RefreshCw } from "lucide-react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
+import { useGameVersionsQuery } from "../../entities/game-version/queries";
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { serversApi } from "../../entities/server/api";
 import type { FavoriteServer, PublicServer } from "../../entities/server/model";
 import { useFavoriteServersQuery, usePublicServersQuery } from "../../entities/server/queries";
+import { serverKey } from "../../features/servers/lib";
+import { ServerCard } from "../../features/servers/ServerCard";
+import { ServerDetailsDialog } from "../../features/servers/ServerDetailsDialog";
+import { ServerJoinDialog } from "../../features/servers/ServerJoinDialog";
 import { errorMessage } from "../../shared/api/bridge";
 import { FAVORITE_SERVERS_QUERY_KEY } from "../../shared/api/keys";
 import { launcherApi } from "../../shared/api/launcher";
 import { normalizeServerAddress, serverShareURL } from "../../shared/lib/waxlight-links";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
-import { Empty } from "../../shared/ui/empty";
-import { Modal } from "../../shared/ui/modal";
+import { EmptyState } from "../../shared/ui/empty";
+import { ErrorState } from "../../shared/ui/error-state";
+import { IconButton } from "../../shared/ui/icon-button";
+import { LoadingState } from "../../shared/ui/loading-state";
+import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../shared/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/ui/tooltip";
+import { SearchInput } from "../../shared/ui/search-input";
+import { Tabs } from "../../shared/ui/tabs";
+import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
 import { ClipboardSetText } from "../../wailsjs/runtime/runtime";
 
 type ServerTab = "favorites" | "public";
 
 const SERVER_PAGE_SIZE = 60;
 
-function serverKey(server: { name: string; address: string }) {
-  return normalizeServerAddress(server.address) ?? `${server.address}\u0000${server.name}`;
+function favoriteAsPublicServer(favorite: FavoriteServer): PublicServer {
+  return {
+    name: favorite.name,
+    address: favorite.address,
+    description: "",
+    players: 0,
+    modCount: 0,
+    requiresWhitelist: false,
+    accessRestricted: false,
+    joinable: true,
+  };
 }
-
-function canRequestServerLaunch(server: PublicServer) {
-  return server.joinable || (server.accessRestricted && !server.address);
-}
-
-function PlayButton({
-  blockedByWhitelist,
-  disabled,
-  onClick,
-}: {
-  blockedByWhitelist: boolean;
-  disabled: boolean;
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-}) {
-  const { t } = useTranslation();
-  const button = (
-    <Button disabled={disabled || blockedByWhitelist} onClick={onClick}>
-      {t("play")}
-    </Button>
-  );
-  if (!blockedByWhitelist) return button;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="serverDisabledPlay">{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>{t("server_whitelist_launch_unavailable")}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-const PublicServerCard = memo(function PublicServerCard({
-  server,
-  favorite,
-  busy,
-  onToggleFavorite,
-  onPlay,
-  onDetails,
-}: {
-  server: PublicServer;
-  favorite?: FavoriteServer;
-  busy: boolean;
-  onToggleFavorite: (server: PublicServer, favorite?: FavoriteServer) => void;
-  onPlay: (server: PublicServer, favorite?: FavoriteServer) => void;
-  onDetails: (server: PublicServer) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <article className="serverCard">
-      <button
-        className="serverCardDetailsButton"
-        aria-label={server.name}
-        onClick={() => onDetails(server)}
-      />
-      <div className="serverCardTopline">
-        <span className="serverOnline">{t("server_players", { count: server.players })}</span>
-      </div>
-      <h3>{server.name}</h3>
-      <p className="serverAddress">{server.address || t("server_address")}</p>
-      <p className="serverDescription">{server.description || t("no_description_provided")}</p>
-      <div className="serverTags">
-        {server.modCount > 0 && (
-          <span className="serverTag modded">{t("server_mods", { count: server.modCount })}</span>
-        )}
-        {server.requiresWhitelist && <span className="serverTag">{t("server_whitelist")}</span>}
-        {server.accessRestricted && <span className="serverTag">{t("server_password")}</span>}
-      </div>
-      <ServerStats server={server} />
-      <div className="serverCardActions">
-        <Button
-          aria-label={favorite ? t("remove") : t("add_favorite")}
-          variant="ghost"
-          className="serverHeartButton"
-          busy={busy}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite(server, favorite);
-          }}
-        >
-          <Heart className={favorite ? "saved" : ""} size={18} />
-        </Button>
-        <PlayButton
-          blockedByWhitelist={server.requiresWhitelist}
-          disabled={!canRequestServerLaunch(server)}
-          onClick={(event) => {
-            event.stopPropagation();
-            onPlay(server, favorite);
-          }}
-        />
-      </div>
-    </article>
-  );
-});
-
-function ServerStats({ server }: { server: PublicServer }) {
-  const { t } = useTranslation();
-  return (
-    <div className="serverStats">
-      <span>
-        <Users size={14} /> {server.players}
-      </span>
-      {server.modCount > 0 && (
-        <span>
-          <Boxes size={14} /> {server.modCount}
-        </span>
-      )}
-      {server.requiresWhitelist && (
-        <span>
-          <ShieldCheck size={14} /> {t("server_whitelist")}
-        </span>
-      )}
-      {server.accessRestricted && (
-        <span>
-          <LockKeyhole size={14} /> {t("server_password")}
-        </span>
-      )}
-    </div>
-  );
-}
-
-const FavoriteServerCard = memo(function FavoriteServerCard({
-  server,
-  catalogServer,
-  instanceName,
-  onRemove,
-  onPlay,
-  onDetails,
-}: {
-  server: FavoriteServer;
-  catalogServer?: PublicServer;
-  instanceName?: string;
-  onRemove: (id: string) => void;
-  onPlay: (server: PublicServer, favorite?: FavoriteServer) => void;
-  onDetails: (server: PublicServer) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <article className="serverCard">
-      <button
-        className="serverCardDetailsButton"
-        aria-label={server.name}
-        onClick={() =>
-          onDetails(
-            catalogServer ?? {
-              name: server.name,
-              address: server.address,
-              description: "",
-              players: 0,
-              modCount: 0,
-              requiresWhitelist: false,
-              accessRestricted: false,
-              joinable: true,
-            },
-          )
-        }
-      />
-      <div className="serverCardTopline">
-        {catalogServer ? (
-          <span className="serverOnline">
-            {t("server_players", { count: catalogServer.players })}
-          </span>
-        ) : (
-          <span className="serverOffline">{t("favorite")}</span>
-        )}
-      </div>
-      <h3>{server.name}</h3>
-      <p className="serverAddress">{server.address}</p>
-      <p className="serverDescription">
-        {catalogServer?.description || instanceName || t("no_linked_instance")}
-      </p>
-      {catalogServer ? (
-        <ServerStats server={catalogServer} />
-      ) : (
-        <div className="serverStats">
-          <span>
-            <Gamepad2 size={14} /> {instanceName || t("no_linked_instance")}
-          </span>
-        </div>
-      )}
-      <div className="serverCardActions">
-        <Button
-          aria-label={t("remove")}
-          variant="ghost"
-          className="serverHeartButton"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove(server.id);
-          }}
-        >
-          <Heart className="saved" size={18} />
-        </Button>
-        <PlayButton
-          blockedByWhitelist={Boolean(catalogServer?.requiresWhitelist)}
-          disabled={false}
-          onClick={(event) => {
-            event.stopPropagation();
-            onPlay(
-              catalogServer ?? {
-                name: server.name,
-                address: server.address,
-                description: "",
-                players: 0,
-                modCount: 0,
-                requiresWhitelist: false,
-                accessRestricted: false,
-                joinable: true,
-              },
-              server,
-            );
-          }}
-        />
-      </div>
-    </article>
-  );
-});
 
 export function ServersPage() {
   const { t } = useTranslation();
@@ -280,17 +58,18 @@ export function ServersPage() {
   const { data: favorites = [] } = favoriteServers;
   const publicServers = usePublicServersQuery();
   const { data: instances = [] } = useInstancesQuery();
+  const { data: versions = [] } = useGameVersionsQuery();
   const [activeTab, setActiveTab] = useState<ServerTab>("public");
-  const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [showWhitelistServers, setShowWhitelistServers] = useState(false);
   const [visibleServerCount, setVisibleServerCount] = useState(SERVER_PAGE_SIZE);
   const [detailsServer, setDetailsServer] = useState<PublicServer>();
-  const [launchServer, setLaunchServer] = useState<{
+  const [joinTarget, setJoinTarget] = useState<{
     server: PublicServer;
     favorite?: FavoriteServer;
   }>();
-  const [launchInstanceID, setLaunchInstanceID] = useState("");
+  const [joiningKey, setJoiningKey] = useState<string | null>(null);
+  const [favoriteBusyKey, setFavoriteBusyKey] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
 
   const refreshFavorites = useCallback(async () => {
@@ -299,7 +78,7 @@ export function ServersPage() {
 
   const savePublicServer = useCallback(
     async (server: PublicServer) => {
-      setBusy(true);
+      setFavoriteBusyKey(serverKey(server));
       try {
         await serversApi.saveFavorite({ id: "", name: server.name, address: server.address });
         await refreshFavorites();
@@ -307,28 +86,31 @@ export function ServersPage() {
       } catch (error) {
         notify(errorMessage(error), "error");
       } finally {
-        setBusy(false);
+        setFavoriteBusyKey(null);
       }
     },
     [notify, refreshFavorites, t],
   );
 
   const removeFavorite = useCallback(
-    async (id: string) => {
+    async (server: PublicServer, favorite: FavoriteServer) => {
+      setFavoriteBusyKey(serverKey(server));
       try {
-        await serversApi.removeFavorite(id);
+        await serversApi.removeFavorite(favorite.id);
         await refreshFavorites();
       } catch (error) {
         notify(errorMessage(error), "error");
+      } finally {
+        setFavoriteBusyKey(null);
       }
     },
     [notify, refreshFavorites],
   );
 
-  const togglePublicFavorite = useCallback(
+  const toggleFavorite = useCallback(
     (server: PublicServer, favorite?: FavoriteServer) => {
       if (favorite) {
-        void removeFavorite(favorite.id);
+        void removeFavorite(server, favorite);
         return;
       }
       void savePublicServer(server);
@@ -336,47 +118,48 @@ export function ServersPage() {
     [removeFavorite, savePublicServer],
   );
 
-  const launchSelectedServer = useCallback(async () => {
-    if (!launchServer || !launchInstanceID) return;
-    setBusy(true);
-    try {
-      const address = launchServer.server.address.trim();
-      if (address) {
-        await launcherApi.launchServer(launchInstanceID, address);
-        await serversApi.saveFavorite({
-          id: launchServer.favorite?.id ?? "",
-          name: launchServer.server.name,
-          address,
-          instanceId: launchInstanceID,
-        });
-        await refreshFavorites();
-      } else {
-        await launcherApi.launch(launchInstanceID);
+  const launchWithInstance = useCallback(
+    async (server: PublicServer, favorite: FavoriteServer | undefined, instanceId: string) => {
+      setJoiningKey(serverKey(server));
+      try {
+        const address = server.address.trim();
+        if (address) {
+          await launcherApi.launchServer(instanceId, address);
+          await serversApi.saveFavorite({
+            id: favorite?.id ?? "",
+            name: server.name,
+            address,
+            instanceId,
+          });
+          await refreshFavorites();
+        } else {
+          await launcherApi.launch(instanceId);
+        }
+        setJoinTarget(undefined);
+        setDetailsServer(undefined);
+        notify(t("server_opened_in_game"));
+      } catch (error) {
+        notify(errorMessage(error), "error");
+      } finally {
+        setJoiningKey(null);
       }
-      setLaunchServer(undefined);
-      notify(t("server_opened_in_game"));
-    } catch (error) {
-      notify(errorMessage(error), "error");
-    } finally {
-      setBusy(false);
-    }
-  }, [launchInstanceID, launchServer, notify, refreshFavorites, t]);
-
-  const requestPlay = useCallback(
-    (server: PublicServer, favorite?: FavoriteServer) => {
-      setDetailsServer(undefined);
-      setLaunchServer({ server, favorite });
-      setLaunchInstanceID(favorite?.instanceId ?? instances[0]?.id ?? "");
     },
-    [instances],
+    [notify, refreshFavorites, t],
   );
+
+  const requestPlay = useCallback((server: PublicServer, favorite?: FavoriteServer) => {
+    setDetailsServer(undefined);
+    setJoinTarget({ server, favorite });
+  }, []);
 
   const catalogByKey = new Map(
     (publicServers.data ?? []).map((server) => [serverKey(server), server]),
   );
-  const instanceNames = new Map(instances.map((instance) => [instance.id, instance.name]));
   const favoriteByKey = new Map(favorites.map((server) => [serverKey(server), server]));
+  const publicServerKeyCounts = new Map<string, number>();
+  const instanceById = new Map(instances.map((instance) => [instance.id, instance]));
   const normalizedSearch = deferredSearch.trim().toLocaleLowerCase();
+  const hasActivePublicFilters = search.trim() !== "" || showWhitelistServers;
   const catalog = (publicServers.data ?? []).filter((server) => {
     if (server.requiresWhitelist && !showWhitelistServers) return false;
     return (
@@ -386,9 +169,12 @@ export function ServersPage() {
         .includes(normalizedSearch)
     );
   });
-  const featuredServer = activeTab === "public" ? catalog[0] : undefined;
-  const publicGridServers = catalog.slice(featuredServer ? 1 : 0);
-  const visiblePublicGridServers = publicGridServers.slice(0, visibleServerCount);
+  const visiblePublicServers = catalog.slice(0, visibleServerCount);
+
+  const detailsFavorite = detailsServer ? favoriteByKey.get(serverKey(detailsServer)) : undefined;
+  const detailsPreferredInstance = detailsFavorite?.instanceId
+    ? instanceById.get(detailsFavorite.instanceId)
+    : undefined;
 
   useEffect(() => {
     const address = normalizeServerAddress(
@@ -406,16 +192,7 @@ export function ServersPage() {
     setDetailsServer(
       publicServer ??
         (favorite
-          ? {
-              name: favorite.name,
-              address: favorite.address,
-              description: "",
-              players: 0,
-              modCount: 0,
-              requiresWhitelist: false,
-              accessRestricted: false,
-              joinable: true,
-            }
+          ? favoriteAsPublicServer(favorite)
           : {
               name: t("server"),
               address,
@@ -461,267 +238,225 @@ export function ServersPage() {
     }
   }
 
+  async function copyAddress(address: string) {
+    if (!address) return;
+    try {
+      if (!(await ClipboardSetText(address))) throw new Error("clipboard unavailable");
+      notify(t("server_address_copied"));
+    } catch {
+      notify(t("waxlight_link_copy_failed"), "error");
+    }
+  }
+
   return (
-    <>
-      <PageHeader title={t("servers")} description={t("servers_description")} />
+    <Page>
+      <PageHeader
+        eyebrow={t("server_browser")}
+        title={t("servers")}
+        description={t("servers_description")}
+      />
 
-      <div className="serverTabs" role="tablist" aria-label={t("servers")}>
-        <button
-          className={activeTab === "public" ? "active" : ""}
-          role="tab"
-          aria-selected={activeTab === "public"}
-          onClick={() => startTransition(() => setActiveTab("public"))}
-        >
-          <Globe2 size={19} /> {t("public_servers")}
-        </button>
-        <button
-          className={activeTab === "favorites" ? "active" : ""}
-          role="tab"
-          aria-selected={activeTab === "favorites"}
-          onClick={() => startTransition(() => setActiveTab("favorites"))}
-        >
-          <Heart size={19} fill="currentColor" /> {t("favorites")}
-          <span>{favorites.length}</span>
-        </button>
-      </div>
-
-      {activeTab === "public" && (
-        <section className="serversToolbar">
-          <label className="serversSearch">
-            <Search size={20} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("search_servers_placeholder")}
-              aria-label={t("search_servers")}
-            />
-          </label>
-          <Checkbox
-            className="serversWhitelistFilter"
-            label={t("show_whitelist_servers")}
-            checked={showWhitelistServers}
-            onChange={(event) => setShowWhitelistServers(event.target.checked)}
-          />
-          <Button variant="ghost" className="serversReset" onClick={resetFilters}>
-            <RotateCcw size={16} /> {t("reset")}
-          </Button>
-        </section>
-      )}
-
-      {publicServers.isError && activeTab === "public" ? (
-        <Empty
-          icon="!"
-          title={t("could_not_load_servers")}
-          description={errorMessage(publicServers.error)}
-          action={<Button onClick={() => void publicServers.refetch()}>{t("retry")}</Button>}
-        />
-      ) : activeTab === "public" && catalog.length === 0 && !publicServers.isLoading ? (
-        <Empty
-          icon="⌕"
-          title={t("no_servers_found")}
-          description={t("try_changing_server_filters")}
-        />
-      ) : activeTab === "favorites" && favorites.length === 0 ? (
-        <Empty
-          icon="☆"
-          title={t("no_favorite_servers")}
-          description={t("servers_description")}
-          action={
-            <Button onClick={() => startTransition(() => setActiveTab("public"))}>
-              {t("public_servers")}
-            </Button>
-          }
-        />
-      ) : (
-        <section className="serversCollection">
-          {featuredServer && (
-            <article className="serverFeatured">
-              <button
-                className="serverFeaturedDetailsButton"
-                aria-label={featuredServer.name}
-                onClick={() => setDetailsServer(featuredServer)}
-              />
-              <div className="serverFeaturedArt">
-                <span>{featuredServer.name.slice(0, 1)}</span>
-              </div>
-              <div className="serverFeaturedContent">
-                <div className="serverCardTopline">
-                  <span className="serverOnline">
-                    {t("server_players", { count: featuredServer.players })}
-                  </span>
-                </div>
-                <h2>{featuredServer.name}</h2>
-                <p>{featuredServer.description || t("no_description_provided")}</p>
-                <div className="serverTags">
-                  {featuredServer.modCount > 0 && (
-                    <span className="serverTag modded">
-                      {t("server_mods", { count: featuredServer.modCount })}
-                    </span>
-                  )}
-                </div>
-                <ServerStats server={featuredServer} />
-              </div>
-              <div className="serverFeaturedActions">
-                <Button
-                  variant="ghost"
-                  className="serverHeartButton"
-                  onClick={() =>
-                    togglePublicFavorite(
-                      featuredServer,
-                      favoriteByKey.get(serverKey(featuredServer)),
-                    )
-                  }
-                >
-                  <Heart
-                    className={favoriteByKey.has(serverKey(featuredServer)) ? "saved" : ""}
-                    size={20}
-                  />
-                </Button>
-                <PlayButton
-                  blockedByWhitelist={featuredServer.requiresWhitelist}
-                  disabled={!canRequestServerLaunch(featuredServer)}
-                  onClick={() =>
-                    requestPlay(featuredServer, favoriteByKey.get(serverKey(featuredServer)))
-                  }
-                />
-              </div>
-            </article>
-          )}
-          {activeTab === "public" ? (
-            <>
-              <div className="serversGrid" key="public-servers">
-                {visiblePublicGridServers.map((server) => (
-                  <PublicServerCard
-                    key={`${server.name}:${server.address}`}
-                    server={server}
-                    favorite={favoriteByKey.get(serverKey(server))}
-                    busy={busy}
-                    onToggleFavorite={togglePublicFavorite}
-                    onPlay={requestPlay}
-                    onDetails={setDetailsServer}
-                  />
-                ))}
-              </div>
-              {visiblePublicGridServers.length < publicGridServers.length && (
-                <div className="serversLoadMore">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setVisibleServerCount((count) => count + SERVER_PAGE_SIZE)}
-                  >
-                    {t("load_more")}
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="serversGrid" key="favorite-servers">
-              {favorites.map((server) => (
-                <FavoriteServerCard
-                  key={server.id}
-                  server={server}
-                  catalogServer={catalogByKey.get(serverKey(server))}
-                  instanceName={
-                    server.instanceId ? instanceNames.get(server.instanceId) : undefined
-                  }
-                  onRemove={removeFavorite}
-                  onPlay={requestPlay}
-                  onDetails={setDetailsServer}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {detailsServer && (
-        <Modal
-          title={detailsServer.name}
-          className="serverDetailsDialog"
-          onClose={() => setDetailsServer(undefined)}
-        >
-          <div className="modalBody serverDetails">
-            <p className="serverDetailsAddress">{detailsServer.address}</p>
-            <ServerStats server={detailsServer} />
-            <div className="serverTags">
-              {detailsServer.modCount > 0 && (
-                <span className="serverTag modded">
-                  {t("server_mods", { count: detailsServer.modCount })}
+      <PageContent>
+        <Tabs
+          label={t("servers")}
+          value={activeTab}
+          options={[
+            {
+              value: "public",
+              tabId: "servers-public-tab",
+              panelId: "servers-results-panel",
+              label: (
+                <span className="inline-flex items-center gap-2">
+                  <Globe2 size={16} aria-hidden="true" /> {t("public_servers")}
                 </span>
-              )}
-              {detailsServer.requiresWhitelist && (
-                <span className="serverTag">{t("server_whitelist")}</span>
-              )}
-              {detailsServer.accessRestricted && (
-                <span className="serverTag">{t("server_password")}</span>
-              )}
-            </div>
-            <h3>{t("full_description")}</h3>
-            <p className="serverDetailsDescription">
-              {detailsServer.description || t("no_description_provided")}
-            </p>
-          </div>
-          <div className="dialogFooter">
-            <Button variant="ghost" onClick={() => setDetailsServer(undefined)}>
-              {t("close")}
-            </Button>
-            <Button
-              variant="ghost"
-              aria-label={t("copy_waxlight_link")}
-              onClick={() => void copyWaxlightLink(detailsServer.address)}
-            >
-              <Link size={16} /> {t("copy_waxlight_link")}
-            </Button>
-            <PlayButton
-              blockedByWhitelist={detailsServer.requiresWhitelist}
-              disabled={!canRequestServerLaunch(detailsServer)}
-              onClick={() =>
-                requestPlay(detailsServer, favoriteByKey.get(serverKey(detailsServer)))
+              ),
+            },
+            {
+              value: "favorites",
+              tabId: "servers-favorites-tab",
+              panelId: "servers-results-panel",
+              label: (
+                <span className="inline-flex items-center gap-2">
+                  <Heart size={16} aria-hidden="true" /> {t("favorites")}
+                  <span className="text-xs text-text-muted">{favorites.length}</span>
+                </span>
+              ),
+            },
+          ]}
+          onValueChange={(value) => startTransition(() => setActiveTab(value))}
+        />
+
+        <div
+          id="servers-results-panel"
+          className="flex flex-col gap-5"
+          role="tabpanel"
+          aria-labelledby={activeTab === "public" ? "servers-public-tab" : "servers-favorites-tab"}
+        >
+          {activeTab === "public" && (
+            <Toolbar className="flex-wrap gap-3">
+              <ToolbarGroup className="min-w-[240px] flex-1">
+                <SearchInput
+                  wrapperClassName="w-full max-w-md"
+                  aria-label={t("search_servers")}
+                  placeholder={t("search_servers_placeholder")}
+                  value={search}
+                  onValueChange={setSearch}
+                />
+              </ToolbarGroup>
+              <ToolbarGroup align="end">
+                <Checkbox
+                  label={t("show_whitelist_servers")}
+                  checked={showWhitelistServers}
+                  onChange={(event) => setShowWhitelistServers(event.target.checked)}
+                />
+                <IconButton
+                  aria-label={t("refresh")}
+                  disabled={publicServers.isFetching}
+                  onClick={() => void publicServers.refetch()}
+                >
+                  <RefreshCw size={16} aria-hidden="true" />
+                </IconButton>
+              </ToolbarGroup>
+            </Toolbar>
+          )}
+
+          {publicServers.isLoading && activeTab === "public" ? (
+            <LoadingState>{t("loading_servers")}</LoadingState>
+          ) : favoriteServers.isLoading && activeTab === "favorites" ? (
+            <LoadingState>{t("loading_servers")}</LoadingState>
+          ) : publicServers.isError && activeTab === "public" ? (
+            <ErrorState
+              title={t("could_not_load_servers")}
+              description={errorMessage(publicServers.error)}
+              action={<Button onClick={() => void publicServers.refetch()}>{t("retry")}</Button>}
+            />
+          ) : favoriteServers.isError && activeTab === "favorites" ? (
+            <ErrorState
+              title={t("could_not_load_servers")}
+              description={errorMessage(favoriteServers.error)}
+              action={<Button onClick={() => void favoriteServers.refetch()}>{t("retry")}</Button>}
+            />
+          ) : activeTab === "public" && catalog.length === 0 ? (
+            <EmptyState
+              title={t("no_servers_found")}
+              description={t("try_changing_server_filters")}
+              action={
+                hasActivePublicFilters ? (
+                  <Button variant="secondary" onClick={resetFilters}>
+                    {t("reset")}
+                  </Button>
+                ) : undefined
               }
             />
-          </div>
-        </Modal>
+          ) : activeTab === "favorites" && favorites.length === 0 ? (
+            <EmptyState
+              icon={<Heart size={24} aria-hidden="true" />}
+              title={t("no_favorite_servers")}
+              description={t("favorites_empty_description")}
+              action={
+                <Button onClick={() => startTransition(() => setActiveTab("public"))}>
+                  {t("public_servers")}
+                </Button>
+              }
+            />
+          ) : (
+            <section>
+              {activeTab === "public" ? (
+                <>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                    {visiblePublicServers.map((server) => {
+                      const key = serverKey(server);
+                      const occurrence = publicServerKeyCounts.get(key) ?? 0;
+                      publicServerKeyCounts.set(key, occurrence + 1);
+                      const favorite = favoriteByKey.get(key);
+                      const preferredInstance = favorite?.instanceId
+                        ? instanceById.get(favorite.instanceId)
+                        : undefined;
+                      return (
+                        <ServerCard
+                          key={`${key}:${occurrence}`}
+                          server={server}
+                          favorite={favorite}
+                          preferredInstance={preferredInstance}
+                          busy={joiningKey === key}
+                          favoriteBusy={favoriteBusyKey === key}
+                          onJoin={requestPlay}
+                          onToggleFavorite={toggleFavorite}
+                          onDetails={setDetailsServer}
+                          onCopyAddress={(address) => void copyAddress(address)}
+                          onCopyLink={(address) => void copyWaxlightLink(address)}
+                        />
+                      );
+                    })}
+                  </div>
+                  {visiblePublicServers.length < catalog.length && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        variant="secondary"
+                        onClick={() => setVisibleServerCount((count) => count + SERVER_PAGE_SIZE)}
+                      >
+                        {t("load_more")}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                  {favorites.map((favorite) => {
+                    const catalogServer = catalogByKey.get(serverKey(favorite));
+                    const server = catalogServer ?? favoriteAsPublicServer(favorite);
+                    const preferredInstance = favorite.instanceId
+                      ? instanceById.get(favorite.instanceId)
+                      : undefined;
+                    return (
+                      <ServerCard
+                        key={favorite.id}
+                        server={server}
+                        favorite={favorite}
+                        preferredInstance={preferredInstance}
+                        favoriteBusy={favoriteBusyKey === serverKey(favorite)}
+                        onJoin={requestPlay}
+                        onToggleFavorite={toggleFavorite}
+                        onDetails={setDetailsServer}
+                        onCopyAddress={(address) => void copyAddress(address)}
+                        onCopyLink={(address) => void copyWaxlightLink(address)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      </PageContent>
+
+      {detailsServer && (
+        <ServerDetailsDialog
+          server={detailsServer}
+          favorite={detailsFavorite}
+          preferredInstance={detailsPreferredInstance}
+          favoriteBusy={detailsFavorite ? favoriteBusyKey === serverKey(detailsServer) : false}
+          onToggleFavorite={() => toggleFavorite(detailsServer, detailsFavorite)}
+          onClose={() => setDetailsServer(undefined)}
+          onCopyAddress={() => void copyAddress(detailsServer.address)}
+          onCopyLink={() => void copyWaxlightLink(detailsServer.address)}
+          onJoin={() => requestPlay(detailsServer, detailsFavorite)}
+        />
       )}
 
-      {launchServer && (
-        <Modal title={t("play")} onClose={() => setLaunchServer(undefined)}>
-          <div className="modalBody formFields">
-            <p className="serverLaunchName">{launchServer.server.name}</p>
-            {launchServer.server.address && (
-              <p className="serverDetailsAddress">{launchServer.server.address}</p>
-            )}
-            {launchServer.server.accessRestricted && (
-              <p className="serverPasswordNotice">{t("server_password_enter_in_game")}</p>
-            )}
-            <label className="field">
-              <span>{t("linked_instance")}</span>
-              <Select value={launchInstanceID} onValueChange={setLaunchInstanceID}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("no_instances_available")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {instances.map((instance) => (
-                    <SelectItem key={instance.id} value={instance.id}>
-                      {instance.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-          </div>
-          <div className="dialogFooter">
-            <Button variant="ghost" onClick={() => setLaunchServer(undefined)}>
-              {t("cancel")}
-            </Button>
-            <Button
-              disabled={!launchInstanceID}
-              busy={busy}
-              onClick={() => void launchSelectedServer()}
-            >
-              {t("play")}
-            </Button>
-          </div>
-        </Modal>
+      {joinTarget && (
+        <ServerJoinDialog
+          server={joinTarget.server}
+          favorite={joinTarget.favorite}
+          instances={instances}
+          versions={versions}
+          busy={joiningKey !== null}
+          onClose={() => setJoinTarget(undefined)}
+          onConfirm={(instanceId) =>
+            void launchWithInstance(joinTarget.server, joinTarget.favorite, instanceId)
+          }
+        />
       )}
-    </>
+    </Page>
   );
 }

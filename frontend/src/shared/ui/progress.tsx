@@ -3,20 +3,42 @@ import * as React from "react";
 
 import { cn } from "@/shared/lib/utils";
 
+type ProgressProps = React.ComponentProps<typeof ProgressPrimitive.Root> & {
+  /** Determinate progress as a percentage of `max` (0-100 by default). */
+  value?: number;
+  indeterminate?: boolean;
+  compact?: boolean;
+};
+
 function Progress({
   className,
   value,
+  max = 100,
+  indeterminate = false,
+  compact = false,
   ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+}: ProgressProps) {
+  const clamped = Math.min(max, Math.max(0, value ?? 0));
+  const percent = max <= 0 ? 0 : Math.round((clamped / max) * 100);
+
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
-      className={cn("relative h-[7px] w-full overflow-hidden rounded-full bg-[#29262a]", className)}
+      value={indeterminate ? undefined : clamped}
+      max={max}
+      className={cn(
+        "relative w-full overflow-hidden rounded-full bg-surface-3",
+        compact ? "h-1" : "h-[7px]",
+        className,
+      )}
       {...props}
     >
       <ProgressPrimitive.Indicator
-        className="h-full rounded-full bg-gradient-to-r from-[#c47d2c] to-[#f1bd61] transition-[width] duration-200"
-        style={{ width: `${(value ?? 0) * 100}%` }}
+        className={cn(
+          "h-full rounded-full transition-[width] duration-200 ease-out",
+          indeterminate ? "progressIndicatorIndeterminate" : "progressIndicator",
+        )}
+        style={indeterminate ? undefined : { width: `${percent}%` }}
       />
     </ProgressPrimitive.Root>
   );

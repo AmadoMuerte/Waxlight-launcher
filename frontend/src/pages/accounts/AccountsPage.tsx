@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
@@ -8,14 +9,15 @@ import { accountsApi } from "../../entities/account/api";
 import type { Account } from "../../entities/account/model";
 import { useAccountsQuery } from "../../entities/account/queries";
 import { useSettingsQuery } from "../../entities/settings/queries";
+import { AccountCard } from "../../features/accounts/AccountCard";
 import { LoginModal, authErrorMessages, isValidEmail } from "../../features/auth/LoginModal";
 import { errorMessage } from "../../shared/api/bridge";
 import { ACCOUNTS_QUERY_KEY } from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
+import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
-import { StatusPill } from "../../shared/ui/status-pill";
 
 export { authErrorMessages, isValidEmail };
 
@@ -75,6 +77,14 @@ export function AccountsPage() {
     },
   });
 
+  const busyAccountID = selectMutation.isPending
+    ? selectMutation.variables
+    : removeMutation.isPending
+      ? removeMutation.variables
+      : validateMutation.isPending
+        ? validateMutation.variables
+        : undefined;
+
   function selectAccount(accountID: string) {
     selectMutation.mutate(accountID);
   }
@@ -99,65 +109,43 @@ export function AccountsPage() {
   }
 
   return (
-    <>
+    <Page>
       <PageHeader
         eyebrow="Vintage Story"
         title={t("accounts")}
         description={t("accounts_description")}
-        action={<Button onClick={() => setLoginAccount(null)}>{t("add_account")}</Button>}
+        actions={<Button onClick={() => setLoginAccount(null)}>{t("add_account")}</Button>}
       />
 
-      <div className="notice pageNotice">
-        <b>{t("credentials_never_stored")}</b>
-        <span>{t("session_credentials_notice")}</span>
-      </div>
-
-      {accounts.length === 0 ? (
-        <Empty
-          icon="♙"
-          title={t("no_saved_accounts")}
-          description={t("official_account_description")}
-          action={<Button onClick={() => setLoginAccount(null)}>{t("sign_in")}</Button>}
-        />
-      ) : (
-        <div className="accountGrid">
-          {accounts.map((account) => (
-            <article className="accountCard" key={account.id}>
-              <div className="avatar">{account.displayName.slice(0, 1).toUpperCase()}</div>
-
-              <div className="accountIdentity">
-                <strong>{account.displayName}</strong>
-                <small>{account.email}</small>
-                <StatusPill status={account.status} />
-              </div>
-
-              <div className="accountActions">
-                {account.isDefault ? (
-                  <span className="defaultMark">{t("selected_status")}</span>
-                ) : (
-                  <Button variant="secondary" onClick={() => selectAccount(account.id)}>
-                    {t("select")}
-                  </Button>
-                )}
-
-                {account.status === "expired" || account.status === "needs_reauth" ? (
-                  <Button variant="secondary" onClick={() => setLoginAccount(account)}>
-                    {t("sign_in_again")}
-                  </Button>
-                ) : (
-                  <Button variant="ghost" onClick={() => validateAccount(account)}>
-                    {t("validate")}
-                  </Button>
-                )}
-
-                <Button variant="ghost" onClick={() => removeAccount(account)}>
-                  {t("remove_from_launcher")}
-                </Button>
-              </div>
-            </article>
-          ))}
+      <PageContent>
+        <div className="notice mb-5">
+          <b>{t("credentials_never_stored")}</b>
+          <span>{t("session_credentials_notice")}</span>
         </div>
-      )}
+
+        {accounts.length === 0 ? (
+          <Empty
+            icon={<User size={24} aria-hidden="true" />}
+            title={t("no_saved_accounts")}
+            description={t("official_account_description")}
+            action={<Button onClick={() => setLoginAccount(null)}>{t("sign_in")}</Button>}
+          />
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(360px,100%),1fr))] gap-4">
+            {accounts.map((account) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                busy={busyAccountID === account.id}
+                onSelect={() => selectAccount(account.id)}
+                onSignInAgain={() => setLoginAccount(account)}
+                onValidate={() => validateAccount(account)}
+                onRemove={() => removeAccount(account)}
+              />
+            ))}
+          </div>
+        )}
+      </PageContent>
 
       {loginAccount !== undefined && (
         <LoginModal
@@ -182,6 +170,6 @@ export function AccountsPage() {
         }}
         onCancel={() => setRemoveConfirm((s) => ({ ...s, open: false }))}
       />
-    </>
+    </Page>
   );
 }

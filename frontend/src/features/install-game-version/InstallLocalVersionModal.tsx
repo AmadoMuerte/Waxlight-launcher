@@ -5,7 +5,9 @@ import { errorMessage } from "../../shared/api/bridge";
 import { versionsApi } from "../../shared/api/game-versions";
 import { settingsApi } from "../../shared/api/settings";
 import { Button } from "../../shared/ui/button";
+import { DialogFooter } from "../../shared/ui/dialog";
 import { Field } from "../../shared/ui/field";
+import { Input } from "../../shared/ui/input";
 import { Modal } from "../../shared/ui/modal";
 import { SubmitForm } from "../../shared/ui/submit-form";
 
@@ -76,31 +78,31 @@ export function InstallLocalVersionModal({
             <span>{t("local_installation_description")}</span>
           </div>
           <div className="formRow">
-            <Field label={t("version_id")}>
-              <input
+            <Field
+              label={t("version_id")}
+              error={
+                duplicateID ? t("version_already_installed_detail", { id: id.trim() }) : undefined
+              }
+            >
+              <Input
                 required
                 value={id}
                 onChange={(event) => setID(event.target.value)}
                 placeholder="1.22.6"
-                aria-invalid={duplicateID}
+                aria-invalid={duplicateID || undefined}
               />
             </Field>
             <Field label={t("display_name")}>
-              <input
+              <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Vintage Story 1.22.6"
               />
             </Field>
           </div>
-          {duplicateID && (
-            <div className="inlineError">
-              {t("version_already_installed_detail", { id: id.trim() })}
-            </div>
-          )}
           <Field label={t("archive_or_directory")} hint={t("supported_archives_hint")}>
             <div className="inputAction">
-              <input
+              <Input
                 required
                 value={sourcePath}
                 onChange={(event) => setSourcePath(event.target.value)}
@@ -115,14 +117,14 @@ export function InstallLocalVersionModal({
             </div>
           </Field>
           <Field label={t("executable_path_inside_archive")} hint={t("locate_executable_hint")}>
-            <input
+            <Input
               value={executablePath}
               onChange={(event) => setExecutablePath(event.target.value)}
               placeholder="Vintagestory"
             />
           </Field>
           <Field label={t("sha256_checksum_optional")} hint={t("checksum_mismatch_hint")}>
-            <input
+            <Input
               value={checksum}
               onChange={(event) => setChecksum(event.target.value)}
               placeholder={t("hexadecimal_characters_64")}
@@ -134,14 +136,14 @@ export function InstallLocalVersionModal({
             </div>
           )}
         </div>
-        <div className="dialogFooter">
+        <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose}>
             {t("cancel")}
           </Button>
-          <Button busy={busy} disabled={duplicateID}>
+          <Button type="submit" busy={busy} disabled={duplicateID}>
             {t("install")}
           </Button>
-        </div>
+        </DialogFooter>
       </SubmitForm>
     </Modal>
   );

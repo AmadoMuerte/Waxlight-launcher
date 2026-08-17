@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ListTodo } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -8,14 +8,22 @@ import { operationsApi } from "../../entities/operation/api";
 import type { Operation } from "../../entities/operation/model";
 import { useOperationsQuery } from "../../entities/operation/queries";
 import { useSettingsQuery } from "../../entities/settings/queries";
+import {
+  OperationItem,
+  isFinishedOperation,
+  operationTitle,
+} from "../../features/operations/OperationItem";
 import { errorMessage } from "../../shared/api/bridge";
 import { OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
-import { formatBytes, formatDate } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { Empty } from "../../shared/ui/empty";
+import { ErrorState } from "../../shared/ui/error-state";
+import { IconButton } from "../../shared/ui/icon-button";
+import { LoadingState } from "../../shared/ui/loading-state";
+import { Page, PageContent, PageSection } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
-import { StatusPill } from "../../shared/ui/status-pill";
+import { SectionHeader } from "../../shared/ui/section-header";
 
 const LogConsole = lazy(() =>
   import("../../features/operations/LogConsole").then((module) => ({
@@ -27,7 +35,7 @@ export function OperationsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
-  const { data: operations = [] } = useOperationsQuery();
+  const { data: operations = [], isPending, isError, error, refetch } = useOperationsQuery();
   const { data: settings } = useSettingsQuery();
   const [pendingAction, setPendingAction] = useState<string>();
   const [consoleOpen, setConsoleOpen] = useState(true);
@@ -38,7 +46,11 @@ export function OperationsPage() {
     destructive?: boolean;
     onConfirm: () => void;
   }>({ open: false, title: "", onConfirm: () => {} });
-  const finishedOperations = operations.filter((operation) => isFinishedOperation(operation));
+
+  const activeOperations = operations.filter(
+    (operation) => operation.status === "queued" || operation.status === "running",
+  );
+  const finishedOperations = operations.filter(isFinishedOperation);
 
   function askConfirm(title: string, onConfirm: () => void, destructive = false, message?: string) {
     setConfirmState({ open: true, title, message, destructive, onConfirm });
@@ -126,111 +138,102 @@ export function OperationsPage() {
   }
 
   return (
-    <>
+    <Page>
       <PageHeader
         eyebrow={t("activity_log")}
         title={t("operations")}
         description={t("operations_description")}
       />
 
-      <div className="operationsSectionHead">
-        <h2 className="sectionTitle">{t("activity_log")}</h2>
-        {finishedOperations.length > 0 ? (
-          <Button
-            variant="secondary"
-            disabled={pendingAction !== undefined}
-            onClick={() => clearHistory()}
-          >
-            {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
-          </Button>
-        ) : undefined}
-      </div>
-      {operations.length === 0 ? (
-        <Empty
-          icon="⇣"
-          title={t("no_operations")}
-          description={t("operations_empty_description")}
-        />
-      ) : (
-        <div className="operationsList">
-          {operations.map((operation) => (
-            <article className="operation" key={operation.id}>
-              <div className="operationIcon">{operation.type.startsWith("mod") ? "◇" : "⬡"}</div>
-
-              <div className="operationDetails">
-                <div className="row between">
-                  <strong>{operationTitle(operation, t)}</strong>
-                  <div className="row">
-                    <StatusPill status={operation.status} />
-                    {(operation.status === "queued" || operation.status === "running") && (
-                      <Button
-                        variant="ghost"
-                        disabled={pendingAction !== undefined}
-                        onClick={() => void cancel(operation)}
-                      >
-                        {pendingAction === operation.id ? t("cancelling") : t("cancel")}
-                      </Button>
-                    )}
-                    {isFinishedOperation(operation) && (
-                      <Button
-                        variant="ghost"
-                        aria-label={t("delete_operation", {
-                          title: operationTitle(operation, t),
-                        })}
-                        disabled={pendingAction !== undefined}
-                        onClick={() => remove(operation)}
-                      >
-                        {pendingAction === operation.id ? t("deleting") : t("delete")}
-                      </Button>
-                    )}
-                  </div>
+      <PageContent>
+        {isPending ? (
+          <LoadingState>{t("loading_operations")}</LoadingState>
+        ) : isError ? (
+          <ErrorState
+            title={t("could_not_load_operations")}
+            description={errorMessage(error)}
+            action={<Button onClick={() => void refetch()}>{t("retry")}</Button>}
+          />
+        ) : operations.length === 0 ? (
+          <Empty
+            icon={<ListTodo size={28} aria-hidden="true" />}
+            title={t("no_operations")}
+            description={t("operations_empty_description")}
+          />
+        ) : (
+          <>
+            <PageSection>
+              <SectionHeader title={t("active_operations")} />
+              {activeOperations.length === 0 ? (
+                <p className="operationEmptyHint">{t("no_active_operations")}</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {activeOperations.map((operation) => (
+                    <OperationItem
+                      key={operation.id}
+                      operation={operation}
+                      actionsDisabled={pendingAction !== undefined}
+                      onCancel={() => void cancel(operation)}
+                    />
+                  ))}
                 </div>
+              )}
+            </PageSection>
 
-                <small>
-                  {formatDate(operation.createdAt)} ·{" "}
-                  {operation.totalBytes > 0
-                    ? t("bytes_of_total", {
-                        current: formatBytes(operation.currentBytes),
-                        total: formatBytes(operation.totalBytes),
-                      })
-                    : formatBytes(operation.currentBytes)}
-                  {operation.bytesPerSecond > 0
-                    ? ` · ${formatBytes(operation.bytesPerSecond)}/s`
-                    : ""}
-                </small>
-
-                <div className="progress">
-                  <i
-                    style={{
-                      width: `${Math.round(operation.progress * 100)}%`,
-                    }}
-                  />
+            {finishedOperations.length > 0 && (
+              <PageSection>
+                <SectionHeader
+                  title={t("recent_activity")}
+                  actions={
+                    <Button
+                      variant="secondary"
+                      disabled={pendingAction !== undefined}
+                      onClick={() => clearHistory()}
+                    >
+                      {pendingAction === "clear-history" ? t("clearing") : t("clear_history")}
+                    </Button>
+                  }
+                />
+                <div className="flex flex-col gap-3">
+                  {finishedOperations.map((operation) => (
+                    <OperationItem
+                      key={operation.id}
+                      operation={operation}
+                      actionsDisabled={pendingAction !== undefined}
+                      onRemove={() => remove(operation)}
+                    />
+                  ))}
                 </div>
+              </PageSection>
+            )}
+          </>
+        )}
 
-                {operation.errorMessage && <p className="errorText">{operation.errorMessage}</p>}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-
-      <div className="operationsSection">
-        <div className="operationsSectionHead">
-          <h2 className="sectionTitle">{t("logs_console")}</h2>
-          <Button
-            variant="ghost"
-            aria-expanded={consoleOpen}
-            onClick={() => setConsoleOpen((open) => !open)}
-          >
-            {consoleOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </Button>
-        </div>
-        <div className={`logConsoleSlot ${consoleOpen ? "" : "collapsed"}`.trim()}>
-          <Suspense fallback={<div className="logConsoleBody" />}>
-            <LogConsole />
-          </Suspense>
-        </div>
-      </div>
+        <PageSection>
+          <SectionHeader
+            title={t("logs_console")}
+            actions={
+              <IconButton
+                variant="ghost"
+                aria-label={`${consoleOpen ? t("hide") : t("show")} ${t("logs_console")}`}
+                aria-expanded={consoleOpen}
+                onClick={() => setConsoleOpen((open) => !open)}
+              >
+                {consoleOpen ? (
+                  <ChevronUp size={15} aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={15} aria-hidden="true" />
+                )}
+              </IconButton>
+            }
+          />
+          <div className={`logConsoleSlot ${consoleOpen ? "" : "collapsed"}`.trim()}>
+            <Suspense fallback={<div className="logConsoleBody" />}>
+              <LogConsole />
+            </Suspense>
+          </div>
+        </PageSection>
+      </PageContent>
 
       <ConfirmDialog
         open={confirmState.open}
@@ -243,30 +246,6 @@ export function OperationsPage() {
         }}
         onCancel={() => setConfirmState((s) => ({ ...s, open: false }))}
       />
-    </>
+    </Page>
   );
-}
-
-export function isFinishedOperation(operation: Operation): boolean {
-  return (
-    operation.status === "completed" ||
-    operation.status === "failed" ||
-    operation.status === "cancelled"
-  );
-}
-
-// operationTitle renders an operation title through the i18n system when the
-// backend provided a translation key, falling back to the stored English
-// title for legacy operations.
-function operationTitle(
-  operation: Operation,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  if (!operation.titleKey) {
-    return operation.title;
-  }
-  return t(operation.titleKey, {
-    defaultValue: operation.title,
-    ...operation.titleParams,
-  });
 }

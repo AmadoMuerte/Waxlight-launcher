@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,13 +20,16 @@ const api = vi.hoisted(() => ({
 const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const instancePackageApi = vi.hoisted(() => ({ import: vi.fn(), selectPackageFile: vi.fn() }));
+const launcherApi = vi.hoisted(() => ({ validate: vi.fn(), launch: vi.fn(), stop: vi.fn() }));
+const modsApi = vi.hoisted(() => ({ checkInstanceUpdates: vi.fn() }));
+const settingsApi = vi.hoisted(() => ({ get: vi.fn(), openDirectory: vi.fn() }));
 
 vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
 vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
 vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
-vi.mock("../../shared/api/launcher", () => ({ launcherApi: {} }));
-vi.mock("../../shared/api/mods", () => ({ modsApi: {} }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi: {} }));
+vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
+vi.mock("../../shared/api/mods", () => ({ modsApi }));
+vi.mock("../../shared/api/settings", () => ({ settingsApi }));
 vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi }));
 
 const versions: GameVersion[] = [
@@ -60,8 +63,8 @@ const instances = [
   },
 ];
 
-async function renderPage() {
-  api.list.mockResolvedValue(instances);
+async function renderPage(data = instances) {
+  api.list.mockResolvedValue(data);
   versionsApi.list.mockResolvedValue(versions);
   accountsApi.list.mockResolvedValue([]);
   const queryClient = new QueryClient({
@@ -77,7 +80,7 @@ async function renderPage() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await screen.findByRole("button", { name: "＋ New instance" });
+  await screen.findByRole("button", { name: "New instance" });
 }
 
 describe("library instance creation", () => {
@@ -87,6 +90,8 @@ describe("library instance creation", () => {
     vi.clearAllMocks();
     api.create.mockResolvedValue({});
     api.clone.mockResolvedValue({ id: "inst-2", name: "Warm home copy" });
+    api.remove.mockResolvedValue(undefined);
+    settingsApi.get.mockResolvedValue({ confirmDeletion: true });
     instancePackageApi.selectPackageFile.mockResolvedValue("/tmp/cozy-camp.waxlight");
     instancePackageApi.import.mockResolvedValue({ id: "operation-1", status: "queued" });
   });
@@ -94,7 +99,7 @@ describe("library instance creation", () => {
   it("submits an empty name so the backend generates a unique default", async () => {
     await renderPage();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "＋ New instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "New instance" }));
     await userEvent.setup().click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
@@ -107,7 +112,7 @@ describe("library instance creation", () => {
   it("submits the typed name when provided", async () => {
     await renderPage();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "＋ New instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "New instance" }));
     await userEvent.setup().type(screen.getByLabelText("Name"), "My cozy world");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create" }));
 
@@ -119,9 +124,7 @@ describe("library instance creation", () => {
   it("clones an instance with the typed name", async () => {
     await renderPage();
 
-    await userEvent
-      .setup()
-      .click(screen.getAllByRole("button", { name: "Open instance details" })[0]);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open instance details" }));
     await userEvent.setup().click(screen.getByRole("button", { name: /Clone/ }));
     await userEvent.setup().clear(screen.getByLabelText("Name"));
     await userEvent.setup().type(screen.getByLabelText("Name"), "Warm home copy");
@@ -155,5 +158,29 @@ describe("library instance creation", () => {
         skipUnavailable: true,
       });
     });
+  });
+
+  it("shows create and import actions when the Library is empty", async () => {
+    await renderPage([]);
+
+    expect(screen.getByRole("heading", { name: "Light your first world" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create instance" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Import instance" })).toHaveLength(2);
+  });
+
+  it("confirms destructive overflow actions before deleting an instance", async () => {
+    await renderPage();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Actions for Warm home" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete instance" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete “Warm home” and all of its files?",
+    });
+    expect(api.remove).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith("inst-1", true));
   });
 });
