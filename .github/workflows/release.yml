@@ -211,6 +211,11 @@ jobs:
             packaging/linux/waxlight-portable.sh \
             "$portable_directory/run.sh"
 
+          install \
+            -Dm644 \
+            packaging/linux/README.md \
+            "$portable_directory/README.md"
+
           tar \
             -C "$portable_work" \
             -czf "$portable_archive" \
@@ -219,7 +224,8 @@ jobs:
           archive_entries="$(tar -tzf "$portable_archive")"
           for required_entry in \
             "$portable_name/waxlight" \
-            "$portable_name/run.sh"; do
+            "$portable_name/run.sh" \
+            "$portable_name/README.md"; do
             if ! grep -Fxq "$required_entry" <<< "$archive_entries"; then
               echo "Portable Linux archive is missing: $required_entry" >&2
               exit 1
@@ -231,8 +237,8 @@ jobs:
             exit 1
           fi
 
-          echo "Portable Linux archive now includes run.sh while keeping waxlight updater-compatible."
-          tar -tvzf "$portable_archive" | grep -E '/(waxlight|run\.sh)$'
+          echo "Portable Linux archive now includes run.sh and README.md while keeping waxlight updater-compatible."
+          tar -tvzf "$portable_archive" | grep -E '/(waxlight|run\.sh|README\.md)$'
 
       - name: Verify Linux packages
         shell: bash
