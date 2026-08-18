@@ -141,6 +141,7 @@ const mockInstance: Instance = {
   directory: "/mock/instances/a-warm-home",
   status: "ready",
   launchArguments: [],
+  environmentVariables: {},
   lastPlayedAt: "2026-08-16T19:30:00Z",
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 12,

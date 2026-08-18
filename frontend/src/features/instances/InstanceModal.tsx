@@ -56,6 +56,31 @@ interface InstanceModalProps {
   onModUpdatesChanged?: (instanceID: string, report: InstanceModUpdateReport) => void;
 }
 
+function formatEnvironmentVariables(values: Record<string, string> | undefined): string {
+  return Object.entries(values ?? {})
+    .toSorted(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+}
+
+function parseEnvironmentVariables(text: string): {
+  values: Record<string, string>;
+  invalidLine?: number;
+} {
+  const values: Record<string, string> = {};
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    if (rawLine.trim() === "") continue;
+    const separator = rawLine.indexOf("=");
+    if (separator <= 0) return { values: {}, invalidLine: index + 1 };
+    const key = rawLine.slice(0, separator).trim();
+    if (!key) return { values: {}, invalidLine: index + 1 };
+    values[key] = rawLine.slice(separator + 1);
+  }
+  return { values };
+}
+
 export function InstanceModal({
   instance,
   initialTab = "overview",
@@ -87,6 +112,9 @@ export function InstanceModal({
   const [gameClient, setGameClient] = useState(instance.gameClient ?? "vanilla");
   const [accountID, setAccountID] = useState(instance.defaultAccountId ?? "");
   const [argumentsText, setArgumentsText] = useState(instance.launchArguments.join(" "));
+  const [environmentText, setEnvironmentText] = useState(
+    formatEnvironmentVariables(instance.environmentVariables),
+  );
   const [coverUrl, setCoverUrl] = useState(instance.coverUrl);
   const [coverSourcePath, setCoverSourcePath] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -307,6 +335,14 @@ export function InstanceModal({
   async function saveSettings() {
     setBusy(true);
     try {
+      const parsedEnvironment = parseEnvironmentVariables(environmentText);
+      if (parsedEnvironment.invalidLine !== undefined) {
+        notify(
+          t("environment_variables_invalid_line", { line: parsedEnvironment.invalidLine }),
+          "error",
+        );
+        return;
+      }
       const updated = await instancesApi.update({
         id: instance.id,
         name,
@@ -315,6 +351,7 @@ export function InstanceModal({
         gameClient,
         defaultAccountId: accountID || undefined,
         launchArguments: argumentsText.trim() ? argumentsText.trim().split(/\s+/) : [],
+        environmentVariables: parsedEnvironment.values,
         coverSourcePath,
       });
       setCoverUrl(updated.coverUrl);
@@ -372,6 +409,7 @@ export function InstanceModal({
     gameClient !== (instance.gameClient ?? "vanilla") ||
     accountID !== (instance.defaultAccountId ?? "") ||
     argumentsText !== instance.launchArguments.join(" ") ||
+    environmentText !== formatEnvironmentVariables(instance.environmentVariables) ||
     coverSourcePath !== undefined;
 
   function resetSettings() {
@@ -381,6 +419,7 @@ export function InstanceModal({
     setGameClient(instance.gameClient ?? "vanilla");
     setAccountID(instance.defaultAccountId ?? "");
     setArgumentsText(instance.launchArguments.join(" "));
+    setEnvironmentText(formatEnvironmentVariables(instance.environmentVariables));
     setCoverSourcePath(undefined);
   }
 
@@ -823,7 +862,7 @@ export function InstanceModal({
             <section className="settingsSection">
               <header>
                 <h3>{t("advanced")}</h3>
-                <p>{t("optional_vintage_story_launch_arguments")}</p>
+                <p>{t("advanced_launch_configuration")}</p>
               </header>
               <Field label={t("launch_arguments")} hint={t("launch_arguments_hint")}>
                 <Input
@@ -831,6 +870,16 @@ export function InstanceModal({
                   value={argumentsText}
                   onChange={(event) => setArgumentsText(event.target.value)}
                   placeholder="--tracelog"
+                />
+              </Field>
+              <Field label={t("environment_variables")} hint={t("environment_variables_hint")}>
+                <textarea
+                  className="codeInput"
+                  value={environmentText}
+                  onChange={(event) => setEnvironmentText(event.target.value)}
+                  placeholder={"KEY=value"}
+                  rows={4}
+                  spellCheck={false}
                 />
               </Field>
             </section>

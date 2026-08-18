@@ -57,6 +57,7 @@ const instance: Instance = {
   directory: "/data",
   status: "ready",
   launchArguments: [],
+  environmentVariables: {},
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 0,
   totalModCount: 0,

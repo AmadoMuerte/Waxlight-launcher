@@ -61,6 +61,7 @@ export interface Instance {
   directory: string;
   status: string;
   launchArguments: string[];
+  environmentVariables: Record<string, string>;
   lastPlayedAt?: string;
   createdAt: string;
   enabledModCount: number;

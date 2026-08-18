@@ -128,21 +128,22 @@ func availableVersionDTO(
 }
 
 type InstanceDTO struct {
-	ID               string   `json:"id"`
-	Name             string   `json:"name"`
-	Description      string   `json:"description"`
-	GameVersionID    string   `json:"gameVersionId"`
-	GameClient       string   `json:"gameClient"`
-	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
-	Directory        string   `json:"directory"`
-	Status           string   `json:"status"`
-	LaunchArguments  []string `json:"launchArguments"`
-	LastPlayedAt     *string  `json:"lastPlayedAt,omitempty"`
-	CreatedAt        string   `json:"createdAt"`
-	EnabledModCount  int      `json:"enabledModCount"`
-	TotalModCount    int      `json:"totalModCount"`
-	PlaytimeSeconds  int64    `json:"playtimeSeconds"`
-	CoverURL         *string  `json:"coverUrl,omitempty"`
+	ID                   string            `json:"id"`
+	Name                 string            `json:"name"`
+	Description          string            `json:"description"`
+	GameVersionID        string            `json:"gameVersionId"`
+	GameClient           string            `json:"gameClient"`
+	DefaultAccountID     *string           `json:"defaultAccountId,omitempty"`
+	Directory            string            `json:"directory"`
+	Status               string            `json:"status"`
+	LaunchArguments      []string          `json:"launchArguments"`
+	EnvironmentVariables map[string]string `json:"environmentVariables"`
+	LastPlayedAt         *string           `json:"lastPlayedAt,omitempty"`
+	CreatedAt            string            `json:"createdAt"`
+	EnabledModCount      int               `json:"enabledModCount"`
+	TotalModCount        int               `json:"totalModCount"`
+	PlaytimeSeconds      int64             `json:"playtimeSeconds"`
+	CoverURL             *string           `json:"coverUrl,omitempty"`
 }
 
 func instanceDTO(instance instances.Instance) InstanceDTO {
@@ -150,18 +151,23 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 	if launchArguments == nil {
 		launchArguments = []string{}
 	}
+	environmentVariables := instance.EnvironmentVariables
+	if environmentVariables == nil {
+		environmentVariables = map[string]string{}
+	}
 
 	result := InstanceDTO{
-		ID:               instance.ID,
-		Name:             instance.Name,
-		Description:      instance.Description,
-		GameVersionID:    instance.GameVersionID,
-		GameClient:       string(instance.GameClient),
-		DefaultAccountID: instance.DefaultAccountID,
-		Directory:        instance.Directory,
-		Status:           instance.Status,
-		LaunchArguments:  launchArguments,
-		CreatedAt:        iso(instance.CreatedAt),
+		ID:                   instance.ID,
+		Name:                 instance.Name,
+		Description:          instance.Description,
+		GameVersionID:        instance.GameVersionID,
+		GameClient:           string(instance.GameClient),
+		DefaultAccountID:     instance.DefaultAccountID,
+		Directory:            instance.Directory,
+		Status:               instance.Status,
+		LaunchArguments:      launchArguments,
+		EnvironmentVariables: environmentVariables,
+		CreatedAt:            iso(instance.CreatedAt),
 	}
 	if instance.LastPlayedAt != nil {
 		value := iso(*instance.LastPlayedAt)
