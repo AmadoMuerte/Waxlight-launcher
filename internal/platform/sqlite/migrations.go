@@ -170,6 +170,13 @@ func addInstanceGameClient(ctx context.Context, tx *sql.Tx) error {
 }
 
 func addInstanceEnvironmentVariables(ctx context.Context, tx *sql.Tx) error {
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='instances'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return nil
+	}
 	return ensureColumn(ctx, tx, "instances", "environment_variables", "TEXT NOT NULL DEFAULT '{}'")
 }
 
