@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Manual runs are always dry-runs: build and validate every release artifact
+  # without creating a tag/release or sending the Discord notification.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,7 +25,7 @@ jobs:
       should-release: ${{ steps.release.outputs.should-release }}
 
     steps:
-      - name: Check out main
+      - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Read release metadata
@@ -35,7 +38,11 @@ jobs:
           tag="v${version}"
           echo "release-tag=$tag" >> "$GITHUB_OUTPUT"
 
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "Manual dry-run requested for $tag."
+            echo "Existing GitHub releases are intentionally ignored in dry-run mode."
+            echo "should-release=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists; nothing to publish."
             echo "should-release=false" >> "$GITHUB_OUTPUT"
           else
@@ -64,12 +71,13 @@ jobs:
             exit 1
           fi
 
-      - name: Check out main
+      - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Verify release notes file
+        if: github.event_name == 'push'
         shell: bash
         run: |
           if [[ ! -s "releases/${RELEASE_TAG}.md" ]]; then
@@ -134,7 +142,7 @@ jobs:
       RELEASE_TAG: ${{ needs.verify.outputs.release-tag }}
 
     steps:
-      - name: Check out main
+      - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Go
@@ -171,6 +179,60 @@ jobs:
           ./scripts/build-linux.sh \
             "${RELEASE_TAG#v}" \
             release
+
+      - name: Add portable Linux dependency bootstrap
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          portable_name="Waxlight-Launcher-v${version}-linux-amd64"
+          portable_archive="release/${portable_name}.tar.gz"
+          portable_work="$RUNNER_TEMP/waxlight-portable"
+
+          if [[ ! -s "$portable_archive" ]]; then
+            echo "Portable Linux archive is missing: $portable_archive" >&2
+            exit 1
+          fi
+
+          rm -rf "$portable_work"
+          mkdir -p "$portable_work"
+          tar -xzf "$portable_archive" -C "$portable_work"
+
+          portable_directory="$portable_work/$portable_name"
+          if [[ ! -x "$portable_directory/waxlight" ]]; then
+            echo "Waxlight executable is missing from portable archive" >&2
+            exit 1
+          fi
+
+          # Keep the real ELF executable named `waxlight`. The Linux portable
+          # auto-updater extracts this exact file name from future .tar.gz
+          # releases and atomically replaces the running executable.
+          install \
+            -Dm755 \
+            packaging/linux/waxlight-portable.sh \
+            "$portable_directory/run.sh"
+
+          tar \
+            -C "$portable_work" \
+            -czf "$portable_archive" \
+            "$portable_name"
+
+          archive_entries="$(tar -tzf "$portable_archive")"
+          for required_entry in \
+            "$portable_name/waxlight" \
+            "$portable_name/run.sh"; do
+            if ! grep -Fxq "$required_entry" <<< "$archive_entries"; then
+              echo "Portable Linux archive is missing: $required_entry" >&2
+              exit 1
+            fi
+          done
+
+          if grep -Fxq "$portable_name/waxlight-bin" <<< "$archive_entries"; then
+            echo "Portable Linux archive must not rename the real executable to waxlight-bin" >&2
+            exit 1
+          fi
+
+          echo "Portable Linux archive now includes run.sh while keeping waxlight updater-compatible."
+          tar -tvzf "$portable_archive" | grep -E '/(waxlight|run\.sh)$'
 
       - name: Verify Linux packages
         shell: bash
@@ -210,7 +272,7 @@ jobs:
       RELEASE_TAG: ${{ needs.verify.outputs.release-tag }}
 
     steps:
-      - name: Check out main
+      - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Go
@@ -426,7 +488,7 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Publish GitHub release
+    name: Assemble release artifacts
     runs-on: ubuntu-24.04
 
     needs:
@@ -441,7 +503,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Check out main
+      - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
@@ -484,6 +546,66 @@ jobs:
 
           echo
           echo "Checksums:"
+          cat release/SHA256SUMS
+
+      - name: Create ModDB installer bundle
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          installer_name="Waxlight-Launcher-v${version}-windows-amd64-installer.exe"
+          bundle_name="waxlight-installer-${version}.zip"
+          bundle_directory="$RUNNER_TEMP/waxlight-moddb"
+
+          if [[ ! -s "release/$installer_name" ]]; then
+            echo "Windows installer is missing: release/$installer_name" >&2
+            exit 1
+          fi
+          if [[ ! -s LICENSE ]]; then
+            echo "LICENSE is missing from the repository root" >&2
+            exit 1
+          fi
+
+          rm -rf "$bundle_directory"
+          mkdir -p "$bundle_directory"
+
+          cp "release/$installer_name" "$bundle_directory/$installer_name"
+          cp LICENSE "$bundle_directory/LICENSE"
+          (
+            cd release
+            sha256sum "$installer_name" > "$bundle_directory/SHA256SUMS"
+          )
+
+          (
+            cd "$bundle_directory"
+            zip -9 -q \
+              "$GITHUB_WORKSPACE/release/$bundle_name" \
+              "$installer_name" \
+              SHA256SUMS \
+              LICENSE
+          )
+
+          if [[ ! -s "release/$bundle_name" ]]; then
+            echo "ModDB bundle was not created: release/$bundle_name" >&2
+            exit 1
+          fi
+
+          expected_bundle_entries="$(printf '%s\n' "$installer_name" LICENSE SHA256SUMS | sort)"
+          actual_bundle_entries="$(unzip -Z1 "release/$bundle_name" | sort)"
+          if [[ "$actual_bundle_entries" != "$expected_bundle_entries" ]]; then
+            echo "Unexpected ModDB bundle contents:" >&2
+            printf '%s\n' "$actual_bundle_entries" >&2
+            exit 1
+          fi
+
+          (
+            cd release
+            sha256sum "$bundle_name" >> SHA256SUMS
+          )
+
+          echo "Created ModDB upload bundle: release/$bundle_name"
+          unzip -l "release/$bundle_name"
+          echo
+          echo "Updated release checksums:"
           cat release/SHA256SUMS
 
       - name: Generate update manifest
@@ -541,7 +663,34 @@ jobs:
           echo "Generated update manifest:"
           cat release/update-manifest.json
 
+      - name: Upload dry-run release bundle
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dry-run-${{ needs.verify.outputs.release-tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Summarize dry-run artifacts
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          {
+            echo "## Waxlight release dry-run"
+            echo
+            echo "No Git tag or GitHub Release was created, and no Discord notification was sent."
+            echo
+            echo "Built and validated artifacts:"
+            echo '```text'
+            find release -maxdepth 1 -type f -printf '%f\n' | sort
+            echo '```'
+            echo
+            echo "Download the **dry-run-${RELEASE_TAG}** artifact from this workflow run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Create or update GitHub release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -594,6 +743,7 @@ jobs:
             "${prerelease_args[@]}"
 
       - name: Send Discord release notification
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
