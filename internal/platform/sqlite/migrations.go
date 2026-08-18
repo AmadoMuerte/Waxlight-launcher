@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 7
+const currentSchemaVersion = 8
 
 type migration struct {
 	version int
@@ -21,6 +21,7 @@ var migrations = []migration{
 	{version: 5, apply: addFavoriteServers},
 	{version: 6, apply: addInstanceGameClient},
 	{version: 7, apply: repairOperationLocalizedTitles},
+	{version: 8, apply: addInstanceEnvironmentVariables},
 }
 
 func (s *SQLiteStore) migrate(ctx context.Context) error {
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS game_versions (
 CREATE TABLE IF NOT EXISTS instances (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, game_version_id TEXT NOT NULL,
  game_client TEXT NOT NULL DEFAULT 'vanilla', default_account_id TEXT, directory TEXT NOT NULL UNIQUE, cover_path TEXT, status TEXT NOT NULL,
- launch_arguments TEXT NOT NULL DEFAULT '[]', last_played_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ launch_arguments TEXT NOT NULL DEFAULT '[]', environment_variables TEXT NOT NULL DEFAULT '{}', last_played_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
  FOREIGN KEY(game_version_id) REFERENCES game_versions(id), FOREIGN KEY(default_account_id) REFERENCES accounts(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS installed_mods (
@@ -166,6 +167,10 @@ func addInstanceGameClient(ctx context.Context, tx *sql.Tx) error {
 		return nil
 	}
 	return ensureColumn(ctx, tx, "instances", "game_client", "TEXT NOT NULL DEFAULT 'vanilla'")
+}
+
+func addInstanceEnvironmentVariables(ctx context.Context, tx *sql.Tx) error {
+	return ensureColumn(ctx, tx, "instances", "environment_variables", "TEXT NOT NULL DEFAULT '{}'")
 }
 
 func repairOperationLocalizedTitles(ctx context.Context, tx *sql.Tx) error {

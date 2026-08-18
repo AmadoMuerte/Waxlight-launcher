@@ -18,6 +18,7 @@ const instance: Instance = {
   directory: "/instances/warm-home",
   status: "ready",
   launchArguments: [],
+  environmentVariables: {},
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 12,
   totalModCount: 14,
