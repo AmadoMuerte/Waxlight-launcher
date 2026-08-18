@@ -79,24 +79,26 @@ func (controller *InstanceController) SelectInstanceCover() (string, error) {
 }
 
 type CreateInstanceRequest struct {
-	Name             string   `json:"name"`
-	Description      string   `json:"description"`
-	GameVersionID    string   `json:"gameVersionId"`
-	GameClient       string   `json:"gameClient"`
-	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
-	Directory        string   `json:"directory"`
-	LaunchArguments  []string `json:"launchArguments"`
+	Name                 string            `json:"name"`
+	Description          string            `json:"description"`
+	GameVersionID        string            `json:"gameVersionId"`
+	GameClient           string            `json:"gameClient"`
+	DefaultAccountID     *string           `json:"defaultAccountId,omitempty"`
+	Directory            string            `json:"directory"`
+	LaunchArguments      []string          `json:"launchArguments"`
+	EnvironmentVariables map[string]string `json:"environmentVariables"`
 }
 
 type UpdateInstanceRequest struct {
-	ID               string   `json:"id"`
-	Name             string   `json:"name"`
-	Description      string   `json:"description"`
-	GameVersionID    string   `json:"gameVersionId"`
-	GameClient       *string  `json:"gameClient,omitempty"`
-	DefaultAccountID *string  `json:"defaultAccountId,omitempty"`
-	LaunchArguments  []string `json:"launchArguments"`
-	CoverSourcePath  *string  `json:"coverSourcePath,omitempty"`
+	ID                   string             `json:"id"`
+	Name                 string             `json:"name"`
+	Description          string             `json:"description"`
+	GameVersionID        string             `json:"gameVersionId"`
+	GameClient           *string            `json:"gameClient,omitempty"`
+	DefaultAccountID     *string            `json:"defaultAccountId,omitempty"`
+	LaunchArguments      []string           `json:"launchArguments"`
+	EnvironmentVariables *map[string]string `json:"environmentVariables,omitempty"`
+	CoverSourcePath      *string            `json:"coverSourcePath,omitempty"`
 }
 
 type CloneInstanceRequest struct {
@@ -146,13 +148,14 @@ func (controller *InstanceController) CreateInstance(
 	instance, err := controller.creator.Create(
 		controller.lifecycle.Context(),
 		instances.CreateInput{
-			Name:             request.Name,
-			Description:      request.Description,
-			GameVersionID:    request.GameVersionID,
-			GameClient:       instances.GameClient(request.GameClient),
-			DefaultAccountID: request.DefaultAccountID,
-			Directory:        request.Directory,
-			LaunchArguments:  request.LaunchArguments,
+			Name:                 request.Name,
+			Description:          request.Description,
+			GameVersionID:        request.GameVersionID,
+			GameClient:           instances.GameClient(request.GameClient),
+			DefaultAccountID:     request.DefaultAccountID,
+			Directory:            request.Directory,
+			LaunchArguments:      request.LaunchArguments,
+			EnvironmentVariables: request.EnvironmentVariables,
 		},
 	)
 	return instanceDTO(instance), err
@@ -175,6 +178,9 @@ func (controller *InstanceController) UpdateInstance(
 	}
 	instance.DefaultAccountID = request.DefaultAccountID
 	instance.LaunchArguments = request.LaunchArguments
+	if request.EnvironmentVariables != nil {
+		instance.EnvironmentVariables = *request.EnvironmentVariables
+	}
 
 	updated, err := controller.updater.UpdateWithCover(ctx, instance, request.CoverSourcePath)
 	return instanceDTO(updated), err

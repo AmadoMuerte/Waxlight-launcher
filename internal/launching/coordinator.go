@@ -347,12 +347,18 @@ func (coordinator *Coordinator) launch(
 		}
 	}
 
+	environment := make(map[string]string, len(instance.EnvironmentVariables)+1)
+	for key, value := range instance.EnvironmentVariables {
+		environment[key] = value
+	}
+	environment["WAXLIGHT_INSTANCE_DIR"] = instance.Directory
+
 	process, err := coordinator.launcher.Start(
 		context.Background(),
 		target.Executable,
 		arguments,
 		target.WorkingDirectory,
-		map[string]string{"WAXLIGHT_INSTANCE_DIR": instance.Directory},
+		environment,
 		logFile,
 	)
 	if err != nil {

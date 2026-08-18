@@ -11,6 +11,7 @@ export const instancesApi = {
     defaultAccountId?: string;
     directory: string;
     launchArguments: string[];
+    environmentVariables?: Record<string, string>;
   }) => call<Instance>("InstanceController", "CreateInstance", request),
   update: (request: {
     id: string;
@@ -20,6 +21,7 @@ export const instancesApi = {
     gameClient?: "vanilla" | "optimum";
     defaultAccountId?: string;
     launchArguments: string[];
+    environmentVariables?: Record<string, string>;
     coverSourcePath?: string;
   }) => call<Instance>("InstanceController", "UpdateInstance", request),
   remove: (id: string, deleteFiles: boolean) =>

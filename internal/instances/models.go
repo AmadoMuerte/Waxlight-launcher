@@ -27,27 +27,29 @@ func NormalizeGameClient(client GameClient) (GameClient, bool) {
 }
 
 type Instance struct {
-	ID               string
-	Name             string
-	Description      string
-	GameVersionID    string
-	GameClient       GameClient
-	DefaultAccountID *string
-	Directory        string
-	CoverPath        *string
-	Status           string
-	LaunchArguments  []string
-	LastPlayedAt     *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                   string
+	Name                 string
+	Description          string
+	GameVersionID        string
+	GameClient           GameClient
+	DefaultAccountID     *string
+	Directory            string
+	CoverPath            *string
+	Status               string
+	LaunchArguments      []string
+	EnvironmentVariables map[string]string
+	LastPlayedAt         *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type CreateInput struct {
-	Name             string
-	Description      string
-	GameVersionID    string
-	GameClient       GameClient
-	Directory        string
-	DefaultAccountID *string
-	LaunchArguments  []string
+	Name                 string
+	Description          string
+	GameVersionID        string
+	GameClient           GameClient
+	Directory            string
+	DefaultAccountID     *string
+	LaunchArguments      []string
+	EnvironmentVariables map[string]string
 }
