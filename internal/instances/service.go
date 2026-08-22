@@ -289,6 +289,19 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 	return updated, nil
 }
 
+func (service *UpdateService) SetPinned(ctx context.Context, id string, pinned bool) (Instance, error) {
+	if err := service.gate.Begin(); err != nil {
+		return Instance{}, err
+	}
+	defer service.gate.End()
+
+	updated, err := service.repository.SetInstancePinned(ctx, id, pinned)
+	if err == nil && service.events != nil {
+		service.events.Publish("instance:updated", updated)
+	}
+	return updated, err
+}
+
 type DeleteService struct {
 	repository          DeleteRepository
 	gate                MutationGate

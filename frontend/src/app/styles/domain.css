@@ -267,6 +267,7 @@
   }
 
   .instanceHeroTitle h2 {
+    flex: 1;
     min-width: 0;
     margin: 0;
     overflow: hidden;
@@ -275,6 +276,10 @@
     font-weight: 650;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .instanceHeroTitle .status {
+    flex: none;
   }
 
   .placeholderCopy {

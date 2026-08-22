@@ -99,7 +99,7 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 	source := Instance{
 		ID: "source", Name: "Source", Description: "Description", GameVersionID: "1.20",
 		DefaultAccountID: &accountID, Directory: "/instances/source", CoverPath: &coverPath,
-		LaunchArguments: []string{"--foo"},
+		LaunchArguments: []string{"--foo"}, IsPinned: true,
 	}
 	clone := Instance{ID: "clone", Name: "Clone", Directory: "/instances/clone"}
 	repository := &cloneRepository{source: source, calls: &calls}
@@ -143,6 +143,9 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 	}
 	if result.CoverPath == nil || *result.CoverPath != storage.copiedPath || repository.saved == nil {
 		t.Fatalf("result = %+v, saved = %+v", result, repository.saved)
+	}
+	if result.IsPinned {
+		t.Fatal("clone inherited the source pin")
 	}
 	wantTime := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	if !result.UpdatedAt.Equal(wantTime) {

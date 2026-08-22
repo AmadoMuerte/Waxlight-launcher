@@ -1,6 +1,14 @@
 // Package settings owns launcher preferences and data-root orchestration.
 package settings
 
+const (
+	LibrarySortLastPlayed  = "lastPlayed"
+	LibrarySortName        = "name"
+	LibrarySortPlaytime    = "playtime"
+	LibrarySortGameVersion = "gameVersion"
+	LibrarySortCreatedAt   = "createdAt"
+)
+
 // Settings contains user-configurable launcher preferences.
 type Settings struct {
 	Language                 string
@@ -13,6 +21,7 @@ type Settings struct {
 	SkippedUpdateVersion     string
 	TelemetryEnabled         bool
 	AutomaticSafetySnapshots bool
+	LibrarySort              string
 }
 
 func Defaults() Settings {
@@ -25,6 +34,7 @@ func Defaults() Settings {
 		UpdateChannel:            "stable",
 		TelemetryEnabled:         false,
 		AutomaticSafetySnapshots: true,
+		LibrarySort:              LibrarySortLastPlayed,
 	}
 }
 

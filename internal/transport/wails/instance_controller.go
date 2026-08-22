@@ -19,6 +19,7 @@ type instanceQueries interface {
 
 type instanceUpdater interface {
 	UpdateWithCover(context.Context, instances.Instance, *string) (instances.Instance, error)
+	SetPinned(context.Context, string, bool) (instances.Instance, error)
 }
 
 type instanceCoverDialog interface {
@@ -181,9 +182,13 @@ func (controller *InstanceController) UpdateInstance(
 	if request.EnvironmentVariables != nil {
 		instance.EnvironmentVariables = *request.EnvironmentVariables
 	}
-
 	updated, err := controller.updater.UpdateWithCover(ctx, instance, request.CoverSourcePath)
 	return instanceDTO(updated), err
+}
+
+func (controller *InstanceController) SetInstancePinned(id string, pinned bool) (InstanceDTO, error) {
+	instance, err := controller.updater.SetPinned(controller.lifecycle.Context(), id, pinned)
+	return instanceDTO(instance), err
 }
 
 func (controller *InstanceController) DeleteInstance(

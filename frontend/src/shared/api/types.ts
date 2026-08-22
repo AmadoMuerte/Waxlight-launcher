@@ -62,6 +62,7 @@ export interface Instance {
   status: string;
   launchArguments: string[];
   environmentVariables: Record<string, string>;
+  isPinned: boolean;
   lastPlayedAt?: string;
   createdAt: string;
   enabledModCount: number;
@@ -69,6 +70,8 @@ export interface Instance {
   playtimeSeconds: number;
   coverUrl?: string;
 }
+
+export type LibrarySort = "lastPlayed" | "name" | "playtime" | "gameVersion" | "createdAt";
 
 export interface FavoriteServer {
   id: string;
@@ -433,6 +436,7 @@ export interface Settings {
   skippedUpdateVersion: string;
   telemetryEnabled: boolean;
   automaticSafetySnapshots: boolean;
+  librarySort: LibrarySort;
 }
 
 export interface DataFolder {

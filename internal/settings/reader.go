@@ -22,15 +22,17 @@ func (reader *Reader) Get(ctx context.Context) (Settings, error) {
 	}
 	normalizedLanguage := language.NormalizeLanguage(value.Language)
 	normalizedChannel, channelErr := normalizeUpdateChannel(value.UpdateChannel)
+	normalizedLibrarySort := normalizeLibrarySort(value.LibrarySort)
 	if channelErr != nil {
 		normalizedChannel = "stable"
 	}
 	if value.GlobalLaunchArguments == nil {
 		value.GlobalLaunchArguments = []string{}
 	}
-	if value.Language != normalizedLanguage || value.UpdateChannel != normalizedChannel {
+	if value.Language != normalizedLanguage || value.UpdateChannel != normalizedChannel || value.LibrarySort != normalizedLibrarySort {
 		value.Language = normalizedLanguage
 		value.UpdateChannel = normalizedChannel
+		value.LibrarySort = normalizedLibrarySort
 		if err := reader.repository.SaveSettings(ctx, value); err != nil {
 			return value, err
 		}

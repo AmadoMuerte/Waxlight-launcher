@@ -142,6 +142,7 @@ const mockInstance: Instance = {
   status: "ready",
   launchArguments: [],
   environmentVariables: {},
+  isPinned: false,
   lastPlayedAt: "2026-08-16T19:30:00Z",
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 12,
@@ -158,6 +159,7 @@ const instanceCardHandlers = {
   onDelete: () => {},
   onLaunch: () => {},
   onStop: async () => {},
+  onTogglePin: () => {},
 };
 
 const mockMod: ModSummary = {

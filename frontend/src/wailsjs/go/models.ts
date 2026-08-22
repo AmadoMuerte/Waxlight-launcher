@@ -684,6 +684,7 @@ export namespace wails {
 	    status: string;
 	    launchArguments: string[];
 	    environmentVariables: Record<string, string>;
+	    isPinned: boolean;
 	    lastPlayedAt?: string;
 	    createdAt: string;
 	    enabledModCount: number;
@@ -707,6 +708,7 @@ export namespace wails {
 	        this.status = source["status"];
 	        this.launchArguments = source["launchArguments"];
 	        this.environmentVariables = source["environmentVariables"];
+	        this.isPinned = source["isPinned"];
 	        this.lastPlayedAt = source["lastPlayedAt"];
 	        this.createdAt = source["createdAt"];
 	        this.enabledModCount = source["enabledModCount"];
@@ -1802,6 +1804,7 @@ export namespace wails {
 	    skippedUpdateVersion: string;
 	    telemetryEnabled: boolean;
 	    automaticSafetySnapshots: boolean;
+	    librarySort: string;
 
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -1819,6 +1822,7 @@ export namespace wails {
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.telemetryEnabled = source["telemetryEnabled"];
 	        this.automaticSafetySnapshots = source["automaticSafetySnapshots"];
+	        this.librarySort = source["librarySort"];
 	    }
 	}
 	export class StatisticsDTO {

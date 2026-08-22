@@ -34,6 +34,12 @@ func (repository *mutationRepository) SaveInstance(_ context.Context, instance I
 	return repository.saveErr
 }
 
+func (repository *mutationRepository) SetInstancePinned(_ context.Context, _ string, pinned bool) (Instance, error) {
+	*repository.calls = append(*repository.calls, "pin")
+	repository.instance.IsPinned = pinned
+	return repository.instance, repository.saveErr
+}
+
 func (repository *mutationRepository) DeleteInstance(_ context.Context, id string) error {
 	*repository.calls = append(*repository.calls, "delete")
 	if repository.onDelete != nil {
@@ -156,6 +162,22 @@ func TestUpdateServiceStopsBeforeSaveOnValidationFailure(t *testing.T) {
 	}
 	if !reflect.DeepEqual(calls, []string{"get"}) || repository.saved != nil || !gate.ended {
 		t.Fatalf("calls = %v, saved = %+v, gate ended = %v", calls, repository.saved, gate.ended)
+	}
+}
+
+func TestUpdateServiceSetsPinnedAtomically(t *testing.T) {
+	var calls []string
+	repository := &mutationRepository{instance: Instance{ID: "instance"}, calls: &calls}
+	gate := &testGate{}
+	events := &eventRecorder{onPublish: func() { calls = append(calls, "publish") }}
+	service := NewUpdateService(repository, versionReader{}, gate, &testLock{}, nil, nil, events, time.Now)
+
+	updated, err := service.SetPinned(context.Background(), "instance", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.IsPinned || !reflect.DeepEqual(calls, []string{"pin", "publish"}) || !gate.ended {
+		t.Fatalf("updated = %+v, calls = %v, gate ended = %v", updated, calls, gate.ended)
 	}
 }
 

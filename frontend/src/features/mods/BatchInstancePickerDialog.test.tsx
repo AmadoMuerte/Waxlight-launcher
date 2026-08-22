@@ -29,6 +29,7 @@ const instance = (id: string, name: string): Instance => ({
   status: "ready",
   launchArguments: [],
   environmentVariables: {},
+  isPinned: false,
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 0,
   totalModCount: 0,

@@ -30,4 +30,6 @@ export function SelectModFiles():Promise<Array<string>>;
 
 export function SelectOptimumInstallation():Promise<string>;
 
+export function SetLibrarySort(arg1:string):Promise<wails.SettingsDTO>;
+
 export function UpdateSettings(arg1:wails.SettingsDTO):Promise<wails.SettingsDTO>;

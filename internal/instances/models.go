@@ -38,6 +38,7 @@ type Instance struct {
 	Status               string
 	LaunchArguments      []string
 	EnvironmentVariables map[string]string
+	IsPinned             bool
 	LastPlayedAt         *time.Time
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
