@@ -714,15 +714,18 @@ func (coordinator *Coordinator) ReconcileInjectedCredentials(ctx context.Context
 	if err != nil {
 		return err
 	}
+	var reconcileErrors []error
 	for _, instance := range instances {
 		if err := coordinator.logs.Harden(filepath.Join(instance.Directory, "Logs")); err != nil {
-			return err
+			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: harden logs: %w", instance.Name, err))
 		}
 		if err := coordinator.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &errs.AppError{Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
+			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: reconcile client settings: %w", instance.Name, &errs.AppError{
+				Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err,
+			}))
 		}
 	}
-	return nil
+	return errors.Join(reconcileErrors...)
 }
 
 // ClearAccountFromInstances removes account credentials from every instance
