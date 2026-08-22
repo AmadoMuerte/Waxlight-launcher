@@ -76,6 +76,16 @@ func NewCreateService(
 }
 
 func (service *CreateService) Create(ctx context.Context, input CreateInput) (Instance, error) {
+	return service.CreatePrepared(ctx, input, nil)
+}
+
+// CreatePrepared prepares an allocated instance directory before the instance
+// becomes visible in persistence.
+func (service *CreateService) CreatePrepared(
+	ctx context.Context,
+	input CreateInput,
+	prepare func(context.Context, string) error,
+) (result Instance, resultErr error) {
 	if err := service.gate.Begin(); err != nil {
 		return Instance{}, err
 	}
@@ -139,6 +149,13 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		if !committed {
 			if rollbackErr := allocation.Rollback(); rollbackErr != nil {
 				slog.Warn("could not roll back instance directory allocation", "error", rollbackErr)
+				if resultErr != nil {
+					if errors.Is(resultErr, context.Canceled) {
+						resultErr = fmt.Errorf("could not fully clean up cancelled instance creation: %w", rollbackErr)
+					} else {
+						resultErr = errors.Join(resultErr, fmt.Errorf("roll back instance directory: %w", rollbackErr))
+					}
+				}
 			}
 		}
 	}()
@@ -150,6 +167,14 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 	}
 	if used {
 		return Instance{}, errs.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
+	}
+	if prepare != nil {
+		if err := prepare(ctx, directory); err != nil {
+			return Instance{}, err
+		}
+		if err := ctx.Err(); err != nil {
+			return Instance{}, err
+		}
 	}
 
 	now := service.now().UTC()

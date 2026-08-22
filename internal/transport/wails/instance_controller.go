@@ -6,6 +6,7 @@ import (
 
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/waxlight/waxlight-launcher/internal/operations"
 )
 
 type instanceCreator interface {
@@ -42,6 +43,12 @@ type instanceModCounter interface {
 	ListMods(context.Context, string) ([]mods.InstalledMod, error)
 }
 
+type instanceDataMigration interface {
+	Detect(context.Context) ([]instances.MigrationCandidate, error)
+	Inspect(string) (instances.MigrationCandidate, error)
+	Start(context.Context, instances.MigrationImportRequest) (operations.Operation, error)
+}
+
 // InstanceController exposes instance CRUD to the frontend. It stays limited
 // to DTO conversion and feature invocation.
 type InstanceController struct {
@@ -54,6 +61,7 @@ type InstanceController struct {
 	modCounter instanceModCounter
 	dialogs    instanceCoverDialog
 	lifecycle  lifecycle
+	migration  instanceDataMigration
 }
 
 func NewInstanceController(
@@ -64,15 +72,65 @@ func NewInstanceController(
 	cloner instanceCloner,
 	sessionQueries instancePlaytime,
 	modCounter instanceModCounter,
+	migration instanceDataMigration,
 	lifecycle lifecycle,
 	dialogs instanceCoverDialog,
 ) *InstanceController {
 	return &InstanceController{
 		creator: creator, queries: queries, updater: updater,
 		deleter: deleter, cloner: cloner, sessions: sessionQueries, lifecycle: lifecycle,
-		modCounter: modCounter,
-		dialogs:    dialogs,
+		modCounter: modCounter, migration: migration,
+		dialogs: dialogs,
 	}
+}
+
+type MigrationCandidateDTO struct {
+	Path                string   `json:"path"`
+	WorldCount          int      `json:"worldCount"`
+	ModCount            int      `json:"modCount"`
+	TotalBytes          int64    `json:"totalBytes"`
+	TotalFiles          int64    `json:"totalFiles"`
+	HasClientSettings   bool     `json:"hasClientSettings"`
+	HasModConfig        bool     `json:"hasModConfig"`
+	DetectedGameVersion string   `json:"detectedGameVersion"`
+	VersionConfidence   string   `json:"versionConfidence"`
+	Warnings            []string `json:"warnings"`
+}
+
+type MigrationImportRequest struct {
+	SourcePath    string `json:"sourcePath"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	GameVersionID string `json:"gameVersionId"`
+}
+
+func migrationCandidateDTO(candidate instances.MigrationCandidate) MigrationCandidateDTO {
+	return MigrationCandidateDTO{Path: candidate.Path, WorldCount: candidate.WorldCount, ModCount: candidate.ModCount,
+		TotalBytes: candidate.TotalBytes, TotalFiles: candidate.TotalFiles, HasClientSettings: candidate.HasClientSettings,
+		HasModConfig: candidate.HasModConfig, DetectedGameVersion: candidate.DetectedGameVersion,
+		VersionConfidence: candidate.VersionConfidence, Warnings: nonNilStrings(candidate.Warnings)}
+}
+
+func (controller *InstanceController) DetectExistingVintageStoryData() ([]MigrationCandidateDTO, error) {
+	candidates, err := controller.migration.Detect(controller.lifecycle.Context())
+	result := make([]MigrationCandidateDTO, 0, len(candidates))
+	for _, candidate := range candidates {
+		result = append(result, migrationCandidateDTO(candidate))
+	}
+	return result, err
+}
+
+func (controller *InstanceController) InspectExistingVintageStoryData(path string) (MigrationCandidateDTO, error) {
+	candidate, err := controller.migration.Inspect(path)
+	return migrationCandidateDTO(candidate), err
+}
+
+func (controller *InstanceController) StartExistingDataImport(request MigrationImportRequest) (OperationDTO, error) {
+	operation, err := controller.migration.Start(controller.lifecycle.Context(), instances.MigrationImportRequest{
+		SourcePath: request.SourcePath, Name: request.Name, Description: request.Description,
+		GameVersionID: request.GameVersionID,
+	})
+	return operationDTO(operation), err
 }
 
 func (controller *InstanceController) SelectInstanceCover() (string, error) {

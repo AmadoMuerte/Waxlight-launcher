@@ -8,12 +8,18 @@ export function CreateInstance(arg1:wails.CreateInstanceRequest):Promise<wails.I
 
 export function DeleteInstance(arg1:string,arg2:boolean):Promise<void>;
 
+export function DetectExistingVintageStoryData():Promise<Array<wails.MigrationCandidateDTO>>;
+
 export function GetInstance(arg1:string):Promise<wails.InstanceDTO>;
+
+export function InspectExistingVintageStoryData(arg1:string):Promise<wails.MigrationCandidateDTO>;
 
 export function ListInstances():Promise<Array<wails.InstanceDTO>>;
 
 export function SelectInstanceCover():Promise<string>;
 
 export function SetInstancePinned(arg1:string,arg2:boolean):Promise<wails.InstanceDTO>;
+
+export function StartExistingDataImport(arg1:wails.MigrationImportRequest):Promise<wails.OperationDTO>;
 
 export function UpdateInstance(arg1:wails.UpdateInstanceRequest):Promise<wails.InstanceDTO>;

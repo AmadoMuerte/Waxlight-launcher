@@ -68,7 +68,7 @@ func (s *SQLiteStore) SaveOperation(ctx context.Context, operation operations.Op
 	_, err = s.db.ExecContext(ctx, `INSERT INTO operations(id, type, resource_id, title, status, progress,
 		current_bytes, total_bytes, bytes_per_second, error_code, error_message, created_at, started_at,
 		finished_at, title_key, title_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET type=excluded.type, title=excluded.title, status=excluded.status,
+		ON CONFLICT(id) DO UPDATE SET type=excluded.type, resource_id=excluded.resource_id, title=excluded.title, status=excluded.status,
 		progress=excluded.progress, current_bytes=excluded.current_bytes, total_bytes=excluded.total_bytes,
 		bytes_per_second=excluded.bytes_per_second, error_code=excluded.error_code, error_message=excluded.error_message,
 		started_at=excluded.started_at, finished_at=excluded.finished_at, title_key=excluded.title_key,

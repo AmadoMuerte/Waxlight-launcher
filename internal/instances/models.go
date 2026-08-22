@@ -54,3 +54,36 @@ type CreateInput struct {
 	LaunchArguments      []string
 	EnvironmentVariables map[string]string
 }
+
+// MigrationCandidate describes a read-only inspection of an existing Vintage
+// Story data directory.
+type MigrationCandidate struct {
+	Path                string
+	WorldCount          int
+	ModCount            int
+	TotalBytes          int64
+	TotalFiles          int64
+	HasClientSettings   bool
+	HasModConfig        bool
+	DetectedGameVersion string
+	VersionConfidence   string
+	Warnings            []string
+}
+
+type MigrationImportRequest struct {
+	SourcePath    string
+	Name          string
+	Description   string
+	GameVersionID string
+}
+
+type MigrationCopyProgress struct {
+	Bytes int64
+	Files int64
+}
+
+type MigrationCopyResult struct {
+	Warnings []string
+	Bytes    int64
+	Files    int64
+}

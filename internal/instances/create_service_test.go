@@ -185,6 +185,22 @@ func TestCreateServicePersistsThenEmits(t *testing.T) {
 	}
 }
 
+func TestCreatePreparedRollsBackBeforePersistence(t *testing.T) {
+	repository := &createRepository{}
+	allocation := &testAllocation{}
+	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil, nil)
+	prepareErr := errors.New("copy failed")
+
+	_, err := service.CreatePrepared(context.Background(), CreateInput{Name: "Imported", GameVersionID: "1.20"},
+		func(context.Context, string) error { return prepareErr })
+	if !errors.Is(err, prepareErr) {
+		t.Fatalf("prepare error = %v", err)
+	}
+	if repository.saved != nil || allocation.committed || !allocation.rolledBack {
+		t.Fatalf("saved=%v committed=%v rolledBack=%v", repository.saved, allocation.committed, allocation.rolledBack)
+	}
+}
+
 func TestCreateServiceDefaultAndLocalizedNames(t *testing.T) {
 	defaultService := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, &testGate{}, &testAllocation{}, "en", nil, nil)
 	defaultInstance, err := defaultService.Create(context.Background(), CreateInput{GameVersionID: "1.20"})

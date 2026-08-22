@@ -28,10 +28,13 @@
       "CloneInstance",
       "CreateInstance",
       "DeleteInstance",
+      "DetectExistingVintageStoryData",
       "GetInstance",
+      "InspectExistingVintageStoryData",
       "ListInstances",
       "SelectInstanceCover",
       "SetInstancePinned",
+      "StartExistingDataImport",
       "UpdateInstance"
     ],
     "InstancePackageController": [
