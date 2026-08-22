@@ -39,3 +39,11 @@ export function formatDate(value?: string): string {
     minute: "2-digit",
   }).format(new Date(value));
 }
+
+export function formatCalendarDate(value: string): string {
+  return new Intl.DateTimeFormat(i18n.resolvedLanguage, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
+}

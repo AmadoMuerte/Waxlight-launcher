@@ -10,11 +10,13 @@ import type { RecoverySuggestion } from "../entities/last-known-good/model";
 import { useOperationsQuery } from "../entities/operation/queries";
 import { useSettingsQuery } from "../entities/settings/queries";
 import { useStatisticsQuery } from "../entities/statistics/queries";
+import { NewsSync } from "../features/news/NewsSync";
 import { RecoveryDialog } from "../features/recovery/RecoveryDialog";
 import { AccountsPage } from "../pages/accounts/AccountsPage";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { ModDetailsPage } from "../pages/mod-details/ModDetailsPage";
 import { ModsPage } from "../pages/mods/ModsPage";
+import { NewsPage } from "../pages/news/NewsPage";
 import { OperationsPage } from "../pages/operations/OperationsPage";
 import { ServersPage } from "../pages/servers/ServersPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
@@ -317,6 +319,7 @@ export function App() {
       <ErrorBanner />
       <UpdateDialog />
       <RecoveryDialog />
+      <NewsSync />
 
       <Routes>
         <Route path="/library" element={<LibraryPage />} />
@@ -324,6 +327,7 @@ export function App() {
         <Route path="/mods" element={<ModsPage />} />
         <Route path="/versions" element={<VersionsPage />} />
         <Route path="/servers" element={<ServersPage />} />
+        <Route path="/news" element={<NewsPage />} />
         <Route path="/operations" element={<OperationsPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/statistics" element={<StatisticsPage />} />

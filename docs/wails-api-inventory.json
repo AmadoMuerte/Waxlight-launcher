@@ -90,6 +90,11 @@
       "SetModEnabled",
       "UpdateInstanceMods"
     ],
+    "NewsController": [
+      "MarkSeen",
+      "OpenArticle",
+      "Sync"
+    ],
     "OperationController": [
       "CancelOperation",
       "ClearOperationHistory",

@@ -18,6 +18,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/news"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/credentials"
@@ -31,6 +32,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/platform/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/newscache"
 	platformoptimum "github.com/waxlight/waxlight-launcher/internal/platform/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
@@ -395,6 +397,13 @@ func NewWithHome(home string) (*Container, error) {
 	}
 	serverService := servers.NewService(store, store, mutationGate, eventPublisher, time.Now, newVersionID)
 	serverCatalogService := servers.NewCatalogService(servercatalog.NewClient(nil))
+	newsService := news.NewService(
+		vintagestory.NewNewsSource(nil, fmt.Sprintf("Waxlight/%s (+https://github.com/AmadoMuerte/Waxlight-launcher)", version.Version())),
+		newscache.New(dataRoot),
+		store,
+		time.Hour,
+		time.Now,
+	)
 	packageService := instances.NewPackageService(
 		store,
 		instanceCreator,
@@ -447,6 +456,7 @@ func NewWithHome(home string) (*Container, error) {
 		wailstransport.NewGameVersionController(versionService, lifecycle),
 		instanceController,
 		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
+		wailstransport.NewNewsController(newsService, lifecycle),
 		wailstransport.NewModManagerController(modsService, modsCatalogService, lifecycle),
 		wailstransport.NewModCatalogController(modsCatalogService, lifecycle),
 		wailstransport.NewInstancePackageController(packageService, lifecycle),

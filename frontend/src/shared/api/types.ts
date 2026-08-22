@@ -565,3 +565,23 @@ export interface ImportReport {
   mods: ImportedModResult[];
   warnings: string[];
 }
+
+export type NewsCategory = "news" | "release" | "development";
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  summary: string;
+  imageUrl?: string;
+  publishedAt: string;
+  category: NewsCategory;
+}
+
+export interface NewsFeed {
+  items: NewsItem[];
+  newItems: NewsItem[];
+  fetchedAt: string;
+  unreadCount: number;
+  refreshFailed: boolean;
+}

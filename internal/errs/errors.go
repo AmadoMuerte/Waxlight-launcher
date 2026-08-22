@@ -62,6 +62,7 @@ const (
 	ErrDataFolderBusy       = "DATA_FOLDER_BUSY"
 	ErrInvalidURL           = "INVALID_URL"
 	ErrServerNotFound       = "SERVER_NOT_FOUND"
+	ErrNewsUnavailable      = "NEWS_UNAVAILABLE"
 
 	ErrUpdateChecksumMismatch  = "UPDATE_CHECKSUM_MISMATCH"
 	ErrUpdateSignatureMissing  = "UPDATE_SIGNATURE_MISSING"
