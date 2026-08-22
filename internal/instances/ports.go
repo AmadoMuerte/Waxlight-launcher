@@ -9,6 +9,19 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
+type MigrationStorage interface {
+	Discover() []string
+	Inspect(string) (MigrationCandidate, error)
+	ValidateTarget(string, string) error
+	Copy(context.Context, string, string, func(MigrationCopyProgress)) (MigrationCopyResult, error)
+}
+
+type MigrationDiskSpace interface {
+	Available(string) (int64, error)
+}
+
+type MigrationModReconciler func(context.Context, string) []string
+
 type QueryRepository interface {
 	ListInstances(context.Context) ([]Instance, error)
 	GetInstance(context.Context, string) (Instance, error)
@@ -73,6 +86,10 @@ type DirectoryAllocation interface {
 
 type InstanceCreator interface {
 	Create(context.Context, CreateInput) (Instance, error)
+}
+
+type PreparedInstanceCreator interface {
+	CreatePrepared(context.Context, CreateInput, func(context.Context, string) error) (Instance, error)
 }
 
 type CloneStorage interface {

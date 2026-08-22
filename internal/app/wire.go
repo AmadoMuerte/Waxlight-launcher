@@ -422,6 +422,32 @@ func NewWithHome(home string) (*Container, error) {
 		time.Now,
 		newVersionID,
 	)
+	migrationService := instances.NewMigrationService(
+		instancedirectory.NewMigrationStorage(filesystem.SanitizeClientSettings),
+		filesystem.ImportDiskSpace{},
+		instanceCreator,
+		operationManager,
+		func(ctx context.Context, instanceID string) []string {
+			if _, err := modsService.ListMods(ctx, instanceID); err != nil {
+				return []string{"Imported mods remain local because they could not be scanned"}
+			}
+			result, err := modsCatalogService.LinkLocalMods(ctx, instanceID)
+			if err != nil {
+				return []string{"Imported mods remain local because catalog linking failed"}
+			}
+			warnings := make([]string, 0, len(result.Failed)+len(result.NotMatched))
+			for range result.Failed {
+				warnings = append(warnings, "An imported mod could not be linked to the catalog")
+			}
+			for range result.NotMatched {
+				warnings = append(warnings, "An imported mod was not found in the catalog and remains local")
+			}
+			return warnings
+		},
+		dataRoot,
+		time.Now,
+		newVersionID,
+	)
 	updateHTTPClient := updater.NewHTTPClient()
 	updateDownloader := downloader.NewManager(
 		&downloader.HTTPDownloader{Client: updateHTTPClient},
@@ -446,6 +472,7 @@ func NewWithHome(home string) (*Container, error) {
 		instanceCloner,
 		statisticsService,
 		modsService,
+		migrationService,
 		lifecycle,
 		dialogs,
 	)

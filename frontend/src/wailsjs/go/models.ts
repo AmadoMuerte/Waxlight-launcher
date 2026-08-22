@@ -1080,6 +1080,54 @@ export namespace wails {
 		    return a;
 		}
 	}
+	export class MigrationCandidateDTO {
+	    path: string;
+	    worldCount: number;
+	    modCount: number;
+	    totalBytes: number;
+	    totalFiles: number;
+	    hasClientSettings: boolean;
+	    hasModConfig: boolean;
+	    detectedGameVersion: string;
+	    versionConfidence: string;
+	    warnings: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new MigrationCandidateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.worldCount = source["worldCount"];
+	        this.modCount = source["modCount"];
+	        this.totalBytes = source["totalBytes"];
+	        this.totalFiles = source["totalFiles"];
+	        this.hasClientSettings = source["hasClientSettings"];
+	        this.hasModConfig = source["hasModConfig"];
+	        this.detectedGameVersion = source["detectedGameVersion"];
+	        this.versionConfidence = source["versionConfidence"];
+	        this.warnings = source["warnings"];
+	    }
+	}
+	export class MigrationImportRequest {
+	    sourcePath: string;
+	    name: string;
+	    description: string;
+	    gameVersionId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MigrationImportRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourcePath = source["sourcePath"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.gameVersionId = source["gameVersionId"];
+	    }
+	}
 
 	export class ModDeletePreviewDTO {
 	    modId: string;

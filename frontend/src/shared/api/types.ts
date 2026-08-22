@@ -71,6 +71,26 @@ export interface Instance {
   coverUrl?: string;
 }
 
+export interface MigrationCandidate {
+  path: string;
+  worldCount: number;
+  modCount: number;
+  totalBytes: number;
+  totalFiles: number;
+  hasClientSettings: boolean;
+  hasModConfig: boolean;
+  detectedGameVersion: string;
+  versionConfidence: string;
+  warnings: string[];
+}
+
+export interface ExistingDataImportRequest {
+  sourcePath: string;
+  name: string;
+  description: string;
+  gameVersionId: string;
+}
+
 export type LibrarySort = "lastPlayed" | "name" | "playtime" | "gameVersion" | "createdAt";
 
 export interface FavoriteServer {

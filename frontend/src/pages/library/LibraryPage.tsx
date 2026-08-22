@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Import, Plus } from "lucide-react";
+import { FolderInput, PackageOpen, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useAccountsQuery } from "../../entities/account/queries";
@@ -17,6 +17,8 @@ import { useSettingsQuery } from "../../entities/settings/queries";
 import { ExportInstanceModal } from "../../features/instance-package/ExportInstanceModal";
 import { CloneInstanceModal } from "../../features/instance/CloneInstanceModal";
 import { CreateInstanceModal } from "../../features/instances/CreateInstanceModal";
+import { ExistingDataImportModal } from "../../features/instances/ExistingDataImportModal";
+import type { ExistingDataImportDraft } from "../../features/instances/ExistingDataImportModal";
 import { InstanceCard } from "../../features/instances/InstanceCard";
 import { InstanceModal } from "../../features/instances/InstanceModal";
 import { errorMessage } from "../../shared/api/bridge";
@@ -28,10 +30,12 @@ import {
 } from "../../shared/api/keys";
 import type { LibrarySort } from "../../shared/api/types";
 import { Button } from "../../shared/ui/button";
+import { Card, CardContent } from "../../shared/ui/card";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { EmptyState } from "../../shared/ui/empty";
 import { ErrorState } from "../../shared/ui/error-state";
 import { LoadingState } from "../../shared/ui/loading-state";
+import { Modal } from "../../shared/ui/modal";
 import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
 import { SearchInput } from "../../shared/ui/search-input";
@@ -46,6 +50,24 @@ import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
 
 const nameCollator = new Intl.Collator(undefined, { sensitivity: "base" });
 const versionCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+function restoredExistingDataImport(state: unknown): ExistingDataImportDraft | undefined {
+  if (typeof state !== "object" || state === null || !("existingDataImport" in state)) {
+    return undefined;
+  }
+  const draft = state.existingDataImport;
+  if (
+    typeof draft !== "object" ||
+    draft === null ||
+    !("sourcePath" in draft) ||
+    !("name" in draft) ||
+    typeof draft.sourcePath !== "string" ||
+    typeof draft.name !== "string"
+  ) {
+    return undefined;
+  }
+  return { sourcePath: draft.sourcePath, name: draft.name };
+}
 
 function parseVersion(value: string) {
   const match = value.match(/(\d+(?:\.\d+)+)(?:[- ](.+))?/);
@@ -98,12 +120,19 @@ export function LibraryPage() {
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const navigate = useNavigate();
+  const location = useLocation();
+  const restoredImport = useMemo(
+    () => restoredExistingDataImport(location.state),
+    [location.state],
+  );
   const instancesQuery = useInstancesQuery();
   const { data: instances = [] } = instancesQuery;
   const { data: versions = [] } = useGameVersionsQuery();
   const { data: accounts = [] } = useAccountsQuery();
   const { data: settings } = useSettingsQuery();
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [existingDataDialogOpen, setExistingDataDialogOpen] = useState(Boolean(restoredImport));
   const [selectedInstance, setSelectedInstance] = useState<Instance>();
   const [selectedTab, setSelectedTab] = useState<"overview" | "settings">("overview");
   const [cloningInstance, setCloningInstance] = useState<Instance>();
@@ -156,7 +185,8 @@ export function LibraryPage() {
     void checkAllUpdates();
   }, [checkAllUpdates]);
 
-  async function startImport() {
+  async function startPackageImport() {
+    setAddDialogOpen(false);
     try {
       const path = await instancePackageApi.selectPackageFile();
       if (!path) return;
@@ -430,16 +460,10 @@ export function LibraryPage() {
                 <SelectItem value="createdAt">{t("sort_created_at")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="secondary" onClick={() => void startImport()}>
-              <Import size={16} aria-hidden="true" />
-              {t("import_instance")}
+            <Button onClick={() => setAddDialogOpen(true)}>
+              <Plus size={16} aria-hidden="true" />
+              {t("add_instance")}
             </Button>
-            {versions.length > 0 && (
-              <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus size={16} aria-hidden="true" />
-                {t("new_instance")}
-              </Button>
-            )}
           </ToolbarGroup>
         </Toolbar>
 
@@ -464,18 +488,7 @@ export function LibraryPage() {
             action={
               !query && (
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button
-                    onClick={
-                      versions.length > 0
-                        ? () => setCreateDialogOpen(true)
-                        : () => navigate("/versions")
-                    }
-                  >
-                    {versions.length > 0 ? t("create_instance") : t("install_game_version_first")}
-                  </Button>
-                  <Button variant="secondary" onClick={() => void startImport()}>
-                    {t("import_instance")}
-                  </Button>
+                  <Button onClick={() => setAddDialogOpen(true)}>{t("add_instance")}</Button>
                 </div>
               )
             }
@@ -505,6 +518,71 @@ export function LibraryPage() {
         )}
       </PageContent>
 
+      {addDialogOpen && (
+        <Modal
+          title={t("add_instance")}
+          className="max-w-lg"
+          onClose={() => setAddDialogOpen(false)}
+        >
+          <div className="modalBody space-y-3">
+            <Card variant="subtle">
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => {
+                  setAddDialogOpen(false);
+                  if (versions.length > 0) setCreateDialogOpen(true);
+                  else void navigate("/versions");
+                }}
+              >
+                <CardContent className="flex items-start gap-3">
+                  <Plus size={20} aria-hidden="true" />
+                  <span>
+                    <strong className="block">{t("create_new_instance")}</strong>
+                    <span className="text-text-muted">{t("create_new_instance_description")}</span>
+                  </span>
+                </CardContent>
+              </button>
+            </Card>
+            <Card variant="subtle">
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => void startPackageImport()}
+              >
+                <CardContent className="flex items-start gap-3">
+                  <PackageOpen size={20} aria-hidden="true" />
+                  <span>
+                    <strong className="block">{t("import_waxlight_package")}</strong>
+                    <span className="text-text-muted">
+                      {t("import_waxlight_package_description")}
+                    </span>
+                  </span>
+                </CardContent>
+              </button>
+            </Card>
+            <Card variant="subtle">
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => {
+                  setAddDialogOpen(false);
+                  setExistingDataDialogOpen(true);
+                }}
+              >
+                <CardContent className="flex items-start gap-3">
+                  <FolderInput size={20} aria-hidden="true" />
+                  <span>
+                    <strong className="block">{t("import_existing_data")}</strong>
+                    <span className="text-text-muted">{t("import_existing_data_description")}</span>
+                  </span>
+                </CardContent>
+              </button>
+            </Card>
+          </div>
+        </Modal>
+      )}
+
       {createDialogOpen && (
         <CreateInstanceModal
           versions={versions}
@@ -514,6 +592,32 @@ export function LibraryPage() {
             setCreateDialogOpen(false);
             await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
             notify(t("instance_created"));
+          }}
+        />
+      )}
+
+      {existingDataDialogOpen && (
+        <ExistingDataImportModal
+          versions={versions}
+          initialDraft={restoredImport}
+          onClose={() => {
+            setExistingDataDialogOpen(false);
+            if (restoredImport) void navigate(location.pathname, { replace: true, state: null });
+          }}
+          onOpenVersions={(draft) => {
+            void (async () => {
+              await navigate(location.pathname, {
+                replace: true,
+                state: { existingDataImport: draft },
+              });
+              await navigate("/versions");
+            })();
+          }}
+          onOpenInstance={(instance) => {
+            setExistingDataDialogOpen(false);
+            if (restoredImport) void navigate(location.pathname, { replace: true, state: null });
+            setSelectedTab("overview");
+            setSelectedInstance(instance);
           }}
         />
       )}

@@ -14,7 +14,11 @@ import { LibraryPage } from "./LibraryPage";
 const api = vi.hoisted(() => ({
   create: vi.fn(),
   clone: vi.fn(),
+  get: vi.fn(),
   list: vi.fn(),
+  detectExistingData: vi.fn(),
+  inspectExistingData: vi.fn(),
+  importExistingData: vi.fn(),
   update: vi.fn(),
   setPinned: vi.fn(),
   remove: vi.fn(),
@@ -24,12 +28,14 @@ const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
 const instancePackageApi = vi.hoisted(() => ({ import: vi.fn(), selectPackageFile: vi.fn() }));
 const launcherApi = vi.hoisted(() => ({ validate: vi.fn(), launch: vi.fn(), stop: vi.fn() }));
-const modsApi = vi.hoisted(() => ({ checkInstanceUpdates: vi.fn() }));
+const modsApi = vi.hoisted(() => ({ checkInstanceUpdates: vi.fn(), list: vi.fn() }));
+const operationsApi = vi.hoisted(() => ({ list: vi.fn(), cancel: vi.fn() }));
 const settingsApi = vi.hoisted(() => ({
   get: vi.fn(),
   update: vi.fn(),
   setLibrarySort: vi.fn(),
   openDirectory: vi.fn(),
+  selectGameDirectory: vi.fn(),
 }));
 
 vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
@@ -39,6 +45,7 @@ vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
 vi.mock("../../shared/api/mods", () => ({ modsApi }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi }));
 vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi }));
+vi.mock("../../shared/api/operations", () => ({ operationsApi }));
 
 const versions: GameVersion[] = [
   {
@@ -113,7 +120,11 @@ async function renderPage(data = instances, availableVersions = versions) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await screen.findByRole("button", { name: "New instance" });
+  if (data.length > 0) {
+    await screen.findByRole("heading", { level: 3, name: data[0].name });
+  } else {
+    await screen.findByRole("heading", { name: "Light your first world" });
+  }
 }
 
 describe("library instance creation", () => {
@@ -134,12 +145,14 @@ describe("library instance creation", () => {
     }));
     instancePackageApi.selectPackageFile.mockResolvedValue("/tmp/cozy-camp.waxlight");
     instancePackageApi.import.mockResolvedValue({ id: "operation-1", status: "queued" });
+    operationsApi.list.mockResolvedValue([]);
   });
 
   it("submits an empty name so the backend generates a unique default", async () => {
     await renderPage();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "New instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: /Create new instance/ }));
     await userEvent.setup().click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
@@ -152,7 +165,8 @@ describe("library instance creation", () => {
   it("submits the typed name when provided", async () => {
     await renderPage();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "New instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: /Create new instance/ }));
     await userEvent.setup().type(screen.getByLabelText("Name"), "My cozy world");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create" }));
 
@@ -184,7 +198,8 @@ describe("library instance creation", () => {
   it("starts import immediately after selecting a package", async () => {
     await renderPage();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: /Import instance/ }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add instance" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: /Import Waxlight package/ }));
 
     await waitFor(() => {
       expect(instancePackageApi.import).toHaveBeenCalledWith({
@@ -200,12 +215,16 @@ describe("library instance creation", () => {
     });
   });
 
-  it("shows create and import actions when the Library is empty", async () => {
+  it("shows the add chooser when the Library is empty", async () => {
     await renderPage([]);
 
     expect(screen.getByRole("heading", { name: "Light your first world" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Create instance" })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Import instance" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Add instance" })).toHaveLength(2);
+
+    await userEvent.setup().click(screen.getAllByRole("button", { name: "Add instance" })[0]);
+    expect(screen.getByRole("button", { name: /Create new instance/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Import Waxlight package/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Import existing Vintage Story data/ })).toBeTruthy();
   });
 
   it("confirms destructive overflow actions before deleting an instance", async () => {
