@@ -20,6 +20,8 @@ import { LoadingState } from "../../shared/ui/loading-state";
 import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
 
+const pageSize = 5;
+
 const NewsCard = memo(function NewsCard({ item }: { item: NewsItem }) {
   const { t } = useTranslation();
   const notify = useToastStore((state) => state.notify);
@@ -79,6 +81,7 @@ export function NewsPage() {
   const queryClient = useQueryClient();
   const query = useNewsQuery();
   const items = query.data?.items;
+  const [visibleCount, setVisibleCount] = useState(pageSize);
 
   useEffect(() => {
     if (!items?.length) {
@@ -153,9 +156,19 @@ export function NewsPage() {
                 </Card>
               </output>
             )}
-            {query.data.items.map((item) => (
+            {query.data.items.slice(0, visibleCount).map((item) => (
               <NewsCard key={item.id} item={item} />
             ))}
+            {visibleCount < query.data.items.length && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setVisibleCount((count) => count + pageSize)}
+                >
+                  {t("load_more")}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </PageContent>

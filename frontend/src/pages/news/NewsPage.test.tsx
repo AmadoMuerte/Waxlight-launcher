@@ -82,6 +82,21 @@ it("renders entries newest-first, opens the original article, and marks the feed
   expect(newsApi.openArticle).toHaveBeenCalledWith(items[0].url);
 });
 
+it("renders articles in batches", async () => {
+  const manyItems = Array.from({ length: 7 }, (_, index) =>
+    item(String(index), `Article ${index + 1}`, `2026-08-${23 - index}T00:00:00Z`),
+  );
+  newsApi.sync.mockResolvedValue(feed({ items: manyItems }));
+  const user = userEvent.setup();
+  renderPage();
+
+  expect(await screen.findByText("Article 5")).toBeTruthy();
+  expect(screen.queryByText("Article 6")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Load more" }));
+  expect(screen.getByText("Article 6")).toBeTruthy();
+  expect(screen.getByText("Article 7")).toBeTruthy();
+});
+
 it("shows cached articles with a non-fatal refresh status", async () => {
   newsApi.sync.mockResolvedValue(feed({ refreshFailed: true }));
   renderPage();
