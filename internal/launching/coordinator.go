@@ -607,6 +607,9 @@ func (coordinator *Coordinator) waitForGame(
 ) {
 	defer releaseMutation()
 	exitCode, waitErr := process.Wait()
+	// The process is no longer eligible for Last Known Good. Publish that state
+	// before any potentially slow post-exit cleanup starts.
+	coordinator.registry.Stop(instance.ID)
 	// Let the tailer pick up the lines the process flushed right before
 	// exiting, then stop it before the log file is closed.
 	stopGameLog()
@@ -638,8 +641,6 @@ func (coordinator *Coordinator) waitForGame(
 	if err := coordinator.instances.SaveInstance(context.Background(), instance); err != nil {
 		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
 	}
-
-	coordinator.registry.Stop(instance.ID)
 
 	coordinator.publish("game:exited", map[string]any{
 		"instanceId":      instance.ID,
@@ -713,15 +714,18 @@ func (coordinator *Coordinator) ReconcileInjectedCredentials(ctx context.Context
 	if err != nil {
 		return err
 	}
+	var reconcileErrors []error
 	for _, instance := range instances {
 		if err := coordinator.logs.Harden(filepath.Join(instance.Directory, "Logs")); err != nil {
-			return err
+			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: harden logs: %w", instance.Name, err))
 		}
 		if err := coordinator.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
-			return &errs.AppError{Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err}
+			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: reconcile client settings: %w", instance.Name, &errs.AppError{
+				Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err,
+			}))
 		}
 	}
-	return nil
+	return errors.Join(reconcileErrors...)
 }
 
 // ClearAccountFromInstances removes account credentials from every instance

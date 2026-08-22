@@ -196,6 +196,9 @@ func NewWithHome(home string) (*Container, error) {
 	safeRemoveInstanceDir := func(path string) error {
 		return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance")
 	}
+	stageRemoveInstanceDir := func(path string) (func() error, func() error, error) {
+		return instances.StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+	}
 	modsRepository := modsStoreAdapter{store: store}
 	modCatalog := modcatalog.NewClient(nil)
 	modDownloads := modstorage.New(dataRoot)
@@ -286,7 +289,7 @@ func NewWithHome(home string) (*Container, error) {
 		store,
 		mutationGate,
 		launchRegistry,
-		safeRemoveInstanceDir,
+		stageRemoveInstanceDir,
 		clearClientSettings,
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(emit),

@@ -1,9 +1,13 @@
 package operations_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +19,8 @@ import (
 type memoryRepository struct {
 	mu         sync.Mutex
 	operations map[string]operations.Operation
+	saveErr    error
+	onSave     func()
 }
 
 func newMemoryRepository() *memoryRepository {
@@ -32,6 +38,12 @@ func (repository *memoryRepository) ListOperations(context.Context, int) ([]oper
 }
 
 func (repository *memoryRepository) SaveOperation(_ context.Context, operation operations.Operation) error {
+	if repository.onSave != nil {
+		repository.onSave()
+	}
+	if repository.saveErr != nil {
+		return repository.saveErr
+	}
 	repository.mu.Lock()
 	repository.operations[operation.ID] = operation
 	repository.mu.Unlock()
@@ -192,4 +204,76 @@ func TestOperationEventNameAndPayloadJSON(t *testing.T) {
 	if string(payload) != want {
 		t.Fatalf("payload JSON = %s\nwant         = %s", payload, want)
 	}
+}
+
+func TestSaveDoesNotPublishOrLogWhenPersistenceFails(t *testing.T) {
+	var calls []string
+	want := errors.New("database busy")
+	repository := newMemoryRepository()
+	repository.saveErr = want
+	repository.onSave = func() { calls = append(calls, "save") }
+	manager := operations.NewManager(repository, nil, publisherFunc(func(string, any) {
+		calls = append(calls, "publish")
+	}))
+	logs := captureLogs(t)
+
+	err := manager.Save(context.Background(), operations.Operation{ID: "failed-save"}, operations.EventCompleted)
+	if !errors.Is(err, want) {
+		t.Fatalf("Save() error = %v, want %v", err, want)
+	}
+	if !reflect.DeepEqual(calls, []string{"save"}) {
+		t.Fatalf("calls = %v", calls)
+	}
+	if strings.Contains(logs.String(), "operation completed") {
+		t.Fatalf("successful transition was logged: %s", logs.String())
+	}
+}
+
+func TestSavePersistsBeforePublishingAndLogging(t *testing.T) {
+	var calls []string
+	repository := newMemoryRepository()
+	repository.onSave = func() { calls = append(calls, "save") }
+	manager := operations.NewManager(repository, nil, publisherFunc(func(string, any) {
+		calls = append(calls, "publish")
+	}))
+	logs := captureLogs(t)
+
+	if err := manager.Save(context.Background(), operations.Operation{ID: "completed"}, operations.EventCompleted); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(calls, []string{"save", "publish"}) {
+		t.Fatalf("calls = %v", calls)
+	}
+	if !strings.Contains(logs.String(), "operation completed") {
+		t.Fatalf("transition was not logged: %s", logs.String())
+	}
+}
+
+func TestSaveWithEmptyEventOnlyPersists(t *testing.T) {
+	var calls []string
+	repository := newMemoryRepository()
+	repository.onSave = func() { calls = append(calls, "save") }
+	manager := operations.NewManager(repository, nil, publisherFunc(func(string, any) {
+		calls = append(calls, "publish")
+	}))
+	logs := captureLogs(t)
+
+	if err := manager.Save(context.Background(), operations.Operation{ID: "silent"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(calls, []string{"save"}) {
+		t.Fatalf("calls = %v", calls)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("unexpected transition log: %s", logs.String())
+	}
+}
+
+func captureLogs(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	return &output
 }
