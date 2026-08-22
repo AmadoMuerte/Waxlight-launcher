@@ -2,13 +2,14 @@ package instances
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"path/filepath"
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 const (
@@ -292,7 +293,7 @@ type DeleteService struct {
 	repository          DeleteRepository
 	gate                MutationGate
 	lock                MutationLock
-	removeDirectory     DirectoryRemover
+	stageDirectory      DirectoryRemovalStager
 	clearClientSettings ClientSettingsClearer
 	cleanRecovery       RecoveryCleaner
 	events              Publisher
@@ -303,7 +304,7 @@ func NewDeleteService(
 	repository DeleteRepository,
 	gate MutationGate,
 	lock MutationLock,
-	removeDirectory DirectoryRemover,
+	stageDirectory DirectoryRemovalStager,
 	clearClientSettings ClientSettingsClearer,
 	cleanRecovery RecoveryCleaner,
 	events Publisher,
@@ -313,7 +314,7 @@ func NewDeleteService(
 		repository:          repository,
 		gate:                gate,
 		lock:                lock,
-		removeDirectory:     removeDirectory,
+		stageDirectory:      stageDirectory,
 		clearClientSettings: clearClientSettings,
 		cleanRecovery:       cleanRecovery,
 		events:              events,
@@ -342,11 +343,13 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	if err != nil {
 		return err
 	}
+	var restoreDirectory, removeDirectory func() error
 	if deleteFiles {
-		if service.removeDirectory == nil {
+		if service.stageDirectory == nil {
 			return errs.NewError(errs.ErrValidation, "Instance directory removal is unavailable")
 		}
-		if err := service.removeDirectory(instance.Directory); err != nil {
+		restoreDirectory, removeDirectory, err = service.stageDirectory(instance.Directory)
+		if err != nil {
 			return err
 		}
 	}
@@ -356,7 +359,17 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 		}
 	}
 	if err := service.repository.DeleteInstance(ctx, id); err != nil {
+		if restoreDirectory != nil {
+			if restoreErr := restoreDirectory(); restoreErr != nil {
+				return errors.Join(err, fmt.Errorf("restore instance directory: %w", restoreErr))
+			}
+		}
 		return err
+	}
+	if removeDirectory != nil {
+		if err := removeDirectory(); err != nil {
+			return fmt.Errorf("instance record deleted but staged directory cleanup failed: %w", err)
+		}
 	}
 	if service.cleanRecovery != nil {
 		if err := service.cleanRecovery(ctx, id); err != nil {

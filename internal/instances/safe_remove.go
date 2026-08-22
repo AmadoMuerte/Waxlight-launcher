@@ -1,6 +1,7 @@
 package instances
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,23 +18,54 @@ import (
 // the data root, the volume root, or any short path, so a malformed instance
 // record can never lead the launcher to delete unrelated data.
 func SafeRemoveAll(path, dataRoot, marker string) error {
-	abs, err := filepath.Abs(path)
+	abs, exists, err := safeRemovalPath(path, dataRoot, marker)
 	if err != nil {
 		return err
 	}
+	if !exists {
+		return errs.NewError(errs.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
+	}
+	return removeAllReliably(abs)
+}
+
+// StageDirectoryRemoval validates an owned instance directory and atomically
+// moves it aside on the same filesystem. The returned functions restore or
+// permanently remove the staged directory. A missing directory is a no-op.
+func StageDirectoryRemoval(path, dataRoot, marker string) (func() error, func() error, error) {
+	abs, exists, err := safeRemovalPath(path, dataRoot, marker)
+	if err != nil || !exists {
+		return nil, nil, err
+	}
+	trash := filepath.Join(filepath.Dir(abs), "."+filepath.Base(abs)+".waxlight-delete-"+rand.Text())
+	if err := os.Rename(abs, trash); err != nil {
+		return nil, nil, err
+	}
+	return func() error { return os.Rename(trash, abs) }, func() error { return removeAllReliably(trash) }, nil
+}
+
+func safeRemovalPath(path, dataRoot, marker string) (string, bool, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", false, err
+	}
 	root, rootError := filepath.Abs(dataRoot)
 	if rootError != nil {
-		return rootError
+		return "", false, rootError
 	}
 	home, _ := os.UserHomeDir()
 	volumeRoot := filepath.VolumeName(abs) + string(os.PathSeparator)
 	if abs == "/" || abs == volumeRoot || abs == home || abs == root || len(abs) < 5 {
-		return errs.NewError(errs.ErrValidation, "Unsafe deletion path")
+		return "", false, errs.NewError(errs.ErrValidation, "Unsafe deletion path")
+	}
+	if _, err = os.Lstat(abs); errors.Is(err, os.ErrNotExist) {
+		return abs, false, nil
+	} else if err != nil {
+		return "", false, err
 	}
 	if _, err = os.Stat(filepath.Join(abs, marker)); err != nil {
-		return errs.NewError(errs.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
+		return "", false, errs.NewError(errs.ErrValidation, "The directory is not managed by Waxlight; no files were deleted")
 	}
-	return removeAllReliably(abs)
+	return abs, true, nil
 }
 
 func removeAllReliably(path string) error {

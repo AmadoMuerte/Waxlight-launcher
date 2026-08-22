@@ -3,11 +3,13 @@ package instances
 import (
 	"context"
 	"errors"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 type mutationRepository struct {
@@ -18,6 +20,7 @@ type mutationRepository struct {
 	saved     *Instance
 	deleted   string
 	calls     *[]string
+	onDelete  func()
 }
 
 func (repository *mutationRepository) GetInstance(context.Context, string) (Instance, error) {
@@ -33,7 +36,12 @@ func (repository *mutationRepository) SaveInstance(_ context.Context, instance I
 
 func (repository *mutationRepository) DeleteInstance(_ context.Context, id string) error {
 	*repository.calls = append(*repository.calls, "delete")
-	repository.deleted = id
+	if repository.onDelete != nil {
+		repository.onDelete()
+	}
+	if repository.deleteErr == nil {
+		repository.deleted = id
+	}
 	return repository.deleteErr
 }
 
@@ -180,10 +188,18 @@ func TestUpdateServiceRejectsMissingVersionChangeLock(t *testing.T) {
 	}
 }
 
-func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
+func TestDeleteServiceStagesFilesDeletesRecordAndCleansTrash(t *testing.T) {
 	var calls []string
+	dataRoot := t.TempDir()
+	directory := filepath.Join(dataRoot, "instance")
+	if err := os.Mkdir(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, ".waxlight-instance"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	repository := &mutationRepository{
-		instance: Instance{ID: "instance", Directory: "/instances/owned"},
+		instance: Instance{ID: "instance", Directory: directory},
 		calls:    &calls,
 	}
 	events := &eventRecorder{onPublish: func() { calls = append(calls, "publish") }}
@@ -195,7 +211,10 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 			calls = append(calls, "guard")
 			return func() { calls = append(calls, "release") }, nil
 		}},
-		func(path string) error { calls = append(calls, "remove"); return nil },
+		func(path string) (func() error, func() error, error) {
+			calls = append(calls, "stage")
+			return StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+		},
 		func(path string) error { calls = append(calls, "clear"); return nil },
 		func(context.Context, string) error {
 			calls = append(calls, "recovery")
@@ -211,7 +230,7 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 	if err := service.Delete(context.Background(), "instance", true); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(calls, []string{"guard", "get", "remove", "delete", "recovery", "publish", "telemetry", "release"}) {
+	if !reflect.DeepEqual(calls, []string{"guard", "get", "stage", "delete", "recovery", "publish", "telemetry", "release"}) {
 		t.Fatalf("calls = %v", calls)
 	}
 	if repository.deleted != "instance" || len(telemetryEvents) != 1 || telemetryEvents[0] != telemetryEventInstanceDeleted {
@@ -220,6 +239,173 @@ func TestDeleteServiceDeletesFilesBeforeRecordAndReportsSuccess(t *testing.T) {
 	payload, ok := events.events[0].payload.(map[string]string)
 	if len(events.events) != 1 || events.events[0].name != "instance:deleted" || !ok || payload["id"] != "instance" {
 		t.Fatalf("events = %+v", events.events)
+	}
+	if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("original directory still exists: %v", err)
+	}
+	if trash, err := filepath.Glob(filepath.Join(dataRoot, ".instance.waxlight-delete-*")); err != nil || len(trash) != 0 {
+		t.Fatalf("staged directories = %v, error = %v", trash, err)
+	}
+}
+
+func TestDeleteServiceRestoresFilesWhenDatabaseDeleteFails(t *testing.T) {
+	var calls []string
+	dataRoot := t.TempDir()
+	directory := filepath.Join(dataRoot, "instance")
+	if err := os.Mkdir(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{".waxlight-instance": "", "world.txt": "user data"} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := errors.New("database unavailable")
+	repository := &mutationRepository{
+		instance:  Instance{ID: "instance", Directory: directory},
+		deleteErr: want,
+		calls:     &calls,
+		onDelete: func() {
+			if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("directory was not staged before DB delete: %v", err)
+			}
+			trash, err := filepath.Glob(filepath.Join(dataRoot, ".instance.waxlight-delete-*"))
+			if err != nil || len(trash) != 1 {
+				t.Fatalf("staged directories = %v, error = %v", trash, err)
+			}
+			if content, err := os.ReadFile(filepath.Join(trash[0], "world.txt")); err != nil || string(content) != "user data" {
+				t.Fatalf("staged user data = %q, error = %v", content, err)
+			}
+		},
+	}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
+		return StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+	}, nil, nil, nil, nil)
+
+	if err := service.Delete(context.Background(), "instance", true); !errors.Is(err, want) {
+		t.Fatalf("Delete() error = %v, want %v", err, want)
+	}
+	content, err := os.ReadFile(filepath.Join(directory, "world.txt"))
+	if err != nil || string(content) != "user data" {
+		t.Fatalf("restored user data = %q, error = %v", content, err)
+	}
+	if repository.deleted != "" {
+		t.Fatal("database record was removed")
+	}
+}
+
+func TestDeleteServiceRenameFailureDoesNotDeleteRecord(t *testing.T) {
+	var calls []string
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "world.txt"), []byte("user data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	repository := &mutationRepository{instance: Instance{ID: "instance", Directory: directory}, calls: &calls}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
+		if path != directory {
+			t.Fatalf("stage path = %q, want %q", path, directory)
+		}
+		return nil, nil, errors.New("rename failed")
+	}, nil, nil, nil, nil)
+
+	if err := service.Delete(context.Background(), "instance", true); err == nil {
+		t.Fatal("Delete() error = nil")
+	}
+	if !reflect.DeepEqual(calls, []string{"get"}) || repository.deleted != "" {
+		t.Fatalf("calls = %v, deleted = %q", calls, repository.deleted)
+	}
+	content, err := os.ReadFile(filepath.Join(directory, "world.txt"))
+	if err != nil || string(content) != "user data" {
+		t.Fatalf("original data = %q, error = %v", content, err)
+	}
+}
+
+func TestDeleteServiceWithoutFilesPreservesDirectory(t *testing.T) {
+	var calls []string
+	directory := t.TempDir()
+	repository := &mutationRepository{instance: Instance{ID: "instance", Directory: directory}, calls: &calls}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, nil, nil, nil, nil, nil)
+
+	if err := service.Delete(context.Background(), "instance", false); err != nil {
+		t.Fatal(err)
+	}
+	if repository.deleted != "instance" {
+		t.Fatalf("deleted = %q", repository.deleted)
+	}
+	if _, err := os.Stat(directory); err != nil {
+		t.Fatalf("directory was removed: %v", err)
+	}
+}
+
+func TestDeleteServiceReportsDatabaseAndRollbackFailures(t *testing.T) {
+	var calls []string
+	databaseErr := errors.New("database unavailable")
+	restoreErr := errors.New("restore unavailable")
+	repository := &mutationRepository{
+		instance:  Instance{ID: "instance", Directory: "/instances/owned"},
+		deleteErr: databaseErr,
+		calls:     &calls,
+	}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(string) (func() error, func() error, error) {
+		return func() error { return restoreErr }, func() error { return nil }, nil
+	}, nil, nil, nil, nil)
+
+	err := service.Delete(context.Background(), "instance", true)
+	if !errors.Is(err, databaseErr) || !errors.Is(err, restoreErr) {
+		t.Fatalf("Delete() error = %v, want database and restore failures", err)
+	}
+}
+
+func TestDeleteServiceReturnsFinalCleanupFailureAfterRecordDeletion(t *testing.T) {
+	var calls []string
+	dataRoot := t.TempDir()
+	directory := filepath.Join(dataRoot, "instance")
+	if err := os.Mkdir(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{".waxlight-instance": "", "world.txt": "user data"} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cleanupErr := errors.New("cleanup unavailable")
+	repository := &mutationRepository{instance: Instance{ID: "instance", Directory: directory}, calls: &calls}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
+		restore, _, err := StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+		return restore, func() error { return cleanupErr }, err
+	}, nil, nil, nil, nil)
+
+	if err := service.Delete(context.Background(), "instance", true); !errors.Is(err, cleanupErr) {
+		t.Fatalf("Delete() error = %v, want %v", err, cleanupErr)
+	}
+	if repository.deleted != "instance" {
+		t.Fatalf("deleted = %q", repository.deleted)
+	}
+	trash, err := filepath.Glob(filepath.Join(dataRoot, ".instance.waxlight-delete-*"))
+	if err != nil || len(trash) != 1 {
+		t.Fatalf("recoverable staged directories = %v, error = %v", trash, err)
+	}
+	if content, err := os.ReadFile(filepath.Join(trash[0], "world.txt")); err != nil || string(content) != "user data" {
+		t.Fatalf("recoverable user data = %q, error = %v", content, err)
+	}
+}
+
+func TestDeleteServiceDeletesRecordWhenDirectoryIsMissing(t *testing.T) {
+	var calls []string
+	dataRoot := t.TempDir()
+	repository := &mutationRepository{
+		instance: Instance{ID: "instance", Directory: filepath.Join(dataRoot, "missing")},
+		calls:    &calls,
+	}
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
+		return StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+	}, nil, nil, nil, nil)
+
+	if err := service.Delete(context.Background(), "instance", true); err != nil {
+		t.Fatal(err)
+	}
+	if repository.deleted != "instance" {
+		t.Fatalf("deleted = %q", repository.deleted)
 	}
 }
 
@@ -232,7 +418,7 @@ func TestDeleteServiceClearFailurePreservesRecord(t *testing.T) {
 		repository,
 		gate,
 		&testLock{},
-		func(string) error { calls = append(calls, "remove"); return nil },
+		nil,
 		func(string) error { calls = append(calls, "clear"); return want },
 		nil,
 		nil,
@@ -251,7 +437,7 @@ func TestDeleteServiceRequiresSafetyDependencies(t *testing.T) {
 	tests := []struct {
 		name    string
 		lock    MutationLock
-		remover DirectoryRemover
+		remover DirectoryRemovalStager
 		calls   []string
 	}{
 		{name: "missing guard"},

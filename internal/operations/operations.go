@@ -115,12 +115,14 @@ func (manager *Manager) ReconcileInterrupted(ctx context.Context, now time.Time)
 }
 
 func (manager *Manager) Save(ctx context.Context, operation Operation, event string) error {
-	err := manager.repository.SaveOperation(ctx, operation)
+	if err := manager.repository.SaveOperation(ctx, operation); err != nil {
+		return err
+	}
 	if event != "" {
 		manager.Publish(event, operation)
 		manager.logTransition(event, operation)
 	}
-	return err
+	return nil
 }
 
 func (manager *Manager) SaveBestEffort(operation Operation, event string) {
