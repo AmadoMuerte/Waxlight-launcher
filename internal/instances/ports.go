@@ -94,6 +94,7 @@ type ClientSettingsClearer func(string) error
 type DeleteGuard func(string) (func(), error)
 type CloneGuard func(string) (func(), error)
 type DirectoryRemover func(string) error
+type DirectoryRemovalStager func(string) (restore func() error, remove func() error, err error)
 type RecoveryCleaner func(context.Context, string) error
 type LanguageFunc func(context.Context) (string, error)
 type TelemetryFunc func(context.Context, string)
