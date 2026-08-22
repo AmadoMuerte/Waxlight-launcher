@@ -36,6 +36,7 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 		GameClient: instances.GameClientOptimum,
 		Directory:  "/instances/primary", CoverPath: &coverPath,
 		Status: instances.StatusReady, LaunchArguments: []string{"--foo", "bar baz"},
+		IsPinned:     true,
 		LastPlayedAt: &lastPlayedAt, CreatedAt: now, UpdatedAt: now.Add(time.Hour),
 	}
 	if err := store.SaveInstance(ctx, primary); err != nil {
@@ -53,8 +54,24 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored.Name != primary.Name || stored.GameClient != instances.GameClientOptimum || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" {
+	if stored.Name != primary.Name || stored.GameClient != instances.GameClientOptimum || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || !stored.IsPinned || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" {
 		t.Fatalf("unexpected stored instance: %+v", stored)
+	}
+	stored, err = store.SetInstancePinned(ctx, primary.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.IsPinned {
+		t.Fatalf("unpinned instance = %+v, error = %v", stored, err)
+	}
+	stale := primary
+	stale.Name = "Renamed"
+	if err := store.SaveInstance(ctx, stale); err != nil {
+		t.Fatal(err)
+	}
+	stored, err = store.GetInstance(ctx, primary.ID)
+	if err != nil || stored.IsPinned {
+		t.Fatalf("stale save changed pin state: %+v, error = %v", stored, err)
 	}
 	storedSecondary, err := store.GetInstance(ctx, secondary.ID)
 	if err != nil {
@@ -62,6 +79,9 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 	}
 	if storedSecondary.GameClient != instances.GameClientVanilla {
 		t.Fatalf("default game client = %q", storedSecondary.GameClient)
+	}
+	if storedSecondary.IsPinned {
+		t.Fatal("new instance defaulted to pinned")
 	}
 	listed, err := store.ListInstances(ctx)
 	if err != nil {

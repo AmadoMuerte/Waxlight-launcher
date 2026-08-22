@@ -21,7 +21,12 @@ import { InstanceCard } from "../../features/instances/InstanceCard";
 import { InstanceModal } from "../../features/instances/InstanceModal";
 import { errorMessage } from "../../shared/api/bridge";
 import { instancePackageApi } from "../../shared/api/instance-package";
-import { INSTANCES_QUERY_KEY, OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
+import {
+  INSTANCES_QUERY_KEY,
+  OPERATIONS_QUERY_KEY,
+  SETTINGS_QUERY_KEY,
+} from "../../shared/api/keys";
+import type { LibrarySort } from "../../shared/api/types";
 import { Button } from "../../shared/ui/button";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
 import { EmptyState } from "../../shared/ui/empty";
@@ -30,7 +35,63 @@ import { LoadingState } from "../../shared/ui/loading-state";
 import { Page, PageContent } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
 import { SearchInput } from "../../shared/ui/search-input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../shared/ui/select";
 import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
+
+const nameCollator = new Intl.Collator(undefined, { sensitivity: "base" });
+const versionCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+function parseVersion(value: string) {
+  const match = value.match(/(\d+(?:\.\d+)+)(?:[- ](.+))?/);
+  return match
+    ? { numbers: match[1].split(".").map(Number), prerelease: match[2] ?? "" }
+    : undefined;
+}
+
+function compareVersions(left: string, right: string) {
+  const leftVersion = parseVersion(left);
+  const rightVersion = parseVersion(right);
+  if (!leftVersion || !rightVersion) return versionCollator.compare(left, right);
+
+  const length = Math.max(leftVersion.numbers.length, rightVersion.numbers.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftVersion.numbers[index] ?? 0) - (rightVersion.numbers[index] ?? 0);
+    if (difference) return difference;
+  }
+  if (!leftVersion.prerelease) return rightVersion.prerelease ? 1 : 0;
+  if (!rightVersion.prerelease) return -1;
+  return versionCollator.compare(leftVersion.prerelease, rightVersion.prerelease);
+}
+
+function compareName(left: Instance, right: Instance) {
+  return nameCollator.compare(left.name, right.name) || left.id.localeCompare(right.id);
+}
+
+function compareOptionalDates(left?: string, right?: string) {
+  const leftTime = left ? Date.parse(left) : Number.NaN;
+  const rightTime = right ? Date.parse(right) : Number.NaN;
+  if (Number.isNaN(leftTime)) return Number.isNaN(rightTime) ? 0 : 1;
+  if (Number.isNaN(rightTime)) return -1;
+  return rightTime - leftTime;
+}
+
+function normalizeLibrarySort(value: string): LibrarySort {
+  switch (value) {
+    case "name":
+    case "playtime":
+    case "gameVersion":
+    case "createdAt":
+      return value;
+    default:
+      return "lastPlayed";
+  }
+}
 
 export function LibraryPage() {
   const { t } = useTranslation();
@@ -50,10 +111,13 @@ export function LibraryPage() {
   const [deletingInstance, setDeletingInstance] = useState<Instance>();
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [busyInstanceIDs, setBusyInstanceIDs] = useState<Set<string>>(new Set());
+  const [pinningInstanceIDs, setPinningInstanceIDs] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
   const instancesRef = useRef(instances);
   const checkedOnceRef = useRef(false);
+  const sortRevisionRef = useRef(0);
+  const sortSaveQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     instancesRef.current = instances;
@@ -113,14 +177,35 @@ export function LibraryPage() {
     }
   }
 
-  const visibleInstances = useMemo(
-    () => instances.filter((instance) => instance.name.toLowerCase().includes(query.toLowerCase())),
-    [instances, query],
-  );
   const versionById = useMemo(
     () => new Map(versions.map((version) => [version.id, version])),
     [versions],
   );
+  const librarySort = settings?.librarySort ?? "lastPlayed";
+  const visibleInstances = useMemo(() => {
+    const normalizedQuery = query.toLocaleLowerCase();
+    return instances
+      .filter((instance) => instance.name.toLocaleLowerCase().includes(normalizedQuery))
+      .toSorted((left, right) => {
+        if (left.isPinned !== right.isPinned) return left.isPinned ? -1 : 1;
+
+        let result = 0;
+        if (librarySort === "lastPlayed") {
+          result = compareOptionalDates(left.lastPlayedAt, right.lastPlayedAt);
+        } else if (librarySort === "playtime") {
+          result = right.playtimeSeconds - left.playtimeSeconds;
+        } else if (librarySort === "gameVersion") {
+          const leftVersion = versionById.get(left.gameVersionId)?.name ?? left.gameVersionId;
+          const rightVersion = versionById.get(right.gameVersionId)?.name ?? right.gameVersionId;
+          if (!leftVersion) result = rightVersion ? 1 : 0;
+          else if (!rightVersion) result = -1;
+          else result = compareVersions(rightVersion, leftVersion);
+        } else if (librarySort === "createdAt") {
+          result = compareOptionalDates(left.createdAt, right.createdAt);
+        }
+        return result || compareName(left, right);
+      });
+  }, [instances, librarySort, query, versionById]);
 
   const [launchWarnConfirm, setLaunchWarnConfirm] = useState<{
     open: boolean;
@@ -137,6 +222,58 @@ export function LibraryPage() {
       return next;
     });
   }, []);
+
+  const handleTogglePin = useCallback(
+    async (instance: Instance) => {
+      const isPinned = !instance.isPinned;
+      setPinningInstanceIDs((current) => new Set(current).add(instance.id));
+      queryClient.setQueryData<Instance[]>(INSTANCES_QUERY_KEY, (current = []) =>
+        current.map((item) => (item.id === instance.id ? { ...item, isPinned } : item)),
+      );
+      try {
+        await instancesApi.setPinned(instance.id, isPinned);
+      } catch (error) {
+        queryClient.setQueryData<Instance[]>(INSTANCES_QUERY_KEY, (current = []) =>
+          current.map((item) =>
+            item.id === instance.id ? { ...item, isPinned: instance.isPinned } : item,
+          ),
+        );
+        notify(errorMessage(error), "error");
+      } finally {
+        setPinningInstanceIDs((current) => {
+          const next = new Set(current);
+          next.delete(instance.id);
+          return next;
+        });
+      }
+    },
+    [notify, queryClient],
+  );
+
+  const handleSortChange = useCallback(
+    (nextSort: LibrarySort) => {
+      if (!settings) return;
+      const next = { ...settings, librarySort: nextSort };
+      const revision = ++sortRevisionRef.current;
+      queryClient.setQueryData(SETTINGS_QUERY_KEY, next);
+      const previousSave = sortSaveQueueRef.current;
+      sortSaveQueueRef.current = (async () => {
+        await previousSave;
+        try {
+          const saved = await settingsApi.setLibrarySort(nextSort);
+          if (revision === sortRevisionRef.current) {
+            queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
+          }
+        } catch (error) {
+          if (revision === sortRevisionRef.current) {
+            await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
+            notify(errorMessage(error), "error");
+          }
+        }
+      })();
+    },
+    [notify, queryClient, settings],
+  );
 
   const startValidatedInstance = useCallback(
     async (instance: Instance) => {
@@ -277,6 +414,22 @@ export function LibraryPage() {
             )}
           </ToolbarGroup>
           <ToolbarGroup align="end">
+            <Select
+              value={librarySort}
+              disabled={!settings || instances.length === 0}
+              onValueChange={(value) => handleSortChange(normalizeLibrarySort(value))}
+            >
+              <SelectTrigger className="w-[170px]" aria-label={t("sort_by")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lastPlayed">{t("sort_last_played")}</SelectItem>
+                <SelectItem value="name">{t("sort_name")}</SelectItem>
+                <SelectItem value="playtime">{t("sort_playtime")}</SelectItem>
+                <SelectItem value="gameVersion">{t("sort_game_version")}</SelectItem>
+                <SelectItem value="createdAt">{t("sort_created_at")}</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="secondary" onClick={() => void startImport()}>
               <Import size={16} aria-hidden="true" />
               {t("import_instance")}
@@ -336,6 +489,7 @@ export function LibraryPage() {
                 version={versionById.get(instance.gameVersionId)}
                 updateCount={modUpdates[instance.id]?.summary.updatesAvailable ?? 0}
                 busy={busyInstanceIDs.has(instance.id)}
+                pinBusy={pinningInstanceIDs.has(instance.id)}
                 onOpen={handleOpen}
                 onEdit={handleEdit}
                 onOpenDirectory={(item) => void handleOpenDirectory(item)}
@@ -344,6 +498,7 @@ export function LibraryPage() {
                 onDelete={handleDelete}
                 onLaunch={(item) => void launch(item)}
                 onStop={handleStop}
+                onTogglePin={(item) => void handleTogglePin(item)}
               />
             ))}
           </div>

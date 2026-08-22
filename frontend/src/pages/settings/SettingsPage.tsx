@@ -63,6 +63,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
     left.telemetryEnabled === right.telemetryEnabled &&
     left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
+    left.librarySort === right.librarySort &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],

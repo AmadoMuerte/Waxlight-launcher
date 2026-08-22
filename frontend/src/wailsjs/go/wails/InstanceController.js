@@ -26,6 +26,10 @@ export function SelectInstanceCover() {
   return window['go']['wails']['InstanceController']['SelectInstanceCover']();
 }
 
+export function SetInstancePinned(arg1, arg2) {
+  return window['go']['wails']['InstanceController']['SetInstancePinned'](arg1, arg2);
+}
+
 export function UpdateInstance(arg1) {
   return window['go']['wails']['InstanceController']['UpdateInstance'](arg1);
 }

@@ -23,6 +23,7 @@ type CreateRepository interface {
 type UpdateRepository interface {
 	GetInstance(context.Context, string) (Instance, error)
 	SaveInstance(context.Context, Instance) error
+	SetInstancePinned(context.Context, string, bool) (Instance, error)
 }
 
 type DeleteRepository interface {

@@ -4,6 +4,8 @@ import type { DataFolder, OptimumStatus, Settings } from "./types";
 export const settingsApi = {
   get: () => call<Settings>("SettingsController", "GetSettings"),
   update: (settings: Settings) => call<Settings>("SettingsController", "UpdateSettings", settings),
+  setLibrarySort: (value: Settings["librarySort"]) =>
+    call<Settings>("SettingsController", "SetLibrarySort", value),
   selectGameArchive: () => call<string>("SettingsController", "SelectGameArchive"),
   selectGameDirectory: () => call<string>("SettingsController", "SelectGameDirectory"),
   getOptimumStatus: () => call<OptimumStatus>("SettingsController", "GetOptimumStatus"),

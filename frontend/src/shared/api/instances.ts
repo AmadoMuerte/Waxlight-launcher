@@ -24,6 +24,8 @@ export const instancesApi = {
     environmentVariables?: Record<string, string>;
     coverSourcePath?: string;
   }) => call<Instance>("InstanceController", "UpdateInstance", request),
+  setPinned: (id: string, pinned: boolean) =>
+    call<Instance>("InstanceController", "SetInstancePinned", id, pinned),
   remove: (id: string, deleteFiles: boolean) =>
     call<void>("InstanceController", "DeleteInstance", id, deleteFiles),
   clone: (request: { sourceId: string; name: string }) =>

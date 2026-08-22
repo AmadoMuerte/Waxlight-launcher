@@ -13,7 +13,7 @@ import (
 )
 
 const instanceColumns = `id, name, description, game_version_id, game_client, default_account_id,
-	directory, cover_path, status, launch_arguments, environment_variables, last_played_at, created_at, updated_at`
+	directory, cover_path, status, launch_arguments, environment_variables, is_pinned, last_played_at, created_at, updated_at`
 
 func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+instanceColumns+` FROM instances ORDER BY COALESCE(last_played_at, created_at) DESC`)
@@ -35,9 +35,10 @@ func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, 
 func scanInstance(row scanner) (instances.Instance, error) {
 	var instance instances.Instance
 	var account, cover, last sql.NullString
+	var isPinned int
 	var arguments, environmentVariables, created, updated string
 	err := row.Scan(&instance.ID, &instance.Name, &instance.Description, &instance.GameVersionID, &instance.GameClient, &account,
-		&instance.Directory, &cover, &instance.Status, &arguments, &environmentVariables, &last, &created, &updated)
+		&instance.Directory, &cover, &instance.Status, &arguments, &environmentVariables, &isPinned, &last, &created, &updated)
 	if err != nil {
 		return instance, err
 	}
@@ -53,6 +54,7 @@ func scanInstance(row scanner) (instances.Instance, error) {
 		instance.CoverPath = &cover.String
 	}
 	instance.LastPlayedAt = parseTS(last)
+	instance.IsPinned = isPinned == 1
 	_ = json.Unmarshal([]byte(arguments), &instance.LaunchArguments)
 	_ = json.Unmarshal([]byte(environmentVariables), &instance.EnvironmentVariables)
 	if instance.EnvironmentVariables == nil {
@@ -79,18 +81,28 @@ func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Insta
 	if !valid {
 		return errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description,
 		game_version_id=excluded.game_version_id, game_client=excluded.game_client, default_account_id=excluded.default_account_id,
 		directory=excluded.directory, cover_path=excluded.cover_path, status=excluded.status,
-		launch_arguments=excluded.launch_arguments, environment_variables=excluded.environment_variables, last_played_at=excluded.last_played_at, updated_at=excluded.updated_at`,
+		launch_arguments=excluded.launch_arguments, environment_variables=excluded.environment_variables, is_pinned=instances.is_pinned,
+		last_played_at=excluded.last_played_at, updated_at=excluded.updated_at`,
 		instance.ID, instance.Name, instance.Description, instance.GameVersionID, instance.GameClient, instance.DefaultAccountID,
-		instance.Directory, instance.CoverPath, instance.Status, string(arguments), string(environmentVariables), optTS(instance.LastPlayedAt),
+		instance.Directory, instance.CoverPath, instance.Status, string(arguments), string(environmentVariables), btoi(instance.IsPinned), optTS(instance.LastPlayedAt),
 		ts(instance.CreatedAt), ts(instance.UpdatedAt))
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed: instances.directory") {
 		return errs.NewError(instances.ErrDirectoryConflict, "The directory is already used by another instance")
 	}
 	return err
+}
+
+func (s *SQLiteStore) SetInstancePinned(ctx context.Context, id string, pinned bool) (instances.Instance, error) {
+	instance, err := scanInstance(s.db.QueryRowContext(ctx,
+		`UPDATE instances SET is_pinned=? WHERE id=? RETURNING `+instanceColumns, btoi(pinned), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return instance, errs.NewError(instances.ErrInstanceNotFound, "Instance not found")
+	}
+	return instance, err
 }
 
 func (s *SQLiteStore) DeleteInstance(ctx context.Context, id string) error {

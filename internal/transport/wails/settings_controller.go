@@ -63,8 +63,14 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
 		SkippedUpdateVersion: request.SkippedUpdateVersion, TelemetryEnabled: request.TelemetryEnabled,
 		AutomaticSafetySnapshots: request.AutomaticSafetySnapshots,
+		LibrarySort:              request.LibrarySort,
 	})
 	return settingsDTO(value), err
+}
+
+func (controller *SettingsController) SetLibrarySort(value string) (SettingsDTO, error) {
+	updated, err := controller.service.SetLibrarySort(controller.lifecycle.Context(), value)
+	return settingsDTO(updated), err
 }
 
 func (controller *SettingsController) GetDataFolder() (DataFolderDTO, error) {
