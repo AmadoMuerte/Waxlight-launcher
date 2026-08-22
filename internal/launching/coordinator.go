@@ -607,6 +607,9 @@ func (coordinator *Coordinator) waitForGame(
 ) {
 	defer releaseMutation()
 	exitCode, waitErr := process.Wait()
+	// The process is no longer eligible for Last Known Good. Publish that state
+	// before any potentially slow post-exit cleanup starts.
+	coordinator.registry.Stop(instance.ID)
 	// Let the tailer pick up the lines the process flushed right before
 	// exiting, then stop it before the log file is closed.
 	stopGameLog()
@@ -638,8 +641,6 @@ func (coordinator *Coordinator) waitForGame(
 	if err := coordinator.instances.SaveInstance(context.Background(), instance); err != nil {
 		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
 	}
-
-	coordinator.registry.Stop(instance.ID)
 
 	coordinator.publish("game:exited", map[string]any{
 		"instanceId":      instance.ID,
