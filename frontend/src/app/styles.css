@@ -143,6 +143,10 @@
     height: auto;
     padding: 24px 16px 60px;
   }
+  .appActions {
+    top: 18px;
+    right: 18px;
+  }
   .pageHeader {
     gap: 16px;
   }

@@ -6,7 +6,6 @@ import {
   PanelsTopLeft,
   Puzzle,
   Server,
-  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -20,7 +19,6 @@ const navigation = [
   { to: "/servers", icon: Server, labelKey: "servers" },
   { to: "/operations", icon: ListTodo, labelKey: "operations" },
   { to: "/statistics", icon: ChartNoAxesColumn, labelKey: "statistics" },
-  { to: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;
 
 export function SideNav() {

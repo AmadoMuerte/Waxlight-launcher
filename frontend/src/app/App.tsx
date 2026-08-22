@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes, useNavigate } from "react-router";
 
 import { useAccountsQuery } from "../entities/account/queries";
@@ -33,6 +34,7 @@ import { AppShell } from "../widgets/layout/AppShell";
 import { ErrorBanner } from "../widgets/layout/ErrorBanner";
 import { UpdateDialog } from "../widgets/layout/UpdateDialog";
 import { useAppShellStore } from "./stores/app-shell";
+import { useNotificationStore } from "./stores/notifications";
 import { useRecoveryStore } from "./stores/recovery";
 
 const POLL_INTERVAL = 8_000;
@@ -43,6 +45,7 @@ const UiLabPage = import.meta.env.DEV
   : undefined;
 
 export function App() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const accountsQuery = useAccountsQuery({ refetchInterval: POLL_INTERVAL });
   const instancesQuery = useInstancesQuery({ refetchInterval: POLL_INTERVAL });
@@ -68,11 +71,17 @@ export function App() {
   const setLauncherVersion = useAppShellStore((state) => state.setLauncherVersion);
   const setUpdateProgress = useAppShellStore((state) => state.setUpdateProgress);
   const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
+  const launcherUpdate = useAppShellStore((state) => state.launcherUpdate);
+  const updateNotificationEnabled = useAppShellStore((state) => state.updateNotificationEnabled);
+  const showUpdate = useAppShellStore((state) => state.showUpdate);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const removeNotification = useNotificationStore((state) => state.removeNotification);
   const queryClient = useQueryClient();
 
   const settings = settingsQuery.data;
   const updateCheckedOnceRef = useRef(false);
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
+  const updateNotificationIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const open = (target: unknown) => {
@@ -161,9 +170,40 @@ export function App() {
     }
     if (settings.checkForUpdates && !updateCheckedOnceRef.current) {
       updateCheckedOnceRef.current = true;
-      void checkForUpdate(settings.updateChannel, settings.skippedUpdateVersion);
+      void checkForUpdate(settings.updateChannel);
     }
   }, [checkForUpdate, settings]);
+
+  useEffect(() => {
+    if (!launcherUpdate || !updateNotificationEnabled) {
+      if (updateNotificationIdRef.current) {
+        removeNotification(updateNotificationIdRef.current);
+        updateNotificationIdRef.current = undefined;
+      }
+      return;
+    }
+
+    const id = `launcher-update:${launcherUpdate.version}`;
+    if (updateNotificationIdRef.current && updateNotificationIdRef.current !== id) {
+      removeNotification(updateNotificationIdRef.current);
+    }
+    updateNotificationIdRef.current = id;
+    addNotification({
+      id,
+      type: "info",
+      title: t("notification_update_available"),
+      message: t("notification_update_message", { version: launcherUpdate.version }),
+      action: { label: t("view_update"), run: showUpdate },
+      metadata: { update: launcherUpdate },
+    });
+  }, [
+    addNotification,
+    launcherUpdate,
+    removeNotification,
+    showUpdate,
+    t,
+    updateNotificationEnabled,
+  ]);
 
   useEffect(() => {
     if (!settings) {
@@ -181,7 +221,7 @@ export function App() {
 
     useAppShellStore.getState().dismissUpdate();
 
-    void checkForUpdate(current, settings.skippedUpdateVersion);
+    void checkForUpdate(current);
   }, [checkForUpdate, settings]);
 
   useEffect(() => {

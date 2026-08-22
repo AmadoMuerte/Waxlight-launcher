@@ -271,6 +271,45 @@
     overflow-y: auto;
   }
 
+  .appActions {
+    position: fixed;
+    z-index: 10;
+    top: 18px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .appActions .iconButton {
+    position: relative;
+    text-decoration: none;
+  }
+
+  .notificationBell.unread {
+    border-color: var(--color-warning-border);
+    color: var(--color-warning);
+    background: var(--color-warning-surface);
+  }
+
+  .notificationBadge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    display: grid;
+    min-width: 17px;
+    height: 17px;
+    place-items: center;
+    padding: 0 4px;
+    border: 2px solid var(--color-bg-app);
+    border-radius: var(--radius-full);
+    color: var(--color-accent-foreground);
+    background: var(--color-accent);
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
   .pageHeader {
     display: flex;
     align-items: flex-end;
