@@ -1,7 +1,7 @@
 git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 h1:N3IGoHHp9pb6mj1cbXbuaSXV/UMKwmbKLf53nQmtqMA=
 git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3/go.mod h1:QtOLZGz8olr4qH2vWK0QH0w0O4T9fEIjMuWpKUsH7nc=
-github.com/AmadoMuerte/vintagestory-go v0.2.2 h1:F//I45MYl3ZPfxTUl4ObHcPl4TOcSTLScEYEDmNep6I=
-github.com/AmadoMuerte/vintagestory-go v0.2.2/go.mod h1:A0NHkLFRSvt9cGXEtCleUh3AosKoc1fv/YAMhe7iXps=
+github.com/AmadoMuerte/vintagestory-go v0.3.0 h1:YuvmDZok3lrBX0moXEX6BCf44xYx1121KCycN+UQkF4=
+github.com/AmadoMuerte/vintagestory-go v0.3.0/go.mod h1:A0NHkLFRSvt9cGXEtCleUh3AosKoc1fv/YAMhe7iXps=
 github.com/bep/debounce v1.2.1 h1:v67fRdBA9UQu2NhLFXrSg0Brw7CexQekrBwDMM8bzeY=
 github.com/bep/debounce v1.2.1/go.mod h1:H8yggRPQKLUhUoqrJC1bO2xNya7vanpDl7xR3ISbCJ0=
 github.com/danieljoos/wincred v1.2.3 h1:v7dZC2x32Ut3nEfRH+vhoZGvN72+dQ/snVXo/vMFLdQ=
