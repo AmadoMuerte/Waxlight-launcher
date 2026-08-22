@@ -2,11 +2,14 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
 import i18n, { changeAppLanguage } from "../shared/i18n";
 import { App } from "./App";
+import { useAppShellStore } from "./stores/app-shell";
+import { useNotificationStore } from "./stores/notifications";
 
 const api = vi.hoisted(() => ({
   list: vi.fn().mockResolvedValue([]),
@@ -108,6 +111,12 @@ afterEach(() => {
     assetName: "",
     assetSize: 0,
   });
+  useAppShellStore.setState({
+    launcherUpdate: undefined,
+    updateDialogOpen: false,
+    updateNotificationEnabled: false,
+  });
+  useNotificationStore.setState({ notifications: [] });
 });
 
 function renderApp(initialEntries?: string[]) {
@@ -164,6 +173,7 @@ it("navigates between sidebar pages with mouse back and forward buttons", async 
 
   const libraryLink = await screen.findByRole("link", { name: /Library|Библиотека/ });
   const settingsLink = screen.getByRole("link", { name: /Settings|Настройки/ });
+  expect(document.querySelector('.sideNav a[href="/settings"]')).toBeNull();
   fireEvent.click(settingsLink);
   await waitFor(() => expect(settingsLink.className).toContain("active"));
 
@@ -216,7 +226,8 @@ it("navigates when the native window reports a side mouse button", async () => {
   vi.unstubAllGlobals();
 });
 
-it("shows a non-intrusive startup update dialog that can be postponed", async () => {
+it("publishes a startup update notification and opens the dialog only on selection", async () => {
+  const user = userEvent.setup();
   api.checkUpdate.mockResolvedValueOnce({
     installedVersion: "0.1.4",
     version: "0.1.5",
@@ -229,11 +240,54 @@ it("shows a non-intrusive startup update dialog that can be postponed", async ()
   });
   renderApp();
 
+  const bell = await screen.findByRole("button", { name: "Уведомления" });
+  expect(screen.queryByText(/0\.1\.4/)).toBeNull();
+  expect(screen.getByLabelText("Непрочитанных уведомлений: 1")).toBeTruthy();
+
+  await user.click(bell);
+  const notification = await screen.findByRole("menuitem", { name: /Доступно обновление/ });
+  expect(notification.textContent).toContain("Доступен Waxlight 0.1.5");
+  await user.click(notification);
+
   expect(await screen.findByText(/0\.1\.4/)).toBeTruthy();
   expect(screen.getByText("0.1.5")).toBeTruthy();
   expect(screen.getByText("Security and compatibility fixes")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Напомнить позже" }));
   await waitFor(() => expect(screen.queryByText(/0\.1\.4/)).toBeNull());
+
+  await user.click(bell);
+  expect(await screen.findByText("Доступно обновление")).toBeTruthy();
+  expect(screen.queryByLabelText("Непрочитанных уведомлений: 1")).toBeNull();
+});
+
+it("opens manual update checks directly without publishing a notification", async () => {
+  const user = userEvent.setup();
+  api.get.mockResolvedValueOnce({
+    language: "ru",
+    downloadsParallel: 3,
+    confirmDeletion: true,
+    globalLaunchArguments: [],
+    checkForUpdates: false,
+    updateChannel: "stable",
+    skippedUpdateVersion: "0.1.5",
+  });
+  api.checkUpdate.mockResolvedValueOnce({
+    installedVersion: "0.1.4",
+    version: "0.1.5",
+    available: true,
+    prerelease: false,
+    releaseNotes: "Security and compatibility fixes",
+    releasePageUrl: "https://github.com/AmadoMuerte/Waxlight-launcher/releases/tag/v0.1.5",
+    assetName: "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
+    assetSize: 1024,
+  });
+  renderApp(["/settings"]);
+
+  await user.click(await screen.findByRole("button", { name: "Проверить обновления" }));
+
+  expect(await screen.findByText("Security and compatibility fixes")).toBeTruthy();
+  expect(useNotificationStore.getState().notifications).toEqual([]);
+  expect(screen.queryByLabelText("Непрочитанных уведомлений: 1")).toBeNull();
 });
 
 it("updates the operations list live from backend events", async () => {

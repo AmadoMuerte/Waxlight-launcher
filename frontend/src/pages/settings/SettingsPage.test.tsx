@@ -117,10 +117,7 @@ it("calls checkForUpdate with the update channel and skipped version", async () 
   fireEvent.click(button);
 
   await waitFor(() =>
-    expect(appShell.state.checkForUpdate).toHaveBeenCalledWith(
-      settings.updateChannel,
-      settings.skippedUpdateVersion,
-    ),
+    expect(appShell.state.checkForUpdate).toHaveBeenCalledWith(settings.updateChannel, true),
   );
 });
 

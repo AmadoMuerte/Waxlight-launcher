@@ -1,4 +1,4 @@
-import { BellOff, Clock, Download, Rocket } from "lucide-react";
+import { Clock, Download, Rocket } from "lucide-react";
 import type { Root } from "mdast";
 import type { ReactNode } from "react";
 import { useRef } from "react";
@@ -132,9 +132,7 @@ function UpdateActions({
   channel: "stable" | "prerelease";
 }) {
   const { t } = useTranslation();
-  const settingsQuery = useSettingsQuery();
   const installUpdate = useAppShellStore((state) => state.installUpdate);
-  const skipUpdate = useAppShellStore((state) => state.skipUpdate);
   const openRelease = useAppShellStore((state) => state.openRelease);
   const dismissUpdate = useAppShellStore((state) => state.dismissUpdate);
 
@@ -171,20 +169,6 @@ function UpdateActions({
           <Clock className="size-4" />
           {t("update_remind_later")}
         </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={installing}
-          onClick={() => {
-            if (settingsQuery.data) {
-              void skipUpdate(settingsQuery.data, update.version);
-            }
-          }}
-        >
-          <BellOff className="size-4" />
-          {t("update_dont_remind")}
-        </Button>
       </div>
     </>
   );
@@ -196,6 +180,7 @@ export function UpdateDialog() {
   const platform = useAppShellStore((state) => state.platform);
   const installingUpdate = useAppShellStore((state) => state.installingUpdate);
   const updateProgress = useAppShellStore((state) => state.updateProgress);
+  const updateDialogOpen = useAppShellStore((state) => state.updateDialogOpen);
   const dismissUpdate = useAppShellStore((state) => state.dismissUpdate);
 
   const lastUpdateRef = useRef<LauncherUpdate | undefined>(undefined);
@@ -211,7 +196,7 @@ export function UpdateDialog() {
 
   return (
     <Dialog
-      open={Boolean(update)}
+      open={updateDialogOpen && Boolean(update)}
       onOpenChange={(open) => {
         if (!open && !installingUpdate) {
           dismissUpdate();

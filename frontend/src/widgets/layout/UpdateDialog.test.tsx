@@ -84,6 +84,7 @@ beforeEach(() => {
   useAppShellStore.setState({
     platform: "linux",
     launcherUpdate: update,
+    updateDialogOpen: true,
     installingUpdate: false,
     updateProgress: undefined,
   });
@@ -91,7 +92,11 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  useAppShellStore.setState({ launcherUpdate: undefined, installingUpdate: false });
+  useAppShellStore.setState({
+    launcherUpdate: undefined,
+    updateDialogOpen: false,
+    installingUpdate: false,
+  });
 });
 
 it("renders version transition and markdown changelog", async () => {
@@ -105,6 +110,7 @@ it("renders version transition and markdown changelog", async () => {
   expect(screen.getByRole("heading", { name: "Bug fixes" })).toBeTruthy();
   expect(screen.getByText("Version 0.3.0 • 25.0 MB")).toBeTruthy();
   expect(screen.getByRole("button", { name: "GitHub Release" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Don't remind me" })).toBeNull();
 });
 
 it("labels the dialog as a prerelease switch when moving to a prerelease", async () => {
@@ -121,23 +127,12 @@ it("labels the dialog as a switch back to stable", async () => {
   expect(await screen.findByRole("heading", { name: "Switch to stable version" })).toBeTruthy();
 });
 
-it("closes the dialog and keeps notifications on remind me later", async () => {
+it("closes the dialog without discarding the update on remind me later", async () => {
   renderDialog();
   fireEvent.click(await screen.findByRole("button", { name: "Remind me later" }));
 
-  await waitFor(() => expect(useAppShellStore.getState().launcherUpdate).toBeUndefined());
-});
-
-it("persists only the offered version when don't remind me is clicked", async () => {
-  renderDialog();
-  fireEvent.click(await screen.findByRole("button", { name: "Don't remind me" }));
-
-  await waitFor(() =>
-    expect(api.update).toHaveBeenCalledWith(
-      expect.objectContaining({ skippedUpdateVersion: "0.3.0" }),
-    ),
-  );
-  await waitFor(() => expect(useAppShellStore.getState().launcherUpdate).toBeUndefined());
+  await waitFor(() => expect(useAppShellStore.getState().updateDialogOpen).toBe(false));
+  expect(useAppShellStore.getState().launcherUpdate).toEqual(update);
 });
 
 it("opens changelog links in the user's browser", async () => {
