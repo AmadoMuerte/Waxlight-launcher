@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Globe2, Heart, RefreshCw } from "lucide-react";
-import { startTransition, useCallback, useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 
@@ -63,6 +63,7 @@ export function ServersPage() {
   const [search, setSearch] = useState("");
   const [showWhitelistServers, setShowWhitelistServers] = useState(false);
   const [visibleServerCount, setVisibleServerCount] = useState(SERVER_PAGE_SIZE);
+  const consumedDeepLink = useRef("");
   const [detailsServer, setDetailsServer] = useState<PublicServer>();
   const [joinTarget, setJoinTarget] = useState<{
     server: PublicServer;
@@ -182,12 +183,24 @@ export function ServersPage() {
         ? Reflect.get(location.state, "deepLinkAddress")
         : undefined,
     );
-    if (!address || publicServers.isLoading || favoriteServers.isLoading) return;
+    if (!address) {
+      consumedDeepLink.current = "";
+      return;
+    }
+    if (
+      consumedDeepLink.current === address ||
+      publicServers.isLoading ||
+      favoriteServers.isLoading
+    ) {
+      return;
+    }
+    consumedDeepLink.current = address;
 
     const publicServer = (publicServers.data ?? []).find(
       (server) => normalizeServerAddress(server.address) === address,
     );
     const favorite = favorites.find((server) => normalizeServerAddress(server.address) === address);
+    void navigate("/servers", { replace: true, state: null });
     setActiveTab("public");
     setDetailsServer(
       publicServer ??
@@ -204,7 +217,6 @@ export function ServersPage() {
               joinable: true,
             }),
     );
-    void navigate("/servers", { replace: true, state: null });
   }, [
     favoriteServers.isLoading,
     favorites,

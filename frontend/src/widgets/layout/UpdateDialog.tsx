@@ -203,7 +203,7 @@ export function UpdateDialog() {
         }
       }}
     >
-      <DialogContent className="updateDialog">
+      <DialogContent className="updateDialog" closable={!installingUpdate}>
         {currentUpdate && !installingUpdate && (
           <div className="updateDialogBody">
             <DialogTitle className="updateDialogTitle">

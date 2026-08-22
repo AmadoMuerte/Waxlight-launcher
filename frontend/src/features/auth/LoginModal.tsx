@@ -55,10 +55,13 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const cancelledFlowID = useRef("");
 
   useEffect(() => {
     return () => {
-      if (flowID) void accountsApi.cancelLogin(flowID).catch(() => undefined);
+      if (flowID && cancelledFlowID.current !== flowID) {
+        void accountsApi.cancelLogin(flowID).catch(() => undefined);
+      }
     };
   }, [flowID]);
 
@@ -125,14 +128,9 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
     }
   }
 
-  async function cancelFlow(close: boolean) {
-    if (flowID) {
-      try {
-        await accountsApi.cancelLogin(flowID);
-      } catch {
-        // The flow is in-memory and expires automatically.
-      }
-    }
+  function cancelFlow(close: boolean) {
+    const cancelledFlow = flowID;
+    cancelledFlowID.current = cancelledFlow;
     setFlowID("");
     setTOTP("");
     setPassword("");
@@ -142,12 +140,16 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
     } else {
       setStep("credentials");
     }
+    if (cancelledFlow) {
+      void accountsApi.cancelLogin(cancelledFlow).catch(() => undefined);
+    }
   }
 
   return (
     <Modal
       title={account ? t("sign_in_again") : t("sign_in_to_vintage_story")}
-      onClose={() => void cancelFlow(true)}
+      onClose={() => cancelFlow(true)}
+      closable={!busy}
     >
       {step === "credentials" ? (
         <SubmitForm className="dialogForm" noValidate onSubmit={submitCredentials}>
@@ -201,7 +203,7 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => cancelFlow(true)}>
               {t("cancel")}
             </Button>
             <Button type="submit" busy={busy}>
@@ -236,10 +238,10 @@ export function LoginModal({ account, onClose, onDone }: LoginModalProps) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => void cancelFlow(false)}>
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => cancelFlow(false)}>
               {t("back")}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => void cancelFlow(true)}>
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => cancelFlow(true)}>
               {t("cancel")}
             </Button>
             <Button type="submit" busy={busy}>

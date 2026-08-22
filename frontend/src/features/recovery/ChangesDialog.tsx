@@ -22,6 +22,7 @@ export function ChangesDialog({
   description,
   children,
   footer,
+  closable = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,6 +32,7 @@ export function ChangesDialog({
   description?: string;
   children: ReactNode;
   footer: ReactNode;
+  closable?: boolean;
 }) {
   return (
     <Dialog
@@ -41,7 +43,7 @@ export function ChangesDialog({
         }
       }}
     >
-      <DialogContent className="recoveryDialog">
+      <DialogContent className="recoveryDialog" closable={closable}>
         <DialogTitle className="recoveryDialogTitle">
           {icon && (
             <span className={`recoveryDialogTitleIcon ${iconVariant}`} aria-hidden="true">

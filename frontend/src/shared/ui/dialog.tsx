@@ -31,7 +31,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-overlay backdrop-blur-[7px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-overlay data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
       {...props}
@@ -42,8 +42,11 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  closable = true,
+  onEscapeKeyDown,
+  onPointerDownOutside,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & { closable?: boolean }) {
   const { t } = useTranslation();
 
   return (
@@ -55,14 +58,24 @@ function DialogContent({
           "fixed left-[50%] top-[50%] z-50 flex max-h-[85vh] w-[min(680px,calc(100vw-48px))] translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-xl border border-border-default bg-surface-2 shadow-dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           className,
         )}
+        onEscapeKeyDown={(event) => {
+          onEscapeKeyDown?.(event);
+          if (!closable) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          onPointerDownOutside?.(event);
+          if (!closable) event.preventDefault();
+        }}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close asChild>
-          <IconButton className="absolute top-4 right-4 z-10" aria-label={t("close")}>
-            <X className="size-4" aria-hidden="true" />
-          </IconButton>
-        </DialogPrimitive.Close>
+        {closable && (
+          <DialogPrimitive.Close asChild>
+            <IconButton className="absolute top-4 right-4 z-10" aria-label={t("close")}>
+              <X className="size-4" aria-hidden="true" />
+            </IconButton>
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPortal>
   );
@@ -73,7 +86,7 @@ function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     <div
       data-slot="dialog-header"
       className={cn(
-        "relative z-[2] flex items-center justify-between gap-3 border-b border-border-subtle bg-surface-2/95 px-6 py-6 backdrop-blur-[10px]",
+        "relative z-[2] flex items-center justify-between gap-3 border-b border-border-subtle bg-surface-2/95 py-6 pr-20 pl-6 backdrop-blur-[10px]",
         className,
       )}
       {...props}

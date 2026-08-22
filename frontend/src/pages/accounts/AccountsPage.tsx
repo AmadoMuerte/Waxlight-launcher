@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 
@@ -29,6 +29,7 @@ export function AccountsPage() {
   const { data: settings } = useSettingsQuery();
   const [loginAccount, setLoginAccount] = useState<Account | null>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const addRequestConsumed = useRef(false);
   const [removeConfirm, setRemoveConfirm] = useState<{
     open: boolean;
     title: string;
@@ -37,10 +38,16 @@ export function AccountsPage() {
   }>({ open: false, title: "", onConfirm: () => {} });
 
   useEffect(() => {
-    if (searchParams.get("add") === "1") {
-      setLoginAccount(null);
-      setSearchParams({}, { replace: true });
+    if (searchParams.get("add") !== "1") {
+      addRequestConsumed.current = false;
+      return;
     }
+    if (addRequestConsumed.current) return;
+    addRequestConsumed.current = true;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("add");
+    setSearchParams(nextParams, { replace: true });
+    setLoginAccount(null);
   }, [searchParams, setSearchParams]);
 
   const selectMutation = useMutation({

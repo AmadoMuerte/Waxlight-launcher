@@ -35,7 +35,7 @@ const validAccount: Account = {
   isDefault: true,
 };
 
-function renderPage(accounts: Account[] = []) {
+function renderPage(accounts: Account[] = [], initialEntry = "/accounts") {
   api.list.mockResolvedValue(accounts);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -45,7 +45,7 @@ function renderPage(accounts: Account[] = []) {
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <AccountsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -100,6 +100,16 @@ describe("account authentication UI", () => {
     expect(password.value).toBe("");
   });
 
+  it("consumes an add-account URL without reopening the dialog", async () => {
+    const user = userEvent.setup();
+    renderPage([], "/accounts?add=1");
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("blocks duplicate form submission", async () => {
     let resolveLogin!: (result: LoginResult) => void;
     api.login.mockReturnValue(
@@ -117,6 +127,12 @@ describe("account authentication UI", () => {
     fireEvent.submit(form);
     fireEvent.submit(form);
     expect(api.login).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    expect(
+      within(dialog)
+        .getByRole("button", { name: /cancel/i })
+        .hasAttribute("disabled"),
+    ).toBe(true);
 
     resolveLogin({ status: "success", account: validAccount });
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));

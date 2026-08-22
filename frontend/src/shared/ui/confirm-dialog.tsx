@@ -46,6 +46,7 @@ export function ConfirmDialog({
       }}
     >
       <DialogContent
+        closable={!loading}
         aria-describedby={hasMessage ? descriptionId : undefined}
         style={{
           width: "min(640px, calc(100vw - 32px))",
