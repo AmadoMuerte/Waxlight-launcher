@@ -1,7 +1,6 @@
 import { create } from "zustand";
 
 import { errorMessage } from "../../shared/api/bridge";
-import { settingsApi } from "../../shared/api/settings";
 import type { LauncherUpdate, LauncherUpdateProgress, Settings } from "../../shared/api/types";
 import { updatesApi } from "../../shared/api/updates";
 import { useToastStore } from "./toast";
@@ -12,6 +11,8 @@ interface AppShellState {
   platform: string;
   launcherVersion: string;
   launcherUpdate?: LauncherUpdate;
+  updateDialogOpen: boolean;
+  updateNotificationEnabled: boolean;
   updateProgress?: LauncherUpdateProgress;
   installingUpdate: boolean;
   fatalError: string;
@@ -19,23 +20,25 @@ interface AppShellState {
   setLauncherVersion: (version: string) => void;
   setUpdateProgress: (progress?: LauncherUpdateProgress) => void;
   setFatalError: (message: string) => void;
-  checkForUpdate: (channel: Settings["updateChannel"], skippedVersion: string) => Promise<void>;
+  checkForUpdate: (channel: Settings["updateChannel"], openDialog?: boolean) => Promise<void>;
   installUpdate: (channel: Settings["updateChannel"]) => Promise<void>;
-  skipUpdate: (settings: Settings, version: string) => Promise<void>;
   openRelease: (channel: Settings["updateChannel"]) => Promise<void>;
+  showUpdate: () => void;
   dismissUpdate: () => void;
 }
 
 export const useAppShellStore = create<AppShellState>((set) => ({
   platform: "",
   launcherVersion: "",
+  updateDialogOpen: false,
+  updateNotificationEnabled: false,
   installingUpdate: false,
   fatalError: "",
   setPlatform: (platform) => set({ platform }),
   setLauncherVersion: (launcherVersion) => set({ launcherVersion }),
   setUpdateProgress: (updateProgress) => set({ updateProgress }),
   setFatalError: (fatalError) => set({ fatalError }),
-  checkForUpdate: async (channel, skippedVersion) => {
+  checkForUpdate: async (channel, openDialog = false) => {
     const sequence = ++updateCheckSequence;
 
     try {
@@ -47,15 +50,21 @@ export const useAppShellStore = create<AppShellState>((set) => ({
 
       set({ launcherVersion: update.installedVersion });
 
-      if (update.available && update.version !== skippedVersion) {
-        set({ launcherUpdate: update });
+      if (update.available) {
+        set({
+          launcherUpdate: update,
+          updateDialogOpen: openDialog,
+          updateNotificationEnabled: !openDialog,
+        });
       } else {
-        set({ launcherUpdate: undefined });
+        set({
+          launcherUpdate: undefined,
+          updateDialogOpen: false,
+          updateNotificationEnabled: false,
+        });
       }
     } catch {
-      if (sequence === updateCheckSequence) {
-        set({ launcherUpdate: undefined });
-      }
+      return;
     }
   },
   installUpdate: async (channel) => {
@@ -76,14 +85,6 @@ export const useAppShellStore = create<AppShellState>((set) => ({
       useToastStore.getState().notify(errorMessage(error), "error");
     }
   },
-  skipUpdate: async (settings, version) => {
-    try {
-      await settingsApi.update({ ...settings, skippedUpdateVersion: version });
-      set({ launcherUpdate: undefined });
-    } catch (error) {
-      useToastStore.getState().notify(errorMessage(error), "error");
-    }
-  },
   openRelease: async (channel) => {
     try {
       await updatesApi.openReleasePage(channel);
@@ -91,5 +92,10 @@ export const useAppShellStore = create<AppShellState>((set) => ({
       useToastStore.getState().notify(errorMessage(error), "error");
     }
   },
-  dismissUpdate: () => set({ launcherUpdate: undefined }),
+  showUpdate: () => {
+    if (useAppShellStore.getState().launcherUpdate) {
+      set({ updateDialogOpen: true });
+    }
+  },
+  dismissUpdate: () => set({ updateDialogOpen: false }),
 }));

@@ -559,7 +559,7 @@ export function SettingsPage() {
                     onClick={async () => {
                       setChecking(true);
                       try {
-                        await checkForUpdate(value.updateChannel, value.skippedUpdateVersion);
+                        await checkForUpdate(value.updateChannel, true);
                         // If no update found, launcherUpdate stays undefined.
                         if (!useAppShellStore.getState().launcherUpdate) {
                           notify(t("launcher_is_up_to_date"));
