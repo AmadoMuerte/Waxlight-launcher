@@ -43,7 +43,7 @@ export function ServerJoinDialog({
   const versionNames = new Map(versions.map((version) => [version.id, version.name]));
 
   return (
-    <Modal title={server.name} onClose={onClose}>
+    <Modal title={server.name} onClose={onClose} closable={!busy}>
       <div className="flex min-h-0 flex-col gap-4 p-6">
         {server.address && (
           <p className="truncate font-mono text-xs text-text-muted" title={server.address}>
@@ -84,7 +84,7 @@ export function ServerJoinDialog({
         )}
       </div>
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>
+        <Button variant="ghost" disabled={busy} onClick={onClose}>
           {t("cancel")}
         </Button>
         <Button busy={busy} disabled={!selected} onClick={() => selected && onConfirm(selected)}>
