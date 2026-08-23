@@ -684,6 +684,7 @@ export namespace wails {
 	    status: string;
 	    launchArguments: string[];
 	    environmentVariables: Record<string, string>;
+	    isPinned: boolean;
 	    lastPlayedAt?: string;
 	    createdAt: string;
 	    enabledModCount: number;
@@ -707,6 +708,7 @@ export namespace wails {
 	        this.status = source["status"];
 	        this.launchArguments = source["launchArguments"];
 	        this.environmentVariables = source["environmentVariables"];
+	        this.isPinned = source["isPinned"];
 	        this.lastPlayedAt = source["lastPlayedAt"];
 	        this.createdAt = source["createdAt"];
 	        this.enabledModCount = source["enabledModCount"];
@@ -1078,6 +1080,54 @@ export namespace wails {
 		    return a;
 		}
 	}
+	export class MigrationCandidateDTO {
+	    path: string;
+	    worldCount: number;
+	    modCount: number;
+	    totalBytes: number;
+	    totalFiles: number;
+	    hasClientSettings: boolean;
+	    hasModConfig: boolean;
+	    detectedGameVersion: string;
+	    versionConfidence: string;
+	    warnings: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new MigrationCandidateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.worldCount = source["worldCount"];
+	        this.modCount = source["modCount"];
+	        this.totalBytes = source["totalBytes"];
+	        this.totalFiles = source["totalFiles"];
+	        this.hasClientSettings = source["hasClientSettings"];
+	        this.hasModConfig = source["hasModConfig"];
+	        this.detectedGameVersion = source["detectedGameVersion"];
+	        this.versionConfidence = source["versionConfidence"];
+	        this.warnings = source["warnings"];
+	    }
+	}
+	export class MigrationImportRequest {
+	    sourcePath: string;
+	    name: string;
+	    description: string;
+	    gameVersionId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MigrationImportRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourcePath = source["sourcePath"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.gameVersionId = source["gameVersionId"];
+	    }
+	}
 
 	export class ModDeletePreviewDTO {
 	    modId: string;
@@ -1384,6 +1434,69 @@ export namespace wails {
 	        this.modId = source["modId"];
 	        this.versionId = source["versionId"];
 	    }
+	}
+
+	export class NewsItemDTO {
+	    id: string;
+	    title: string;
+	    url: string;
+	    summary: string;
+	    imageUrl?: string;
+	    publishedAt: string;
+	    category: string;
+
+	    static createFrom(source: any = {}) {
+	        return new NewsItemDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.url = source["url"];
+	        this.summary = source["summary"];
+	        this.imageUrl = source["imageUrl"];
+	        this.publishedAt = source["publishedAt"];
+	        this.category = source["category"];
+	    }
+	}
+	export class NewsFeedDTO {
+	    items: NewsItemDTO[];
+	    newItems: NewsItemDTO[];
+	    fetchedAt: string;
+	    unreadCount: number;
+	    refreshFailed: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new NewsFeedDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], NewsItemDTO);
+	        this.newItems = this.convertValues(source["newItems"], NewsItemDTO);
+	        this.fetchedAt = source["fetchedAt"];
+	        this.unreadCount = source["unreadCount"];
+	        this.refreshFailed = source["refreshFailed"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 	export class OperationDTO {
@@ -1739,6 +1852,7 @@ export namespace wails {
 	    skippedUpdateVersion: string;
 	    telemetryEnabled: boolean;
 	    automaticSafetySnapshots: boolean;
+	    librarySort: string;
 
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -1756,6 +1870,7 @@ export namespace wails {
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.telemetryEnabled = source["telemetryEnabled"];
 	        this.automaticSafetySnapshots = source["automaticSafetySnapshots"];
+	        this.librarySort = source["librarySort"];
 	    }
 	}
 	export class StatisticsDTO {

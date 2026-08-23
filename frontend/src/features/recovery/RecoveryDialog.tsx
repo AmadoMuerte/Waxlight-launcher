@@ -57,6 +57,7 @@ export function RecoveryDialog() {
   return (
     <ChangesDialog
       open={Boolean(suggestion)}
+      closable={!restoring}
       onClose={() => {
         if (!restoring) {
           acknowledge();

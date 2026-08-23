@@ -61,8 +61,8 @@ func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {
 	assertColumns(t, path, "accounts", "email", "uid", "last_validated_at")
 	assertColumns(t, path, "operations", "title_key", "title_params")
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertColumns(t, path, "instances", "game_client", "environment_variables")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8)
+	assertColumns(t, path, "instances", "game_client", "environment_variables", "is_pinned")
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 }
 
 func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
@@ -96,7 +96,7 @@ func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
 	assertColumns(t, path, "operations", "id", "type", "resource_id", "title", "status", "progress",
 		"current_bytes", "total_bytes", "bytes_per_second", "error_code", "error_message", "created_at",
 		"started_at", "finished_at", "title_key", "title_params")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 
 	store, err = sqlite.Open(path)
 	if err != nil {
@@ -181,7 +181,7 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 
 	db = openRawDatabase(t, path)
 	defer db.Close()
@@ -234,6 +234,9 @@ func TestGameClientMigrationBackfillsVanilla(t *testing.T) {
 	}
 	if instance.GameClient != "vanilla" {
 		t.Fatalf("migrated game client = %q", instance.GameClient)
+	}
+	if instance.IsPinned {
+		t.Fatal("legacy instance was migrated as pinned")
 	}
 }
 

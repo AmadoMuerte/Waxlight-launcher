@@ -14,8 +14,16 @@ export function DeleteInstance(arg1, arg2) {
   return window['go']['wails']['InstanceController']['DeleteInstance'](arg1, arg2);
 }
 
+export function DetectExistingVintageStoryData() {
+  return window['go']['wails']['InstanceController']['DetectExistingVintageStoryData']();
+}
+
 export function GetInstance(arg1) {
   return window['go']['wails']['InstanceController']['GetInstance'](arg1);
+}
+
+export function InspectExistingVintageStoryData(arg1) {
+  return window['go']['wails']['InstanceController']['InspectExistingVintageStoryData'](arg1);
 }
 
 export function ListInstances() {
@@ -24,6 +32,14 @@ export function ListInstances() {
 
 export function SelectInstanceCover() {
   return window['go']['wails']['InstanceController']['SelectInstanceCover']();
+}
+
+export function SetInstancePinned(arg1, arg2) {
+  return window['go']['wails']['InstanceController']['SetInstancePinned'](arg1, arg2);
+}
+
+export function StartExistingDataImport(arg1) {
+  return window['go']['wails']['InstanceController']['StartExistingDataImport'](arg1);
 }
 
 export function UpdateInstance(arg1) {

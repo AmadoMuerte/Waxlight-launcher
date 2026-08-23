@@ -7,6 +7,7 @@ import {
   Pencil,
   Play,
   Square,
+  Star,
   Trash2,
 } from "lucide-react";
 import { memo, useId } from "react";
@@ -33,6 +34,7 @@ interface InstanceCardProps {
   version?: GameVersion;
   updateCount?: number;
   busy?: boolean;
+  pinBusy?: boolean;
   onOpen: (instance: Instance) => void;
   onEdit: (instance: Instance) => void;
   onOpenDirectory: (instance: Instance) => void;
@@ -41,6 +43,7 @@ interface InstanceCardProps {
   onDelete: (instance: Instance) => void;
   onLaunch: (instance: Instance) => void;
   onStop: (instance: Instance) => Promise<void>;
+  onTogglePin: (instance: Instance) => void;
 }
 
 export const InstanceCard = memo(function InstanceCard({
@@ -48,6 +51,7 @@ export const InstanceCard = memo(function InstanceCard({
   version,
   updateCount = 0,
   busy = false,
+  pinBusy = false,
   onOpen,
   onEdit,
   onOpenDirectory,
@@ -56,6 +60,7 @@ export const InstanceCard = memo(function InstanceCard({
   onDelete,
   onLaunch,
   onStop,
+  onTogglePin,
 }: InstanceCardProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -100,47 +105,61 @@ export const InstanceCard = memo(function InstanceCard({
             >
               {instance.name}
             </h3>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconButton
-                  className="relative z-[2] shrink-0"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("instance_actions", { name: instance.name })}
-                  disabled={busy}
-                >
-                  <MoreHorizontal aria-hidden="true" />
-                </IconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => onOpen(instance)}>
-                  <Eye aria-hidden="true" />
-                  {t("overview")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onEdit(instance)}>
-                  <Pencil aria-hidden="true" />
-                  {t("settings")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onOpenDirectory(instance)}>
-                  <FolderOpen aria-hidden="true" />
-                  {t("open_directory")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onClone(instance)}>
-                  <Copy aria-hidden="true" />
-                  {t("clone_instance")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onExport(instance)}>
-                  <PackageOpen aria-hidden="true" />
-                  {t("export_instance")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => onDelete(instance)}>
-                  <Trash2 aria-hidden="true" />
-                  {t("delete_instance")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="relative z-[2] flex shrink-0 items-center gap-1">
+              <IconButton
+                className={instance.isPinned ? "text-warning" : undefined}
+                variant="ghost"
+                size="sm"
+                aria-label={`${t(instance.isPinned ? "unpin_instance" : "pin_instance")}: ${instance.name}`}
+                aria-pressed={instance.isPinned}
+                title={t(instance.isPinned ? "unpin_instance" : "pin_instance")}
+                disabled={busy || pinBusy}
+                onClick={() => onTogglePin(instance)}
+              >
+                <Star fill={instance.isPinned ? "currentColor" : "none"} aria-hidden="true" />
+              </IconButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <IconButton
+                    className="shrink-0"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t("instance_actions", { name: instance.name })}
+                    disabled={busy}
+                  >
+                    <MoreHorizontal aria-hidden="true" />
+                  </IconButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => onOpen(instance)}>
+                    <Eye aria-hidden="true" />
+                    {t("overview")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onEdit(instance)}>
+                    <Pencil aria-hidden="true" />
+                    {t("settings")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onOpenDirectory(instance)}>
+                    <FolderOpen aria-hidden="true" />
+                    {t("open_directory")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => onClone(instance)}>
+                    <Copy aria-hidden="true" />
+                    {t("clone_instance")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onExport(instance)}>
+                    <PackageOpen aria-hidden="true" />
+                    {t("export_instance")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => onDelete(instance)}>
+                    <Trash2 aria-hidden="true" />
+                    {t("delete_instance")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <p className="line-clamp-2 min-h-10 text-sm leading-5 text-text-muted">
             {instance.description || t("instance_default_description")}

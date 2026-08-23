@@ -19,6 +19,7 @@ const instance: Instance = {
   status: "ready",
   launchArguments: [],
   environmentVariables: {},
+  isPinned: false,
   createdAt: "2026-01-01T00:00:00Z",
   enabledModCount: 12,
   totalModCount: 14,
@@ -49,6 +50,7 @@ function renderCard(overrides: Partial<Parameters<typeof InstanceCard>[0]> = {})
     onDelete: vi.fn(),
     onLaunch: vi.fn(),
     onStop: vi.fn().mockResolvedValue(undefined),
+    onTogglePin: vi.fn(),
   };
   render(<InstanceCard instance={instance} version={version} {...handlers} {...overrides} />);
   return handlers;
@@ -88,6 +90,27 @@ describe("InstanceCard", () => {
     await user.click(screen.getByRole("button", { name: "Actions for Warm home" }));
     await user.click(screen.getByRole("menuitem", { name: "Delete instance" }));
     expect(handlers.onDelete).toHaveBeenCalledWith(instance);
+  });
+
+  it("toggles pinning without opening the card", async () => {
+    const handlers = renderCard();
+    const pinButton = screen.getByRole("button", { name: "Pin instance: Warm home" });
+    expect(pinButton.getAttribute("aria-pressed")).toBe("false");
+
+    await userEvent.setup().click(pinButton);
+
+    expect(handlers.onTogglePin).toHaveBeenCalledWith(instance);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Play action stable while pinning", () => {
+    renderCard({ pinBusy: true });
+
+    expect(
+      screen.getByRole("button", { name: "Pin instance: Warm home" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Play" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Starting…" })).toBeNull();
   });
 
   it("disables the primary action and announces progress while launching", () => {

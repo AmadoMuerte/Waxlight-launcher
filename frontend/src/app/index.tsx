@@ -12,6 +12,7 @@ import { installGlobalErrorLogging, log } from "../shared/lib/logger";
 import { TooltipProvider } from "../shared/ui/tooltip";
 import { App } from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { installInputModality } from "./input-modality";
 import { queryClient } from "./providers/queryClient";
 
 import "./styles.css";
@@ -27,6 +28,8 @@ const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("The application root element was not found.");
 }
+
+installInputModality();
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>

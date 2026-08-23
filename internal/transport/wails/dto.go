@@ -138,6 +138,7 @@ type InstanceDTO struct {
 	Status               string            `json:"status"`
 	LaunchArguments      []string          `json:"launchArguments"`
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
+	IsPinned             bool              `json:"isPinned"`
 	LastPlayedAt         *string           `json:"lastPlayedAt,omitempty"`
 	CreatedAt            string            `json:"createdAt"`
 	EnabledModCount      int               `json:"enabledModCount"`
@@ -167,6 +168,7 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 		Status:               instance.Status,
 		LaunchArguments:      launchArguments,
 		EnvironmentVariables: environmentVariables,
+		IsPinned:             instance.IsPinned,
 		CreatedAt:            iso(instance.CreatedAt),
 	}
 	if instance.LastPlayedAt != nil {
@@ -331,6 +333,7 @@ type SettingsDTO struct {
 	SkippedUpdateVersion     string   `json:"skippedUpdateVersion"`
 	TelemetryEnabled         bool     `json:"telemetryEnabled"`
 	AutomaticSafetySnapshots bool     `json:"automaticSafetySnapshots"`
+	LibrarySort              string   `json:"librarySort"`
 }
 
 func settingsDTO(settings settings.Settings) SettingsDTO {
@@ -350,6 +353,7 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 		SkippedUpdateVersion:     settings.SkippedUpdateVersion,
 		TelemetryEnabled:         settings.TelemetryEnabled,
 		AutomaticSafetySnapshots: settings.AutomaticSafetySnapshots,
+		LibrarySort:              settings.LibrarySort,
 	}
 }
 

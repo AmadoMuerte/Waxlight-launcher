@@ -9,6 +9,19 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
+type MigrationStorage interface {
+	Discover() []string
+	Inspect(string) (MigrationCandidate, error)
+	ValidateTarget(string, string) error
+	Copy(context.Context, string, string, func(MigrationCopyProgress)) (MigrationCopyResult, error)
+}
+
+type MigrationDiskSpace interface {
+	Available(string) (int64, error)
+}
+
+type MigrationModReconciler func(context.Context, string) []string
+
 type QueryRepository interface {
 	ListInstances(context.Context) ([]Instance, error)
 	GetInstance(context.Context, string) (Instance, error)
@@ -23,6 +36,7 @@ type CreateRepository interface {
 type UpdateRepository interface {
 	GetInstance(context.Context, string) (Instance, error)
 	SaveInstance(context.Context, Instance) error
+	SetInstancePinned(context.Context, string, bool) (Instance, error)
 }
 
 type DeleteRepository interface {
@@ -74,6 +88,10 @@ type InstanceCreator interface {
 	Create(context.Context, CreateInput) (Instance, error)
 }
 
+type PreparedInstanceCreator interface {
+	CreatePrepared(context.Context, CreateInput, func(context.Context, string) error) (Instance, error)
+}
+
 type CloneStorage interface {
 	Copy(context.Context, string, string) error
 	CopiedPath(string, string, string) (string, bool)
@@ -94,6 +112,7 @@ type ClientSettingsClearer func(string) error
 type DeleteGuard func(string) (func(), error)
 type CloneGuard func(string) (func(), error)
 type DirectoryRemover func(string) error
+type DirectoryRemovalStager func(string) (restore func() error, remove func() error, err error)
 type RecoveryCleaner func(context.Context, string) error
 type LanguageFunc func(context.Context) (string, error)
 type TelemetryFunc func(context.Context, string)

@@ -19,6 +19,7 @@ const settings: Settings = {
   skippedUpdateVersion: "0.2.0",
   telemetryEnabled: true,
   automaticSafetySnapshots: true,
+  librarySort: "lastPlayed",
 };
 
 const settingsQuery = vi.hoisted(() => ({

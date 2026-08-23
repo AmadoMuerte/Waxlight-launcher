@@ -44,6 +44,13 @@ const api = vi.hoisted(() => ({
     assetName: "",
     assetSize: 0,
   }),
+  newsSync: vi.fn().mockResolvedValue({
+    items: [],
+    newItems: [],
+    fetchedAt: "2026-08-23T00:00:00Z",
+    unreadCount: 0,
+    refreshFailed: false,
+  }),
 }));
 
 vi.mock("../shared/api/instances", () => ({
@@ -74,6 +81,13 @@ vi.mock("../shared/api/updates", () => ({
 }));
 vi.mock("../shared/api/deep-links", () => ({
   deepLinksApi: { consumePending: vi.fn().mockResolvedValue([]) },
+}));
+vi.mock("../shared/api/news", () => ({
+  newsApi: {
+    sync: api.newsSync,
+    markSeen: vi.fn().mockResolvedValue(undefined),
+    openArticle: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
@@ -110,6 +124,13 @@ afterEach(() => {
     releasePageUrl: "",
     assetName: "",
     assetSize: 0,
+  });
+  api.newsSync.mockResolvedValue({
+    items: [],
+    newItems: [],
+    fetchedAt: "2026-08-23T00:00:00Z",
+    unreadCount: 0,
+    refreshFailed: false,
   });
   useAppShellStore.setState({
     launcherUpdate: undefined,
@@ -204,6 +225,18 @@ it("exposes the UI Lab through development navigation", async () => {
 
   expect(await screen.findByRole("heading", { level: 1, name: "Waxlight UI Lab" })).toBeTruthy();
   expect(screen.getByRole("link", { name: /UI Lab/ })).toBeTruthy();
+});
+
+it("renders the News route without coupling it to core startup", async () => {
+  renderApp(["/news"]);
+  expect(await screen.findByRole("heading", { level: 1, name: /News|Новости/ })).toBeTruthy();
+});
+
+it("keeps core startup usable when News is unavailable", async () => {
+  api.newsSync.mockRejectedValueOnce(new Error("offline"));
+  renderApp(["/library"]);
+  expect(await screen.findByRole("link", { name: /Library|Библиотека/ })).toBeTruthy();
+  expect(useAppShellStore.getState().fatalError).toBe("");
 });
 
 it("navigates when the native window reports a side mouse button", async () => {

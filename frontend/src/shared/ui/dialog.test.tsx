@@ -2,7 +2,7 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, expect, it } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 
 import i18n from "../i18n";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./dialog";
@@ -30,4 +30,21 @@ it("names the dialog and returns focus when it closes", async () => {
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(trigger);
+});
+
+it("does not begin closing when the dialog is locked", async () => {
+  const onOpenChange = vi.fn();
+  render(
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent closable={false}>
+        <DialogTitle>Installing update</DialogTitle>
+      </DialogContent>
+    </Dialog>,
+  );
+
+  expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  await userEvent.setup().keyboard("{Escape}");
+
+  expect(screen.getByRole("dialog", { name: "Installing update" })).toBeTruthy();
+  expect(onOpenChange).not.toHaveBeenCalled();
 });

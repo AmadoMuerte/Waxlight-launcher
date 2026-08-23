@@ -67,6 +67,28 @@ func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 	}
 }
 
+func TestOperationUpsertPersistsResourceID(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "operations.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	now := time.Now().UTC()
+	operation := operations.Operation{ID: "import", Type: "existing_data_import", Title: "Import", Status: operations.StatusRunning, CreatedAt: now}
+	if err := store.SaveOperation(context.Background(), operation); err != nil {
+		t.Fatal(err)
+	}
+	resource := "instance-id"
+	operation.ResourceID = &resource
+	if err := store.SaveOperation(context.Background(), operation); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := store.ListOperations(context.Background(), 1)
+	if err != nil || len(stored) != 1 || stored[0].ResourceID == nil || *stored[0].ResourceID != resource {
+		t.Fatalf("resource ID was not persisted: %#v, %v", stored, err)
+	}
+}
+
 func TestFavoriteServersPersistAndDelete(t *testing.T) {
 	store, err := sqlite.Open(filepath.Join(t.TempDir(), "favorites.db"))
 	if err != nil {

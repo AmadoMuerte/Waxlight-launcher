@@ -2,13 +2,14 @@ package instances
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"path/filepath"
 	"strings"
 
 	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/waxlight/waxlight-launcher/internal/snapshots"
 )
 
 const (
@@ -75,6 +76,16 @@ func NewCreateService(
 }
 
 func (service *CreateService) Create(ctx context.Context, input CreateInput) (Instance, error) {
+	return service.CreatePrepared(ctx, input, nil)
+}
+
+// CreatePrepared prepares an allocated instance directory before the instance
+// becomes visible in persistence.
+func (service *CreateService) CreatePrepared(
+	ctx context.Context,
+	input CreateInput,
+	prepare func(context.Context, string) error,
+) (result Instance, resultErr error) {
 	if err := service.gate.Begin(); err != nil {
 		return Instance{}, err
 	}
@@ -138,6 +149,13 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 		if !committed {
 			if rollbackErr := allocation.Rollback(); rollbackErr != nil {
 				slog.Warn("could not roll back instance directory allocation", "error", rollbackErr)
+				if resultErr != nil {
+					if errors.Is(resultErr, context.Canceled) {
+						resultErr = fmt.Errorf("could not fully clean up cancelled instance creation: %w", rollbackErr)
+					} else {
+						resultErr = errors.Join(resultErr, fmt.Errorf("roll back instance directory: %w", rollbackErr))
+					}
+				}
 			}
 		}
 	}()
@@ -149,6 +167,14 @@ func (service *CreateService) Create(ctx context.Context, input CreateInput) (In
 	}
 	if used {
 		return Instance{}, errs.NewError(ErrDirectoryConflict, "The directory is already used by another instance")
+	}
+	if prepare != nil {
+		if err := prepare(ctx, directory); err != nil {
+			return Instance{}, err
+		}
+		if err := ctx.Err(); err != nil {
+			return Instance{}, err
+		}
 	}
 
 	now := service.now().UTC()
@@ -288,11 +314,24 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 	return updated, nil
 }
 
+func (service *UpdateService) SetPinned(ctx context.Context, id string, pinned bool) (Instance, error) {
+	if err := service.gate.Begin(); err != nil {
+		return Instance{}, err
+	}
+	defer service.gate.End()
+
+	updated, err := service.repository.SetInstancePinned(ctx, id, pinned)
+	if err == nil && service.events != nil {
+		service.events.Publish("instance:updated", updated)
+	}
+	return updated, err
+}
+
 type DeleteService struct {
 	repository          DeleteRepository
 	gate                MutationGate
 	lock                MutationLock
-	removeDirectory     DirectoryRemover
+	stageDirectory      DirectoryRemovalStager
 	clearClientSettings ClientSettingsClearer
 	cleanRecovery       RecoveryCleaner
 	events              Publisher
@@ -303,7 +342,7 @@ func NewDeleteService(
 	repository DeleteRepository,
 	gate MutationGate,
 	lock MutationLock,
-	removeDirectory DirectoryRemover,
+	stageDirectory DirectoryRemovalStager,
 	clearClientSettings ClientSettingsClearer,
 	cleanRecovery RecoveryCleaner,
 	events Publisher,
@@ -313,7 +352,7 @@ func NewDeleteService(
 		repository:          repository,
 		gate:                gate,
 		lock:                lock,
-		removeDirectory:     removeDirectory,
+		stageDirectory:      stageDirectory,
 		clearClientSettings: clearClientSettings,
 		cleanRecovery:       cleanRecovery,
 		events:              events,
@@ -342,11 +381,13 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	if err != nil {
 		return err
 	}
+	var restoreDirectory, removeDirectory func() error
 	if deleteFiles {
-		if service.removeDirectory == nil {
+		if service.stageDirectory == nil {
 			return errs.NewError(errs.ErrValidation, "Instance directory removal is unavailable")
 		}
-		if err := service.removeDirectory(instance.Directory); err != nil {
+		restoreDirectory, removeDirectory, err = service.stageDirectory(instance.Directory)
+		if err != nil {
 			return err
 		}
 	}
@@ -356,7 +397,17 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 		}
 	}
 	if err := service.repository.DeleteInstance(ctx, id); err != nil {
+		if restoreDirectory != nil {
+			if restoreErr := restoreDirectory(); restoreErr != nil {
+				return errors.Join(err, fmt.Errorf("restore instance directory: %w", restoreErr))
+			}
+		}
 		return err
+	}
+	if removeDirectory != nil {
+		if err := removeDirectory(); err != nil {
+			return fmt.Errorf("instance record deleted but staged directory cleanup failed: %w", err)
+		}
 	}
 	if service.cleanRecovery != nil {
 		if err := service.cleanRecovery(ctx, id); err != nil {

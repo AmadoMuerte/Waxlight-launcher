@@ -18,6 +18,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/launching"
 	"github.com/waxlight/waxlight-launcher/internal/mods"
 	"github.com/waxlight/waxlight-launcher/internal/mutations"
+	"github.com/waxlight/waxlight-launcher/internal/news"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
 	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/credentials"
@@ -31,6 +32,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/platform/modcatalog"
 	"github.com/waxlight/waxlight-launcher/internal/platform/modstorage"
 	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
+	"github.com/waxlight/waxlight-launcher/internal/platform/newscache"
 	platformoptimum "github.com/waxlight/waxlight-launcher/internal/platform/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
@@ -196,6 +198,9 @@ func NewWithHome(home string) (*Container, error) {
 	safeRemoveInstanceDir := func(path string) error {
 		return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance")
 	}
+	stageRemoveInstanceDir := func(path string) (func() error, func() error, error) {
+		return instances.StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
+	}
 	modsRepository := modsStoreAdapter{store: store}
 	modCatalog := modcatalog.NewClient(nil)
 	modDownloads := modstorage.New(dataRoot)
@@ -286,7 +291,7 @@ func NewWithHome(home string) (*Container, error) {
 		store,
 		mutationGate,
 		launchRegistry,
-		safeRemoveInstanceDir,
+		stageRemoveInstanceDir,
 		clearClientSettings,
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(emit),
@@ -392,6 +397,13 @@ func NewWithHome(home string) (*Container, error) {
 	}
 	serverService := servers.NewService(store, store, mutationGate, eventPublisher, time.Now, newVersionID)
 	serverCatalogService := servers.NewCatalogService(servercatalog.NewClient(nil))
+	newsService := news.NewService(
+		vintagestory.NewNewsSource(nil, fmt.Sprintf("Waxlight/%s (+https://github.com/AmadoMuerte/Waxlight-launcher)", version.Version())),
+		newscache.New(dataRoot),
+		store,
+		time.Hour,
+		time.Now,
+	)
 	packageService := instances.NewPackageService(
 		store,
 		instanceCreator,
@@ -406,6 +418,32 @@ func NewWithHome(home string) (*Container, error) {
 		operationManager,
 		eventPublisher,
 		func(path string) error { return instances.SafeRemoveAll(path, dataRoot, ".waxlight-instance") },
+		dataRoot,
+		time.Now,
+		newVersionID,
+	)
+	migrationService := instances.NewMigrationService(
+		instancedirectory.NewMigrationStorage(filesystem.SanitizeClientSettings),
+		filesystem.ImportDiskSpace{},
+		instanceCreator,
+		operationManager,
+		func(ctx context.Context, instanceID string) []string {
+			if _, err := modsService.ListMods(ctx, instanceID); err != nil {
+				return []string{"Imported mods remain local because they could not be scanned"}
+			}
+			result, err := modsCatalogService.LinkLocalMods(ctx, instanceID)
+			if err != nil {
+				return []string{"Imported mods remain local because catalog linking failed"}
+			}
+			warnings := make([]string, 0, len(result.Failed)+len(result.NotMatched))
+			for range result.Failed {
+				warnings = append(warnings, "An imported mod could not be linked to the catalog")
+			}
+			for range result.NotMatched {
+				warnings = append(warnings, "An imported mod was not found in the catalog and remains local")
+			}
+			return warnings
+		},
 		dataRoot,
 		time.Now,
 		newVersionID,
@@ -434,6 +472,7 @@ func NewWithHome(home string) (*Container, error) {
 		instanceCloner,
 		statisticsService,
 		modsService,
+		migrationService,
 		lifecycle,
 		dialogs,
 	)
@@ -444,6 +483,7 @@ func NewWithHome(home string) (*Container, error) {
 		wailstransport.NewGameVersionController(versionService, lifecycle),
 		instanceController,
 		wailstransport.NewServerController(serverService, serverCatalogService, lifecycle),
+		wailstransport.NewNewsController(newsService, lifecycle),
 		wailstransport.NewModManagerController(modsService, modsCatalogService, lifecycle),
 		wailstransport.NewModCatalogController(modsCatalogService, lifecycle),
 		wailstransport.NewInstancePackageController(packageService, lifecycle),

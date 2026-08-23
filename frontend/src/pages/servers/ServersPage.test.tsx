@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -150,12 +150,15 @@ describe("server visibility filters", () => {
   });
 
   it("opens catalog server details from a server deep link", async () => {
+    const user = userEvent.setup();
     const server = publicServer("Catalog Server", false);
     server.address = "catalog.example.com:42420";
     serversApi.listPublic.mockResolvedValue([server]);
     renderPage("catalog.example.com:42420");
 
-    expect(await screen.findByRole("dialog", { name: "Catalog Server" })).toBeTruthy();
+    const dialog = await screen.findByRole("dialog", { name: "Catalog Server" });
+    await user.click(within(dialog).getAllByRole("button", { name: "Close" })[0]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("opens favorite server details from a server deep link", async () => {

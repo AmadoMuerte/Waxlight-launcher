@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/waxlight/waxlight-launcher/internal/errs"
 	"github.com/waxlight/waxlight-launcher/internal/language"
@@ -16,6 +17,7 @@ type Service struct {
 	consent    ConsentSynchronizer
 	heartbeat  Heartbeat
 	downloads  DownloadLimiter
+	mu         sync.Mutex
 }
 
 func NewService(
@@ -29,6 +31,9 @@ func NewService(
 }
 
 func (service *Service) Update(ctx context.Context, value Settings) (Settings, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
 	if value.DownloadsParallel < 1 || value.DownloadsParallel > 10 {
 		return value, errs.NewError(errs.ErrValidation, "Parallel downloads must be between 1 and 10")
 	}
@@ -38,6 +43,7 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 		return value, err
 	}
 	value.UpdateChannel = channel
+	value.LibrarySort = normalizeLibrarySort(value.LibrarySort)
 	value.SkippedUpdateVersion = strings.TrimSpace(value.SkippedUpdateVersion)
 	value.OptimumPath = strings.TrimSpace(value.OptimumPath)
 	if len(value.SkippedUpdateVersion) > 64 {
@@ -65,6 +71,27 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 		service.heartbeat.MaybeSendHeartbeat()
 	}
 	return value, nil
+}
+
+func (service *Service) SetLibrarySort(ctx context.Context, librarySort string) (Settings, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	value, err := service.reader.Get(ctx)
+	if err != nil {
+		return value, err
+	}
+	value.LibrarySort = normalizeLibrarySort(librarySort)
+	return value, service.repository.SaveSettings(ctx, value)
+}
+
+func normalizeLibrarySort(value string) string {
+	switch value {
+	case LibrarySortName, LibrarySortPlaytime, LibrarySortGameVersion, LibrarySortCreatedAt:
+		return value
+	default:
+		return LibrarySortLastPlayed
+	}
 }
 
 func normalizeUpdateChannel(channel string) (string, error) {

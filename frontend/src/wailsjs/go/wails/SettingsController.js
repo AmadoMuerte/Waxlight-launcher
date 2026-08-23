@@ -58,6 +58,10 @@ export function SelectOptimumInstallation() {
   return window['go']['wails']['SettingsController']['SelectOptimumInstallation']();
 }
 
+export function SetLibrarySort(arg1) {
+  return window['go']['wails']['SettingsController']['SetLibrarySort'](arg1);
+}
+
 export function UpdateSettings(arg1) {
   return window['go']['wails']['SettingsController']['UpdateSettings'](arg1);
 }

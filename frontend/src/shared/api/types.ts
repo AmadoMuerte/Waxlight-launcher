@@ -62,6 +62,7 @@ export interface Instance {
   status: string;
   launchArguments: string[];
   environmentVariables: Record<string, string>;
+  isPinned: boolean;
   lastPlayedAt?: string;
   createdAt: string;
   enabledModCount: number;
@@ -69,6 +70,28 @@ export interface Instance {
   playtimeSeconds: number;
   coverUrl?: string;
 }
+
+export interface MigrationCandidate {
+  path: string;
+  worldCount: number;
+  modCount: number;
+  totalBytes: number;
+  totalFiles: number;
+  hasClientSettings: boolean;
+  hasModConfig: boolean;
+  detectedGameVersion: string;
+  versionConfidence: string;
+  warnings: string[];
+}
+
+export interface ExistingDataImportRequest {
+  sourcePath: string;
+  name: string;
+  description: string;
+  gameVersionId: string;
+}
+
+export type LibrarySort = "lastPlayed" | "name" | "playtime" | "gameVersion" | "createdAt";
 
 export interface FavoriteServer {
   id: string;
@@ -433,6 +456,7 @@ export interface Settings {
   skippedUpdateVersion: string;
   telemetryEnabled: boolean;
   automaticSafetySnapshots: boolean;
+  librarySort: LibrarySort;
 }
 
 export interface DataFolder {
@@ -564,4 +588,24 @@ export interface ImportReport {
   gameVersionId: string;
   mods: ImportedModResult[];
   warnings: string[];
+}
+
+export type NewsCategory = "news" | "release" | "development";
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  summary: string;
+  imageUrl?: string;
+  publishedAt: string;
+  category: NewsCategory;
+}
+
+export interface NewsFeed {
+  items: NewsItem[];
+  newItems: NewsItem[];
+  fetchedAt: string;
+  unreadCount: number;
+  refreshFailed: boolean;
 }

@@ -28,9 +28,13 @@
       "CloneInstance",
       "CreateInstance",
       "DeleteInstance",
+      "DetectExistingVintageStoryData",
       "GetInstance",
+      "InspectExistingVintageStoryData",
       "ListInstances",
       "SelectInstanceCover",
+      "SetInstancePinned",
+      "StartExistingDataImport",
       "UpdateInstance"
     ],
     "InstancePackageController": [
@@ -90,6 +94,11 @@
       "SetModEnabled",
       "UpdateInstanceMods"
     ],
+    "NewsController": [
+      "MarkSeen",
+      "OpenArticle",
+      "Sync"
+    ],
     "OperationController": [
       "CancelOperation",
       "ClearOperationHistory",
@@ -117,6 +126,7 @@
       "SelectModFile",
       "SelectModFiles",
       "SelectOptimumInstallation",
+      "SetLibrarySort",
       "UpdateSettings"
     ],
     "SnapshotController": [

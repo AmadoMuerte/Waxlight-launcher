@@ -41,13 +41,13 @@ func (recorder *limitRecorder) SetLimit(value int) { recorder.value = value }
 
 func TestReaderNormalizesAndRepairsSettings(t *testing.T) {
 	repository := &memoryRepository{value: Settings{
-		Language: " RU_ru ", UpdateChannel: "invalid", DownloadsParallel: 3,
+		Language: " RU_ru ", UpdateChannel: "invalid", DownloadsParallel: 3, LibrarySort: "invalid",
 	}}
 	value, err := NewReader(repository).Get(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.Language != "ru" || value.UpdateChannel != "stable" {
+	if value.Language != "ru" || value.UpdateChannel != "stable" || value.LibrarySort != LibrarySortLastPlayed {
 		t.Fatalf("settings were not normalized: %+v", value)
 	}
 	if value.GlobalLaunchArguments == nil || repository.saves != 1 {
@@ -68,11 +68,12 @@ func TestServiceSynchronizesConsentHeartbeatAndDownloadLimit(t *testing.T) {
 	value.SkippedUpdateVersion = " 1.2.3 "
 	value.DownloadsParallel = 7
 	value.TelemetryEnabled = true
+	value.LibrarySort = LibrarySortGameVersion
 	saved, err := service.Update(context.Background(), value)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Language != "be" || saved.UpdateChannel != "prerelease" || saved.SkippedUpdateVersion != "1.2.3" {
+	if saved.Language != "be" || saved.UpdateChannel != "prerelease" || saved.SkippedUpdateVersion != "1.2.3" || saved.LibrarySort != LibrarySortGameVersion {
 		t.Fatalf("unexpected normalized settings: %+v", saved)
 	}
 	if consent.calls != 1 || heartbeat.calls != 1 || limit.value != 7 {
@@ -83,6 +84,20 @@ func TestServiceSynchronizesConsentHeartbeatAndDownloadLimit(t *testing.T) {
 	}
 	if heartbeat.calls != 1 {
 		t.Fatalf("unchanged consent sent another heartbeat: %d", heartbeat.calls)
+	}
+}
+
+func TestServiceUpdatesOnlyLibrarySort(t *testing.T) {
+	repository := &memoryRepository{value: Defaults()}
+	repository.value.Language = "de"
+	service := NewService(repository, NewReader(repository), nil, nil, nil)
+
+	saved, err := service.SetLibrarySort(context.Background(), LibrarySortName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.LibrarySort != LibrarySortName || saved.Language != "de" {
+		t.Fatalf("saved settings = %+v", saved)
 	}
 }
 
