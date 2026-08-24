@@ -286,6 +286,18 @@ export function App() {
         listeners.push(EventsOn(name, applyOperation));
       }
       listeners.push(EventsOn("operation:removed", removeOperation));
+      listeners.push(
+        EventsOn("game:exited", (payload: { message?: string }) => {
+          if (payload?.message) {
+            addNotification({
+              id: "game-startup-error",
+              type: "error",
+              title: t("instance_cannot_launch"),
+              message: payload.message,
+            });
+          }
+        }),
+      );
       // The backend publishes a recovery suggestion after a failed startup.
       // The dialog decides nothing itself; it renders the suggestion and asks
       // the user whether to restore the last known working state.
@@ -308,7 +320,7 @@ export function App() {
         unsubscribe();
       }
     };
-  }, [queryClient]);
+  }, [addNotification, queryClient, t]);
 
   if (loading) {
     return <LoadingState className="appLoading">Loading Waxlight…</LoadingState>;

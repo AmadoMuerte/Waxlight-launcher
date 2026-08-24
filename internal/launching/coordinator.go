@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/waxlight/waxlight-launcher/internal/gamelog"
 	"github.com/waxlight/waxlight-launcher/internal/instances"
 	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/waxlight/waxlight-launcher/internal/platform/dotnet"
 	"github.com/waxlight/waxlight-launcher/internal/platform/process"
 	"github.com/waxlight/waxlight-launcher/internal/sessions"
 	"github.com/waxlight/waxlight-launcher/internal/snapshots"
@@ -64,6 +66,7 @@ type Coordinator struct {
 	mods           EnabledModChecker
 	sessions       SessionRecorder
 	launcher       ProcessLauncher
+	dotnet         dotnet.RuntimeDetector
 	logs           LaunchLogs
 	events         Publisher
 	telemetry      TelemetryReporter
@@ -87,6 +90,7 @@ func NewCoordinator(
 	mods EnabledModChecker,
 	sessions SessionRecorder,
 	launcher ProcessLauncher,
+	dotnetDetector dotnet.RuntimeDetector,
 	logs LaunchLogs,
 	events Publisher,
 	telemetry TelemetryReporter,
@@ -109,6 +113,7 @@ func NewCoordinator(
 		mods:           mods,
 		sessions:       sessions,
 		launcher:       launcher,
+		dotnet:         dotnetDetector,
 		logs:           logs,
 		events:         events,
 		telemetry:      telemetry,
@@ -352,6 +357,28 @@ func (coordinator *Coordinator) launch(
 		environment[key] = value
 	}
 	environment["WAXLIGHT_INSTANCE_DIR"] = instance.Directory
+	dotnetFound := false
+	if runtime.GOOS == "linux" && instance.GameClient != instances.GameClientOptimum && coordinator.dotnet != nil {
+		found, compatible := coordinator.dotnet.Detect(dotnet.RequiredMajor)
+		dotnetFound = compatible
+		existingRoot := environment["DOTNET_ROOT"]
+		if existingRoot == "" {
+			existingRoot = os.Getenv("DOTNET_ROOT")
+		}
+		if compatible {
+			environment["DOTNET_ROOT"] = found.Root
+			existingPath := environment["PATH"]
+			if existingPath == "" {
+				existingPath = os.Getenv("PATH")
+			}
+			if !pathContains(existingPath, found.Root) {
+				environment["PATH"] = found.Root + string(os.PathListSeparator) + existingPath
+			}
+			slog.Info(".NET runtime detection", "platform", runtime.GOOS, "requiredMajor", dotnet.RequiredMajor, "existingDotnetRoot", existingRoot, "dotnetExecutable", found.Executable, "runtimeRoot", found.Root, "runtimeVersion", found.Version, "source", found.Source, "status", "compatible")
+		} else {
+			slog.Warn(".NET runtime detection", "platform", runtime.GOOS, "requiredMajor", dotnet.RequiredMajor, "existingDotnetRoot", existingRoot, "dotnetExecutable", found.Executable, "status", "not_found")
+		}
+	}
 
 	process, err := coordinator.launcher.Start(
 		context.Background(),
@@ -419,7 +446,7 @@ func (coordinator *Coordinator) launch(
 		coordinator.markLaunchEstablished(workerCtx, instance, session.ID, startupWindow)
 	})
 	releaseOnReturn = false
-	go coordinator.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, gamelog.Watch(instance.Name, logPath), startupWindow, release)
+	go coordinator.waitForGame(instance, process, session.ID, now, logFile, cleanupCredentials, gamelog.Watch(instance.Name, logPath), startupWindow, release, dotnetFound)
 	return session, nil
 }
 
@@ -483,6 +510,15 @@ func buildLaunchArguments(global, instance []string, dataPath, serverAddress str
 		arguments = append(arguments, "--connect", serverAddress)
 	}
 	return arguments
+}
+
+func pathContains(path, entry string) bool {
+	for _, candidate := range filepath.SplitList(path) {
+		if filepath.Clean(candidate) == filepath.Clean(entry) {
+			return true
+		}
+	}
+	return false
 }
 
 func (coordinator *Coordinator) resolveAccountID(
@@ -604,6 +640,7 @@ func (coordinator *Coordinator) waitForGame(
 	stopGameLog func(),
 	startupWindow time.Duration,
 	releaseMutation func(),
+	dotnetFound bool,
 ) {
 	defer releaseMutation()
 	exitCode, waitErr := process.Wait()
@@ -642,13 +679,17 @@ func (coordinator *Coordinator) waitForGame(
 		slog.Warn("could not persist the instance after the game exited", "instance", instance.Name, "error", err)
 	}
 
-	coordinator.publish("game:exited", map[string]any{
+	payload := map[string]any{
 		"instanceId":      instance.ID,
 		"sessionId":       sessionID,
 		"exitCode":        exitCode,
 		"crashed":         crashed,
 		"durationSeconds": durationSeconds,
-	})
+	}
+	if runtime.GOOS == "linux" && exitCode == 131 && !dotnetFound && time.Since(startedAt) < startupWindow {
+		payload["message"] = "Vintage Story could not start because a compatible .NET runtime was not found. Vintage Story 1.22 requires .NET 10."
+	}
+	coordinator.publish("game:exited", payload)
 }
 
 // Stop requests a running game to stop; force kills it instead.

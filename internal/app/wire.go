@@ -23,6 +23,7 @@ import (
 	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
 	"github.com/waxlight/waxlight-launcher/internal/platform/credentials"
 	"github.com/waxlight/waxlight-launcher/internal/platform/dataroot"
+	"github.com/waxlight/waxlight-launcher/internal/platform/dotnet"
 	"github.com/waxlight/waxlight-launcher/internal/platform/downloader"
 	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
 	"github.com/waxlight/waxlight-launcher/internal/platform/gameversion"
@@ -344,6 +345,7 @@ func NewWithHome(home string) (*Container, error) {
 		enabledModAdapter{files: filesystem.ModFileManager{}},
 		sessionService,
 		process.OSLauncher{},
+		dotnet.NewDetector(runtime.GOOS),
 		instancedirectory.LaunchLogs{},
 		eventPublisher,
 		telemetryService,
