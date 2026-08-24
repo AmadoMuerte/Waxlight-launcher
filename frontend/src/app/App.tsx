@@ -12,6 +12,7 @@ import { useSettingsQuery } from "../entities/settings/queries";
 import { useStatisticsQuery } from "../entities/statistics/queries";
 import { NewsSync } from "../features/news/NewsSync";
 import { RecoveryDialog } from "../features/recovery/RecoveryDialog";
+import { SupportReportDialog } from "../features/support-report/SupportReportDialog";
 import { AccountsPage } from "../pages/accounts/AccountsPage";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { ModDetailsPage } from "../pages/mod-details/ModDetailsPage";
@@ -38,6 +39,7 @@ import { UpdateDialog } from "../widgets/layout/UpdateDialog";
 import { useAppShellStore } from "./stores/app-shell";
 import { useNotificationStore } from "./stores/notifications";
 import { useRecoveryStore } from "./stores/recovery";
+import { useSupportReportStore } from "./stores/support-report";
 
 const POLL_INTERVAL = 8_000;
 const UiLabPage = import.meta.env.DEV
@@ -294,6 +296,10 @@ export function App() {
               type: "error",
               title: t("instance_cannot_launch"),
               message: payload.message,
+              action: {
+                label: t("report_a_problem"),
+                run: () => useSupportReportStore.getState().show(),
+              },
             });
           }
         }),
@@ -331,6 +337,7 @@ export function App() {
       <ErrorBanner />
       <UpdateDialog />
       <RecoveryDialog />
+      <SupportReportDialog />
       <NewsSync />
 
       <Routes>

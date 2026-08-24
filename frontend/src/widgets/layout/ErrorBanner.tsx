@@ -3,6 +3,7 @@ import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
+import { useSupportReportStore } from "../../app/stores/support-report";
 import { WATCHED_QUERY_KEYS } from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 
@@ -34,6 +35,9 @@ export function ErrorBanner() {
       </div>
       <Button type="button" variant="ghost" onClick={handleRetry}>
         {t("retry")}
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => useSupportReportStore.getState().show()}>
+        {t("report_a_problem")}
       </Button>
     </div>
   );

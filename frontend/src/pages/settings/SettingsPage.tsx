@@ -1,9 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Download, HardDrive, Package, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  Archive,
+  CircleHelp,
+  Download,
+  HardDrive,
+  Package,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
+import { useSupportReportStore } from "../../app/stores/support-report";
 import { useToastStore } from "../../app/stores/toast";
 import { modCatalogApi } from "../../entities/mod/api";
 import { settingsApi } from "../../entities/settings/api";
@@ -50,6 +59,7 @@ const SETTINGS_SECTIONS = [
   { id: "optimum", icon: Package, labelKey: "" },
   { id: "data-folder", icon: HardDrive, labelKey: "data_folder" },
   { id: "privacy", icon: ShieldCheck, labelKey: "privacy_and_telemetry" },
+  { id: "support", icon: CircleHelp, labelKey: "support" },
 ] as const;
 
 function settingsEqual(left: Settings, right: Settings) {
@@ -718,6 +728,27 @@ export function SettingsPage() {
                     checked={value.telemetryEnabled}
                     onCheckedChange={(telemetryEnabled) => setValue({ ...value, telemetryEnabled })}
                   />
+                </SettingRow>
+              </Card>
+            </PageSection>
+
+            <PageSection id="settings-support">
+              <SectionHeader
+                variant="compact"
+                title={t("support")}
+                description={t("support_description")}
+              />
+              <Card variant="subtle">
+                <SettingRow
+                  title={t("report_a_problem")}
+                  description={t("support_report_setting_description")}
+                >
+                  <Button
+                    variant="secondary"
+                    onClick={() => useSupportReportStore.getState().show()}
+                  >
+                    {t("report_a_problem")}
+                  </Button>
                 </SettingRow>
               </Card>
             </PageSection>

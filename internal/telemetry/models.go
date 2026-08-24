@@ -34,3 +34,8 @@ type ErrorEvent struct {
 	Component      string `json:"component"`
 	Operation      string `json:"operation"`
 }
+
+type SupportReportResult struct {
+	ReportID string `json:"reportId"`
+	Status   string `json:"status"`
+}

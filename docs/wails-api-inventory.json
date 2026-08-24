@@ -138,6 +138,10 @@
     ],
     "StatisticsController": [
       "GetOverviewStatistics"
+    ],
+    "SupportReportController": [
+      "Preview",
+      "Submit"
     ]
   }
 }
