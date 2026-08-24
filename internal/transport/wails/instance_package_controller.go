@@ -3,8 +3,8 @@ package wails
 import (
 	"path/filepath"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
 )
 
 // InstancePackageController exposes instance package export, inspection, and

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/mutations"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 )
 
 type lkgTestEvents struct {

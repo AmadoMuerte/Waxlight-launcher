@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
 )
 
 const metadataFile = "metadata.json"

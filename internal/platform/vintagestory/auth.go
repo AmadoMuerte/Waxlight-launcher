@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 	vsauth "github.com/AmadoMuerte/vintagestory-go/auth"
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 // AuthClient isolates the Vintage Story authentication protocol from the

@@ -1,7 +1,7 @@
 package wails
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/servers"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
 )
 
 // ServerController exposes favorite-server and public-catalog operations to

@@ -4,14 +4,14 @@ import (
 	"context"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/launching"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
-	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
-	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
-	"github.com/waxlight/waxlight-launcher/internal/recovery"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/launching"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 type optimumLaunchAdapter struct {

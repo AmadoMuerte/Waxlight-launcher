@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 // Repository persists installed mod records and resolves instances for mod

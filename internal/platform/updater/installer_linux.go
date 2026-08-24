@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
 )
 
 const maximumExecutableBytes = 256 * 1024 * 1024

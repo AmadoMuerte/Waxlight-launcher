@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/mutations"
-	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
+	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type optimumSettings struct{ path string }

@@ -4,7 +4,7 @@ package mutations
 import (
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 type Gate struct {

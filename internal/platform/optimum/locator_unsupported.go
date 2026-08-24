@@ -2,7 +2,7 @@
 
 package optimum
 
-import optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+import optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 
 type Locator struct{}
 

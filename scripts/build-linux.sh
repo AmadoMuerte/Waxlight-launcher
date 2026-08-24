@@ -140,7 +140,7 @@ echo
 echo "Building Linux application..."
 echo "-----------------------------"
 
-version_package="github.com/waxlight/waxlight-launcher/internal/version"
+version_package="github.com/AmadoMuerte/Waxlight-launcher/internal/version"
 
 (
     cd "$repository_root/cmd/waxlight"

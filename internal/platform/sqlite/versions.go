@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 const versionColumns = `id, name, channel, platform, architecture, installation_dir,

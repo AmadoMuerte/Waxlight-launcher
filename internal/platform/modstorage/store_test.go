@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 func TestStorePersistsMetadataAndRejectsTraversal(t *testing.T) {

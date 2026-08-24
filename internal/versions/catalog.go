@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/events"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 )
 
 type CatalogInstallService struct {

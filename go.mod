@@ -1,4 +1,4 @@
-module github.com/waxlight/waxlight-launcher
+module github.com/AmadoMuerte/Waxlight-launcher
 
 go 1.25.13
 

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
+	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 type fakeTelemetryConsentStore struct {

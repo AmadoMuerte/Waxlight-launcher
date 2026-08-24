@@ -4,10 +4,10 @@ import (
 	"errors"
 	"os"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/optimum"
-	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
 const optimumInstallationGuideURL = "https://github.com/Zaldaryon/Optimum/wiki/Installation"

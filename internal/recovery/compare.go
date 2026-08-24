@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // compareConfigurations reports the facts that differ between the Last Known

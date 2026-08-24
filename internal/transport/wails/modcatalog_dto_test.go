@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 func TestUploadModsResultDTOSerializesEmptyArrays(t *testing.T) {

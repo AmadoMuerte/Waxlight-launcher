@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // Service owns Last Known Good recording, failed-launch analysis, recovery

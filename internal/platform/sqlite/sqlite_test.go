@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
-	"github.com/waxlight/waxlight-launcher/internal/servers"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 func TestLegacyAccountSchemaIsMigrated(t *testing.T) {

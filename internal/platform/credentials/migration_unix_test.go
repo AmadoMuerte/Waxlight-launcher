@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 )
 
 func TestMigrationRejectsUnsafePermissionsAndSymlink(t *testing.T) {

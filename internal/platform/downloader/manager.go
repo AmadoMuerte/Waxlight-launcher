@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 )
 
 // Manager applies one shared concurrency limit to every resource using the

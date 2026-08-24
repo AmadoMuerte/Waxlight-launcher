@@ -3,7 +3,7 @@ package instancepackage
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 )
 
 // Store adapts the archive implementation to the feature-owned PackageIO port

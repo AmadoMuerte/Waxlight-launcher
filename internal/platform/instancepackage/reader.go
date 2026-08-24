@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
 )
 
 // Package is a validated read-only view of a .waxlight archive.

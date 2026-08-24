@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	vsmodinfo "github.com/AmadoMuerte/vintagestory-go/modinfo"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 // ArchiveInfo is the modinfo.json metadata of a mod file.

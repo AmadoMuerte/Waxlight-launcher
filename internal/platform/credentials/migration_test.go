@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 )
 
 type migrationStore struct {

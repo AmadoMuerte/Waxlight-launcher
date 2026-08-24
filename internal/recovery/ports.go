@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // Repository persists the Last Known Good markers of instances.

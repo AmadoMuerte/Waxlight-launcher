@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type MigrationStorage interface {

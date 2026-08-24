@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 // LinkLocalMods recognizes locally installed mods that are not yet managed by

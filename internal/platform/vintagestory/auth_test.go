@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 	vsauth "github.com/AmadoMuerte/vintagestory-go/auth"
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestAuthClientMapsTOTPChallengeAndErrors(t *testing.T) {

@@ -1,8 +1,8 @@
 package wails
 
 import (
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 type ModDependencyDTO struct {

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 func (service *Service) persistSession(ctx context.Context, expectedAccountID, email string, session Session) (LoginResult, error) {

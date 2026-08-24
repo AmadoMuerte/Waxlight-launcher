@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/platform/instancedirectory"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/instancedirectory"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type repository struct {

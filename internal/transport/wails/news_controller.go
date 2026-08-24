@@ -3,9 +3,9 @@ package wails
 import (
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/news"
 )
 
 type NewsItemDTO struct {

@@ -3,7 +3,7 @@ package versions
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 )
 
 type Repository interface {

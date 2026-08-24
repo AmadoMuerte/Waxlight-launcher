@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/mutations"
-	"github.com/waxlight/waxlight-launcher/internal/telemetry"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 type updateSourceStub struct {

@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // operationTitleInstallingMod is the i18n key of the mod-install operation

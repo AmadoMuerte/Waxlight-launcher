@@ -1,6 +1,6 @@
 package wails
 
-import "github.com/waxlight/waxlight-launcher/internal/version"
+import "github.com/AmadoMuerte/Waxlight-launcher/internal/version"
 
 // AppController exposes launcher metadata to the frontend.
 type AppController struct{}

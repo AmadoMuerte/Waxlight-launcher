@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 const saveAccountSQL = `
