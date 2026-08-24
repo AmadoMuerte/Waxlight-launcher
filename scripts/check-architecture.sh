@@ -15,7 +15,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-FEATURES="accounts downloads events gamelog instances language launching mods mutations news operations publishers recovery servers sessions settings snapshots statistics telemetry updates version versions"
+FEATURES="accounts downloads events gamelog instances language launching mods mutations news operations publishers recovery servers sessions settings snapshots statistics supportreports telemetry updates version versions"
 FORBIDDEN_FROM_FEATURES="waxlight-launcher/internal/app waxlight-launcher/internal/transport waxlight-launcher/internal/platform"
 LEGACY_PACKAGES="internal/application internal/domain internal/infrastructure internal/presentation"
 BINDINGS_DIR="frontend/src/wailsjs/go"

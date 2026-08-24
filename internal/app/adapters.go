@@ -9,13 +9,49 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/supportreports"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 type optimumLaunchAdapter struct {
 	service *optimumfeature.Service
+}
+
+type supportLogAdapter struct{}
+
+func (supportLogAdapter) Lines() []string {
+	entries := logging.Snapshot()
+	lines := make([]string, len(entries))
+	for i, entry := range entries {
+		lines[i] = entry.Plain()
+	}
+	return lines
+}
+
+type supportRecoveryAdapter struct {
+	recovery  *recovery.Service
+	snapshots *snapshots.Service
+}
+
+func (adapter supportRecoveryAdapter) Summary(ctx context.Context, instanceID string) (bool, int) {
+	status, err := adapter.recovery.Status(ctx, instanceID)
+	exists := err == nil && !status.RecordedAt.IsZero()
+	listed, err := adapter.snapshots.List(ctx, instanceID)
+	if err != nil {
+		return exists, 0
+	}
+	return exists, len(listed)
+}
+
+type supportSenderAdapter struct{ client *telemetry.Client }
+
+func (adapter supportSenderAdapter) SendSupportReport(ctx context.Context, report supportreports.Report) (supportreports.Result, error) {
+	result, err := adapter.client.SendSupportReport(ctx, report)
+	return supportreports.Result{ReportID: result.ReportID, Status: result.Status}, err
 }
 
 func (adapter optimumLaunchAdapter) Resolve(configuredPath, vanillaDirectory string) (launching.OptimumTarget, error) {

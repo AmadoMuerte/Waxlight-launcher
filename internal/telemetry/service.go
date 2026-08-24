@@ -85,6 +85,13 @@ func NewService(sender Sender, reader SettingsReader, values settings.ValueRepos
 	}
 }
 
+// InstallationID returns the same random, persisted anonymous identifier used
+// by telemetry. Manual support reports may reuse it without requiring analytics
+// consent; generating it does not transmit anything.
+func (s *Service) InstallationID(ctx context.Context) string {
+	return s.identity.ID(ctx)
+}
+
 // Enabled reports whether the user has opted into telemetry. It fails closed:
 // any settings error is treated as disabled, and nothing is ever transmitted
 // while the setting forbids it.

@@ -12,6 +12,34 @@ import (
 	"time"
 )
 
+func TestSendSupportReport(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/support-reports" {
+			t.Fatalf("path=%s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"reportId":"WL-R-A7F31C","status":"received"}`))
+	}))
+	defer server.Close()
+	result, err := NewClient(server.URL).SendSupportReport(context.Background(), map[string]any{"schemaVersion": 1})
+	if err != nil || result.ReportID != "WL-R-A7F31C" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+}
+
+func TestSendSupportReportStatusErrors(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusRequestEntityTooLarge, http.StatusTooManyRequests, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }))
+			defer server.Close()
+			if _, err := NewClient(server.URL).SendSupportReport(context.Background(), struct{}{}); err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
 func TestClientSendsHeartbeatToHeartbeatPath(t *testing.T) {
 	server := newCapturingServer(t, http.StatusNoContent)
 	defer server.server.Close()

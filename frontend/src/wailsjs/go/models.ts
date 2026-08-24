@@ -19,6 +19,39 @@ export namespace deeplink {
 
 }
 
+export namespace supportreports {
+
+	export class Preview {
+	    snapshotId: string;
+	    payload: string;
+
+	    static createFrom(source: any = {}) {
+	        return new Preview(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.snapshotId = source["snapshotId"];
+	        this.payload = source["payload"];
+	    }
+	}
+	export class Result {
+	    reportId: string;
+	    status: string;
+
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.reportId = source["reportId"];
+	        this.status = source["status"];
+	    }
+	}
+
+}
+
 export namespace wails {
 
 	export class AccountDTO {
