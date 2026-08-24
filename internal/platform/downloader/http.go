@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 )
 
 type HTTPDownloader struct{ Client *http.Client }

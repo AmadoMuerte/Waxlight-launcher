@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/news"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 )
 
 func TestNewsStateRoundTrip(t *testing.T) {

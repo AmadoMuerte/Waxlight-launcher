@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"sort"
 
-	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 )
 
 var versionMarker = regexp.MustCompile(`^version-([0-9]+\.[0-9]+\.[0-9]+)\.txt$`)

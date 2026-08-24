@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
 )
 
 const defaultLoginFlowTTL = 5 * time.Minute

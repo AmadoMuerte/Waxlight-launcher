@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 )
 
 // recordingReader implements SessionsReader with in-memory state.

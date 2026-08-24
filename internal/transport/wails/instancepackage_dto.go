@@ -1,6 +1,6 @@
 package wails
 
-import "github.com/waxlight/waxlight-launcher/internal/instances"
+import "github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 
 type PackageAuthorDTO struct {
 	Name     string `json:"name,omitempty"`

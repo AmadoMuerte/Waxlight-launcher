@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/events"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/updates"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/updates"
 )
 
 type LauncherUpdateDTO struct {

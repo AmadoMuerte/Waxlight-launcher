@@ -28,8 +28,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 // Marker phases for a pending data root relocation.

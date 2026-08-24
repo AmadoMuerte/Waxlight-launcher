@@ -48,10 +48,7 @@ func (OSLauncher) Start(
 ) (Running, error) {
 	command := exec.CommandContext(ctx, executable, arguments...)
 	command.Dir = workingDirectory
-	command.Env = os.Environ()
-	for key, value := range environment {
-		command.Env = append(command.Env, key+"="+value)
-	}
+	command.Env = mergeEnvironment(os.Environ(), environment)
 	command.Stdout = output
 	command.Stderr = output
 
@@ -62,6 +59,32 @@ func (OSLauncher) Start(
 
 	slog.Info("game process started", "pid", command.Process.Pid)
 	return &runningProcess{command: command}, nil
+}
+
+func mergeEnvironment(base []string, overrides map[string]string) []string {
+	merged := make(map[string]string, len(base)+len(overrides))
+	for _, entry := range base {
+		if key, value, ok := splitEnvironment(entry); ok {
+			merged[key] = value
+		}
+	}
+	for key, value := range overrides {
+		merged[key] = value
+	}
+	environment := make([]string, 0, len(merged))
+	for key, value := range merged {
+		environment = append(environment, key+"="+value)
+	}
+	return environment
+}
+
+func splitEnvironment(entry string) (string, string, bool) {
+	for index := 0; index < len(entry); index++ {
+		if entry[index] == '=' {
+			return entry[:index], entry[index+1:], true
+		}
+	}
+	return "", "", false
 }
 
 func (process *runningProcess) PID() int {

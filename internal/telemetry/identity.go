@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/settings"
 )
 
 // installationIDKey is the app_settings key that stores the random

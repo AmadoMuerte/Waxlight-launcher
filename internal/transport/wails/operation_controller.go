@@ -1,7 +1,7 @@
 package wails
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 )
 
 // OperationController exposes the persistent operation list to the frontend.

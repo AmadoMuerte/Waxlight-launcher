@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
 )
 
 func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {

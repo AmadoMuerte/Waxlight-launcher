@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/waxlight/waxlight-launcher/internal/news"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
 )
 
 const newsStateKey = "news_state"

@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/platform/dataroot"
-	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/app"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/dataroot"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 // wireHome prepares an isolated launcher home directory for a composition

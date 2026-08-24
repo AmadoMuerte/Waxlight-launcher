@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/apptest"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/apptest"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 )
 
 type memoryRepository struct {

@@ -5,7 +5,7 @@ package statistics
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 )
 
 // SessionsReader exposes the narrow read capabilities of the sessions feature

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/waxlight/waxlight-launcher/internal/news"
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
 )
 
 type Cache struct {

@@ -5,7 +5,7 @@ package recovery
 import (
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 func TestCompareConfigurations(t *testing.T) {

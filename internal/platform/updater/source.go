@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/updates"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/updates"
 	"golang.org/x/mod/semver"
 )
 

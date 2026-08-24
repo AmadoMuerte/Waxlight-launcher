@@ -7,18 +7,18 @@ import (
 	"os"
 	"time"
 
+	frontendassets "github.com/AmadoMuerte/Waxlight-launcher/frontend"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/app"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/deeplink"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/mousenavigation"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/updater"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	frontendassets "github.com/waxlight/waxlight-launcher/frontend"
-	"github.com/waxlight/waxlight-launcher/internal/app"
-	"github.com/waxlight/waxlight-launcher/internal/platform/deeplink"
-	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
-	"github.com/waxlight/waxlight-launcher/internal/platform/mousenavigation"
-	"github.com/waxlight/waxlight-launcher/internal/platform/updater"
 )
 
 // appIcon is embedded into the executable so Linux window managers can use

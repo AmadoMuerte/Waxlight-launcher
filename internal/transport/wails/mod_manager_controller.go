@@ -3,7 +3,7 @@ package wails
 import (
 	"log/slog"
 
-	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 // ModManagerController exposes installed-mod management to the frontend. It

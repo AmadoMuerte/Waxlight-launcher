@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 	vsversions "github.com/AmadoMuerte/vintagestory-go/versions"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // VersionCatalog maps generic Vintage Story releases into Waxlight's stable

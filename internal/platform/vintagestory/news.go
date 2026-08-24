@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
 	vsnews "github.com/AmadoMuerte/vintagestory-go/news"
-	"github.com/waxlight/waxlight-launcher/internal/news"
 )
 
 type NewsSource struct {

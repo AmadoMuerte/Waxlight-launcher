@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 func (s *SQLiteStore) GetSettings(ctx context.Context) (settings.Settings, error) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 )
 
 // QueryRepository is the read-only favorite-server persistence surface.

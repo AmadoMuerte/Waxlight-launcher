@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
-	"github.com/waxlight/waxlight-launcher/internal/platform/instancedirectory"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/instancedirectory"
 )
 
 func TestCloneStorageCopiesSafeFilesAndPreservesTargetMarker(t *testing.T) {

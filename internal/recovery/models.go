@@ -7,7 +7,7 @@ package recovery
 import (
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // LastKnownGood records the most recent instance configuration that Waxlight

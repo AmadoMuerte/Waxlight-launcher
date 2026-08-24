@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )

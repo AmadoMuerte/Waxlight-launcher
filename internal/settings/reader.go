@@ -3,7 +3,7 @@ package settings
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/language"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/language"
 )
 
 // Reader is the immutable settings query service.

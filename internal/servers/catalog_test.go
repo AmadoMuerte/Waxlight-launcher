@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 type catalog struct {

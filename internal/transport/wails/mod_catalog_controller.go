@@ -3,8 +3,8 @@ package wails
 import (
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 // ModCatalogController exposes ModDB browsing, catalog downloads, and

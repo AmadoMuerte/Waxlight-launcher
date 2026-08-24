@@ -3,7 +3,7 @@ package wails
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/statistics"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/statistics"
 )
 
 type statisticsQueries interface {
