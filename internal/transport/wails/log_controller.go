@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/atomicfile"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/nativefs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/version"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
-	"github.com/waxlight/waxlight-launcher/internal/platform/atomicfile"
-	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
-	"github.com/waxlight/waxlight-launcher/internal/platform/nativefs"
-	"github.com/waxlight/waxlight-launcher/internal/version"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
 )
 
 // maxFrontendLogMessage caps how large a single frontend-provided log message

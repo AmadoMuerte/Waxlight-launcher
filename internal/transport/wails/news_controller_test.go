@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/news"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/news"
 )
 
 type newsSourceStub struct{}

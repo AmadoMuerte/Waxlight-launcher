@@ -3,7 +3,7 @@ package wails
 import (
 	"log/slog"
 
-	"github.com/waxlight/waxlight-launcher/internal/launching"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/launching"
 )
 
 // LaunchController exposes launch validation, game start/stop, and running

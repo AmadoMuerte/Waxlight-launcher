@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 // modInstallPlanItem is one release of the resolved install plan for a

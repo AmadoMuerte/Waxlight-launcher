@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 )
 
 type fakeAuthClient struct {

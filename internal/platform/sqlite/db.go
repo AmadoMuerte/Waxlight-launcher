@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/securefs"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/waxlight/waxlight-launcher/internal/platform/securefs"
 )
 
 type SQLiteStore struct {

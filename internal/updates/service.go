@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/telemetry"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 // Service owns launcher update checks, verified downloads, and installation

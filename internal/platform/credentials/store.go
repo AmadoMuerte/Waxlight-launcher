@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 	keyring "github.com/zalando/go-keyring"
 )
 

@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 	"github.com/google/uuid"
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
 )
 
 func TestNativeCredentialStoreRoundTrip(t *testing.T) {

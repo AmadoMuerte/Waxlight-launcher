@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/language"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/language"
 )
 
 // Service is the immutable settings update service.

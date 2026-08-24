@@ -2,7 +2,7 @@ package mods
 
 import (
 	"context"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"strconv"
 	"strings"

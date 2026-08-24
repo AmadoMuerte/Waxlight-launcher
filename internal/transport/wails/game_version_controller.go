@@ -3,8 +3,8 @@ package wails
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type gameVersionCapabilities interface {

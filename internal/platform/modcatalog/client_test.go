@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

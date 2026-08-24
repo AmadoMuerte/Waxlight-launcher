@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 )
 
 func TestInspectLinuxInstallation(t *testing.T) {

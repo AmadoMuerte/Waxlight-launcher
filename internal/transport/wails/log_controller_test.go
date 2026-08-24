@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/logging"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
 	vsgservers "github.com/AmadoMuerte/vintagestory-go/servers"
-	"github.com/waxlight/waxlight-launcher/internal/servers"
 )
 
 type Client struct {

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 )
 
 const secretVersion = 1

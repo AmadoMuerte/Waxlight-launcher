@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 const installerTelemetryOptInFile = "installer-telemetry-opt-in"

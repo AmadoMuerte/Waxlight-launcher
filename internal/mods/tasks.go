@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 // ModTaskManager tracks active ModDB download tasks separately from the

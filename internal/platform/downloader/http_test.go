@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/downloads"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 )
 
 func TestDownloaderVerifiesOfficialMD5AndReportsProgress(t *testing.T) {

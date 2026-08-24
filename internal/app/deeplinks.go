@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/waxlight/waxlight-launcher/internal/events"
-	"github.com/waxlight/waxlight-launcher/internal/platform/deeplink"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/events"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/deeplink"
 )
 
 // DeepLinks retains cold-start targets until the React router consumes them.

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 )
 
 // Game errors captured from a running game are forwarded through the regular

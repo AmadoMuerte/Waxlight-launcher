@@ -3,7 +3,7 @@ package servers
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 // CatalogService lists public server listings behind the catalog port. The

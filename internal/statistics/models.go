@@ -1,6 +1,6 @@
 package statistics
 
-import "github.com/waxlight/waxlight-launcher/internal/sessions"
+import "github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 
 // Statistics aggregates persisted play sessions for the launcher statistics
 // view.

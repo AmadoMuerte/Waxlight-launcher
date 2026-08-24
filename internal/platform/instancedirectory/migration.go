@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 )
 
 const migrationSettingsLimit = 8 << 20

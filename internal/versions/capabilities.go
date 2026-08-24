@@ -3,7 +3,7 @@ package versions
 import (
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 )
 
 // Capabilities is a concrete aggregate for hosts which expose all version

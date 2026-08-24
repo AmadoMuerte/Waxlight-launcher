@@ -3,7 +3,7 @@ package gameversion
 import (
 	"context"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/filesystem"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
 )
 
 type Installer struct {

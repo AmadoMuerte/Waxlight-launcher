@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/waxlight/waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 )
 
 func TestTelemetryDefaultsToDisabled(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 )
 
 // Service owns favorite-server persistence, validation, instance

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/servers"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
 )
 
 const favoriteServerColumns = `id, name, address, instance_id, created_at, updated_at`

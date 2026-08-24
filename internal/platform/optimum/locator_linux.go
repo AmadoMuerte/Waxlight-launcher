@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	optimumfeature "github.com/waxlight/waxlight-launcher/internal/optimum"
+	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 )
 
 type Locator struct{}

@@ -12,17 +12,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/gamelog"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/platform/dotnet"
-	"github.com/waxlight/waxlight-launcher/internal/platform/process"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
-	"github.com/waxlight/waxlight-launcher/internal/telemetry"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/gamelog"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/dotnet"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/process"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 // gameStartupWindow is how long a game process must survive for its launch to

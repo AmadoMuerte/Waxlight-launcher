@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	vsmodinfo "github.com/AmadoMuerte/vintagestory-go/modinfo"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 const (

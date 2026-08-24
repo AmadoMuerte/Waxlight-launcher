@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 )
 
 func TestCredentialStoreUnavailable(t *testing.T) {

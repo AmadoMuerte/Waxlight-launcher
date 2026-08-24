@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 // InstanceRef is the minimal instance view the snapshot feature reads. It

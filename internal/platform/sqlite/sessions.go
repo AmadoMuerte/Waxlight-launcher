@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 )
 
 const sessionColumns = `id, instance_id, account_id, version_id, process_id, started_at,

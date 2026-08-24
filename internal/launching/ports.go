@@ -5,14 +5,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/mutations"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/platform/process"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
-	settingscore "github.com/waxlight/waxlight-launcher/internal/settings"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/process"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
+	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type InstanceReader interface {

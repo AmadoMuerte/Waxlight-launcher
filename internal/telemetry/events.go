@@ -1,6 +1,6 @@
 package telemetry
 
-import "github.com/waxlight/waxlight-launcher/internal/mods"
+import "github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 
 // Allowlisted lifecycle event names. Every event here maps to a completed
 // authoritative operation; the backend accepts no other event names.

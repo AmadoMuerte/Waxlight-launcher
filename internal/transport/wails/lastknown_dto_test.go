@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/recovery"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 )
 
 func TestLastKnownGoodDTOAlwaysSerializesChangeLists(t *testing.T) {

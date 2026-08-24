@@ -1,7 +1,7 @@
 package wails
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 )
 
 // AccountController exposes account login, reauthentication, and removal to

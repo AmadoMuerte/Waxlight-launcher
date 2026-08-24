@@ -3,7 +3,7 @@ package wails
 import (
 	"log/slog"
 
-	"github.com/waxlight/waxlight-launcher/internal/snapshots"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
 // SnapshotController exposes instance snapshot management to the frontend.

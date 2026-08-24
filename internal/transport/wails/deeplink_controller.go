@@ -1,6 +1,6 @@
 package wails
 
-import "github.com/waxlight/waxlight-launcher/internal/platform/deeplink"
+import "github.com/AmadoMuerte/Waxlight-launcher/internal/platform/deeplink"
 
 type deepLinkConsumer interface {
 	Consume() []deeplink.Target

@@ -1,7 +1,7 @@
 package wails
 
 import (
-	"github.com/waxlight/waxlight-launcher/internal/recovery"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 )
 
 // LastKnownGoodController exposes the Last Known Good marker of instances to

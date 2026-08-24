@@ -9,7 +9,7 @@ import (
 
 // buildVersion is injected by release builds with:
 //
-//	-X github.com/waxlight/waxlight-launcher/internal/version.buildVersion=<semantic version>
+//	-X github.com/AmadoMuerte/Waxlight-launcher/internal/version.buildVersion=<semantic version>
 //
 // Windows requires a numeric four-part VERSIONINFO value, so the semantic
 // launcher version must not be read from the temporarily rewritten wails.json.

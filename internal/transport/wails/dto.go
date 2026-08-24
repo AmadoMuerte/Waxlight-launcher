@@ -3,15 +3,15 @@ package wails
 import (
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/accounts"
-	"github.com/waxlight/waxlight-launcher/internal/instances"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
-	"github.com/waxlight/waxlight-launcher/internal/operations"
-	"github.com/waxlight/waxlight-launcher/internal/optimum"
-	"github.com/waxlight/waxlight-launcher/internal/sessions"
-	"github.com/waxlight/waxlight-launcher/internal/settings"
-	"github.com/waxlight/waxlight-launcher/internal/statistics"
-	"github.com/waxlight/waxlight-launcher/internal/versions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/statistics"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 func iso(value time.Time) string {

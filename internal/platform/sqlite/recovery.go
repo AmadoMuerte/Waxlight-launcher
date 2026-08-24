@@ -7,8 +7,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/recovery"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 )
 
 func (s *SQLiteStore) GetLastKnownGood(ctx context.Context, instanceID string) (recovery.LastKnownGood, error) {

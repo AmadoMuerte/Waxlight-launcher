@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	"github.com/AmadoMuerte/vintagestory-go/moddb"
-	"github.com/waxlight/waxlight-launcher/internal/errs"
-	"github.com/waxlight/waxlight-launcher/internal/mods"
 )
 
 // Client adapts the generic ModDB API client to Waxlight's domain models and
