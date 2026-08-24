@@ -21,15 +21,16 @@ It is maintained by [AmadoMuerte](https://github.com/AmadoMuerte) with help from
 
 ## Features 
 
-- Multiple Vintage Story accounts with TOTP/2FA support.
-- Multiple game versions installed side by side.
-- Isolated instances with separate mods and settings.
-- Built-in Vintage Story ModDB browser with search, filters, and mod management.
-- Mod installation, updates, enable/disable, and removal per instance.
-- Playtime tracking, launch logs, downloads, and background operations.
-- Stable and prerelease launcher updates with checksum verification.
-- Interface languages: English, Русский, Беларуская, Español, Français, Deutsch, Қазақша, Polski, Svenska, and Português.
-- Custom data folder for versions, instances, mods, downloads, and the database.
+- **Instance management** — isolated instances, cloning, existing-install import, `.waxlight` import/export, custom covers, and per-instance launch settings.
+- **Game versions** — install and keep multiple Vintage Story versions side by side.
+- **Mods** — browse ModDB, install local mods, choose versions, manage dependencies and update policies, and update per instance.
+- **Backups and recovery** — manual and automatic snapshots, configurable retention, and Last Known Good recovery.
+- **Accounts and clients** — multiple Vintage Story accounts and Optimum support.
+- **Servers and sharing** — public server browser, favorites, and deep links for shareable mod and server pages.
+- **Activity** — playtime statistics, launch logs, downloads, and background operation history.
+- **News and updates** — official Vintage Story news plus stable and prerelease launcher updates with checksum verification.
+- **Desktop support** — native Windows and Linux packages with a movable launcher data folder.
+- **Community translations** — English, Russian, German, French, Spanish, Portuguese and many other community translations.
 
 ## Download
 

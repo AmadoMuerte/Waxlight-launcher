@@ -650,6 +650,7 @@ export namespace wails {
 	    enabled: boolean;
 	    managed: boolean;
 	    source: string;
+	    updatePolicy: string;
 	    sizeBytes: number;
 	    installedAt: string;
 
@@ -668,6 +669,7 @@ export namespace wails {
 	        this.enabled = source["enabled"];
 	        this.managed = source["managed"];
 	        this.source = source["source"];
+	        this.updatePolicy = source["updatePolicy"];
 	        this.sizeBytes = source["sizeBytes"];
 	        this.installedAt = source["installedAt"];
 	    }
@@ -1410,6 +1412,7 @@ export namespace wails {
 
 	export class ModUpdateResultDTO {
 	    updated: number;
+	    skippedByPolicy: number;
 
 	    static createFrom(source: any = {}) {
 	        return new ModUpdateResultDTO(source);
@@ -1418,6 +1421,7 @@ export namespace wails {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.updated = source["updated"];
+	        this.skippedByPolicy = source["skippedByPolicy"];
 	    }
 	}
 
@@ -1852,6 +1856,7 @@ export namespace wails {
 	    skippedUpdateVersion: string;
 	    telemetryEnabled: boolean;
 	    automaticSafetySnapshots: boolean;
+	    automaticSnapshotRetention: number;
 	    librarySort: string;
 
 	    static createFrom(source: any = {}) {
@@ -1870,6 +1875,7 @@ export namespace wails {
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.telemetryEnabled = source["telemetryEnabled"];
 	        this.automaticSafetySnapshots = source["automaticSafetySnapshots"];
+	        this.automaticSnapshotRetention = source["automaticSnapshotRetention"];
 	        this.librarySort = source["librarySort"];
 	    }
 	}

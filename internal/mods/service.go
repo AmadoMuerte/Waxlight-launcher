@@ -146,6 +146,19 @@ func (service *Service) ListMods(ctx context.Context, instanceID string) ([]Inst
 	return service.repository.ListMods(ctx, instanceID)
 }
 
+func (service *Service) SetUpdatePolicy(ctx context.Context, id string, policy UpdatePolicy) (InstalledMod, error) {
+	if policy != NormalizeUpdatePolicy(policy) {
+		return InstalledMod{}, errs.NewError(errs.ErrValidation, "Invalid mod update policy")
+	}
+	mod, err := service.repository.GetMod(ctx, id)
+	if err != nil {
+		return mod, err
+	}
+	mod.UpdatePolicy = policy
+	mod.UpdatedAt = service.now().UTC()
+	return mod, service.repository.SaveMod(ctx, mod)
+}
+
 func findDiscoveredMod(
 	discovered []DiscoveredMod,
 	matched []bool,

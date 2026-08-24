@@ -18,4 +18,6 @@ export function RemoveMod(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetModEnabled(arg1:string,arg2:boolean):Promise<wails.InstalledModDTO>;
 
+export function SetModUpdatePolicy(arg1:string,arg2:string):Promise<wails.InstalledModDTO>;
+
 export function UpdateInstanceMods(arg1:wails.UpdateInstanceModsRequest):Promise<wails.ModUpdateResultDTO>;

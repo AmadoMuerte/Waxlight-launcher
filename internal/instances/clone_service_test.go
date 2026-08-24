@@ -103,15 +103,16 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 	}
 	clone := Instance{ID: "clone", Name: "Clone", Directory: "/instances/clone"}
 	repository := &cloneRepository{source: source, calls: &calls}
-	mods := &cloneModRepository{calls: &calls, mods: []mods.InstalledMod{{
+	modRepository := &cloneModRepository{calls: &calls, mods: []mods.InstalledMod{{
 		ID: "source-mod", InstanceID: source.ID, FilePath: filepath.Join(source.Directory, "Mods", "test.zip"),
+		UpdatePolicy: mods.UpdatePolicyPinned,
 	}}}
 	creator := &cloneCreator{clone: clone, calls: &calls}
 	storage := &cloneStorage{calls: &calls, copied: true, copiedPath: filepath.Join(clone.Directory, "cover.png")}
 	gate := &testGate{}
 	service := NewCloneService(
 		repository,
-		mods,
+		modRepository,
 		creator,
 		gate,
 		&testLock{guard: func(id, marker, _ string) (func(), error) {
@@ -137,9 +138,10 @@ func TestCloneServiceCopiesMetadataModsAndCover(t *testing.T) {
 	if source.LaunchArguments[0] != "--foo" {
 		t.Fatal("source launch arguments share clone input storage")
 	}
-	if len(mods.saved) != 1 || mods.saved[0].ID != "clone-mod" || mods.saved[0].InstanceID != clone.ID ||
-		mods.saved[0].FilePath != filepath.Join(clone.Directory, "Mods", "test.zip") {
-		t.Fatalf("saved mods = %+v", mods.saved)
+	if len(modRepository.saved) != 1 || modRepository.saved[0].ID != "clone-mod" || modRepository.saved[0].InstanceID != clone.ID ||
+		modRepository.saved[0].FilePath != filepath.Join(clone.Directory, "Mods", "test.zip") ||
+		modRepository.saved[0].UpdatePolicy != mods.UpdatePolicyPinned {
+		t.Fatalf("saved mods = %+v", modRepository.saved)
 	}
 	if result.CoverPath == nil || *result.CoverPath != storage.copiedPath || repository.saved == nil {
 		t.Fatalf("result = %+v, saved = %+v", result, repository.saved)

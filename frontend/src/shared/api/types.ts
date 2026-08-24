@@ -135,9 +135,12 @@ export interface InstalledMod {
   enabled: boolean;
   managed: boolean;
   source: string;
+  updatePolicy: ModUpdatePolicy;
   sizeBytes: number;
   installedAt: string;
 }
+
+export type ModUpdatePolicy = "automatic" | "compatible_only" | "pinned";
 
 export interface ModDeletePreview {
   modId: string;
@@ -328,6 +331,7 @@ export interface ModUpdateTarget {
 
 export interface ModUpdateResult {
   updated: number;
+  skippedByPolicy: number;
 }
 
 export interface LocalModLink {
@@ -456,6 +460,7 @@ export interface Settings {
   skippedUpdateVersion: string;
   telemetryEnabled: boolean;
   automaticSafetySnapshots: boolean;
+  automaticSnapshotRetention: number;
   librarySort: LibrarySort;
 }
 

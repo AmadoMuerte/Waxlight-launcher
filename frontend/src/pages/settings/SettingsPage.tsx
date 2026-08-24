@@ -63,6 +63,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
     left.telemetryEnabled === right.telemetryEnabled &&
     left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
+    left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
     left.librarySort === right.librarySort &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
@@ -495,6 +496,19 @@ export function SettingsPage() {
                     checked={value.automaticSafetySnapshots}
                     onCheckedChange={(automaticSafetySnapshots) =>
                       setValue({ ...value, automaticSafetySnapshots })
+                    }
+                  />
+                </SettingRow>
+                <SettingRow title={t("automatic_snapshots_to_keep")}>
+                  <Stepper
+                    label={t("automatic_snapshots_to_keep")}
+                    value={value.automaticSnapshotRetention}
+                    min={1}
+                    max={100}
+                    decreaseLabel={t("decrease")}
+                    increaseLabel={t("increase")}
+                    onChange={(automaticSnapshotRetention) =>
+                      setValue({ ...value, automaticSnapshotRetention })
                     }
                   />
                 </SettingRow>

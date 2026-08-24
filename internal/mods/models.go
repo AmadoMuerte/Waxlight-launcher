@@ -4,20 +4,40 @@ package mods
 
 import "time"
 
+type UpdatePolicy string
+
+const (
+	UpdatePolicyAutomatic      UpdatePolicy = "automatic"
+	UpdatePolicyCompatibleOnly UpdatePolicy = "compatible_only"
+	UpdatePolicyPinned         UpdatePolicy = "pinned"
+)
+
+func NormalizeUpdatePolicy(policy UpdatePolicy) UpdatePolicy {
+	switch policy {
+	case UpdatePolicyCompatibleOnly, UpdatePolicyPinned:
+		return policy
+	case "ignore":
+		return UpdatePolicyPinned
+	default:
+		return UpdatePolicyAutomatic
+	}
+}
+
 // InstalledMod is a mod installed into a launcher instance.
 type InstalledMod struct {
-	ID          string
-	InstanceID  string
-	Name        string
-	Version     string
-	FileName    string
-	FilePath    string
-	Enabled     bool
-	Managed     bool
-	Source      string
-	SizeBytes   int64
-	InstalledAt time.Time
-	UpdatedAt   time.Time
+	ID           string
+	InstanceID   string
+	Name         string
+	Version      string
+	FileName     string
+	FilePath     string
+	Enabled      bool
+	Managed      bool
+	Source       string
+	UpdatePolicy UpdatePolicy
+	SizeBytes    int64
+	InstalledAt  time.Time
+	UpdatedAt    time.Time
 }
 
 // DiscoveredMod is a mod file found on disk by a directory scan.
@@ -285,5 +305,6 @@ type ModUpdateTarget struct {
 
 // ModUpdateResult summarizes a bulk mod update of one instance.
 type ModUpdateResult struct {
-	Updated int
+	Updated         int
+	SkippedByPolicy int
 }

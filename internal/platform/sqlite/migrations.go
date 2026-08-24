@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 9
+const currentSchemaVersion = 10
 
 type migration struct {
 	version int
@@ -23,6 +23,7 @@ var migrations = []migration{
 	{version: 7, apply: repairOperationLocalizedTitles},
 	{version: 8, apply: addInstanceEnvironmentVariables},
 	{version: 9, apply: addInstancePinned},
+	{version: 10, apply: addInstalledModUpdatePolicy},
 }
 
 func (s *SQLiteStore) migrate(ctx context.Context) error {
@@ -100,7 +101,7 @@ CREATE TABLE IF NOT EXISTS instances (
 );
 CREATE TABLE IF NOT EXISTS installed_mods (
  id TEXT PRIMARY KEY, instance_id TEXT NOT NULL, name TEXT NOT NULL, version TEXT NOT NULL, file_name TEXT NOT NULL,
- file_path TEXT NOT NULL, enabled INTEGER NOT NULL, managed INTEGER NOT NULL, source TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+ file_path TEXT NOT NULL, enabled INTEGER NOT NULL, managed INTEGER NOT NULL, source TEXT NOT NULL, update_policy TEXT NOT NULL DEFAULT 'automatic', size_bytes INTEGER NOT NULL,
  installed_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(instance_id) REFERENCES instances(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS play_sessions (
@@ -191,6 +192,17 @@ func addInstancePinned(ctx context.Context, tx *sql.Tx) error {
 		return nil
 	}
 	return ensureColumn(ctx, tx, "instances", "is_pinned", "INTEGER NOT NULL DEFAULT 0")
+}
+
+func addInstalledModUpdatePolicy(ctx context.Context, tx *sql.Tx) error {
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='installed_mods'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return nil
+	}
+	return ensureColumn(ctx, tx, "installed_mods", "update_policy", "TEXT NOT NULL DEFAULT 'automatic'")
 }
 
 func repairOperationLocalizedTitles(ctx context.Context, tx *sql.Tx) error {

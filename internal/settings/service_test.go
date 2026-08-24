@@ -47,7 +47,7 @@ func TestReaderNormalizesAndRepairsSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.Language != "ru" || value.UpdateChannel != "stable" || value.LibrarySort != LibrarySortLastPlayed {
+	if value.Language != "ru" || value.UpdateChannel != "stable" || value.LibrarySort != LibrarySortLastPlayed || value.AutomaticSnapshotRetention != AutomaticSnapshotRetentionDefault {
 		t.Fatalf("settings were not normalized: %+v", value)
 	}
 	if value.GlobalLaunchArguments == nil || repository.saves != 1 {
@@ -98,6 +98,21 @@ func TestServiceUpdatesOnlyLibrarySort(t *testing.T) {
 	}
 	if saved.LibrarySort != LibrarySortName || saved.Language != "de" {
 		t.Fatalf("saved settings = %+v", saved)
+	}
+}
+
+func TestServiceRejectsInvalidAutomaticSnapshotRetention(t *testing.T) {
+	repository := &memoryRepository{value: Defaults()}
+	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	for _, retention := range []int{0, 101} {
+		value := Defaults()
+		value.AutomaticSnapshotRetention = retention
+		if _, err := service.Update(context.Background(), value); err == nil {
+			t.Fatalf("retention %d was accepted", retention)
+		}
+	}
+	if repository.saves != 0 {
+		t.Fatalf("invalid retention was persisted %d times", repository.saves)
 	}
 }
 

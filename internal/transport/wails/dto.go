@@ -183,17 +183,18 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 }
 
 type InstalledModDTO struct {
-	ID          string `json:"id"`
-	InstanceID  string `json:"instanceId"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	FileName    string `json:"fileName"`
-	FilePath    string `json:"filePath"`
-	Enabled     bool   `json:"enabled"`
-	Managed     bool   `json:"managed"`
-	Source      string `json:"source"`
-	SizeBytes   int64  `json:"sizeBytes"`
-	InstalledAt string `json:"installedAt"`
+	ID           string `json:"id"`
+	InstanceID   string `json:"instanceId"`
+	Name         string `json:"name"`
+	Version      string `json:"version"`
+	FileName     string `json:"fileName"`
+	FilePath     string `json:"filePath"`
+	Enabled      bool   `json:"enabled"`
+	Managed      bool   `json:"managed"`
+	Source       string `json:"source"`
+	UpdatePolicy string `json:"updatePolicy"`
+	SizeBytes    int64  `json:"sizeBytes"`
+	InstalledAt  string `json:"installedAt"`
 }
 
 type ModDeletePreviewDTO struct {
@@ -204,17 +205,18 @@ type ModDeletePreviewDTO struct {
 
 func modDTO(mod mods.InstalledMod) InstalledModDTO {
 	return InstalledModDTO{
-		ID:          mod.ID,
-		InstanceID:  mod.InstanceID,
-		Name:        mod.Name,
-		Version:     mod.Version,
-		FileName:    mod.FileName,
-		FilePath:    mod.FilePath,
-		Enabled:     mod.Enabled,
-		Managed:     mod.Managed,
-		Source:      mod.Source,
-		SizeBytes:   mod.SizeBytes,
-		InstalledAt: iso(mod.InstalledAt),
+		ID:           mod.ID,
+		InstanceID:   mod.InstanceID,
+		Name:         mod.Name,
+		Version:      mod.Version,
+		FileName:     mod.FileName,
+		FilePath:     mod.FilePath,
+		Enabled:      mod.Enabled,
+		Managed:      mod.Managed,
+		Source:       mod.Source,
+		UpdatePolicy: string(mods.NormalizeUpdatePolicy(mod.UpdatePolicy)),
+		SizeBytes:    mod.SizeBytes,
+		InstalledAt:  iso(mod.InstalledAt),
 	}
 }
 
@@ -323,17 +325,18 @@ func statisticsDTO(statistics statistics.Statistics) StatisticsDTO {
 }
 
 type SettingsDTO struct {
-	Language                 string   `json:"language"`
-	DownloadsParallel        int      `json:"downloadsParallel"`
-	ConfirmDeletion          bool     `json:"confirmDeletion"`
-	GlobalLaunchArguments    []string `json:"globalLaunchArguments"`
-	OptimumPath              string   `json:"optimumPath"`
-	CheckForUpdates          bool     `json:"checkForUpdates"`
-	UpdateChannel            string   `json:"updateChannel"`
-	SkippedUpdateVersion     string   `json:"skippedUpdateVersion"`
-	TelemetryEnabled         bool     `json:"telemetryEnabled"`
-	AutomaticSafetySnapshots bool     `json:"automaticSafetySnapshots"`
-	LibrarySort              string   `json:"librarySort"`
+	Language                   string   `json:"language"`
+	DownloadsParallel          int      `json:"downloadsParallel"`
+	ConfirmDeletion            bool     `json:"confirmDeletion"`
+	GlobalLaunchArguments      []string `json:"globalLaunchArguments"`
+	OptimumPath                string   `json:"optimumPath"`
+	CheckForUpdates            bool     `json:"checkForUpdates"`
+	UpdateChannel              string   `json:"updateChannel"`
+	SkippedUpdateVersion       string   `json:"skippedUpdateVersion"`
+	TelemetryEnabled           bool     `json:"telemetryEnabled"`
+	AutomaticSafetySnapshots   bool     `json:"automaticSafetySnapshots"`
+	AutomaticSnapshotRetention int      `json:"automaticSnapshotRetention"`
+	LibrarySort                string   `json:"librarySort"`
 }
 
 func settingsDTO(settings settings.Settings) SettingsDTO {
@@ -343,17 +346,18 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 	}
 
 	return SettingsDTO{
-		Language:                 settings.Language,
-		DownloadsParallel:        settings.DownloadsParallel,
-		ConfirmDeletion:          settings.ConfirmDeletion,
-		GlobalLaunchArguments:    launchArguments,
-		OptimumPath:              settings.OptimumPath,
-		CheckForUpdates:          settings.CheckForUpdates,
-		UpdateChannel:            settings.UpdateChannel,
-		SkippedUpdateVersion:     settings.SkippedUpdateVersion,
-		TelemetryEnabled:         settings.TelemetryEnabled,
-		AutomaticSafetySnapshots: settings.AutomaticSafetySnapshots,
-		LibrarySort:              settings.LibrarySort,
+		Language:                   settings.Language,
+		DownloadsParallel:          settings.DownloadsParallel,
+		ConfirmDeletion:            settings.ConfirmDeletion,
+		GlobalLaunchArguments:      launchArguments,
+		OptimumPath:                settings.OptimumPath,
+		CheckForUpdates:            settings.CheckForUpdates,
+		UpdateChannel:              settings.UpdateChannel,
+		SkippedUpdateVersion:       settings.SkippedUpdateVersion,
+		TelemetryEnabled:           settings.TelemetryEnabled,
+		AutomaticSafetySnapshots:   settings.AutomaticSafetySnapshots,
+		AutomaticSnapshotRetention: settings.AutomaticSnapshotRetention,
+		LibrarySort:                settings.LibrarySort,
 	}
 }
 

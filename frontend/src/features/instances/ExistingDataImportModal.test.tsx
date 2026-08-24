@@ -94,6 +94,7 @@ function mod(id: string, managed: boolean): InstalledMod {
     enabled: true,
     managed,
     source: managed ? "moddb" : "local",
+    updatePolicy: "automatic",
     sizeBytes: 1,
     installedAt: "2026-01-01T00:00:00Z",
   };
