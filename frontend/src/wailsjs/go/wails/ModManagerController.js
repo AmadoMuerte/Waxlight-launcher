@@ -34,6 +34,10 @@ export function SetModEnabled(arg1, arg2) {
   return window['go']['wails']['ModManagerController']['SetModEnabled'](arg1, arg2);
 }
 
+export function SetModUpdatePolicy(arg1, arg2) {
+  return window['go']['wails']['ModManagerController']['SetModUpdatePolicy'](arg1, arg2);
+}
+
 export function UpdateInstanceMods(arg1) {
   return window['go']['wails']['ModManagerController']['UpdateInstanceMods'](arg1);
 }

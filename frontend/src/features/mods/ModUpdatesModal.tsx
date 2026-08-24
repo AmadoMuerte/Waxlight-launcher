@@ -100,7 +100,7 @@ export function ModUpdatesModal({
     try {
       // One coordinated backend operation: the backend creates a single
       // safety snapshot first and then applies every update.
-      await modsApi.updateInstance({
+      const result = await modsApi.updateInstance({
         instanceId,
         mods: pending.map((mod) => ({
           modId: mod.modId,
@@ -109,7 +109,11 @@ export function ModUpdatesModal({
         allowIncompatible,
       });
       await onApplied();
-      notify(t("mod_updates_applied"));
+      notify(
+        (result.skippedByPolicy ?? 0) > 0
+          ? `${t("mods_updated_count", { count: result.updated })} · ${t("mods_skipped_by_update_policy", { count: result.skippedByPolicy })}`
+          : t("mod_updates_applied"),
+      );
       onClose();
     } catch (applyError) {
       setError(errorMessage(applyError));

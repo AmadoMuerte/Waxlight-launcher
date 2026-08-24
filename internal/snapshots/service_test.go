@@ -493,7 +493,7 @@ func TestAutomaticRetentionKeepsNewestAndProtectedSnapshot(t *testing.T) {
 
 	// Create retentionLimit+2 automatic snapshots; the second one is protected.
 	var protectedID string
-	for index := 0; index <= automaticRetentionCount+1; index++ {
+	for index := 0; index <= settingscore.AutomaticSnapshotRetentionDefault+1; index++ {
 		operation, err := service.CreateSafety(context.Background(), instanceID, ReasonBeforeModRemoval, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -525,11 +525,42 @@ func TestAutomaticRetentionKeepsNewestAndProtectedSnapshot(t *testing.T) {
 			}
 		}
 	}
-	if automatic != automaticRetentionCount {
-		t.Fatalf("expected %d automatic snapshots after retention, got %d", automaticRetentionCount, automatic)
+	if automatic != settingscore.AutomaticSnapshotRetentionDefault {
+		t.Fatalf("expected %d automatic snapshots after retention, got %d", settingscore.AutomaticSnapshotRetentionDefault, automatic)
 	}
 	if !keptProtected {
 		t.Fatal("retention removed the protected last known good snapshot")
+	}
+}
+
+func TestAutomaticRetentionUsesConfiguredCountAndKeepsManual(t *testing.T) {
+	settings := settingscore.Defaults()
+	settings.AutomaticSnapshotRetention = 2
+	service, _, _, root := testService(t, &fakeMods{}, &fakeCatalog{}, settings)
+	instanceID := "instance-1"
+	createTestInstanceDir(t, root, instanceID)
+	if _, err := service.Create(context.Background(), instanceID); err != nil {
+		t.Fatal(err)
+	}
+	for range 4 {
+		if _, err := service.CreateSafety(context.Background(), instanceID, ReasonBeforeModRemoval, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, err := service.List(context.Background(), instanceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	automatic, manual := 0, 0
+	for _, item := range items {
+		if item.Type == TypeAutomatic {
+			automatic++
+		} else if item.Type == TypeManual {
+			manual++
+		}
+	}
+	if automatic != 2 || manual != 1 {
+		t.Fatalf("automatic = %d, manual = %d", automatic, manual)
 	}
 }
 

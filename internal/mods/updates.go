@@ -119,6 +119,7 @@ func (service *CatalogService) CheckInstanceModUpdates(
 	if err != nil {
 		return report, err
 	}
+	applyUpdatePolicies(ctx, &report, mods, gameVersion, service.catalog)
 	slog.Info("mod updates checked", "instance", instance.Name, "updates", report.Summary.UpdatesAvailable)
 	return report, nil
 }
@@ -151,7 +152,19 @@ func (service *CatalogService) UpdateInstanceMods(
 	if err != nil {
 		return result, err
 	}
-	pending := pendingModUpdates(installed, targets)
+	instanceVersion, err := service.versions.Get(ctx, instance.GameVersionID)
+	if err != nil {
+		return result, err
+	}
+	gameVersion := instanceVersion.Name
+	if gameVersion == "" {
+		gameVersion = instanceVersion.ID
+	}
+	pending, skipped, err := service.pendingModUpdates(ctx, installed, targets, gameVersion)
+	if err != nil {
+		return result, err
+	}
+	result.SkippedByPolicy = skipped
 	if len(pending) == 0 {
 		return result, nil
 	}
@@ -189,11 +202,13 @@ func (service *CatalogService) UpdateInstanceMods(
 // pendingModUpdates filters the requested targets to the ones that would
 // actually change the instance: releases that are not installed yet or whose
 // installed record points at another release. Duplicate targets are collapsed.
-func pendingModUpdates(installed []InstalledMod, targets []ModUpdateTarget) []ModUpdateTarget {
+func (service *CatalogService) pendingModUpdates(ctx context.Context, installed []InstalledMod, targets []ModUpdateTarget, gameVersion string) ([]ModUpdateTarget, int, error) {
 	installedSource := make(map[string]string, len(installed))
+	policies := make(map[string]UpdatePolicy, len(installed))
 	for _, mod := range installed {
 		if modID, _, ok := ParseModDBSource(mod.Source); ok {
 			installedSource[modID] = mod.Source
+			policies[modID] = NormalizeUpdatePolicy(mod.UpdatePolicy)
 		}
 	}
 	pending := make([]ModUpdateTarget, 0, len(targets))
@@ -209,10 +224,109 @@ func pendingModUpdates(installed []InstalledMod, targets []ModUpdateTarget) []Mo
 			continue
 		}
 		seen[key] = struct{}{}
+		if policies[modID] == UpdatePolicyPinned {
+			continue
+		}
+		if policies[modID] == UpdatePolicyCompatibleOnly {
+			details, err := service.catalog.Get(ctx, modID)
+			if err != nil {
+				return nil, 0, err
+			}
+			version, ok := FindModVersion(details.Versions, versionID)
+			if !ok || !ModSupportsVersion(version.GameVersions, gameVersion) {
+				continue
+			}
+		}
 		if installedSource[modID] == ModDBSource(modID, versionID) {
 			continue
 		}
 		pending = append(pending, ModUpdateTarget{ModID: modID, VersionID: versionID})
 	}
-	return pending
+	skipped := 0
+	for modID, policy := range policies {
+		if policy != UpdatePolicyPinned {
+			continue
+		}
+		for _, target := range targets {
+			if strings.TrimSpace(target.ModID) == modID && installedSource[modID] != ModDBSource(modID, strings.TrimSpace(target.VersionID)) {
+				skipped++
+				break
+			}
+		}
+	}
+	return pending, skipped, nil
+}
+
+func applyUpdatePolicies(ctx context.Context, report *ModUpdateReport, installed []InstalledMod, gameVersion string, catalog Catalog) {
+	policies := make(map[string]UpdatePolicy, len(installed))
+	for _, mod := range installed {
+		if modID, _, ok := ParseModDBSource(mod.Source); ok {
+			policies[modID] = NormalizeUpdatePolicy(mod.UpdatePolicy)
+		}
+	}
+	for index := range report.Mods {
+		update := &report.Mods[index]
+		switch policies[update.ModID] {
+		case UpdatePolicyPinned:
+			if update.Status == vsmodpack.StatusUpdateAvailable {
+				report.Summary.UpdatesAvailable--
+				report.Summary.UpToDate++
+			}
+			update.Status = vsmodpack.StatusUpToDate
+			update.TargetVersionID = ""
+			update.TargetVersion = ""
+		case UpdatePolicyCompatibleOnly:
+			if update.Status != vsmodpack.StatusUpdateAvailable || update.Compatible {
+				continue
+			}
+			details, err := catalog.Get(ctx, update.ModID)
+			if err != nil {
+				update.Status = vsmodpack.StatusNotUpdatable
+				update.Reason = vsmodpack.ReasonCatalogError
+				update.TargetVersionID = ""
+				update.TargetVersion = ""
+				continue
+			}
+			version, found := bestSatisfyingVersion(details.Versions, "*", []string{gameVersion}, false)
+			if found && version.Version != update.InstalledVersion {
+				update.TargetVersionID = version.ID
+				update.TargetVersion = version.Version
+				update.Compatible = true
+				update.Changelog = version.Changelog
+			}
+			if !update.Compatible {
+				report.Summary.UpdatesAvailable--
+				report.Summary.Incompatible++
+				update.Status = vsmodpack.StatusUpToDate
+				update.TargetVersionID = ""
+				update.TargetVersion = ""
+			}
+		}
+	}
+	report.Summary = summarizeModUpdates(report.Mods)
+}
+
+func summarizeModUpdates(updates []vsmodpack.ModUpdate) vsmodpack.Summary {
+	summary := vsmodpack.Summary{TotalMods: len(updates)}
+	for _, update := range updates {
+		switch update.Status {
+		case vsmodpack.StatusUpToDate:
+			summary.UpToDate++
+		case vsmodpack.StatusUpdateAvailable:
+			summary.UpdatesAvailable++
+			if !update.Compatible {
+				summary.Incompatible++
+			}
+		case vsmodpack.StatusNotUpdatable:
+			switch update.Reason {
+			case vsmodpack.ReasonLocalMod:
+				summary.NotUpdatableLocal++
+			case vsmodpack.ReasonNotInCatalog:
+				summary.NotUpdatableAbsent++
+			case vsmodpack.ReasonCatalogError:
+				summary.NotUpdatableCatalogError++
+			}
+		}
+	}
+	return summary
 }

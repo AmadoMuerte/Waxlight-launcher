@@ -6,9 +6,37 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
+
+func TestGetCatalogModDoesNotWaitForFileSizes(t *testing.T) {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse"},
+		Versions: []mods.ModVersion{{
+			ID: "7", Version: "2.0.0", DownloadURL: "https://cdn.test/playercorpse.zip",
+		}},
+	}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, blockingContentLengthDownloader{})
+
+	result, err := fixture.catalogService.GetCatalogMod(context.Background(), "51")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Versions) != 1 || result.Versions[0].FileSize != 0 {
+		t.Fatalf("unexpected catalog details: %#v", result)
+	}
+}
+
+type blockingContentLengthDownloader struct {
+	recordingDownloader
+}
+
+func (blockingContentLengthDownloader) ContentLength(context.Context, string) (int64, error) {
+	time.Sleep(time.Second)
+	return 1, nil
+}
 
 func TestDownloadCatalogModInstallsIntoSeveralInstances(t *testing.T) {
 	fixture := newTestFixture(t)

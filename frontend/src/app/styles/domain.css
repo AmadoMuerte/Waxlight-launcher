@@ -683,7 +683,7 @@
   .installedModList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
   }
 
   .installedModRow {
@@ -696,6 +696,18 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: 10px;
     background: var(--color-surface-1);
+  }
+
+  .modsTab .installedModRow {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .modsTab .modRowIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
   }
 
   .installedModRow:hover {
@@ -735,6 +747,26 @@
     font-size: 12px;
   }
 
+  .installedModControls {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .installedModControls .installedModVersion {
+    width: min(180px, 50%);
+    margin-top: 0;
+  }
+
+  .modPinnedIcon {
+    display: inline;
+    width: 13px;
+    height: 13px;
+    margin-left: 6px;
+    color: var(--color-accent);
+    vertical-align: -1px;
+  }
+
   .installedModVersionError {
     margin: 7px 0 0;
     padding: 8px 10px;
@@ -751,6 +783,10 @@
     font-weight: 600;
   }
 
+  .modsTab .modRowCopy strong {
+    font-size: 14px;
+  }
+
   .modRowCopy small,
   .modRowCopy code {
     margin-top: 3px;
@@ -762,6 +798,10 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .modsTab .modRowActions {
+    gap: 8px;
   }
 
   .checkboxControl {

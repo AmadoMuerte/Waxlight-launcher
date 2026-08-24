@@ -92,6 +92,7 @@
       "ListInstalledMods",
       "RemoveMod",
       "SetModEnabled",
+      "SetModUpdatePolicy",
       "UpdateInstanceMods"
     ],
     "NewsController": [
@@ -137,6 +138,10 @@
     ],
     "StatisticsController": [
       "GetOverviewStatistics"
+    ],
+    "SupportReportController": [
+      "Preview",
+      "Submit"
     ]
   }
 }

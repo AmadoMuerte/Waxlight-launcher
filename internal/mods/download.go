@@ -400,18 +400,22 @@ func (service *CatalogService) installDownloadedMod(
 	}
 	now := service.now().UTC()
 	installed := InstalledMod{
-		ID:          service.newID(),
-		InstanceID:  instance.ID,
-		Name:        downloaded.Name,
-		Version:     downloaded.DownloadedVersion,
-		FileName:    filepath.Base(path),
-		FilePath:    path,
-		Enabled:     true,
-		Managed:     true,
-		Source:      ModDBSource(downloaded.ModID, downloaded.VersionID),
-		SizeBytes:   size,
-		InstalledAt: now,
-		UpdatedAt:   now,
+		ID:           service.newID(),
+		InstanceID:   instance.ID,
+		Name:         downloaded.Name,
+		Version:      downloaded.DownloadedVersion,
+		FileName:     filepath.Base(path),
+		FilePath:     path,
+		Enabled:      true,
+		Managed:      true,
+		Source:       ModDBSource(downloaded.ModID, downloaded.VersionID),
+		UpdatePolicy: UpdatePolicyAutomatic,
+		SizeBytes:    size,
+		InstalledAt:  now,
+		UpdatedAt:    now,
+	}
+	if previous != nil {
+		installed.UpdatePolicy = NormalizeUpdatePolicy(previous.UpdatePolicy)
 	}
 	if err := service.repository.SaveMod(ctx, installed); err != nil {
 		result.Message = "Installed the file but could not save its metadata"

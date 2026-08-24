@@ -11,7 +11,7 @@ import (
 )
 
 const modColumns = `id, instance_id, name, version, file_name, file_path,
-	enabled, managed, source, size_bytes, installed_at, updated_at`
+	enabled, managed, source, update_policy, size_bytes, installed_at, updated_at`
 
 func (s *SQLiteStore) ListMods(ctx context.Context, instanceID string) ([]mods.InstalledMod, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+modColumns+` FROM installed_mods WHERE instance_id=? ORDER BY name`, instanceID)
@@ -35,9 +35,10 @@ func scanMod(row scanner) (mods.InstalledMod, error) {
 	var enabled, managed int
 	var installed, updated string
 	err := row.Scan(&mod.ID, &mod.InstanceID, &mod.Name, &mod.Version, &mod.FileName, &mod.FilePath,
-		&enabled, &managed, &mod.Source, &mod.SizeBytes, &installed, &updated)
+		&enabled, &managed, &mod.Source, &mod.UpdatePolicy, &mod.SizeBytes, &installed, &updated)
 	mod.Enabled = enabled == 1
 	mod.Managed = managed == 1
+	mod.UpdatePolicy = mods.NormalizeUpdatePolicy(mod.UpdatePolicy)
 	mod.InstalledAt, _ = time.Parse(time.RFC3339Nano, installed)
 	mod.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
 	return mod, err
@@ -52,12 +53,13 @@ func (s *SQLiteStore) GetMod(ctx context.Context, id string) (mods.InstalledMod,
 }
 
 func (s *SQLiteStore) SaveMod(ctx context.Context, mod mods.InstalledMod) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO installed_mods(`+modColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	mod.UpdatePolicy = mods.NormalizeUpdatePolicy(mod.UpdatePolicy)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO installed_mods(`+modColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version, file_name=excluded.file_name,
-		file_path=excluded.file_path, enabled=excluded.enabled, managed=excluded.managed, source=excluded.source,
+		file_path=excluded.file_path, enabled=excluded.enabled, managed=excluded.managed, source=excluded.source, update_policy=excluded.update_policy,
 		size_bytes=excluded.size_bytes, updated_at=excluded.updated_at`,
 		mod.ID, mod.InstanceID, mod.Name, mod.Version, mod.FileName, mod.FilePath, btoi(mod.Enabled), btoi(mod.Managed),
-		mod.Source, mod.SizeBytes, ts(mod.InstalledAt), ts(mod.UpdatedAt))
+		mod.Source, mod.UpdatePolicy, mod.SizeBytes, ts(mod.InstalledAt), ts(mod.UpdatedAt))
 	return err
 }
 

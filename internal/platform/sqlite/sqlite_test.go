@@ -12,12 +12,56 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+func TestInstalledModUpdatePolicyPersistsAcrossReopen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mods.db")
+	store, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	if err := store.SaveVersion(context.Background(), versions.GameVersion{
+		ID: "version", Name: "1.20", Platform: "linux", Architecture: "amd64", InstallationDir: "/tmp/version",
+		ExecutablePath: "/tmp/version/game", Status: "installed", InstalledAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveInstance(context.Background(), instances.Instance{
+		ID: "instance", Name: "Instance", GameVersionID: "version", Directory: "/tmp/instance", Status: "ready",
+		LaunchArguments: []string{}, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveMod(context.Background(), mods.InstalledMod{
+		ID: "mod", InstanceID: "instance", Name: "Mod", Version: "1", FileName: "mod.zip",
+		FilePath: "/tmp/mod.zip", Source: "moddb:mod:release", UpdatePolicy: mods.UpdatePolicyPinned,
+		InstalledAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err = sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	stored, err := store.GetMod(context.Background(), "mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.UpdatePolicy != mods.UpdatePolicyPinned {
+		t.Fatalf("policy = %q", stored.UpdatePolicy)
+	}
+}
 
 func TestLegacyAccountSchemaIsMigrated(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")

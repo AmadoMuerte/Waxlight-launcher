@@ -86,9 +86,15 @@ export const ModCard = memo(function ModCard({
     statusText = t("downloaded_status");
   }
 
+  const imageUrl = downloaded?.imageUrl ?? mod.imageUrl;
+  const staticImageUrl = imageUrl && !/\.gif(?:$|[?#])/i.test(imageUrl) ? imageUrl : undefined;
+
   return (
-    <article className="min-w-0" aria-labelledby={titleId}>
-      <Card className="group relative flex min-w-0 flex-col overflow-hidden transition-colors hover:border-accent/60 focus-within:border-accent/60">
+    <article className="modCard min-w-0" aria-labelledby={titleId}>
+      <Card
+        variant="subtle"
+        className="group relative flex min-w-0 flex-col overflow-hidden transition-colors hover:border-accent/60 focus-within:border-accent/60"
+      >
         <button
           type="button"
           aria-label={t("open_mod", { name: mod.name })}
@@ -105,7 +111,7 @@ export const ModCard = memo(function ModCard({
         >
           <div className="relative">
             <ModArtwork
-              src={downloaded?.imageUrl ?? mod.imageUrl}
+              src={staticImageUrl}
               alt={t("cover_alt", { name: mod.name })}
               seed={mod.name}
               className={layout === "list" ? "aspect-auto h-full min-h-60" : ""}

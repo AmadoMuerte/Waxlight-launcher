@@ -37,6 +37,9 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 	if value.DownloadsParallel < 1 || value.DownloadsParallel > 10 {
 		return value, errs.NewError(errs.ErrValidation, "Parallel downloads must be between 1 and 10")
 	}
+	if value.AutomaticSnapshotRetention < AutomaticSnapshotRetentionMin || value.AutomaticSnapshotRetention > AutomaticSnapshotRetentionMax {
+		return value, errs.NewError(errs.ErrValidation, "Automatic snapshots to keep must be between 1 and 100")
+	}
 	value.Language = language.NormalizeLanguage(value.Language)
 	channel, err := normalizeUpdateChannel(value.UpdateChannel)
 	if err != nil {

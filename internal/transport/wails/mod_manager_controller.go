@@ -81,7 +81,8 @@ type ModUpdateTargetDTO struct {
 }
 
 type ModUpdateResultDTO struct {
-	Updated int `json:"updated"`
+	Updated         int `json:"updated"`
+	SkippedByPolicy int `json:"skippedByPolicy"`
 }
 
 // UpdateInstanceMods updates several installed mods of one instance in a
@@ -107,7 +108,12 @@ func (controller *ModManagerController) UpdateInstanceMods(
 		slog.Warn("instance mod update failed", "instanceId", request.InstanceID, "error", err)
 		return ModUpdateResultDTO{}, err
 	}
-	return ModUpdateResultDTO{Updated: result.Updated}, nil
+	return ModUpdateResultDTO{Updated: result.Updated, SkippedByPolicy: result.SkippedByPolicy}, nil
+}
+
+func (controller *ModManagerController) SetModUpdatePolicy(id, policy string) (InstalledModDTO, error) {
+	mod, err := controller.svc.SetUpdatePolicy(controller.lifecycle.Context(), id, mods.UpdatePolicy(policy))
+	return modDTO(mod), err
 }
 
 func (controller *ModManagerController) InstallModFile(

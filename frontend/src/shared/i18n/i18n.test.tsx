@@ -35,6 +35,7 @@ const settings: Settings = {
   skippedUpdateVersion: "",
   telemetryEnabled: false,
   automaticSafetySnapshots: true,
+  automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
 };
 

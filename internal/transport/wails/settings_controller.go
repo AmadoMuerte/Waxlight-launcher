@@ -62,8 +62,9 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		OptimumPath:     request.OptimumPath,
 		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
 		SkippedUpdateVersion: request.SkippedUpdateVersion, TelemetryEnabled: request.TelemetryEnabled,
-		AutomaticSafetySnapshots: request.AutomaticSafetySnapshots,
-		LibrarySort:              request.LibrarySort,
+		AutomaticSafetySnapshots:   request.AutomaticSafetySnapshots,
+		AutomaticSnapshotRetention: request.AutomaticSnapshotRetention,
+		LibrarySort:                request.LibrarySort,
 	})
 	return settingsDTO(value), err
 }

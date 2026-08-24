@@ -205,6 +205,15 @@
   .installedModRow {
     grid-template-columns: 42px minmax(0, 1fr);
   }
+  .modsTab .installedModRow {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .installedModControls {
+    flex-wrap: wrap;
+  }
+  .installedModControls .installedModVersion {
+    width: min(180px, 100%);
+  }
   .modRowActions {
     grid-column: 1 / -1;
     justify-content: space-between;

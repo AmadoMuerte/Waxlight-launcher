@@ -19,10 +19,6 @@ const (
 	restoreDownloadPhaseStart = 0.4
 )
 
-// automaticRetentionCount is how many automatic snapshots per instance are
-// kept. Manual snapshots are never touched by retention.
-const automaticRetentionCount = 10
-
 // createInput carries the metadata of a snapshot being created. The type,
 // reason and context distinguish manual snapshots from automatic safety
 // snapshots in the manifest; manual creation leaves them at their zero values.
@@ -151,7 +147,7 @@ func (s *Service) CreateSafety(
 		slog.Error("automatic safety snapshot failed; the destructive operation must not start", "instanceId", instanceID, "reason", reason, "error", err)
 		return operation, err
 	}
-	s.enforceRetention(ctx, instanceID)
+	s.enforceRetention(ctx, instanceID, settings.AutomaticSnapshotRetention)
 	return operation, nil
 }
 
@@ -494,7 +490,7 @@ func (s *Service) Delete(ctx context.Context, instanceID, snapshotID string) err
 // automatic snapshot is removed instead. Retention is best-effort: a cleanup
 // failure is logged and never invalidates the freshly created snapshot or the
 // operation it protects.
-func (s *Service) enforceRetention(ctx context.Context, instanceID string) {
+func (s *Service) enforceRetention(ctx context.Context, instanceID string, retention int) {
 	snapshots, err := s.storage.List(ctx, instanceID)
 	if err != nil {
 		slog.Warn("could not list snapshots for automatic retention", "instanceId", instanceID, "error", err)
@@ -507,11 +503,11 @@ func (s *Service) enforceRetention(ctx context.Context, instanceID string) {
 		}
 	}
 	// List returns snapshots newest first.
-	if len(automatic) <= automaticRetentionCount {
+	if len(automatic) <= retention {
 		return
 	}
 	protected := s.clearLastKnownGood.ProtectedSnapshotID(ctx, instanceID)
-	for _, old := range automatic[automaticRetentionCount:] {
+	for _, old := range automatic[retention:] {
 		if old.ID == protected {
 			slog.Info("automatic retention kept the last known good recovery snapshot", "instanceId", instanceID, "snapshot", old.ID)
 			continue

@@ -50,6 +50,7 @@ import (
 	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/statistics"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/supportreports"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/AmadoMuerte/Waxlight-launcher/internal/transport/wails"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/updates"
@@ -169,8 +170,9 @@ func NewWithHome(home string) (*Container, error) {
 		versions.NewRemovalService(store, store, versionFilesystem, mutationGate, eventPublisher),
 	)
 	instanceQueries := instances.NewQueryService(store)
+	telemetryClient := telemetry.NewClient(telemetry.ProductionEndpoint())
 	telemetryService := telemetry.NewService(
-		telemetry.NewClient(telemetry.ProductionEndpoint()),
+		telemetryClient,
 		settingsReader,
 		store,
 		store,
@@ -466,6 +468,15 @@ func NewWithHome(home string) (*Container, error) {
 		telemetryService,
 	)
 	dialogs := wailstransport.NewDialogAdapter(lifecycle)
+	supportReportService := supportreports.NewService(
+		store,
+		operationManager,
+		sessionService,
+		supportRecoveryAdapter{recovery: recoveryService, snapshots: snapshotService},
+		supportLogAdapter{},
+		telemetryService,
+		supportSenderAdapter{client: telemetryClient},
+	)
 	instanceController := wailstransport.NewInstanceController(
 		instanceCreator,
 		instanceQueries,
@@ -495,6 +506,7 @@ func NewWithHome(home string) (*Container, error) {
 		wailstransport.NewSnapshotController(snapshotService, lifecycle),
 		wailstransport.NewLastKnownGoodController(recoveryService, lifecycle),
 		wailstransport.NewLogController(instanceQueries, modsService, versionService, lifecycle),
+		wailstransport.NewSupportReportController(supportReportService, lifecycle),
 		wailstransport.NewSettingsController(
 			settingsReader,
 			settingsService,
