@@ -6,6 +6,7 @@ import {
   Download,
   Gamepad2,
   PackageOpen,
+  Pin,
   Plus,
   UserRound,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import { settingsApi } from "../../entities/settings/api";
 import { useOptimumStatusQuery, useSettingsQuery } from "../../entities/settings/queries";
 import { errorMessage } from "../../shared/api/bridge";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
+import type { ModUpdatePolicy } from "../../shared/api/types";
 import { formatDuration } from "../../shared/lib";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
@@ -79,6 +81,10 @@ function parseEnvironmentVariables(text: string): {
     values[key] = rawLine.slice(separator + 1);
   }
   return { values };
+}
+
+function isModUpdatePolicy(value: string): value is ModUpdatePolicy {
+  return ["automatic", "compatible_only", "pinned"].includes(value);
 }
 
 export function InstanceModal({
@@ -629,47 +635,89 @@ export function InstanceModal({
                         {!mod.managed && (
                           <span className="modSourceBadge local">{t("local_mod")}</span>
                         )}
+                        {mod.updatePolicy === "pinned" && (
+                          <Pin
+                            className="modPinnedIcon"
+                            aria-label={t("mod_update_policy_pinned")}
+                          />
+                        )}
                       </strong>
-                      {catalogManaged ? (
-                        <Select
-                          value=""
-                          disabled={updatingModID === mod.id}
-                          onValueChange={(targetVersionID) =>
-                            void changeModVersion(mod, targetVersionID)
-                          }
-                          onOpenChange={(open) => {
-                            if (open) void loadModVersions(mod);
-                          }}
-                        >
-                          <SelectTrigger
-                            className="installedModVersion"
-                            aria-label={t("update_to_version", { version: mod.name })}
+                      <div className="installedModControls">
+                        {catalogManaged ? (
+                          <Select
+                            value=""
+                            disabled={updatingModID === mod.id}
+                            onValueChange={(targetVersionID) =>
+                              void changeModVersion(mod, targetVersionID)
+                            }
+                            onOpenChange={(open) => {
+                              if (open) void loadModVersions(mod);
+                            }}
                           >
-                            <SelectValue
-                              placeholder={t("version_value", { version: mod.version })}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingVersions ? (
-                              <SelectItem value="loading" disabled>
-                                {t("loading_mods")}
-                              </SelectItem>
-                            ) : modVersions.length > 0 ? (
-                              modVersions.map((version) => (
-                                <SelectItem key={version.id} value={version.id}>
-                                  {t("version_value", { version: version.version })}
+                            <SelectTrigger
+                              className="installedModVersion"
+                              aria-label={t("update_to_version", { version: mod.name })}
+                            >
+                              <SelectValue
+                                placeholder={t("version_value", { version: mod.version })}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {loadingVersions ? (
+                                <SelectItem value="loading" disabled>
+                                  {t("loading_mods")}
                                 </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="unavailable" disabled>
-                                {t("no_downloadable_mod_version")}
+                              ) : modVersions.length > 0 ? (
+                                modVersions.map((version) => (
+                                  <SelectItem key={version.id} value={version.id}>
+                                    {t("version_value", { version: version.version })}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="unavailable" disabled>
+                                  {t("no_downloadable_mod_version")}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <small>{t("version_value", { version: mod.version })}</small>
+                        )}
+                        {catalogManaged && (
+                          <Select
+                            value={mod.updatePolicy}
+                            onValueChange={async (updatePolicy) => {
+                              if (!isModUpdatePolicy(updatePolicy)) return;
+                              try {
+                                await modsApi.setUpdatePolicy(mod.id, updatePolicy);
+                                await loadMods();
+                                const report = await loadUpdates();
+                                if (report) onModUpdatesChanged?.(instance.id, report);
+                              } catch (error) {
+                                notify(errorMessage(error), "error");
+                              }
+                            }}
+                          >
+                            <SelectTrigger
+                              className="installedModVersion"
+                              aria-label={t("mod_update_policy")}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="automatic">
+                                {t("mod_update_policy_automatic")}
                               </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <small>{t("version_value", { version: mod.version })}</small>
-                      )}
+                              <SelectItem value="compatible_only">
+                                {t("mod_update_policy_compatible_only")}
+                              </SelectItem>
+                              <SelectItem value="pinned">
+                                {t("mod_update_policy_pinned")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                       {versionChangeError?.modID === mod.id && (
                         <p className="installedModVersionError" role="alert">
                           {versionChangeError.message}

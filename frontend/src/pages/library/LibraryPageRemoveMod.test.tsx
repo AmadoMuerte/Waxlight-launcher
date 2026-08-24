@@ -80,6 +80,7 @@ const rootMod: InstalledMod = {
   enabled: true,
   managed: true,
   source: "moddb:1:9",
+  updatePolicy: "automatic",
   sizeBytes: 1,
   installedAt: "2026-01-01T00:00:00Z",
 };
@@ -94,6 +95,7 @@ const libMod: InstalledMod = {
   enabled: true,
   managed: true,
   source: "moddb:2:5",
+  updatePolicy: "automatic",
   sizeBytes: 1,
   installedAt: "2026-01-01T00:00:00Z",
 };

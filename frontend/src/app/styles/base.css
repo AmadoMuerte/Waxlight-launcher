@@ -1292,6 +1292,11 @@
     object-fit: cover;
   }
 
+  .modCard {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 430px;
+  }
+
   /* Circular selection toggle shown on card artwork (see shared/ui/selection-checkbox) */
   .selectionCheckbox {
     display: grid;
@@ -1302,9 +1307,8 @@
     border: 1.5px solid rgb(255 255 255 / 55%);
     border-radius: 50%;
     color: var(--color-accent-foreground);
-    background: rgb(12 8 4 / 50%);
+    background: rgb(12 8 4 / 92%);
     cursor: pointer;
-    backdrop-filter: blur(6px);
     transition:
       color var(--duration-fast) ease,
       background-color var(--duration-fast) ease,

@@ -105,7 +105,7 @@ func (service *PackageService) ExportInstance(
 		return PackageManifest{}, err
 	}
 
-	mods, err := service.mods.ListMods(ctx, instanceID)
+	installedMods, err := service.mods.ListMods(ctx, instanceID)
 	if err != nil {
 		return PackageManifest{}, err
 	}
@@ -132,13 +132,14 @@ func (service *PackageService) ExportInstance(
 		manifest.GameVersion.Name = manifest.GameVersion.ID
 	}
 
-	embedded := make(map[string]string, len(mods))
-	seenEmbedded := make(map[string]struct{}, len(mods))
-	for _, mod := range mods {
+	embedded := make(map[string]string, len(installedMods))
+	seenEmbedded := make(map[string]struct{}, len(installedMods))
+	for _, mod := range installedMods {
 		packageMod := PackageMod{
-			Name:    mod.Name,
-			Version: mod.Version,
-			Enabled: mod.Enabled,
+			Name:         mod.Name,
+			Version:      mod.Version,
+			Enabled:      mod.Enabled,
+			UpdatePolicy: mods.NormalizeUpdatePolicy(mod.UpdatePolicy),
 		}
 		if modID, versionID, ok := service.identity.ParseModDBSource(mod.Source); ok {
 			packageMod.Source = PackageModSourceCatalog
@@ -631,17 +632,18 @@ func (service *PackageService) installPackageMod(
 		}
 		now := service.now().UTC()
 		installed := mods.InstalledMod{
-			ID:          service.newID(),
-			InstanceID:  instance.ID,
-			Name:        mod.Name,
-			Version:     mod.Version,
-			FileName:    mod.FileName,
-			FilePath:    filepath.Join(modsDirectory, mod.FileName),
-			Enabled:     mod.Enabled,
-			Managed:     false,
-			Source:      "local",
-			InstalledAt: now,
-			UpdatedAt:   now,
+			ID:           service.newID(),
+			InstanceID:   instance.ID,
+			Name:         mod.Name,
+			Version:      mod.Version,
+			FileName:     mod.FileName,
+			FilePath:     filepath.Join(modsDirectory, mod.FileName),
+			Enabled:      mod.Enabled,
+			Managed:      false,
+			Source:       "local",
+			UpdatePolicy: mods.NormalizeUpdatePolicy(mod.UpdatePolicy),
+			InstalledAt:  now,
+			UpdatedAt:    now,
 		}
 		if err := service.mods.SaveMod(ctx, installed); err != nil {
 			result.Status = "failed"
@@ -700,8 +702,28 @@ func (service *PackageService) installCatalogPackageMod(
 			return result
 		}
 	}
+	if err := service.setInstalledCatalogModPolicy(ctx, mod, instance.ID); err != nil {
+		result.Status = "installed"
+		result.Message = "Installed but could not restore its update policy"
+		return result
+	}
 	result.Status = "installed"
 	return result
+}
+
+func (service *PackageService) setInstalledCatalogModPolicy(ctx context.Context, mod PackageMod, instanceID string) error {
+	installed, err := service.mods.ListMods(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	expected := service.identity.ModDBSource(mod.ModID, mod.VersionID)
+	for _, item := range installed {
+		if item.Source == expected {
+			item.UpdatePolicy = mods.NormalizeUpdatePolicy(mod.UpdatePolicy)
+			return service.mods.SaveMod(ctx, item)
+		}
+	}
+	return errs.NewError(errs.ErrValidation, "Installed mod metadata was not found")
 }
 
 func friendlyPackageModError(err error) string {

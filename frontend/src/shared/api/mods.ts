@@ -32,6 +32,8 @@ export const modsApi = {
     call<LinkLocalModsResult>("ModManagerController", "LinkLocalMods", instanceId),
   toggle: (id: string, enabled: boolean) =>
     call<InstalledMod>("ModManagerController", "SetModEnabled", id, enabled),
+  setUpdatePolicy: (id: string, policy: InstalledMod["updatePolicy"]) =>
+    call<InstalledMod>("ModManagerController", "SetModUpdatePolicy", id, policy),
   remove: (id: string, deleteDependencies: boolean) =>
     call<void>("ModManagerController", "RemoveMod", id, deleteDependencies),
   previewDelete: (id: string) =>

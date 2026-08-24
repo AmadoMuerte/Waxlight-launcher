@@ -194,15 +194,17 @@ export function OperationsPage() {
                     </Button>
                   }
                 />
-                <div className="flex flex-col gap-3">
-                  {finishedOperations.map((operation) => (
-                    <OperationItem
-                      key={operation.id}
-                      operation={operation}
-                      actionsDisabled={pendingAction !== undefined}
-                      onRemove={() => remove(operation)}
-                    />
-                  ))}
+                <div className="max-h-[40vh] overflow-y-auto pr-1">
+                  <div className="flex flex-col gap-3">
+                    {finishedOperations.map((operation) => (
+                      <OperationItem
+                        key={operation.id}
+                        operation={operation}
+                        actionsDisabled={pendingAction !== undefined}
+                        onRemove={() => remove(operation)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </PageSection>
             )}

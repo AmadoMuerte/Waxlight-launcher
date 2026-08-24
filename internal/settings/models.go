@@ -2,39 +2,44 @@
 package settings
 
 const (
-	LibrarySortLastPlayed  = "lastPlayed"
-	LibrarySortName        = "name"
-	LibrarySortPlaytime    = "playtime"
-	LibrarySortGameVersion = "gameVersion"
-	LibrarySortCreatedAt   = "createdAt"
+	LibrarySortLastPlayed             = "lastPlayed"
+	LibrarySortName                   = "name"
+	LibrarySortPlaytime               = "playtime"
+	LibrarySortGameVersion            = "gameVersion"
+	LibrarySortCreatedAt              = "createdAt"
+	AutomaticSnapshotRetentionDefault = 10
+	AutomaticSnapshotRetentionMin     = 1
+	AutomaticSnapshotRetentionMax     = 100
 )
 
 // Settings contains user-configurable launcher preferences.
 type Settings struct {
-	Language                 string
-	DownloadsParallel        int
-	ConfirmDeletion          bool
-	GlobalLaunchArguments    []string
-	OptimumPath              string
-	CheckForUpdates          bool
-	UpdateChannel            string
-	SkippedUpdateVersion     string
-	TelemetryEnabled         bool
-	AutomaticSafetySnapshots bool
-	LibrarySort              string
+	Language                   string
+	DownloadsParallel          int
+	ConfirmDeletion            bool
+	GlobalLaunchArguments      []string
+	OptimumPath                string
+	CheckForUpdates            bool
+	UpdateChannel              string
+	SkippedUpdateVersion       string
+	TelemetryEnabled           bool
+	AutomaticSafetySnapshots   bool
+	AutomaticSnapshotRetention int
+	LibrarySort                string
 }
 
 func Defaults() Settings {
 	return Settings{
-		Language:                 "en",
-		DownloadsParallel:        3,
-		ConfirmDeletion:          true,
-		GlobalLaunchArguments:    []string{},
-		CheckForUpdates:          true,
-		UpdateChannel:            "stable",
-		TelemetryEnabled:         false,
-		AutomaticSafetySnapshots: true,
-		LibrarySort:              LibrarySortLastPlayed,
+		Language:                   "en",
+		DownloadsParallel:          3,
+		ConfirmDeletion:            true,
+		GlobalLaunchArguments:      []string{},
+		CheckForUpdates:            true,
+		UpdateChannel:              "stable",
+		TelemetryEnabled:           false,
+		AutomaticSafetySnapshots:   true,
+		AutomaticSnapshotRetention: AutomaticSnapshotRetentionDefault,
+		LibrarySort:                LibrarySortLastPlayed,
 	}
 }
 

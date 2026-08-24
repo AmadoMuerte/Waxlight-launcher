@@ -1,10 +1,14 @@
 package instances
 
-import "time"
+import (
+	"time"
+
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
+)
 
 const (
 	InstancePackageLegacySchemaVersion = 1
-	InstancePackageSchemaVersion       = 2
+	InstancePackageSchemaVersion       = 3
 )
 
 type PackageModSource string
@@ -35,16 +39,17 @@ type PackageGameVersion struct {
 // cannot be resolved (or were installed from a local file) are embedded in the
 // package and referenced by ArchivePath.
 type PackageMod struct {
-	ModID       string           `json:"modId,omitempty"`
-	VersionID   string           `json:"versionId,omitempty"`
-	Name        string           `json:"name"`
-	Version     string           `json:"version,omitempty"`
-	FileName    string           `json:"fileName"`
-	Source      PackageModSource `json:"source"`
-	Checksum    string           `json:"checksum,omitempty"`
-	DownloadURL string           `json:"downloadUrl,omitempty"`
-	Enabled     bool             `json:"enabled"`
-	ArchivePath string           `json:"-"`
+	ModID        string            `json:"modId,omitempty"`
+	VersionID    string            `json:"versionId,omitempty"`
+	Name         string            `json:"name"`
+	Version      string            `json:"version,omitempty"`
+	FileName     string            `json:"fileName"`
+	Source       PackageModSource  `json:"source"`
+	Checksum     string            `json:"checksum,omitempty"`
+	DownloadURL  string            `json:"downloadUrl,omitempty"`
+	Enabled      bool              `json:"enabled"`
+	UpdatePolicy mods.UpdatePolicy `json:"updatePolicy,omitempty"`
+	ArchivePath  string            `json:"-"`
 }
 
 // PackageManifest is the versioned, portable description of an instance.
