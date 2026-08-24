@@ -58,6 +58,7 @@ export function CoverArt({
           src={src}
           alt=""
           loading="lazy"
+          decoding="async"
           onError={(event) => {
             event.currentTarget.hidden = true;
           }}

@@ -131,4 +131,14 @@ describe("ModCard", () => {
     expect(screen.getByText("✓ Downloaded")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Install to instance" })).toBeTruthy();
   });
+
+  it("loads static covers in the catalog", () => {
+    renderCard({}, { ...mod, imageUrl: "https://cdn.test/cover.png" });
+    expect(document.querySelector("img")?.getAttribute("src")).toBe("https://cdn.test/cover.png");
+  });
+
+  it("does not load animated GIF covers", () => {
+    renderCard({}, { ...mod, imageUrl: "https://cdn.test/cover.GIF?v=2" });
+    expect(document.querySelector("img")).toBeNull();
+  });
 });
