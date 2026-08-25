@@ -5,12 +5,14 @@ import (
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
 )
 
+// ModDependencyDTO is the frontend-safe representation of mod dependency.
 type ModDependencyDTO struct {
 	ModID       string `json:"modId"`
 	Name        string `json:"name"`
 	Requirement string `json:"requirement"`
 }
 
+// ModUpdateDTO is the frontend-safe representation of mod update.
 type ModUpdateDTO struct {
 	ModID            string             `json:"modId"`
 	Name             string             `json:"name"`
@@ -26,6 +28,7 @@ type ModUpdateDTO struct {
 	RemovedDeps      []ModDependencyDTO `json:"removedDeps"`
 }
 
+// ModUpdateSummaryDTO counts instance mods by update and compatibility state.
 type ModUpdateSummaryDTO struct {
 	TotalMods                int `json:"totalMods"`
 	UpToDate                 int `json:"upToDate"`
@@ -36,6 +39,7 @@ type ModUpdateSummaryDTO struct {
 	Incompatible             int `json:"incompatible"`
 }
 
+// InstanceModUpdateReportDTO summarizes available updates and compatibility for an instance.
 type InstanceModUpdateReportDTO struct {
 	GameVersion string              `json:"gameVersion"`
 	Mods        []ModUpdateDTO      `json:"mods"`

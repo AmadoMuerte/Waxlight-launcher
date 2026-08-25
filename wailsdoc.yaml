@@ -1,0 +1,24 @@
+version: 1
+project:
+  name: Waxlight
+  title: Waxlight Backend API
+scan:
+  packages:
+    - ./internal/transport/wails
+output:
+  schema: docs/generated/wails-api.json
+  markdown: docs/generated/wails-api
+  inventory: docs/wails-api-inventory.json
+ui:
+  provider: vitepress
+  directory: docs/site
+wails:
+  bindings: frontend/src/wailsjs/go/wails
+validation:
+  forbiddenFields:
+    - password
+    - totpcode
+    - prelogintoken
+    - sessionkey
+    - sessionsignature
+    - credentialstorepath

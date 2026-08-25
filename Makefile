@@ -48,6 +48,10 @@ RELEASE_BRANCH = release/$(RELEASE_TAG)
 	security-patterns \
 	vulncheck \
 	api-inventory \
+	api-docs \
+	api-docs-dev \
+	api-docs-build \
+	api-docs-preview \
 	package-linux \
 	release-check \
 	check-version-argument \
@@ -95,7 +99,16 @@ help:
 	@echo "      Run security-pattern and vulnerability checks."
 	@echo
 	@echo "  make api-inventory"
-	@echo "      Regenerate the checked-in Wails API inventory."
+	@echo "      Regenerate the checked-in Wails API documentation and inventory."
+	@echo
+	@echo "  make api-docs"
+	@echo "      Regenerate the checked-in Wails API documentation and inventory."
+	@echo
+	@echo "  make api-docs-dev"
+	@echo "      Regenerate API documentation and start the VitePress site."
+	@echo
+	@echo "  make api-docs-build"
+	@echo "      Regenerate API documentation and build the static VitePress site."
 	@echo
 	@echo "  make release-check VERSION=X.Y.Z"
 	@echo "      Run all checks for a release."
@@ -231,8 +244,17 @@ test-frontend:
 
 test: frontend test-backend test-frontend
 
-api-inventory:
-	$(GO) run ./internal/transport/wails/inventory
+api-inventory api-docs:
+	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc generate
+
+api-docs-dev: api-docs
+	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc serve
+
+api-docs-build: api-docs
+	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc build
+
+api-docs-preview: api-docs-build
+	$(NPM) --prefix docs/site run preview
 
 format:
 	$(GOFMT) -w $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done)

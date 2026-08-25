@@ -19,6 +19,7 @@ func NewInstancePackageController(service *instances.PackageService, lifecycle l
 	return &InstancePackageController{svc: service, lifecycle: lifecycle}
 }
 
+// ExportInstanceRequest selects an instance, destination, and package metadata for export.
 type ExportInstanceRequest struct {
 	InstanceID  string `json:"instanceId"`
 	TargetPath  string `json:"targetPath"`
@@ -26,6 +27,7 @@ type ExportInstanceRequest struct {
 	Description string `json:"description"`
 }
 
+// ExportInstance writes a portable package containing sanitized instance data and metadata.
 func (controller *InstancePackageController) ExportInstance(
 	request ExportInstanceRequest,
 ) (PackageManifestDTO, error) {
@@ -41,6 +43,7 @@ func (controller *InstancePackageController) ExportInstance(
 	return packageManifestDTO(manifest), err
 }
 
+// InspectPackage validates a package and reports its contents before import.
 func (controller *InstancePackageController) InspectPackage(
 	packagePath string,
 ) (PackageInspectionDTO, error) {
@@ -48,6 +51,7 @@ func (controller *InstancePackageController) InspectPackage(
 	return packageInspectionDTO(inspection), err
 }
 
+// ImportInstanceRequest selects an instance package and conflict-handling options for import.
 type ImportInstanceRequest struct {
 	PackagePath       string `json:"packagePath"`
 	Name              string `json:"name"`
@@ -59,6 +63,7 @@ type ImportInstanceRequest struct {
 	SkipUnavailable   bool   `json:"skipUnavailable"`
 }
 
+// ImportPackage creates a managed instance from a validated package.
 func (controller *InstancePackageController) ImportPackage(
 	request ImportInstanceRequest,
 ) (OperationDTO, error) {
@@ -78,6 +83,7 @@ func (controller *InstancePackageController) ImportPackage(
 	return operationDTO(operation), err
 }
 
+// SelectExportPath prompts for the destination of an exported instance package.
 func (controller *InstancePackageController) SelectExportPath(
 	suggestedName string,
 ) (string, error) {
@@ -102,6 +108,7 @@ func (controller *InstancePackageController) SelectExportPath(
 	)
 }
 
+// SelectPackageFile prompts for an instance package to inspect or import.
 func (controller *InstancePackageController) SelectPackageFile() (string, error) {
 	return wruntime.OpenFileDialog(
 		controller.lifecycle.Context(),

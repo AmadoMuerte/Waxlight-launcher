@@ -4,6 +4,7 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
+// InstanceSnapshotDTO describes a restorable instance backup for snapshot history.
 type InstanceSnapshotDTO struct {
 	ID           string            `json:"id"`
 	InstanceID   string            `json:"instanceId"`

@@ -4,12 +4,14 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 )
 
+// ModChangeDTO is the frontend-safe representation of mod change.
 type ModChangeDTO struct {
 	Name string `json:"name"`
 	From string `json:"from,omitempty"`
 	To   string `json:"to,omitempty"`
 }
 
+// ConfigurationChangesDTO is the frontend-safe representation of configuration changes.
 type ConfigurationChangesDTO struct {
 	GameVersionFrom string         `json:"gameVersionFrom,omitempty"`
 	GameVersionTo   string         `json:"gameVersionTo,omitempty"`

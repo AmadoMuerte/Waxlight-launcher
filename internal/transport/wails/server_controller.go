@@ -20,6 +20,7 @@ func NewServerController(
 	return &ServerController{favorites: favorites, catalog: catalog, lifecycle: lifecycle}
 }
 
+// SaveFavoriteServerRequest defines a favorite server and its optional instance association.
 type SaveFavoriteServerRequest struct {
 	ID         string  `json:"id"`
 	Name       string  `json:"name"`
@@ -27,6 +28,7 @@ type SaveFavoriteServerRequest struct {
 	InstanceID *string `json:"instanceId,omitempty"`
 }
 
+// FavoriteServerDTO describes a saved multiplayer destination for the frontend.
 type FavoriteServerDTO struct {
 	ID         string  `json:"id"`
 	Name       string  `json:"name"`
@@ -34,6 +36,7 @@ type FavoriteServerDTO struct {
 	InstanceID *string `json:"instanceId,omitempty"`
 }
 
+// PublicServerDTO describes a catalog server and whether the current client can join it.
 type PublicServerDTO struct {
 	Name              string `json:"name"`
 	Address           string `json:"address"`
@@ -45,6 +48,7 @@ type PublicServerDTO struct {
 	Joinable          bool   `json:"joinable"`
 }
 
+// ListFavoriteServers returns the multiplayer servers saved by the user.
 func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, error) {
 	servers, err := controller.favorites.List(controller.lifecycle.Context())
 	if err != nil {
@@ -57,6 +61,7 @@ func (controller *ServerController) ListFavoriteServers() ([]FavoriteServerDTO, 
 	return result, nil
 }
 
+// ListPublicServers returns the current public server catalog with joinability information.
 func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, error) {
 	servers, err := controller.catalog.List(controller.lifecycle.Context())
 	if err != nil {
@@ -69,6 +74,7 @@ func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, erro
 	return result, nil
 }
 
+// SaveFavoriteServer creates or updates a favorite server and its optional instance association.
 func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServerRequest) (FavoriteServerDTO, error) {
 	server, err := controller.favorites.Save(controller.lifecycle.Context(), servers.SaveInput{
 		ID: request.ID, Name: request.Name, Address: request.Address, InstanceID: request.InstanceID,
@@ -76,6 +82,7 @@ func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServe
 	return favoriteServerDTO(server), err
 }
 
+// DeleteFavoriteServer removes a server from the user's favorites.
 func (controller *ServerController) DeleteFavoriteServer(id string) error {
 	return controller.favorites.Delete(controller.lifecycle.Context(), id)
 }

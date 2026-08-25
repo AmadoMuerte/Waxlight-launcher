@@ -1,10 +1,8 @@
 package wails
 
 import (
+	"context"
 	"encoding/json"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +10,11 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/AmadoMuerte/wailsdoc/inventory"
+	"github.com/AmadoMuerte/wailsdoc/renderer/markdown"
+	"github.com/AmadoMuerte/wailsdoc/scanner"
+	"github.com/AmadoMuerte/wailsdoc/schema"
 )
 
 // repoRoot returns the repository root relative to this test file.
@@ -28,103 +31,28 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
-type inventoryFile struct {
-	SchemaVersion int                 `json:"schemaVersion"`
-	Controllers   map[string][]string `json:"controllers"`
-}
-
-func loadInventory(t *testing.T) inventoryFile {
+func loadInventory(t *testing.T) inventory.Inventory {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join(repoRoot(t), "docs", "wails-api-inventory.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result inventoryFile
+	var result inventory.Inventory
 	if err := json.Unmarshal(contents, &result); err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
-// buildTransportInventory parses the transport package source and collects
-// every exported type named <name>Controller with its exported methods. The
-// rule mirrors how Wails binds controllers: exported methods on exported
-// struct types are bound.
-func buildTransportInventory(t *testing.T) inventoryFile {
+func scanTransportAPI(t *testing.T) schema.API {
 	t.Helper()
-	result := inventoryFile{SchemaVersion: 1, Controllers: map[string][]string{}}
-	dir := filepath.Join(repoRoot(t), "internal", "transport", "wails")
-	entries, err := os.ReadDir(dir)
+	result, err := scanner.Scan(context.Background(), scanner.Options{
+		Dir: repoRoot(t), Packages: []string{"./internal/transport/wails"}, Generator: "wailsdoc",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
-			files = append(files, filepath.Join(dir, entry.Name()))
-		}
-	}
-	for _, path := range files {
-		source, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", path, err)
-		}
-		for _, declaration := range source.Decls {
-			typeDeclaration, ok := declaration.(*ast.GenDecl)
-			if !ok || typeDeclaration.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range typeDeclaration.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || !strings.HasSuffix(typeSpec.Name.Name, "Controller") || !typeSpec.Name.IsExported() {
-					continue
-				}
-				result.Controllers[typeSpec.Name.Name] = controllerMethodsFromFiles(t, files, typeSpec.Name.Name)
-			}
-		}
-	}
-	for _, methods := range result.Controllers {
-		sort.Strings(methods)
-	}
 	return result
-}
-
-func controllerMethodsFromFiles(t *testing.T, files []string, typeName string) []string {
-	t.Helper()
-	var methods []string
-	for _, path := range files {
-		source, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", path, err)
-		}
-		for _, declaration := range source.Decls {
-			function, ok := declaration.(*ast.FuncDecl)
-			if !ok || function.Recv == nil || function.Name == nil || !function.Name.IsExported() {
-				continue
-			}
-			for _, receiver := range function.Recv.List {
-				if receiverTypeName(receiver.Type) == typeName {
-					methods = append(methods, function.Name.Name)
-				}
-			}
-		}
-	}
-	return methods
-}
-
-func receiverTypeName(expression ast.Expr) string {
-	switch typed := expression.(type) {
-	case *ast.StarExpr:
-		return receiverTypeName(typed.X)
-	case *ast.Ident:
-		return typed.Name
-	case *ast.IndexExpr:
-		return receiverTypeName(typed.X)
-	case *ast.IndexListExpr:
-		return receiverTypeName(typed.X)
-	default:
-		return ""
-	}
 }
 
 // TestWailsAPIInventoryIsInSync proves the checked-in inventory in
@@ -132,7 +60,7 @@ func receiverTypeName(expression ast.Expr) string {
 // it with `make api-inventory` after adding or renaming controller methods.
 func TestWailsAPIInventoryIsInSync(t *testing.T) {
 	checkedIn := loadInventory(t)
-	current := buildTransportInventory(t)
+	current := inventory.FromAPI(scanTransportAPI(t))
 	if checkedIn.SchemaVersion != current.SchemaVersion {
 		t.Fatalf("inventory schema version %d does not match %d", checkedIn.SchemaVersion, current.SchemaVersion)
 	}
@@ -150,6 +78,67 @@ func TestWailsAPIInventoryIsInSync(t *testing.T) {
 			expectedJSON,
 		)
 	}
+}
+
+func TestWailsAPIDocumentationIsInSync(t *testing.T) {
+	current := scanTransportAPI(t)
+	expectedJSON, err := json.MarshalIndent(current, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	actualJSON, err := os.ReadFile(filepath.Join(repoRoot(t), "docs", "generated", "wails-api.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actualJSON) != string(expectedJSON)+"\n" {
+		t.Fatal("docs/generated/wails-api.json is out of date. Run `make api-docs`.")
+	}
+
+	expectedDir := filepath.Join(t.TempDir(), "wails-api")
+	if _, err := markdown.RenderTitle(current, expectedDir, "Waxlight Backend API"); err != nil {
+		t.Fatal(err)
+	}
+	actualDir := filepath.Join(repoRoot(t), "docs", "generated", "wails-api")
+	expectedFiles := markdownFiles(t, expectedDir)
+	actualFiles := markdownFiles(t, actualDir)
+	if strings.Join(expectedFiles, "\n") != strings.Join(actualFiles, "\n") {
+		t.Fatalf("generated Markdown file set is out of date. Run `make api-docs`.\nExpected: %v\nActual: %v", expectedFiles, actualFiles)
+	}
+	for _, relative := range expectedFiles {
+		expected, err := os.ReadFile(filepath.Join(expectedDir, relative))
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := os.ReadFile(filepath.Join(actualDir, relative))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(expected) != string(actual) {
+			t.Fatalf("docs/generated/wails-api/%s is out of date. Run `make api-docs`.", relative)
+		}
+	}
+}
+
+func markdownFiles(t *testing.T, root string) []string {
+	t.Helper()
+	var files []string
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() && filepath.Ext(path) == ".md" {
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			files = append(files, filepath.ToSlash(relative))
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(files)
+	return files
 }
 
 // TestWailsBindingsMatchInventory proves the generated frontend bindings
@@ -247,7 +236,7 @@ func TestFrontendBackendCompatibility(t *testing.T) {
 	}
 }
 
-func assertInventoryMethod(t *testing.T, inventory inventoryFile, controller, method, sourceFile string) {
+func assertInventoryMethod(t *testing.T, inventory inventory.Inventory, controller, method, sourceFile string) {
 	t.Helper()
 	methods, known := inventory.Controllers[controller]
 	if !known {

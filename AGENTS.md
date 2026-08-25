@@ -134,7 +134,9 @@ Before promoting `dev` to `main`:
   files); they only convert parameters/DTOs, call features, emit events, and
   open dialogs/browser/directories. Bindings are generated under
   `frontend/src/wailsjs`; the checked-in API inventory is
-  `docs/wails-api-inventory.json` (`make api-inventory`).
+  `docs/wails-api-inventory.json`, and the generated documentation schema is
+  `docs/generated/wails-api.json`. Generated Markdown lives in
+  `docs/generated/wails-api/` (`make api-docs`).
 - User-facing errors use `internal/errs` (`errs.NewError`/`AppError`); the
   code strings are a frontend contract (i18n) and must never change.
 - Runtime SQLite schema changes belong in
@@ -183,7 +185,7 @@ Before promoting `dev` to `main`:
 - `features/<domain>/` — feature UI: `auth`, `instances`, `mods`, `instance-package`, `install-game-version`, `operations`.
 - `entities/<domain>/` — `model.ts` (types), `api.ts` (re-exports the api object), `queries.ts` (TanStack hooks).
 - `shared/` — `api/` (transport, types, query keys), `ui/` (components), `lib/` (formatters), `i18n/`.
-- `wailsjs/` — generated Wails bindings; never edit by hand, regenerate with `make wails-build` (the Wails CLI recreates them during the build) and refresh the API inventory with `make api-inventory`.
+- `wailsjs/` — generated Wails bindings; never edit by hand, regenerate with `make wails-build` (the Wails CLI recreates them during the build) and refresh the API schema and inventory with `make api-docs`.
 
 ### Data flow principles
 

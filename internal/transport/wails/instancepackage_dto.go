@@ -2,6 +2,7 @@ package wails
 
 import "github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 
+// PackageAuthorDTO is the frontend-safe representation of package author.
 type PackageAuthorDTO struct {
 	Name     string `json:"name,omitempty"`
 	Homepage string `json:"homepage,omitempty"`
@@ -19,11 +20,13 @@ func packageAuthorDTO(author *instances.PackageAuthor) *PackageAuthorDTO {
 	}
 }
 
+// PackageGameVersionDTO is the frontend-safe representation of package game version.
 type PackageGameVersionDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
+// PackageModDTO is the frontend-safe representation of package mod.
 type PackageModDTO struct {
 	ModID       string `json:"modId,omitempty"`
 	VersionID   string `json:"versionId,omitempty"`
@@ -50,6 +53,7 @@ func packageModDTO(mod instances.PackageMod) PackageModDTO {
 	}
 }
 
+// PackageManifestDTO describes the portable instance metadata included in an export.
 type PackageManifestDTO struct {
 	SchemaVersion   int                   `json:"schemaVersion"`
 	Name            string                `json:"name"`
@@ -88,6 +92,7 @@ func packageManifestDTO(manifest instances.PackageManifest) PackageManifestDTO {
 	}
 }
 
+// PackageModCheckDTO is the frontend-safe representation of package mod check.
 type PackageModCheckDTO struct {
 	ModID       string `json:"modId,omitempty"`
 	VersionID   string `json:"versionId,omitempty"`
@@ -114,6 +119,7 @@ func packageModCheckDTO(check instances.PackageModCheck) PackageModCheckDTO {
 	}
 }
 
+// PackageInspectionDTO reports package contents and compatibility before import.
 type PackageInspectionDTO struct {
 	Path            string                `json:"path"`
 	SchemaVersion   int                   `json:"schemaVersion"`
@@ -166,6 +172,7 @@ func packageInspectionDTO(inspection instances.PackageInspection) PackageInspect
 	}
 }
 
+// ImportedModResultDTO is the frontend-safe representation of imported mod result.
 type ImportedModResultDTO struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
@@ -173,6 +180,7 @@ type ImportedModResultDTO struct {
 	Message string `json:"message,omitempty"`
 }
 
+// ImportReportDTO is the frontend-safe representation of import report.
 type ImportReportDTO struct {
 	InstanceID    string                 `json:"instanceId"`
 	InstanceName  string                 `json:"instanceName"`
