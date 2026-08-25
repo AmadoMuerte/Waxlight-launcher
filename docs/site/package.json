@@ -1,0 +1,14 @@
+{
+  "name": "waxlight-api-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vitepress build . && npm test",
+    "dev": "vitepress dev .",
+    "preview": "vitepress preview .",
+    "test": "node scripts/test.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

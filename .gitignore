@@ -4,9 +4,13 @@
 /release/
 /artifacts/
 /frontend/dist/
+/docs/site/.vitepress/cache/
+/docs/site/.vitepress/dist/
+/docs/site/api/
 
 # Frontend dependencies and caches
 /frontend/node_modules/
+/docs/site/node_modules/
 /frontend/.vite/
 /frontend/coverage/
 npm-debug.log*
