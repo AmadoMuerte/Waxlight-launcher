@@ -15,6 +15,7 @@ func NewAccountController(service *accounts.Service, lifecycle lifecycle) *Accou
 	return &AccountController{svc: service, lifecycle: lifecycle}
 }
 
+// ListAccounts returns the launcher's saved accounts for account selection.
 func (controller *AccountController) ListAccounts() ([]AccountDTO, error) {
 	accounts, err := controller.svc.ListAccounts(controller.lifecycle.Context())
 	result := make([]AccountDTO, 0, len(accounts))
@@ -24,33 +25,40 @@ func (controller *AccountController) ListAccounts() ([]AccountDTO, error) {
 	return result, err
 }
 
+// Login starts an account sign-in flow and reports whether further verification is required.
 func (controller *AccountController) Login(email, password string) (LoginResultDTO, error) {
 	result, err := controller.svc.Login(controller.lifecycle.Context(), email, password)
 	return loginResultDTO(result), err
 }
 
+// CompleteTOTP finishes a sign-in flow with the user's one-time verification code.
 func (controller *AccountController) CompleteTOTP(flowID, code string) (LoginResultDTO, error) {
 	result, err := controller.svc.CompleteTOTP(controller.lifecycle.Context(), flowID, code)
 	return loginResultDTO(result), err
 }
 
+// CancelLogin discards a pending sign-in flow.
 func (controller *AccountController) CancelLogin(flowID string) error {
 	return controller.svc.CancelLogin(flowID)
 }
 
+// SetDefaultAccount selects the account used for future game launches.
 func (controller *AccountController) SetDefaultAccount(id string) error {
 	return controller.svc.SelectAccount(controller.lifecycle.Context(), id)
 }
 
+// RemoveAccount removes a saved account and its protected credentials.
 func (controller *AccountController) RemoveAccount(id string) error {
 	return controller.svc.RemoveAccount(controller.lifecycle.Context(), id)
 }
 
+// ValidateAccount checks whether a saved account can still authenticate.
 func (controller *AccountController) ValidateAccount(id string) (AccountDTO, error) {
 	account, err := controller.svc.ValidateAccount(controller.lifecycle.Context(), id)
 	return accountDTO(account), err
 }
 
+// ReauthenticateAccount refreshes authentication for an existing saved account.
 func (controller *AccountController) ReauthenticateAccount(
 	accountID string,
 	email string,

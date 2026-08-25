@@ -4,6 +4,7 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
+// ModSummaryDTO is the frontend-safe representation of mod summary.
 type ModSummaryDTO struct {
 	ID              string   `json:"id"`
 	Slug            string   `json:"slug,omitempty"`
@@ -44,11 +45,13 @@ func modSummaryDTO(mod mods.ModSummary) ModSummaryDTO {
 	return dto
 }
 
+// ModScreenshotDTO is the frontend-safe representation of mod screenshot.
 type ModScreenshotDTO struct {
 	URL     string `json:"url"`
 	Caption string `json:"caption,omitempty"`
 }
 
+// ModVersionDTO is the frontend-safe representation of mod version.
 type ModVersionDTO struct {
 	ID           string   `json:"id"`
 	Version      string   `json:"version"`
@@ -60,6 +63,7 @@ type ModVersionDTO struct {
 	Changelog    string   `json:"changelog,omitempty"`
 }
 
+// ModDetailsDTO is the frontend-safe representation of mod details.
 type ModDetailsDTO struct {
 	ModSummaryDTO
 	Description string             `json:"description"`
@@ -101,11 +105,13 @@ func modDetailsDTO(mod mods.ModDetails) ModDetailsDTO {
 	return dto
 }
 
+// ModTagDTO is the frontend-safe representation of mod tag.
 type ModTagDTO struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
 }
 
+// ModSearchResultDTO returns one page of catalog matches and pagination state.
 type ModSearchResultDTO struct {
 	Items      []ModSummaryDTO `json:"items"`
 	Page       int             `json:"page"`
@@ -115,6 +121,7 @@ type ModSearchResultDTO struct {
 	HasNext    bool            `json:"hasNext"`
 }
 
+// LocalModLinkDTO is the frontend-safe representation of local mod link.
 type LocalModLinkDTO struct {
 	Path            string `json:"path,omitempty"`
 	Name            string `json:"name"`
@@ -151,6 +158,7 @@ func localModLinksDTO(links []mods.LocalModLink) []LocalModLinkDTO {
 	return dtos
 }
 
+// LinkLocalModsResultDTO is the frontend-safe representation of link local mods result.
 type LinkLocalModsResultDTO struct {
 	Linked     []LocalModLinkDTO `json:"linked"`
 	NotMatched []LocalModLinkDTO `json:"notMatched"`
@@ -165,6 +173,7 @@ func linkLocalModsResultDTO(result mods.LinkLocalModsResult) LinkLocalModsResult
 	}
 }
 
+// UploadModsResultDTO is the frontend-safe representation of upload mods result.
 type UploadModsResultDTO struct {
 	Linked     []LocalModLinkDTO `json:"linked"`
 	NotMatched []LocalModLinkDTO `json:"notMatched"`
@@ -181,6 +190,7 @@ func uploadModsResultDTO(result mods.UploadModsResult) UploadModsResultDTO {
 	}
 }
 
+// InstalledModInstanceDTO is the frontend-safe representation of installed mod instance.
 type InstalledModInstanceDTO struct {
 	InstanceID   string `json:"instanceId"`
 	InstanceName string `json:"instanceName"`
@@ -188,6 +198,7 @@ type InstalledModInstanceDTO struct {
 	Enabled      bool   `json:"enabled"`
 }
 
+// DownloadedModDTO describes a cached catalog mod and its installed instances.
 type DownloadedModDTO struct {
 	ModID              string                    `json:"modId"`
 	Slug               string                    `json:"slug,omitempty"`
@@ -227,6 +238,7 @@ func downloadedModDTO(mod mods.DownloadedMod) DownloadedModDTO {
 	return dto
 }
 
+// ModInstallationResultDTO is the frontend-safe representation of mod installation result.
 type ModInstallationResultDTO struct {
 	InstanceID   string `json:"instanceId"`
 	InstanceName string `json:"instanceName"`
@@ -234,12 +246,14 @@ type ModInstallationResultDTO struct {
 	Message      string `json:"message"`
 }
 
+// ModInstallResultDTO reports a catalog download task and per-instance installations.
 type ModInstallResultDTO struct {
 	TaskID        string                     `json:"taskId"`
 	Downloaded    DownloadedModDTO           `json:"downloaded"`
 	Installations []ModInstallationResultDTO `json:"installations"`
 }
 
+// BatchModInstallResultDTO reports success or failure for one item in a batch download.
 type BatchModInstallResultDTO struct {
 	ModID     string              `json:"modId"`
 	VersionID string              `json:"versionId"`
@@ -247,6 +261,7 @@ type BatchModInstallResultDTO struct {
 	Error     string              `json:"error,omitempty"`
 }
 
+// DownloadedModCleanupResultDTO reports cached mod files removed and storage reclaimed.
 type DownloadedModCleanupResultDTO struct {
 	RemovedCount int   `json:"removedCount"`
 	FreedBytes   int64 `json:"freedBytes"`

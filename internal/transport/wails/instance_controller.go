@@ -84,6 +84,7 @@ func NewInstanceController(
 	}
 }
 
+// MigrationCandidateDTO summarizes existing game data available for import.
 type MigrationCandidateDTO struct {
 	Path                string   `json:"path"`
 	WorldCount          int      `json:"worldCount"`
@@ -97,6 +98,7 @@ type MigrationCandidateDTO struct {
 	Warnings            []string `json:"warnings"`
 }
 
+// MigrationImportRequest selects discovered game data and import options.
 type MigrationImportRequest struct {
 	SourcePath    string `json:"sourcePath"`
 	Name          string `json:"name"`
@@ -111,6 +113,7 @@ func migrationCandidateDTO(candidate instances.MigrationCandidate) MigrationCand
 		VersionConfidence: candidate.VersionConfidence, Warnings: nonNilStrings(candidate.Warnings)}
 }
 
+// DetectExistingVintageStoryData finds existing Vintage Story data that can be imported as an instance.
 func (controller *InstanceController) DetectExistingVintageStoryData() ([]MigrationCandidateDTO, error) {
 	candidates, err := controller.migration.Detect(controller.lifecycle.Context())
 	result := make([]MigrationCandidateDTO, 0, len(candidates))
@@ -120,11 +123,13 @@ func (controller *InstanceController) DetectExistingVintageStoryData() ([]Migrat
 	return result, err
 }
 
+// InspectExistingVintageStoryData validates a selected data directory and describes its importable contents.
 func (controller *InstanceController) InspectExistingVintageStoryData(path string) (MigrationCandidateDTO, error) {
 	candidate, err := controller.migration.Inspect(path)
 	return migrationCandidateDTO(candidate), err
 }
 
+// StartExistingDataImport begins importing discovered game data into a managed instance.
 func (controller *InstanceController) StartExistingDataImport(request MigrationImportRequest) (OperationDTO, error) {
 	operation, err := controller.migration.Start(controller.lifecycle.Context(), instances.MigrationImportRequest{
 		SourcePath: request.SourcePath, Name: request.Name, Description: request.Description,
@@ -133,10 +138,12 @@ func (controller *InstanceController) StartExistingDataImport(request MigrationI
 	return operationDTO(operation), err
 }
 
+// SelectInstanceCover prompts for an image to use as an instance cover.
 func (controller *InstanceController) SelectInstanceCover() (string, error) {
 	return controller.dialogs.SelectInstanceCover()
 }
 
+// CreateInstanceRequest defines the game version and options for a new instance.
 type CreateInstanceRequest struct {
 	Name                 string            `json:"name"`
 	Description          string            `json:"description"`
@@ -148,6 +155,7 @@ type CreateInstanceRequest struct {
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
 }
 
+// UpdateInstanceRequest defines editable instance properties submitted by the frontend.
 type UpdateInstanceRequest struct {
 	ID                   string             `json:"id"`
 	Name                 string             `json:"name"`
@@ -160,11 +168,13 @@ type UpdateInstanceRequest struct {
 	CoverSourcePath      *string            `json:"coverSourcePath,omitempty"`
 }
 
+// CloneInstanceRequest names a source instance and its new copy.
 type CloneInstanceRequest struct {
 	SourceID string `json:"sourceId"`
 	Name     string `json:"name"`
 }
 
+// ListInstances returns all launcher instances visible in the library.
 func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 	ctx := controller.lifecycle.Context()
 	storedInstances, err := controller.queries.List(ctx)
@@ -196,11 +206,13 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 	return result, err
 }
 
+// GetInstance returns one managed instance with its current mod and playtime summary.
 func (controller *InstanceController) GetInstance(id string) (InstanceDTO, error) {
 	instance, err := controller.queries.Get(controller.lifecycle.Context(), id)
 	return instanceDTO(instance), err
 }
 
+// CreateInstance creates an isolated game instance using the requested version and launch settings.
 func (controller *InstanceController) CreateInstance(
 	request CreateInstanceRequest,
 ) (InstanceDTO, error) {
@@ -220,6 +232,7 @@ func (controller *InstanceController) CreateInstance(
 	return instanceDTO(instance), err
 }
 
+// UpdateInstance applies editable metadata, account, version, and launch settings to an instance.
 func (controller *InstanceController) UpdateInstance(
 	request UpdateInstanceRequest,
 ) (InstanceDTO, error) {
@@ -244,11 +257,13 @@ func (controller *InstanceController) UpdateInstance(
 	return instanceDTO(updated), err
 }
 
+// SetInstancePinned changes whether an instance is pinned in the library.
 func (controller *InstanceController) SetInstancePinned(id string, pinned bool) (InstanceDTO, error) {
 	instance, err := controller.updater.SetPinned(controller.lifecycle.Context(), id, pinned)
 	return instanceDTO(instance), err
 }
 
+// DeleteInstance removes an instance and optionally deletes its data directory.
 func (controller *InstanceController) DeleteInstance(
 	id string,
 	deleteFiles bool,
@@ -256,6 +271,7 @@ func (controller *InstanceController) DeleteInstance(
 	return controller.deleter.Delete(controller.lifecycle.Context(), id, deleteFiles)
 }
 
+// CloneInstance creates a new managed instance by copying an existing instance.
 func (controller *InstanceController) CloneInstance(
 	request CloneInstanceRequest,
 ) (InstanceDTO, error) {

@@ -15,6 +15,7 @@ func NewDeepLinkController(links deepLinkConsumer) *DeepLinkController {
 	return &DeepLinkController{links: links}
 }
 
+// ConsumePendingDeepLinks returns queued external navigation targets and clears the queue.
 func (controller *DeepLinkController) ConsumePendingDeepLinks() []deeplink.Target {
 	return controller.links.Consume()
 }

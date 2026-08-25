@@ -50,11 +50,13 @@ func NewSettingsController(
 	return &SettingsController{reader: reader, service: service, dataRoot: dataRoot, optimum: optimumService, lifecycle: lifecycle, dialogs: dialogs, opener: opener}
 }
 
+// GetSettings returns the launcher's current user-configurable settings.
 func (controller *SettingsController) GetSettings() (SettingsDTO, error) {
 	value, err := controller.reader.Get(controller.lifecycle.Context())
 	return settingsDTO(value), err
 }
 
+// UpdateSettings validates and persists the complete settings document.
 func (controller *SettingsController) UpdateSettings(request SettingsDTO) (SettingsDTO, error) {
 	value, err := controller.service.Update(controller.lifecycle.Context(), settings.Settings{
 		Language: request.Language, DownloadsParallel: request.DownloadsParallel,
@@ -69,32 +71,39 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 	return settingsDTO(value), err
 }
 
+// SetLibrarySort updates the ordering used by the instance library.
 func (controller *SettingsController) SetLibrarySort(value string) (SettingsDTO, error) {
 	updated, err := controller.service.SetLibrarySort(controller.lifecycle.Context(), value)
 	return settingsDTO(updated), err
 }
 
+// GetDataFolder reports the active launcher data directory and its storage usage.
 func (controller *SettingsController) GetDataFolder() (DataFolderDTO, error) {
 	value, err := controller.dataRoot.Get()
 	return DataFolderDTO(value), err
 }
 
+// SelectDataFolder prompts for a launcher data directory.
 func (controller *SettingsController) SelectDataFolder() (string, error) {
 	return controller.dialogs.SelectDataFolder()
 }
 
+// MoveDataFolder relocates all launcher-managed data to the selected directory.
 func (controller *SettingsController) MoveDataFolder(target string) error {
 	return controller.dataRoot.Move(controller.lifecycle.Context(), target)
 }
 
+// SelectGameArchive prompts for a local game archive.
 func (controller *SettingsController) SelectGameArchive() (string, error) {
 	return controller.dialogs.SelectGameArchive()
 }
 
+// SelectGameDirectory prompts for an existing game installation directory.
 func (controller *SettingsController) SelectGameDirectory() (string, error) {
 	return controller.dialogs.SelectGameDirectory()
 }
 
+// GetOptimumStatus reports the configured Optimum runtime and whether it is usable.
 func (controller *SettingsController) GetOptimumStatus() (OptimumStatusDTO, error) {
 	settings, err := controller.reader.Get(controller.lifecycle.Context())
 	if err != nil {
@@ -103,31 +112,38 @@ func (controller *SettingsController) GetOptimumStatus() (OptimumStatusDTO, erro
 	return optimumStatusDTO(controller.optimum.Status(settings.OptimumPath)), nil
 }
 
+// DetectOptimum searches standard locations for a usable Optimum installation.
 func (controller *SettingsController) DetectOptimum() OptimumStatusDTO {
 	return optimumStatusDTO(controller.optimum.Status(""))
 }
 
+// InspectOptimum validates a selected Optimum installation directory.
 func (controller *SettingsController) InspectOptimum(path string) (OptimumStatusDTO, error) {
 	status, err := controller.optimum.Inspect(path)
 	return optimumStatusDTO(status), err
 }
 
+// SelectOptimumInstallation prompts for an Optimum installation to inspect.
 func (controller *SettingsController) SelectOptimumInstallation() (string, error) {
 	return controller.dialogs.SelectOptimumInstallation()
 }
 
+// OpenOptimumInstallationGuide opens installation guidance for the optional Optimum runtime.
 func (controller *SettingsController) OpenOptimumInstallationGuide() {
 	wruntime.BrowserOpenURL(controller.lifecycle.Context(), optimumInstallationGuideURL)
 }
 
+// SelectModFile prompts for one local mod archive.
 func (controller *SettingsController) SelectModFile() (string, error) {
 	return controller.dialogs.SelectModFile()
 }
 
+// SelectModFiles prompts for multiple local mod archives.
 func (controller *SettingsController) SelectModFiles() ([]string, error) {
 	return controller.dialogs.SelectModFiles()
 }
 
+// OpenDirectory opens an approved local directory in the system file manager.
 func (controller *SettingsController) OpenDirectory(path string) error {
 	if err := controller.opener.OpenDirectory(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {

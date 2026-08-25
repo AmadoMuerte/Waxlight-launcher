@@ -27,6 +27,7 @@ func NewGameVersionController(service gameVersionCapabilities, lifecycle lifecyc
 	return &GameVersionController{svc: service, lifecycle: lifecycle}
 }
 
+// InstallVersionRequest selects a game release and installation options.
 type InstallVersionRequest struct {
 	ID                     string `json:"id"`
 	Name                   string `json:"name"`
@@ -35,6 +36,7 @@ type InstallVersionRequest struct {
 	ExpectedSHA256         string `json:"expectedSha256"`
 }
 
+// ListInstalledVersions returns game versions installed and managed by the launcher.
 func (controller *GameVersionController) ListInstalledVersions() (
 	[]GameVersionDTO,
 	error,
@@ -47,6 +49,7 @@ func (controller *GameVersionController) ListInstalledVersions() (
 	return result, err
 }
 
+// ListAvailableVersions returns downloadable releases compatible with the current platform.
 func (controller *GameVersionController) ListAvailableVersions() (
 	[]AvailableGameVersionDTO,
 	error,
@@ -59,6 +62,7 @@ func (controller *GameVersionController) ListAvailableVersions() (
 	return result, err
 }
 
+// InstallVersion starts downloading and installing a selected game release.
 func (controller *GameVersionController) InstallVersion(
 	versionID string,
 ) (OperationDTO, error) {
@@ -69,6 +73,7 @@ func (controller *GameVersionController) InstallVersion(
 	return operationDTO(install.Operation), err
 }
 
+// InstallLocalVersion imports a game installation from a local archive or directory.
 func (controller *GameVersionController) InstallLocalVersion(
 	request InstallVersionRequest,
 ) (OperationDTO, error) {
@@ -83,6 +88,7 @@ func (controller *GameVersionController) InstallLocalVersion(
 	return operationDTO(operation), err
 }
 
+// RemoveVersion removes an installed game version when no managed instance requires it.
 func (controller *GameVersionController) RemoveVersion(
 	id string,
 	deleteFiles bool,

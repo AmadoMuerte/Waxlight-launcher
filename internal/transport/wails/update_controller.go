@@ -12,6 +12,7 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// LauncherUpdateDTO reports release metadata and whether a launcher update is available.
 type LauncherUpdateDTO struct {
 	InstalledVersion string `json:"installedVersion"`
 	Version          string `json:"version"`
@@ -41,15 +42,18 @@ func NewLauncherUpdateController(
 	return &LauncherUpdateController{service: service, lifecycle: lifecycle, events: eventPublisher}
 }
 
+// CurrentVersion returns the running launcher version for display and update comparison.
 func (controller *LauncherUpdateController) CurrentVersion() string {
 	return controller.service.CurrentVersion()
 }
 
+// CheckUpdates checks the selected release channel for a newer launcher version.
 func (controller *LauncherUpdateController) CheckUpdates(channel string) (LauncherUpdateDTO, error) {
 	update, err := controller.service.Check(controller.lifecycle.Context(), channel)
 	return launcherUpdateDTO(update), err
 }
 
+// InstallUpdate downloads and applies the newest update from the selected channel.
 func (controller *LauncherUpdateController) InstallUpdate(channel string) error {
 	ctx := controller.lifecycle.Context()
 	err := controller.service.Install(ctx, channel, func(progress updates.Progress) {
@@ -68,6 +72,7 @@ func (controller *LauncherUpdateController) InstallUpdate(channel string) error 
 	return nil
 }
 
+// OpenReleasePage opens the selected update channel's release page.
 func (controller *LauncherUpdateController) OpenReleasePage(channel string) error {
 	update, err := controller.service.Check(controller.lifecycle.Context(), channel)
 	if err != nil {

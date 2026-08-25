@@ -66,3 +66,32 @@ func TestGeneratedWailsBindingsContainNoSecretFields(t *testing.T) {
 		}
 	}
 }
+
+func TestGeneratedWailsDocumentationContainsNoSecretFields(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join(repoRoot(t), "docs", "generated", "wails-api.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Types []struct {
+			Name   string `json:"name"`
+			Fields []struct {
+				Name     string `json:"name"`
+				JSONName string `json:"jsonName"`
+			} `json:"fields"`
+		} `json:"types"`
+	}
+	if err := json.Unmarshal(contents, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, typ := range document.Types {
+		for _, field := range typ.Fields {
+			candidate := strings.ToLower(typ.Name + " " + field.Name + " " + field.JSONName)
+			for _, prohibited := range prohibitedPublicNames {
+				if strings.Contains(candidate, prohibited) {
+					t.Fatalf("generated API documentation exposes prohibited field %s.%s", typ.Name, field.Name)
+				}
+			}
+		}
+	}
+}

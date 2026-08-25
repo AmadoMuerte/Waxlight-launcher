@@ -171,7 +171,7 @@ migrations.
    services, and tests. Consume other features through ports only.
 2. **New controller method** → add it to the matching controller in
    `internal/transport/wails`, regenerate bindings (`make wails-build`),
-   regenerate the API inventory (`make api-inventory`), and update the
+   regenerate the API schema and inventory (`make api-docs`), and update the
    frontend `shared/api` module. The inventory, binding, and frontend checks
    run in `go test ./internal/transport/wails/`.
 3. **New persisted repository** → implement it in

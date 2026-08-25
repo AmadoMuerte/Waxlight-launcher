@@ -25,6 +25,7 @@ func nonNilStrings(values []string) []string {
 	return values
 }
 
+// AccountDTO summarizes a saved account without exposing credentials.
 type AccountDTO struct {
 	ID              string  `json:"id"`
 	Username        string  `json:"username"`
@@ -51,6 +52,7 @@ func accountDTO(account accounts.Account) AccountDTO {
 	return result
 }
 
+// LoginResultDTO reports sign-in completion or the next verification step without exposing credentials.
 type LoginResultDTO struct {
 	Status  string      `json:"status"`
 	Account *AccountDTO `json:"account,omitempty"`
@@ -71,6 +73,7 @@ func loginResultDTO(result accounts.LoginResult) LoginResultDTO {
 	return dto
 }
 
+// GameVersionDTO describes an installed game version for library display.
 type GameVersionDTO struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
@@ -99,6 +102,7 @@ func versionDTO(version versions.GameVersion) GameVersionDTO {
 	}
 }
 
+// AvailableGameVersionDTO describes a downloadable game release for version selection.
 type AvailableGameVersionDTO struct {
 	ID            string  `json:"id"`
 	Name          string  `json:"name"`
@@ -127,6 +131,7 @@ func availableVersionDTO(
 	}
 }
 
+// InstanceDTO describes a managed game instance for library and detail views.
 type InstanceDTO struct {
 	ID                   string            `json:"id"`
 	Name                 string            `json:"name"`
@@ -182,6 +187,7 @@ func instanceDTO(instance instances.Instance) InstanceDTO {
 	return result
 }
 
+// InstalledModDTO describes an instance mod and its enabled and update state.
 type InstalledModDTO struct {
 	ID           string `json:"id"`
 	InstanceID   string `json:"instanceId"`
@@ -197,6 +203,7 @@ type InstalledModDTO struct {
 	InstalledAt  string `json:"installedAt"`
 }
 
+// ModDeletePreviewDTO shows which dependent mods would be affected by removal.
 type ModDeletePreviewDTO struct {
 	ModID        string            `json:"modId"`
 	ModName      string            `json:"modName"`
@@ -220,6 +227,7 @@ func modDTO(mod mods.InstalledMod) InstalledModDTO {
 	}
 }
 
+// OperationDTO reports progress and outcome for a background launcher task.
 type OperationDTO struct {
 	ID             string            `json:"id"`
 	Type           string            `json:"type"`
@@ -267,6 +275,7 @@ func operationDTO(operation operations.Operation) OperationDTO {
 	return result
 }
 
+// PlaySessionDTO identifies a running or completed game process for session views.
 type PlaySessionDTO struct {
 	ID              string  `json:"id"`
 	InstanceID      string  `json:"instanceId"`
@@ -299,6 +308,7 @@ func sessionDTO(session sessions.PlaySession) PlaySessionDTO {
 	return result
 }
 
+// StatisticsDTO aggregates library and play-time metrics for the overview.
 type StatisticsDTO struct {
 	TotalPlaytimeSeconds  int64            `json:"totalPlaytimeSeconds"`
 	LaunchCount           int              `json:"launchCount"`
@@ -324,6 +334,7 @@ func statisticsDTO(statistics statistics.Statistics) StatisticsDTO {
 	return result
 }
 
+// SettingsDTO carries launcher preferences between the frontend and settings service.
 type SettingsDTO struct {
 	Language                   string   `json:"language"`
 	DownloadsParallel          int      `json:"downloadsParallel"`
@@ -361,12 +372,14 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 	}
 }
 
+// DataFolderDTO reports the active launcher data path and storage usage.
 type DataFolderDTO struct {
 	CurrentPath string `json:"currentPath"`
 	DefaultPath string `json:"defaultPath"`
 	LastError   string `json:"lastError"`
 }
 
+// OptimumStatusDTO reports whether a usable Optimum installation was found.
 type OptimumStatusDTO struct {
 	Path        string `json:"path"`
 	Executable  string `json:"executable"`
@@ -382,6 +395,7 @@ func optimumStatusDTO(status optimum.Status) OptimumStatusDTO {
 	}
 }
 
+// DataFolderProgressDTO reports progress while relocating launcher data.
 type DataFolderProgressDTO struct {
 	CopiedBytes int64   `json:"copiedBytes"`
 	TotalBytes  int64   `json:"totalBytes"`
