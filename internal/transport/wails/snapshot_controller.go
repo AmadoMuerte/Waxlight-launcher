@@ -17,6 +17,7 @@ func NewSnapshotController(service *snapshots.Service, lifecycle lifecycle) *Sna
 	return &SnapshotController{svc: service, lifecycle: lifecycle}
 }
 
+// CreateInstanceSnapshot captures the current instance data as a restorable backup.
 func (controller *SnapshotController) CreateInstanceSnapshot(
 	instanceID string,
 ) (OperationDTO, error) {
@@ -27,6 +28,7 @@ func (controller *SnapshotController) CreateInstanceSnapshot(
 	return operationDTO(operation), err
 }
 
+// ListInstanceSnapshots returns restorable backups for an instance in newest-first order.
 func (controller *SnapshotController) ListInstanceSnapshots(
 	instanceID string,
 ) ([]InstanceSnapshotDTO, error) {
@@ -44,6 +46,7 @@ func (controller *SnapshotController) ListInstanceSnapshots(
 	return result, nil
 }
 
+// RestoreInstanceSnapshot replaces current instance data with the selected backup.
 func (controller *SnapshotController) RestoreInstanceSnapshot(
 	instanceID string,
 	snapshotID string,
@@ -59,6 +62,7 @@ func (controller *SnapshotController) RestoreInstanceSnapshot(
 	return err
 }
 
+// DeleteInstanceSnapshot permanently removes a selected instance backup.
 func (controller *SnapshotController) DeleteInstanceSnapshot(
 	instanceID string,
 	snapshotID string,

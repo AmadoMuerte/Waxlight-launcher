@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// NewsItemDTO describes a launcher news entry for feed display.
 type NewsItemDTO struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -18,6 +19,7 @@ type NewsItemDTO struct {
 	Category    string `json:"category"`
 }
 
+// NewsFeedDTO returns current news entries and highlights unseen items.
 type NewsFeedDTO struct {
 	Items         []NewsItemDTO `json:"items"`
 	NewItems      []NewsItemDTO `json:"newItems"`
@@ -26,6 +28,7 @@ type NewsFeedDTO struct {
 	RefreshFailed bool          `json:"refreshFailed"`
 }
 
+// NewsController exposes the launcher news feed and article navigation to the frontend.
 type NewsController struct {
 	service   *news.Service
 	lifecycle lifecycle
@@ -35,15 +38,18 @@ func NewNewsController(service *news.Service, lifecycle lifecycle) *NewsControll
 	return &NewsController{service: service, lifecycle: lifecycle}
 }
 
+// Sync refreshes the launcher news feed, optionally bypassing the local cache.
 func (controller *NewsController) Sync(force bool) (NewsFeedDTO, error) {
 	feed, err := controller.service.Sync(controller.lifecycle.Context(), force)
 	return newsFeedDTO(feed), err
 }
 
+// MarkSeen records selected news entries as viewed by the user.
 func (controller *NewsController) MarkSeen(ids []string) error {
 	return controller.service.MarkSeen(controller.lifecycle.Context(), ids)
 }
 
+// OpenArticle opens a verified news article in the user's browser.
 func (controller *NewsController) OpenArticle(rawURL string) error {
 	if !controller.service.IsOfficialArticleURL(rawURL) {
 		return errs.NewError(errs.ErrInvalidURL, "Only official Vintage Story news links can be opened")

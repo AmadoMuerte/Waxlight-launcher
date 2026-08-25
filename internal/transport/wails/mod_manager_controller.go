@@ -18,6 +18,7 @@ func NewModManagerController(service *mods.Service, catalog *mods.CatalogService
 	return &ModManagerController{svc: service, catalog: catalog, lifecycle: lifecycle}
 }
 
+// InstallModFileRequest selects one local mod archive and target instance.
 type InstallModFileRequest struct {
 	InstanceID string `json:"instanceId"`
 	SourcePath string `json:"sourcePath"`
@@ -25,22 +26,26 @@ type InstallModFileRequest struct {
 	Version    string `json:"version"`
 }
 
+// InstallModFilesRequest selects local mod archives and their target instance.
 type InstallModFilesRequest struct {
 	InstanceID  string   `json:"instanceId"`
 	SourcePaths []string `json:"sourcePaths"`
 }
 
+// InstallModFilesResultDTO separates installed, skipped, and failed local mod imports.
 type InstallModFilesResultDTO struct {
 	Installed []string            `json:"installed"`
 	Skipped   []string            `json:"skipped"`
 	Failed    []ModFileFailureDTO `json:"failed"`
 }
 
+// ModFileFailureDTO identifies a local mod archive that could not be installed.
 type ModFileFailureDTO struct {
 	Path  string `json:"path"`
 	Error string `json:"error"`
 }
 
+// ListInstalledMods returns mods installed in an instance and their enabled state.
 func (controller *ModManagerController) ListInstalledMods(
 	instanceID string,
 ) ([]InstalledModDTO, error) {
@@ -52,6 +57,7 @@ func (controller *ModManagerController) ListInstalledMods(
 	return result, err
 }
 
+// LinkLocalMods links compatible cached mod files into an instance.
 func (controller *ModManagerController) LinkLocalMods(
 	instanceID string,
 ) (LinkLocalModsResultDTO, error) {
@@ -59,6 +65,7 @@ func (controller *ModManagerController) LinkLocalMods(
 	return linkLocalModsResultDTO(result), err
 }
 
+// CheckInstanceModUpdates finds compatible catalog updates for managed mods in an instance.
 func (controller *ModManagerController) CheckInstanceModUpdates(
 	instanceID string,
 ) (InstanceModUpdateReportDTO, error) {
@@ -69,17 +76,20 @@ func (controller *ModManagerController) CheckInstanceModUpdates(
 	return instanceModUpdateReportDTO(report), err
 }
 
+// UpdateInstanceModsRequest selects catalog versions to apply to an instance.
 type UpdateInstanceModsRequest struct {
 	InstanceID        string               `json:"instanceId"`
 	Mods              []ModUpdateTargetDTO `json:"mods"`
 	AllowIncompatible bool                 `json:"allowIncompatible"`
 }
 
+// ModUpdateTargetDTO is the frontend-safe representation of mod update target.
 type ModUpdateTargetDTO struct {
 	ModID     string `json:"modId"`
 	VersionID string `json:"versionId"`
 }
 
+// ModUpdateResultDTO reports how many selected mods were updated or skipped.
 type ModUpdateResultDTO struct {
 	Updated         int `json:"updated"`
 	SkippedByPolicy int `json:"skippedByPolicy"`
@@ -111,11 +121,13 @@ func (controller *ModManagerController) UpdateInstanceMods(
 	return ModUpdateResultDTO{Updated: result.Updated, SkippedByPolicy: result.SkippedByPolicy}, nil
 }
 
+// SetModUpdatePolicy changes how a managed mod participates in automatic updates.
 func (controller *ModManagerController) SetModUpdatePolicy(id, policy string) (InstalledModDTO, error) {
 	mod, err := controller.svc.SetUpdatePolicy(controller.lifecycle.Context(), id, mods.UpdatePolicy(policy))
 	return modDTO(mod), err
 }
 
+// InstallModFile installs one local mod archive into an instance.
 func (controller *ModManagerController) InstallModFile(
 	request InstallModFileRequest,
 ) (OperationDTO, error) {
@@ -129,6 +141,7 @@ func (controller *ModManagerController) InstallModFile(
 	return operationDTO(operation), err
 }
 
+// InstallModFiles installs several local mod archives and reports individual failures.
 func (controller *ModManagerController) InstallModFiles(
 	request InstallModFilesRequest,
 ) (InstallModFilesResultDTO, error) {
@@ -150,6 +163,7 @@ func (controller *ModManagerController) InstallModFiles(
 	return dto, err
 }
 
+// SetModEnabled enables or disables an installed mod for its owning instance.
 func (controller *ModManagerController) SetModEnabled(
 	id string,
 	enabled bool,
@@ -162,10 +176,12 @@ func (controller *ModManagerController) SetModEnabled(
 	return modDTO(mod), err
 }
 
+// RemoveMod removes an installed mod and optionally its dependent mods.
 func (controller *ModManagerController) RemoveMod(id string, deleteDependencies bool) error {
 	return controller.svc.DeleteMod(controller.lifecycle.Context(), id, deleteDependencies)
 }
 
+// GetModDeletePreview reports dependent mods that would be affected by removal.
 func (controller *ModManagerController) GetModDeletePreview(id string) (ModDeletePreviewDTO, error) {
 	preview, err := controller.svc.ModDeletePreview(controller.lifecycle.Context(), id)
 	if err != nil {

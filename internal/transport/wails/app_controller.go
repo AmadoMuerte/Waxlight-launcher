@@ -9,6 +9,7 @@ func NewAppController() *AppController {
 	return &AppController{}
 }
 
+// AppInfo returns launcher metadata needed by the application shell.
 func (controller *AppController) AppInfo() map[string]any {
 	return map[string]any{
 		"name":       "Waxlight Launcher",

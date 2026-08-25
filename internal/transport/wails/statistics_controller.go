@@ -21,6 +21,7 @@ func NewStatisticsController(service statisticsQueries, lifecycle lifecycle) *St
 	return &StatisticsController{svc: service, lifecycle: lifecycle}
 }
 
+// GetOverviewStatistics returns aggregate playtime, launch, instance, and mod statistics.
 func (controller *StatisticsController) GetOverviewStatistics() (
 	StatisticsDTO,
 	error,
