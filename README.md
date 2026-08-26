@@ -89,6 +89,20 @@ Production build from the repository root:
 make wails-build
 ```
 
+## Documentation
+
+The backend API reference is generated from the Wails transport source and GoDoc with the pinned WailsDoc dependency:
+
+```bash
+make api-docs       # generate schema, Markdown, and the checked API inventory
+make api-docs-dev   # generate and start the VitePress development server
+make api-docs-build # generate and build the production VitePress site
+```
+
+Generated schema, Markdown, and VitePress output are intentionally not committed. A clean checkout reproduces them from `internal/transport/wails`, `wailsdoc.yaml`, and `docs/wails-api-inventory.json` remains the checked public API contract.
+
+Production documentation: <https://docs.waxlight.by>
+
 ## Contributing
 
 Code, translations, testing, documentation, bug reports, and focused feature proposals are welcome.

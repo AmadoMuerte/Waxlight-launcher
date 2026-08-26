@@ -134,9 +134,8 @@ Before promoting `dev` to `main`:
   files); they only convert parameters/DTOs, call features, emit events, and
   open dialogs/browser/directories. Bindings are generated under
   `frontend/src/wailsjs`; the checked-in API inventory is
-  `docs/wails-api-inventory.json`, and the generated documentation schema is
-  `docs/generated/wails-api.json`. Generated Markdown lives in
-  `docs/generated/wails-api/` (`make api-docs`).
+  `docs/wails-api-inventory.json`. The ignored documentation schema and
+  Markdown are regenerated under `docs/generated/` with `make api-docs`.
 - User-facing errors use `internal/errs` (`errs.NewError`/`AppError`); the
   code strings are a frontend contract (i18n) and must never change.
 - Runtime SQLite schema changes belong in
