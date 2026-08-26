@@ -17,8 +17,15 @@ for (const type of api.types) {
 }
 await access(new URL("api/README.md", root));
 await access(new URL("api/METHODS.md", root));
+await access(new URL("getting-started.md", root));
+await access(new URL("long-running-operations.md", root));
 
-for (const route of ["api/README.html", "api/METHODS.html"]) {
+for (const route of [
+  "api/README.html",
+  "api/METHODS.html",
+  "getting-started.html",
+  "long-running-operations.html",
+]) {
   await access(new URL(`.vitepress/dist/${route}`, root));
 }
 

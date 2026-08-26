@@ -7,6 +7,9 @@ hero:
   tagline: Generated directly from the launcher backend source.
   actions:
     - theme: brand
+      text: Getting Started
+      link: /getting-started
+    - theme: alt
       text: Browse Controllers
       link: /api/README#controllers
     - theme: alt
