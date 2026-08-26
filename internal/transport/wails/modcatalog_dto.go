@@ -238,27 +238,38 @@ func downloadedModDTO(mod mods.DownloadedMod) DownloadedModDTO {
 	return dto
 }
 
-// ModInstallationResultDTO is the frontend-safe representation of mod installation result.
+// ModInstallationResultDTO reports whether a release was installed into one instance.
 type ModInstallationResultDTO struct {
-	InstanceID   string `json:"instanceId"`
+	// InstanceID identifies the target instance.
+	InstanceID string `json:"instanceId"`
+	// InstanceName is the display name of the target instance.
 	InstanceName string `json:"instanceName"`
-	Installed    bool   `json:"installed"`
-	Message      string `json:"message"`
+	// Installed reports whether the installation succeeded.
+	Installed bool `json:"installed"`
+	// Message explains the failure when the installation did not succeed.
+	Message string `json:"message"`
 }
 
 // ModInstallResultDTO reports a catalog download task and per-instance installations.
 type ModInstallResultDTO struct {
-	TaskID        string                     `json:"taskId"`
-	Downloaded    DownloadedModDTO           `json:"downloaded"`
+	// TaskID identifies the mod task and can be passed to CancelModTask.
+	TaskID string `json:"taskId"`
+	// Downloaded is the release that was downloaded.
+	Downloaded DownloadedModDTO `json:"downloaded"`
+	// Installations reports the outcome for every requested instance.
 	Installations []ModInstallationResultDTO `json:"installations"`
 }
 
 // BatchModInstallResultDTO reports success or failure for one item in a batch download.
 type BatchModInstallResultDTO struct {
-	ModID     string              `json:"modId"`
-	VersionID string              `json:"versionId"`
-	Result    ModInstallResultDTO `json:"result"`
-	Error     string              `json:"error,omitempty"`
+	// ModID identifies the requested mod.
+	ModID string `json:"modId"`
+	// VersionID identifies the requested release.
+	VersionID string `json:"versionId"`
+	// Result carries the download and installation outcome.
+	Result ModInstallResultDTO `json:"result"`
+	// Error is the human-readable failure description, when the item failed.
+	Error string `json:"error,omitempty"`
 }
 
 // DownloadedModCleanupResultDTO reports cached mod files removed and storage reclaimed.

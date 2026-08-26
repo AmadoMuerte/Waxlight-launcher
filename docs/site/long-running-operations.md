@@ -1,6 +1,6 @@
 # Long-running Operations
 
-Waxlight represents tracked work with `OperationDTO`. A start method such as `StartExistingDataImport` or `InstallGameVersion` can return an operation immediately while backend work continues under the application lifecycle.
+Waxlight represents tracked work with `OperationDTO`. A start method such as `StartExistingDataImport` or `GameVersionController.InstallVersion` can return an operation immediately while backend work continues under the application lifecycle.
 
 ```text
 Frontend start method
@@ -14,7 +14,7 @@ Frontend start method
 TanStack Query operations cache
         |
         v
-OperationController: list, cancel, delete, clear history
+OperationController: ListOperations, CancelOperation, DeleteOperation, ClearOperationHistory
 ```
 
 The backend persists operation state before publishing most updates. The frontend subscribes to Wails events for immediate cache updates and also refreshes `ListOperations` periodically as a fallback. `OperationController.CancelOperation` requests cancellation by operation ID; deletion and history clearing apply only to finished operations.

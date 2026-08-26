@@ -92,12 +92,19 @@ type Report struct {
 	Logs           Logs        `json:"logs"`
 }
 
+// Preview is a sanitized support-report payload plus the short-lived
+// identifier required to submit that exact reviewed payload.
 type Preview struct {
+	// SnapshotID identifies this preview and must be passed to Submit.
 	SnapshotID string `json:"snapshotId"`
-	Payload    string `json:"payload"`
+	// Payload is the sanitized JSON report shown to the user for review.
+	Payload string `json:"payload"`
 }
 
+// Result identifies a report accepted by the support service.
 type Result struct {
+	// ReportID is the service-side identifier of the submitted report.
 	ReportID string `json:"reportId"`
-	Status   string `json:"status"`
+	// Status describes the processing state of the report.
+	Status string `json:"status"`
 }
