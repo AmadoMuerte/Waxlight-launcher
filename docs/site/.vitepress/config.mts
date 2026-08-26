@@ -21,6 +21,8 @@ const types = api.types.map(({ name }) => ({ text: name, link: `/api/types/${nam
 const methodCount = api.controllers.reduce((count, controller) => count + controller.methods.length, 0);
 
 const sidebar: DefaultTheme.SidebarItem[] = [
+  { text: "Getting Started", link: "/getting-started" },
+  { text: "Long-running Operations", link: "/long-running-operations" },
   { text: "Overview", link: "/api/README" },
   { text: "Methods", link: "/api/METHODS" },
   { text: "Controllers", collapsed: false, items: controllers },
@@ -44,6 +46,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Home", link: "/" },
+      { text: "Getting Started", link: "/getting-started" },
       { text: "API Reference", link: "/api/README" },
       { text: "Methods", link: "/api/METHODS" },
     ],
