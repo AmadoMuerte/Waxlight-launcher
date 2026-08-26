@@ -41,9 +41,24 @@ jobs:
       - name: Generate and build documentation
         shell: bash
         run: |
+          # Prove the output tree is fully regenerated: stale pages from an
+          # older generation must not survive a fresh build.
+          rm -rf docs/generated/wails-api docs/site/api
           make api-docs-build
           git diff --exit-code -- docs/wails-api-inventory.json
           test -f docs/site/.vitepress/dist/index.html
+          # Guard against obsolete API names leaking back into the docs.
+          ! grep -R "InstallGameVersion" docs/site/.vitepress/dist
+          # Generated type pages referenced by controller pages must exist.
+          test -f docs/site/api/types/Preview.md
+          test -f docs/site/api/types/Result.md
+          # Clean regeneration must be reproducible: the generated Markdown
+          # tree has to be byte-identical across repeated generations.
+          make api-docs
+          before="$(find docs/generated/wails-api -type f | sort | xargs md5sum | md5sum)"
+          make api-docs
+          after="$(find docs/generated/wails-api -type f | sort | xargs md5sum | md5sum)"
+          test "$before" = "$after"
 
       - name: Log in to GHCR
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
