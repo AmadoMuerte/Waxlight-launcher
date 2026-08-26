@@ -101,7 +101,7 @@ make api-docs-build # generate and build the production VitePress site
 
 Generated schema, Markdown, and VitePress output are intentionally not committed. A clean checkout reproduces them from `internal/transport/wails`, `wailsdoc.yaml`, and `docs/wails-api-inventory.json` remains the checked public API contract.
 
-Production documentation: <https://docs.waxlight.by>
+Contributors can browse the current backend API reference at <https://docs.waxlight.by>.
 
 ## Contributing
 

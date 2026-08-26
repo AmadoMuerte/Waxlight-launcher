@@ -136,6 +136,7 @@ Before promoting `dev` to `main`:
   `frontend/src/wailsjs`; the checked-in API inventory is
   `docs/wails-api-inventory.json`. The ignored documentation schema and
   Markdown are regenerated under `docs/generated/` with `make api-docs`.
+  Browse the current backend API reference at <https://docs.waxlight.by>.
 - User-facing errors use `internal/errs` (`errs.NewError`/`AppError`); the
   code strings are a frontend contract (i18n) and must never change.
 - Runtime SQLite schema changes belong in
