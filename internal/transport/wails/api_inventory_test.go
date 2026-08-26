@@ -7,12 +7,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 
 	"github.com/AmadoMuerte/wailsdoc/inventory"
-	"github.com/AmadoMuerte/wailsdoc/renderer/markdown"
 	"github.com/AmadoMuerte/wailsdoc/scanner"
 	"github.com/AmadoMuerte/wailsdoc/schema"
 )
@@ -78,67 +76,6 @@ func TestWailsAPIInventoryIsInSync(t *testing.T) {
 			expectedJSON,
 		)
 	}
-}
-
-func TestWailsAPIDocumentationIsInSync(t *testing.T) {
-	current := scanTransportAPI(t)
-	expectedJSON, err := json.MarshalIndent(current, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	actualJSON, err := os.ReadFile(filepath.Join(repoRoot(t), "docs", "generated", "wails-api.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(actualJSON) != string(expectedJSON)+"\n" {
-		t.Fatal("docs/generated/wails-api.json is out of date. Run `make api-docs`.")
-	}
-
-	expectedDir := filepath.Join(t.TempDir(), "wails-api")
-	if _, err := markdown.RenderTitle(current, expectedDir, "Waxlight Backend API"); err != nil {
-		t.Fatal(err)
-	}
-	actualDir := filepath.Join(repoRoot(t), "docs", "generated", "wails-api")
-	expectedFiles := markdownFiles(t, expectedDir)
-	actualFiles := markdownFiles(t, actualDir)
-	if strings.Join(expectedFiles, "\n") != strings.Join(actualFiles, "\n") {
-		t.Fatalf("generated Markdown file set is out of date. Run `make api-docs`.\nExpected: %v\nActual: %v", expectedFiles, actualFiles)
-	}
-	for _, relative := range expectedFiles {
-		expected, err := os.ReadFile(filepath.Join(expectedDir, relative))
-		if err != nil {
-			t.Fatal(err)
-		}
-		actual, err := os.ReadFile(filepath.Join(actualDir, relative))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(expected) != string(actual) {
-			t.Fatalf("docs/generated/wails-api/%s is out of date. Run `make api-docs`.", relative)
-		}
-	}
-}
-
-func markdownFiles(t *testing.T, root string) []string {
-	t.Helper()
-	var files []string
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() && filepath.Ext(path) == ".md" {
-			relative, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			files = append(files, filepath.ToSlash(relative))
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	sort.Strings(files)
-	return files
 }
 
 // TestWailsBindingsMatchInventory proves the generated frontend bindings

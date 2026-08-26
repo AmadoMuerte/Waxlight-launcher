@@ -72,6 +72,13 @@ jobs:
       - name: Check backend architecture
         run: ./scripts/check-architecture.sh
 
+      - name: Build API documentation
+        shell: bash
+        run: |
+          npm ci --include=dev --prefix docs/site
+          make api-docs-build
+          git diff --exit-code -- docs/wails-api-inventory.json
+
   security:
     name: Vulnerability and secret scanning
     runs-on: ubuntu-24.04

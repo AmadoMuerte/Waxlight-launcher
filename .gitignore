@@ -4,6 +4,8 @@
 /release/
 /artifacts/
 /frontend/dist/
+/docs/generated/wails-api.json
+/docs/generated/wails-api/
 /docs/site/.vitepress/cache/
 /docs/site/.vitepress/dist/
 /docs/site/api/

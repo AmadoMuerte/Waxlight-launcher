@@ -99,10 +99,10 @@ help:
 	@echo "      Run security-pattern and vulnerability checks."
 	@echo
 	@echo "  make api-inventory"
-	@echo "      Regenerate the checked-in Wails API documentation and inventory."
+	@echo "      Regenerate the checked-in Wails API inventory."
 	@echo
 	@echo "  make api-docs"
-	@echo "      Regenerate the checked-in Wails API documentation and inventory."
+	@echo "      Generate the Wails API documentation and checked-in inventory."
 	@echo
 	@echo "  make api-docs-dev"
 	@echo "      Regenerate API documentation and start the VitePress site."
