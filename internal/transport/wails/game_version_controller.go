@@ -29,11 +29,16 @@ func NewGameVersionController(service gameVersionCapabilities, lifecycle lifecyc
 
 // InstallVersionRequest selects a game release and installation options.
 type InstallVersionRequest struct {
-	ID                     string `json:"id"`
-	Name                   string `json:"name"`
-	SourcePath             string `json:"sourcePath"`
+	// ID is a stable release identifier for the local installation.
+	ID string `json:"id"`
+	// Name is the display name recorded for the imported version.
+	Name string `json:"name"`
+	// SourcePath is the local archive or directory to import.
+	SourcePath string `json:"sourcePath"`
+	// ExecutableRelativePath locates the game executable inside the installation.
 	ExecutableRelativePath string `json:"executableRelativePath"`
-	ExpectedSHA256         string `json:"expectedSha256"`
+	// ExpectedSHA256 verifies the local archive before import, when known.
+	ExpectedSHA256 string `json:"expectedSha256"`
 }
 
 // ListInstalledVersions returns game versions installed and managed by the launcher.
@@ -63,6 +68,18 @@ func (controller *GameVersionController) ListAvailableVersions() (
 }
 
 // InstallVersion starts downloading and installing a selected game release.
+// The call returns the queued OperationDTO immediately; later download and
+// installation failures are reported through operation events and the
+// OperationDTO error fields.
+//
+// Errors:
+//   - validation_error: the version identifier is invalid
+//   - version_catalog_unavailable: the release catalog could not be reached
+//   - game_version_already_installed: this release is already installed
+//   - game_version_not_found: the release is not available for this platform
+//   - insufficient_disk_space: not enough storage is available
+//   - file_permission_denied: the installation could not be written
+//   - data_folder_busy: a data-folder relocation is in progress
 func (controller *GameVersionController) InstallVersion(
 	versionID string,
 ) (OperationDTO, error) {

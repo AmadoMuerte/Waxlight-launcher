@@ -27,6 +27,14 @@ func (controller *SupportReportController) Preview(description, instanceID strin
 }
 
 // Submit uploads a previously reviewed support-report snapshot.
+// Previews expire after 15 minutes; a failed submission keeps the snapshot
+// so it can be retried, while a successful submission consumes it.
+//
+// Errors:
+//   - validation_error: the snapshot is missing or expired
+//   - support_report_too_large: the report exceeds the service limit
+//   - support_report_failed: the support service rejected the report
+//   - support_report_rate_limited: too many reports were submitted recently
 func (controller *SupportReportController) Submit(snapshotID string) (supportreports.Result, error) {
 	return controller.service.Submit(controller.lifecycle.Context(), snapshotID)
 }
