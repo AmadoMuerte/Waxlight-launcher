@@ -10,7 +10,7 @@
 [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
 [![Последний релиз](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
 [![Лицензия: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../LICENSE)
-[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://hipolink.net/amadomuerte/tips)
+[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://hipolink.net/amadomuerte)
 
 [Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
 </div>
@@ -88,6 +88,20 @@ Production-сборка из корня репозитория:
 ```bash
 make wails-build
 ```
+
+## Документация
+
+Документация backend API генерируется из транспортного слоя Wails и GoDoc с помощью закреплённой зависимости WailsDoc:
+
+```bash
+make api-docs       # сгенерировать схему, Markdown и проверяемый API-инвентарь
+make api-docs-dev   # сгенерировать документацию и запустить VitePress dev-сервер
+make api-docs-build # сгенерировать и собрать production-сайт VitePress
+```
+
+Сгенерированные схема, Markdown и сборка VitePress намеренно не хранятся в Git. Чистый checkout воспроизводит их из `internal/transport/wails` и `wailsdoc.yaml`, а `docs/wails-api-inventory.json` остаётся проверяемым контрактом публичного API.
+
+Контрибьюторы могут посмотреть актуальную документацию backend API на <https://docs.waxlight.by>.
 
 ## Участие в разработке
 
