@@ -90,14 +90,35 @@ func (controller *ModCatalogController) ListDownloadedMods() ([]DownloadedModDTO
 
 // DownloadCatalogModRequest selects a catalog release and the instances that should receive it.
 type DownloadCatalogModRequest struct {
-	ModID             string   `json:"modId"`
-	VersionID         string   `json:"versionId"`
-	InstanceIDs       []string `json:"instanceIds"`
-	DownloadOnly      bool     `json:"downloadOnly"`
-	AllowIncompatible bool     `json:"allowIncompatible"`
+	// ModID is the catalog identifier of the mod.
+	ModID string `json:"modId"`
+	// VersionID is the catalog identifier of the release to download.
+	VersionID string `json:"versionId"`
+	// InstanceIDs lists instances that should receive the downloaded release.
+	InstanceIDs []string `json:"instanceIds"`
+	// DownloadOnly skips installation and only caches the release.
+	DownloadOnly bool `json:"downloadOnly"`
+	// AllowIncompatible permits installation despite compatibility warnings.
+	AllowIncompatible bool `json:"allowIncompatible"`
 }
 
 // DownloadMod downloads a catalog release and optionally installs it into selected instances.
+// The call returns when the download task finishes; TaskID can be passed to
+// CancelModTask, and per-instance installation failures are reported through
+// Installations.
+//
+// Errors:
+//   - mod_not_found: the mod does not exist in the catalog
+//   - mod_version_not_found: the requested release does not exist
+//   - mod_catalog_unavailable: the catalog could not be reached
+//   - mod_incompatible: the release is incompatible with a target instance
+//   - mod_download_already_active: a task for this release is already running
+//   - invalid_mod_file: the downloaded archive is not a valid mod
+//   - download_failed: the release could not be downloaded
+//   - instance_not_found: a target instance does not exist
+//   - game_version_not_found: a target instance has no installed game version
+//   - snapshot_in_progress: a snapshot is currently being taken
+//   - data_folder_busy: a data-folder relocation is in progress
 func (controller *ModCatalogController) DownloadMod(
 	request DownloadCatalogModRequest,
 ) (ModInstallResultDTO, error) {
@@ -114,14 +135,18 @@ func (controller *ModCatalogController) DownloadMod(
 
 // DownloadModTargetRequest identifies one catalog mod release in a batch download.
 type DownloadModTargetRequest struct {
-	ModID     string `json:"modId"`
+	// ModID is the catalog identifier of the mod.
+	ModID string `json:"modId"`
+	// VersionID is the catalog identifier of the release to download.
 	VersionID string `json:"versionId"`
 }
 
 // DownloadModsBatchRequest selects catalog releases to install into one instance.
 type DownloadModsBatchRequest struct {
-	InstanceID string                     `json:"instanceId"`
-	Targets    []DownloadModTargetRequest `json:"targets"`
+	// InstanceID is the instance that receives the downloaded releases.
+	InstanceID string `json:"instanceId"`
+	// Targets lists the catalog releases to download.
+	Targets []DownloadModTargetRequest `json:"targets"`
 }
 
 // DownloadModsBatch downloads and installs several catalog releases for one instance.
@@ -142,10 +167,14 @@ func (controller *ModCatalogController) DownloadModsBatch(
 
 // InstallDownloadedModRequest selects a cached mod release and its target instances.
 type InstallDownloadedModRequest struct {
-	ModID             string   `json:"modId"`
-	VersionID         string   `json:"versionId"`
-	InstanceIDs       []string `json:"instanceIds"`
-	AllowIncompatible bool     `json:"allowIncompatible"`
+	// ModID is the catalog identifier of the cached mod.
+	ModID string `json:"modId"`
+	// VersionID is the catalog identifier of the cached release.
+	VersionID string `json:"versionId"`
+	// InstanceIDs lists instances that should receive the release.
+	InstanceIDs []string `json:"instanceIds"`
+	// AllowIncompatible permits installation despite compatibility warnings.
+	AllowIncompatible bool `json:"allowIncompatible"`
 }
 
 // InstallDownloadedMod installs an already cached catalog release into selected instances.

@@ -78,26 +78,41 @@ func (controller *ModManagerController) CheckInstanceModUpdates(
 
 // UpdateInstanceModsRequest selects catalog versions to apply to an instance.
 type UpdateInstanceModsRequest struct {
-	InstanceID        string               `json:"instanceId"`
-	Mods              []ModUpdateTargetDTO `json:"mods"`
-	AllowIncompatible bool                 `json:"allowIncompatible"`
+	// InstanceID is the instance whose mods are updated.
+	InstanceID string `json:"instanceId"`
+	// Mods lists the catalog releases to apply.
+	Mods []ModUpdateTargetDTO `json:"mods"`
+	// AllowIncompatible permits updates despite compatibility warnings.
+	AllowIncompatible bool `json:"allowIncompatible"`
 }
 
-// ModUpdateTargetDTO is the frontend-safe representation of mod update target.
+// ModUpdateTargetDTO selects one catalog release for an update.
 type ModUpdateTargetDTO struct {
-	ModID     string `json:"modId"`
+	// ModID is the catalog identifier of the installed mod.
+	ModID string `json:"modId"`
+	// VersionID is the catalog identifier of the release to apply.
 	VersionID string `json:"versionId"`
 }
 
 // ModUpdateResultDTO reports how many selected mods were updated or skipped.
 type ModUpdateResultDTO struct {
-	Updated         int `json:"updated"`
+	// Updated counts the mods whose release was applied.
+	Updated int `json:"updated"`
+	// SkippedByPolicy counts the mods skipped by pin or compatibility policy.
 	SkippedByPolicy int `json:"skippedByPolicy"`
 }
 
 // UpdateInstanceMods updates several installed mods of one instance in a
 // single coordinated operation; the backend creates exactly one automatic
 // safety snapshot before the first update is applied.
+//
+// Errors:
+//   - instance_not_found: the instance does not exist
+//   - mod_not_found: an installed mod is not known to the catalog
+//   - mod_version_not_found: a requested release does not exist
+//   - mod_incompatible: a release is incompatible with the instance
+//   - snapshot_in_progress: a snapshot is currently being taken
+//   - data_folder_busy: a data-folder relocation is in progress
 func (controller *ModManagerController) UpdateInstanceMods(
 	request UpdateInstanceModsRequest,
 ) (ModUpdateResultDTO, error) {

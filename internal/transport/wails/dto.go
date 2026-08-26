@@ -75,16 +75,23 @@ func loginResultDTO(result accounts.LoginResult) LoginResultDTO {
 
 // GameVersionDTO describes an installed game version for library display.
 type GameVersionDTO struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Channel         string `json:"channel"`
-	Platform        string `json:"platform"`
-	Architecture    string `json:"architecture"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Channel is the release channel, such as stable or prerelease.
+	Channel string `json:"channel"`
+	// Platform and Architecture identify the build the version supports.
+	Platform     string `json:"platform"`
+	Architecture string `json:"architecture"`
+	// InstallationDir is the version directory relative to the launcher data root.
 	InstallationDir string `json:"installationDir"`
-	ExecutablePath  string `json:"executablePath"`
-	Status          string `json:"status"`
-	SizeBytes       int64  `json:"sizeBytes"`
-	InstalledAt     string `json:"installedAt"`
+	// ExecutablePath is the game executable used to launch this version.
+	ExecutablePath string `json:"executablePath"`
+	// Status reports whether the version is installed or imported.
+	Status string `json:"status"`
+	// SizeBytes is the on-disk installation size.
+	SizeBytes int64 `json:"sizeBytes"`
+	// InstalledAt is the timestamp of the installation.
+	InstalledAt string `json:"installedAt"`
 }
 
 func versionDTO(version versions.GameVersion) GameVersionDTO {
@@ -104,14 +111,20 @@ func versionDTO(version versions.GameVersion) GameVersionDTO {
 
 // AvailableGameVersionDTO describes a downloadable game release for version selection.
 type AvailableGameVersionDTO struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Channel       string  `json:"channel"`
-	Platform      string  `json:"platform"`
-	Architecture  string  `json:"architecture"`
-	DownloadSize  int64   `json:"downloadSize"`
-	Latest        bool    `json:"latest"`
-	Installed     bool    `json:"installed"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Channel is the release channel, such as stable or prerelease.
+	Channel string `json:"channel"`
+	// Platform and Architecture identify the build this release provides.
+	Platform     string `json:"platform"`
+	Architecture string `json:"architecture"`
+	// DownloadSize is the expected archive size in bytes.
+	DownloadSize int64 `json:"downloadSize"`
+	// Latest reports whether this is the newest release of its channel.
+	Latest bool `json:"latest"`
+	// Installed reports whether this exact release is already present.
+	Installed bool `json:"installed"`
+	// InstallStatus carries the reason when the release cannot be installed.
 	InstallStatus *string `json:"installStatus,omitempty"`
 }
 
@@ -133,23 +146,36 @@ func availableVersionDTO(
 
 // InstanceDTO describes a managed game instance for library and detail views.
 type InstanceDTO struct {
-	ID                   string            `json:"id"`
-	Name                 string            `json:"name"`
-	Description          string            `json:"description"`
-	GameVersionID        string            `json:"gameVersionId"`
-	GameClient           string            `json:"gameClient"`
-	DefaultAccountID     *string           `json:"defaultAccountId,omitempty"`
-	Directory            string            `json:"directory"`
-	Status               string            `json:"status"`
-	LaunchArguments      []string          `json:"launchArguments"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Description is the user-visible instance description.
+	Description string `json:"description"`
+	// GameVersionID selects the installed game version used by the instance.
+	GameVersionID string `json:"gameVersionId"`
+	// GameClient selects the runtime implementation: vanilla or optimum.
+	GameClient string `json:"gameClient"`
+	// DefaultAccountID is the account used when the instance launches without an explicit choice.
+	DefaultAccountID *string `json:"defaultAccountId,omitempty"`
+	// Directory is the instance data directory relative to the launcher data root.
+	Directory string `json:"directory"`
+	// Status is the current instance lifecycle state.
+	Status string `json:"status"`
+	// LaunchArguments are extra command-line arguments appended at launch.
+	LaunchArguments []string `json:"launchArguments"`
+	// EnvironmentVariables are additional environment values applied at launch.
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
-	IsPinned             bool              `json:"isPinned"`
-	LastPlayedAt         *string           `json:"lastPlayedAt,omitempty"`
-	CreatedAt            string            `json:"createdAt"`
-	EnabledModCount      int               `json:"enabledModCount"`
-	TotalModCount        int               `json:"totalModCount"`
-	PlaytimeSeconds      int64             `json:"playtimeSeconds"`
-	CoverURL             *string           `json:"coverUrl,omitempty"`
+	// IsPinned reports whether the instance is pinned in the library.
+	IsPinned bool `json:"isPinned"`
+	// LastPlayedAt is the timestamp of the most recent launch, when known.
+	LastPlayedAt *string `json:"lastPlayedAt,omitempty"`
+	CreatedAt    string  `json:"createdAt"`
+	// EnabledModCount and TotalModCount summarize the installed mods.
+	EnabledModCount int `json:"enabledModCount"`
+	TotalModCount   int `json:"totalModCount"`
+	// PlaytimeSeconds is the accumulated play time across sessions.
+	PlaytimeSeconds int64 `json:"playtimeSeconds"`
+	// CoverURL serves the instance cover image, when one is set.
+	CoverURL *string `json:"coverUrl,omitempty"`
 }
 
 func instanceDTO(instance instances.Instance) InstanceDTO {
@@ -229,22 +255,34 @@ func modDTO(mod mods.InstalledMod) InstalledModDTO {
 
 // OperationDTO reports progress and outcome for a background launcher task.
 type OperationDTO struct {
-	ID             string            `json:"id"`
-	Type           string            `json:"type"`
-	ResourceID     *string           `json:"resourceId,omitempty"`
-	Title          string            `json:"title"`
-	TitleKey       string            `json:"titleKey,omitempty"`
-	TitleParams    map[string]string `json:"titleParams,omitempty"`
-	Status         string            `json:"status"`
-	Progress       float64           `json:"progress"`
-	CurrentBytes   int64             `json:"currentBytes"`
-	TotalBytes     int64             `json:"totalBytes"`
-	BytesPerSecond int64             `json:"bytesPerSecond"`
-	ErrorCode      *string           `json:"errorCode,omitempty"`
-	ErrorMessage   *string           `json:"errorMessage,omitempty"`
-	CreatedAt      string            `json:"createdAt"`
-	StartedAt      *string           `json:"startedAt,omitempty"`
-	FinishedAt     *string           `json:"finishedAt,omitempty"`
+	ID string `json:"id"`
+	// Type identifies the operation kind, such as a version install or snapshot.
+	Type string `json:"type"`
+	// ResourceID names the instance or game version the operation targets.
+	ResourceID *string `json:"resourceId,omitempty"`
+	// Title is the human-readable operation title, used as the i18n fallback.
+	Title string `json:"title"`
+	// TitleKey is the i18n key used to localize the operation title.
+	TitleKey string `json:"titleKey,omitempty"`
+	// TitleParams are the interpolation values for the localized title.
+	TitleParams map[string]string `json:"titleParams,omitempty"`
+	// Status is the operation lifecycle state: queued, running, completed, failed, or cancelled.
+	Status string `json:"status"`
+	// Progress is the completion ratio normalized from 0 to 1.
+	Progress float64 `json:"progress"`
+	// CurrentBytes is the transferred byte count, and TotalBytes the expected total.
+	CurrentBytes int64 `json:"currentBytes"`
+	TotalBytes   int64 `json:"totalBytes"`
+	// BytesPerSecond is the current transfer rate.
+	BytesPerSecond int64 `json:"bytesPerSecond"`
+	// ErrorCode is a stable error identifier set when the operation fails.
+	ErrorCode *string `json:"errorCode,omitempty"`
+	// ErrorMessage is the human-readable failure description set when the operation fails.
+	ErrorMessage *string `json:"errorMessage,omitempty"`
+	// CreatedAt, StartedAt, and FinishedAt are the operation lifecycle timestamps.
+	CreatedAt  string  `json:"createdAt"`
+	StartedAt  *string `json:"startedAt,omitempty"`
+	FinishedAt *string `json:"finishedAt,omitempty"`
 }
 
 func operationDTO(operation operations.Operation) OperationDTO {
@@ -277,16 +315,24 @@ func operationDTO(operation operations.Operation) OperationDTO {
 
 // PlaySessionDTO identifies a running or completed game process for session views.
 type PlaySessionDTO struct {
-	ID              string  `json:"id"`
-	InstanceID      string  `json:"instanceId"`
-	AccountID       *string `json:"accountId,omitempty"`
-	VersionID       string  `json:"versionId"`
-	StartedAt       string  `json:"startedAt"`
-	EndedAt         *string `json:"endedAt,omitempty"`
-	DurationSeconds int64   `json:"durationSeconds"`
-	ExitCode        *int    `json:"exitCode,omitempty"`
-	Crashed         bool    `json:"crashed"`
-	Recovered       bool    `json:"recovered"`
+	ID string `json:"id"`
+	// InstanceID is the instance the session belongs to.
+	InstanceID string `json:"instanceId"`
+	// AccountID is the account used for the session, when one was selected.
+	AccountID *string `json:"accountId,omitempty"`
+	// VersionID is the game version that ran during the session.
+	VersionID string `json:"versionId"`
+	// StartedAt and EndedAt bound the session lifetime.
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt,omitempty"`
+	// DurationSeconds is the session length.
+	DurationSeconds int64 `json:"durationSeconds"`
+	// ExitCode is the process exit code, when the session has ended.
+	ExitCode *int `json:"exitCode,omitempty"`
+	// Crashed reports whether the process terminated unexpectedly.
+	Crashed bool `json:"crashed"`
+	// Recovered reports whether a last-known-good recovery was applied.
+	Recovered bool `json:"recovered"`
 }
 
 func sessionDTO(session sessions.PlaySession) PlaySessionDTO {

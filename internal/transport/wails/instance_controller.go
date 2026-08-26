@@ -145,13 +145,21 @@ func (controller *InstanceController) SelectInstanceCover() (string, error) {
 
 // CreateInstanceRequest defines the game version and options for a new instance.
 type CreateInstanceRequest struct {
-	Name                 string            `json:"name"`
-	Description          string            `json:"description"`
-	GameVersionID        string            `json:"gameVersionId"`
-	GameClient           string            `json:"gameClient"`
-	DefaultAccountID     *string           `json:"defaultAccountId,omitempty"`
-	Directory            string            `json:"directory"`
-	LaunchArguments      []string          `json:"launchArguments"`
+	// Name is the user-visible instance name.
+	Name string `json:"name"`
+	// Description is the optional instance description.
+	Description string `json:"description"`
+	// GameVersionID selects the installed game version for the instance.
+	GameVersionID string `json:"gameVersionId"`
+	// GameClient selects the runtime implementation: vanilla or optimum.
+	GameClient string `json:"gameClient"`
+	// DefaultAccountID is the account used when the instance launches without an explicit choice.
+	DefaultAccountID *string `json:"defaultAccountId,omitempty"`
+	// Directory is the instance data directory relative to the launcher data root.
+	Directory string `json:"directory"`
+	// LaunchArguments are extra command-line arguments appended at launch.
+	LaunchArguments []string `json:"launchArguments"`
+	// EnvironmentVariables are additional environment values applied at launch.
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
 }
 
@@ -213,6 +221,13 @@ func (controller *InstanceController) GetInstance(id string) (InstanceDTO, error
 }
 
 // CreateInstance creates an isolated game instance using the requested version and launch settings.
+//
+// Errors:
+//   - validation_error: the name, game client, directory, or environment variables are invalid
+//   - game_version_not_found: the requested game version is not installed
+//   - account_not_found: the selected account does not exist
+//   - instance_directory_conflict: the directory already belongs to another instance
+//   - data_folder_busy: a data-folder relocation is in progress
 func (controller *InstanceController) CreateInstance(
 	request CreateInstanceRequest,
 ) (InstanceDTO, error) {

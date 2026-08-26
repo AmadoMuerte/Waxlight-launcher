@@ -4,7 +4,7 @@ go 1.25.13
 
 require (
 	github.com/AmadoMuerte/vintagestory-go v0.3.0
-	github.com/AmadoMuerte/wailsdoc v0.2.2
+	github.com/AmadoMuerte/wailsdoc v0.3.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32

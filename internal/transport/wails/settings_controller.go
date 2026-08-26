@@ -88,7 +88,14 @@ func (controller *SettingsController) SelectDataFolder() (string, error) {
 	return controller.dialogs.SelectDataFolder()
 }
 
-// MoveDataFolder relocates all launcher-managed data to the selected directory.
+// MoveDataFolder validates and prepares the target, then starts relocation in
+// the background. A nil return means the move was accepted, not completed;
+// progress and failure are reported through data-folder events, and success
+// relaunches the launcher.
+//
+// Errors:
+//   - data_folder_busy: another relocation or background work is active
+//   - instance_already_running: a game instance is currently running
 func (controller *SettingsController) MoveDataFolder(target string) error {
 	return controller.dataRoot.Move(controller.lifecycle.Context(), target)
 }

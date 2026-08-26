@@ -20,21 +20,29 @@ func NewLaunchController(service *launching.Coordinator, lifecycle lifecycle) *L
 
 // LaunchRequest selects the instance and optional account for a game launch.
 type LaunchRequest struct {
-	InstanceID string  `json:"instanceId"`
-	AccountID  *string `json:"accountId,omitempty"`
+	// InstanceID is the managed instance to launch.
+	InstanceID string `json:"instanceId"`
+	// AccountID overrides the instance default account for this launch.
+	AccountID *string `json:"accountId,omitempty"`
 }
 
 // ServerLaunchRequest selects the instance, account, and server address for joining multiplayer.
 type ServerLaunchRequest struct {
-	InstanceID string  `json:"instanceId"`
-	AccountID  *string `json:"accountId,omitempty"`
-	Address    string  `json:"address"`
+	// InstanceID is the managed instance to launch.
+	InstanceID string `json:"instanceId"`
+	// AccountID overrides the instance default account for this launch.
+	AccountID *string `json:"accountId,omitempty"`
+	// Address is the server address to join after the game starts.
+	Address string `json:"address"`
 }
 
 // LaunchValidationDTO reports launch blockers and warnings before starting the game.
 type LaunchValidationDTO struct {
-	Valid    bool     `json:"valid"`
-	Issues   []string `json:"issues"`
+	// Valid reports whether the instance can start without blocking issues.
+	Valid bool `json:"valid"`
+	// Issues are blocking problems that prevent the launch.
+	Issues []string `json:"issues"`
+	// Warnings are non-blocking conditions the user should be aware of.
 	Warnings []string `json:"warnings"`
 }
 
@@ -54,7 +62,18 @@ func (controller *LaunchController) ValidateLaunch(
 	}, err
 }
 
-// LaunchInstance starts the game client with the instance's account and launch settings.
+// LaunchInstance validates the instance, starts the game process, and returns
+// after its play session is persisted; it does not wait for the process to exit.
+//
+// Errors:
+//   - validation_error: launch validation reported blocking issues
+//   - instance_not_found: the requested instance does not exist
+//   - game_version_not_found: the instance game version is not installed
+//   - account_not_found: the selected account does not exist
+//   - client_settings_error: game credentials could not be prepared
+//   - process_start_failed: the game process could not be started
+//   - snapshot_in_progress: a snapshot is currently being taken
+//   - data_folder_busy: a data-folder relocation is in progress
 func (controller *LaunchController) LaunchInstance(
 	request LaunchRequest,
 ) (PlaySessionDTO, error) {
