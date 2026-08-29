@@ -37,17 +37,40 @@ if [[ -n "$auto_mode" ]]; then
   branch="$(git -C "$project_root" branch --show-current 2>/dev/null || true)"
   branch="${branch:-main}"
   echo "Generating release notes from commit history..."
-  generated_body="$(gh api \
-    -X POST \
-    "repos/${owner_repo}/releases/generate-notes" \
-    -f "tag_name=v${version}" \
-    -f "target_commitish=${branch}" \
-    -q '.body')"
+  previous_tag="$(gh api "repos/${owner_repo}/releases/latest" -q '.tag_name' 2>/dev/null || true)"
+  generate_args=(-X POST "repos/${owner_repo}/releases/generate-notes" -f "tag_name=v${version}" -f "target_commitish=${branch}")
+  if [[ -n "$previous_tag" ]]; then
+    generate_args+=(-f "previous_tag_name=${previous_tag}")
+    echo "Using previous release tag: ${previous_tag}"
+  fi
+  generated_body="$(gh api "${generate_args[@]}" -q '.body')"
   if [[ -z "$generated_body" ]]; then
     echo "error: could not generate automatic release notes" >&2
     exit 1
   fi
   printf '%s\n' "$generated_body" > "$notes_file"
+
+  if [[ -n "$previous_tag" ]]; then
+    covered=""
+    while IFS= read -r merge_sha; do
+      covered+=" $(git -C "$project_root" rev-list "${merge_sha}^2" 2>/dev/null | tr '\n' ' ' || true)"
+    done < <(git -C "$project_root" rev-list "${previous_tag}..${branch}" --merges)
+    extra=""
+    while IFS=$'\t' read -r sha author subject; do
+      if [[ " $covered " == *" $sha "* ]]; then
+        continue
+      fi
+      if grep -qF -- "$subject" "$notes_file"; then
+        continue
+      fi
+      extra+="* ${subject} by @${author}"$'\n'
+    done < <(git -C "$project_root" log "${previous_tag}..${branch}" --no-merges --format='%H%x09%an%x09%s')
+    if [[ -n "$extra" ]]; then
+      printf '\n## Other Changes\n\n%s' "$extra" >> "$notes_file"
+      echo "Appended $(printf '%s' "$extra" | grep -c '^\* ') commits without pull requests."
+    fi
+  fi
+
   echo "Generated release notes automatically:"
   echo "  ${relative_file}"
   echo
