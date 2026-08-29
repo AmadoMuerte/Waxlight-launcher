@@ -46,11 +46,11 @@ func (service *Service) Sync(ctx context.Context, force bool) (Feed, error) {
 		items, err := service.source.List(ctx)
 		if err != nil {
 			if !hasCache {
-				slog.Warn("official news refresh failed", "error", err)
-				return Feed{}, errs.NewError(errs.ErrNewsUnavailable, "Unable to load Vintage Story news")
+				errs.LogFailure("official news refresh failed", err)
+				return Feed{}, &errs.AppError{Code: errs.ErrNewsUnavailable, Message: "Unable to load Vintage Story news", Cause: err}
 			}
 			refreshFailed = true
-			slog.Warn("official news refresh failed; using cache", "error", err)
+			errs.LogFailure("official news refresh failed; using cache", err)
 		} else {
 			if len(items) > maximumItems {
 				items = items[:maximumItems]

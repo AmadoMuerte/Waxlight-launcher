@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	vsauth "github.com/AmadoMuerte/vintagestory-go/auth"
 )
 
@@ -54,12 +55,16 @@ func mapAuthError(err error) error {
 	case errors.Is(err, vsauth.ErrTemporarilyBlocked):
 		return accounts.ErrTemporarilyBlocked
 	case errors.Is(err, vsauth.ErrInvalidAuthReply):
+		errs.LogFailure("authentication service returned an invalid reply", err)
 		return accounts.ErrInvalidAuthReply
 	case errors.Is(err, vsauth.ErrNetwork):
+		errs.LogFailure("authentication request failed", err)
 		return accounts.ErrAuthNetwork
 	case errors.Is(err, vsauth.ErrServer):
+		errs.LogFailure("authentication service failed", err)
 		return accounts.ErrAuthServer
 	default:
+		errs.LogFailure("authentication failed with an unmapped error", err)
 		return accounts.ErrUnknownAuth
 	}
 }

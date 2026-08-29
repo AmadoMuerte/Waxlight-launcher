@@ -87,6 +87,7 @@ func (service *QueryService) ListAvailable(ctx context.Context) ([]AvailableGame
 	}
 	available, err := service.catalog.List(ctx)
 	if err != nil {
+		errs.LogFailure("game version catalog request failed", err)
 		return nil, &errs.AppError{Code: errs.ErrVersionCatalog, Message: "Could not load the official game version catalog", Retryable: true, Cause: err}
 	}
 	installed, err := service.repository.ListVersions(ctx)
