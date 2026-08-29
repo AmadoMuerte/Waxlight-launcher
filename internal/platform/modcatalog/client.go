@@ -26,8 +26,11 @@ func NewClientWithURL(httpClient *http.Client, baseURL string) *Client {
 
 func (client *Client) List(ctx context.Context) ([]mods.ModSummary, error) {
 	items, err := client.client.List(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, moddb.ErrStale) {
 		return nil, mapError(err)
+	}
+	if err != nil {
+		errs.LogFailure("mod catalog refresh failed; serving stale cache", err)
 	}
 	result := make([]mods.ModSummary, 0, len(items))
 	for _, item := range items {
@@ -44,6 +47,9 @@ func (client *Client) Search(ctx context.Context, query mods.ModSearchQuery) (mo
 	})
 	if err != nil {
 		return mods.ModSearchResult{}, mapError(err)
+	}
+	if result.Warning != nil {
+		errs.LogFailure("mod catalog search degraded", result.Warning)
 	}
 	items := make([]mods.ModSummary, 0, len(result.Items))
 	for _, item := range result.Items {
@@ -62,8 +68,11 @@ func (client *Client) Get(ctx context.Context, id string) (mods.ModDetails, erro
 
 func (client *Client) ListTags(ctx context.Context) ([]mods.ModTag, error) {
 	tags, err := client.client.ListTags(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, moddb.ErrStale) {
 		return nil, mapError(err)
+	}
+	if err != nil {
+		errs.LogFailure("mod catalog refresh failed; serving stale tags", err)
 	}
 	result := make([]mods.ModTag, 0, len(tags))
 	for _, tag := range tags {
@@ -99,8 +108,10 @@ func mapError(err error) error {
 	case errors.Is(err, moddb.ErrNotFound):
 		return errs.NewError(mods.ErrModNotFound, "Mod not found")
 	case errors.Is(err, moddb.ErrInvalidResponse):
+		errs.LogFailure("mod catalog returned an invalid response", err)
 		return &errs.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog returned an invalid response", Cause: err}
 	default:
+		errs.LogFailure("mod catalog request failed", err)
 		return &errs.AppError{Code: mods.ErrModCatalog, Message: "The mod catalog is temporarily unavailable", Retryable: true, Cause: err}
 	}
 }

@@ -62,6 +62,7 @@ const (
 	ErrDataFolderBusy           = "DATA_FOLDER_BUSY"
 	ErrInvalidURL               = "INVALID_URL"
 	ErrServerNotFound           = "SERVER_NOT_FOUND"
+	ErrServerCatalogUnavailable = "SERVER_CATALOG_UNAVAILABLE"
 	ErrNewsUnavailable          = "NEWS_UNAVAILABLE"
 	ErrSupportReportFailed      = "SUPPORT_REPORT_FAILED"
 	ErrSupportReportTooLarge    = "SUPPORT_REPORT_TOO_LARGE"

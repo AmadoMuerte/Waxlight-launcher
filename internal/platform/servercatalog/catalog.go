@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
 	vsgservers "github.com/AmadoMuerte/vintagestory-go/servers"
 )
@@ -25,7 +26,11 @@ func NewClientWithURL(httpClient *http.Client, endpoint string) *Client {
 func (client *Client) List(ctx context.Context) ([]servers.PublicServer, error) {
 	listings, err := client.client.List(ctx)
 	if err != nil {
-		return nil, err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		errs.LogFailure("public server catalog request failed", err)
+		return nil, &errs.AppError{Code: errs.ErrServerCatalogUnavailable, Message: "Could not load the public server catalog", Retryable: true, Cause: err}
 	}
 	result := make([]servers.PublicServer, 0, len(listings))
 	for _, server := range listings {

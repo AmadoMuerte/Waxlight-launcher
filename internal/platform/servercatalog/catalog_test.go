@@ -2,9 +2,14 @@ package servercatalog
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	vsgservers "github.com/AmadoMuerte/vintagestory-go/servers"
+	"github.com/AmadoMuerte/vintagestory-go/vshttp"
 )
 
 func TestClientMapsPublicServerListings(t *testing.T) {
@@ -25,5 +30,29 @@ func TestClientMapsPublicServerListings(t *testing.T) {
 	}
 	if got := servers[1]; got.Name != "Private" || !got.RequiresWhitelist || got.Joinable {
 		t.Fatalf("unexpected restricted server: %#v", got)
+	}
+}
+
+func TestClientMapsCatalogFailureToAppError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		http.Error(writer, "no", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	_, err := NewClientWithURL(server.Client(), server.URL).List(context.Background())
+	var appErr *errs.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != errs.ErrServerCatalogUnavailable || !appErr.Retryable {
+		t.Fatalf("unexpected AppError: %#v", appErr)
+	}
+	// The library error chain must survive for diagnostics.
+	if !errors.Is(err, vsgservers.ErrUnavailable) {
+		t.Fatalf("library sentinel lost: %v", err)
+	}
+	var apiErr *vshttp.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("API details lost: %v", err)
 	}
 }
