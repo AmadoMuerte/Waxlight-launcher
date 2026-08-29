@@ -49,6 +49,28 @@ if [[ -n "$auto_mode" ]]; then
     exit 1
   fi
   printf '%s\n' "$generated_body" > "$notes_file"
+
+  if [[ -n "$previous_tag" ]]; then
+    covered=""
+    while IFS= read -r merge_sha; do
+      covered+=" $(git -C "$project_root" rev-list "${merge_sha}^2" 2>/dev/null | tr '\n' ' ' || true)"
+    done < <(git -C "$project_root" rev-list "${previous_tag}..${branch}" --merges)
+    extra=""
+    while IFS=$'\t' read -r sha author subject; do
+      if [[ " $covered " == *" $sha "* ]]; then
+        continue
+      fi
+      if grep -qF -- "$subject" "$notes_file"; then
+        continue
+      fi
+      extra+="* ${subject} by @${author}"$'\n'
+    done < <(git -C "$project_root" log "${previous_tag}..${branch}" --no-merges --format='%H%x09%an%x09%s')
+    if [[ -n "$extra" ]]; then
+      printf '\n## Other Changes\n\n%s' "$extra" >> "$notes_file"
+      echo "Appended $(printf '%s' "$extra" | grep -c '^\* ') commits without pull requests."
+    fi
+  fi
+
   echo "Generated release notes automatically:"
   echo "  ${relative_file}"
   echo
