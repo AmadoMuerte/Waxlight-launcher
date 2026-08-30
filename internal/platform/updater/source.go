@@ -105,9 +105,11 @@ func (source *Source) Check(
 		ReleaseNotes:   strings.TrimSpace(selected.Body),
 		ReleasePageURL: selected.HTMLURL,
 	}
-	// A prerelease that is older than the installed stable version is not an
-	// upgrade and must never be suggested.
-	if result.Prerelease && comparison < 0 && !installedPrerelease {
+	// A release older than the installed stable version is never an upgrade:
+	// prereleases must never be suggested, and the prerelease channel must not
+	// offer a stable release below the installed one. The stable channel may
+	// still offer its newest stable release as a reconciliation downgrade.
+	if comparison < 0 && !installedPrerelease && (result.Prerelease || channel == "prerelease") {
 		result.Available = false
 	}
 	if err := validateReleasePageURL(result.ReleasePageURL, selected.TagName); err != nil {
@@ -167,15 +169,11 @@ func selectReleaseForChannel(
 
 		isPrerelease := releaseIsPrerelease(*release, version)
 
-		// The stable channel only considers stable releases, and the
-		// prerelease channel only considers prerelease releases. This keeps
-		// channel switching predictable: switching from stable to prerelease
-		// always offers the newest prerelease even when a stable release has
-		// the same or a higher base version, and vice versa.
+		// The stable channel only considers stable releases. The prerelease
+		// channel considers every release and offers the newest one, so a
+		// stable release newer than the newest prerelease is surfaced as a
+		// switch back to the stable channel instead of being hidden.
 		if channel == "stable" && isPrerelease {
-			continue
-		}
-		if channel == "prerelease" && !isPrerelease {
 			continue
 		}
 
