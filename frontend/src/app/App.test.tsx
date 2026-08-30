@@ -53,6 +53,19 @@ const api = vi.hoisted(() => ({
   }),
 }));
 
+const modCatalogApi = vi.hoisted(() => ({
+  search: vi.fn().mockResolvedValue({
+    items: [],
+    page: 1,
+    pageSize: 24,
+    totalItems: 0,
+    totalPages: 0,
+    hasNext: false,
+  }),
+  tags: vi.fn().mockResolvedValue([]),
+  downloaded: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("../shared/api/instances", () => ({
   instancesApi: { list: api.list },
 }));
@@ -91,7 +104,7 @@ vi.mock("../shared/api/news", () => ({
 }));
 vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
-vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi: {} }));
+vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi }));
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
@@ -171,6 +184,31 @@ it("applies persisted language before rendering and navigation reacts to changes
   await changeAppLanguage("en");
   await waitFor(() => expect(screen.getByRole("link", { name: /Library/ })).toBeTruthy());
   expect(i18n.resolvedLanguage).toBe("en");
+});
+
+it("prefetches the default mods page during startup", async () => {
+  modCatalogApi.search.mockClear();
+  modCatalogApi.tags.mockClear();
+  modCatalogApi.downloaded.mockClear();
+  renderApp(["/mods"]);
+
+  await waitFor(() => {
+    expect(modCatalogApi.search).toHaveBeenCalledTimes(1);
+    expect(modCatalogApi.tags).toHaveBeenCalledTimes(1);
+    expect(modCatalogApi.downloaded).toHaveBeenCalledTimes(1);
+  });
+  expect(modCatalogApi.search).toHaveBeenCalledWith({
+    text: "",
+    gameVersion: "",
+    side: "",
+    updatedAfter: undefined,
+    tags: [],
+    compatibleOnly: false,
+    instanceId: "",
+    sort: "updated",
+    pageSize: 24,
+    page: 1,
+  });
 });
 
 it("does not replace autosaved settings during background refresh", async () => {

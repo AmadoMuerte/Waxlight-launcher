@@ -7,6 +7,12 @@ import { useAccountsQuery } from "../entities/account/queries";
 import { useGameVersionsQuery } from "../entities/game-version/queries";
 import { useInstancesQuery } from "../entities/instance/queries";
 import type { RecoverySuggestion } from "../entities/last-known-good/model";
+import {
+  DEFAULT_MOD_CATALOG_QUERY,
+  downloadedModsQueryOptions,
+  modCatalogQueryOptions,
+  modTagsQueryOptions,
+} from "../entities/mod/queries";
 import { useOperationsQuery } from "../entities/operation/queries";
 import { useSettingsQuery } from "../entities/settings/queries";
 import { useStatisticsQuery } from "../entities/statistics/queries";
@@ -86,6 +92,14 @@ export function App() {
   const updateCheckedOnceRef = useRef(false);
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
   const updateNotificationIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    void Promise.all([
+      queryClient.prefetchInfiniteQuery(modCatalogQueryOptions(DEFAULT_MOD_CATALOG_QUERY)),
+      queryClient.prefetchQuery(modTagsQueryOptions()),
+      queryClient.prefetchQuery(downloadedModsQueryOptions()),
+    ]);
+  }, [queryClient]);
 
   useEffect(() => {
     const open = (target: unknown) => {
