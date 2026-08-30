@@ -19,6 +19,8 @@ import {
   sideLabel,
 } from "../../features/mods/lib";
 import { ModArtwork } from "../../features/mods/ModArtwork";
+import { ModDescription } from "../../features/mods/ModDescription";
+import { ModScreenshotCarousel } from "../../features/mods/ModScreenshotCarousel";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
 import { modShareURL } from "../../shared/lib/waxlight-links";
@@ -227,6 +229,15 @@ export function ModDetailsPage() {
       </Card>
 
       <PageContent className="mt-6">
+        {mod.screenshots.length > 0 && (
+          <ModScreenshotCarousel
+            key={mod.id}
+            screenshots={mod.screenshots}
+            modName={mod.name}
+            onOpen={(index) => setLightbox(index)}
+          />
+        )}
+
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
           <div className="flex min-w-0 flex-col gap-6">
             <Card>
@@ -234,41 +245,13 @@ export function ModDetailsPage() {
                 <CardTitle>{t("description")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm leading-7 whitespace-pre-wrap text-text-secondary">
-                  {plainText(mod.description) || mod.summary}
-                </p>
+                <ModDescription
+                  description={mod.description}
+                  fallback={mod.summary}
+                  onOpenExternal={openExternal}
+                />
               </CardContent>
             </Card>
-
-            {mod.screenshots.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("screenshots")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {mod.screenshots.map((screenshot, index) => (
-                      <button
-                        key={screenshot.url}
-                        type="button"
-                        onClick={() => setLightbox(index)}
-                        className="overflow-hidden rounded-md border border-border-subtle bg-surface-input transition-colors hover:border-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      >
-                        <img
-                          src={screenshot.url}
-                          alt={
-                            screenshot.caption ||
-                            t("screenshot_alt", { name: mod.name, number: index + 1 })
-                          }
-                          loading="lazy"
-                          className="aspect-video w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             <Card>
               <CardHeader>
@@ -278,7 +261,7 @@ export function ModDetailsPage() {
                 {mod.versions.length === 0 ? (
                   <p className="text-sm text-text-muted">{t("no_downloadable_releases")}</p>
                 ) : (
-                  <ul className="divide-y divide-border-subtle">
+                  <ul className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto pr-2">
                     {mod.versions.map((release) => (
                       <li
                         key={release.id}
@@ -303,7 +286,7 @@ export function ModDetailsPage() {
                             )}
                           </p>
                           {release.changelog && (
-                            <p className="text-xs leading-5 text-text-muted">
+                            <p className="line-clamp-3 text-xs leading-5 text-text-muted">
                               {plainText(release.changelog)}
                             </p>
                           )}
@@ -337,8 +320,8 @@ export function ModDetailsPage() {
                       >
                         <strong>{installed.instanceName}</strong>
                         <span className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
-                          {t("version_value", { version: installed.version })}
-                          {installed.enabled ? t("enabled") : t("disabled")}
+                          <span>{t("version_value", { version: installed.version })}</span>
+                          <span>{installed.enabled ? t("enabled") : t("disabled")}</span>
                         </span>
                       </li>
                     ))}
@@ -447,19 +430,21 @@ export function ModDetailsPage() {
         }}
       >
         <DialogContent
-          className="w-[min(960px,calc(100vw-48px))] bg-bg-app"
+          className="max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-[1400px] bg-bg-app"
           aria-label={t("screenshot_viewer")}
         >
           {lightbox !== undefined && mod.screenshots[lightbox] && (
-            <div className="flex items-center gap-4 px-4 py-6">
-              <IconButton
-                aria-label={t("previous_screenshot")}
-                onClick={() =>
-                  setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)
-                }
-              >
-                <ChevronLeft size={20} aria-hidden="true" />
-              </IconButton>
+            <div className="flex min-h-0 items-center gap-2 p-3 sm:gap-4 sm:p-6">
+              {mod.screenshots.length > 1 && (
+                <IconButton
+                  aria-label={t("previous_screenshot")}
+                  onClick={() =>
+                    setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)
+                  }
+                >
+                  <ChevronLeft size={20} aria-hidden="true" />
+                </IconButton>
+              )}
               <figure className="min-w-0 flex-1 text-center">
                 <img
                   src={mod.screenshots[lightbox].url}
@@ -467,7 +452,7 @@ export function ModDetailsPage() {
                     mod.screenshots[lightbox].caption ||
                     t("screenshot_alt", { name: mod.name, number: lightbox + 1 })
                   }
-                  className="mx-auto max-h-[70vh] max-w-full object-contain"
+                  className="mx-auto max-h-[calc(100vh-112px)] max-w-full object-contain"
                 />
                 {mod.screenshots[lightbox].caption && (
                   <figcaption className="mt-3 text-sm text-text-muted">
@@ -475,12 +460,14 @@ export function ModDetailsPage() {
                   </figcaption>
                 )}
               </figure>
-              <IconButton
-                aria-label={t("next_screenshot")}
-                onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}
-              >
-                <ChevronRight size={20} aria-hidden="true" />
-              </IconButton>
+              {mod.screenshots.length > 1 && (
+                <IconButton
+                  aria-label={t("next_screenshot")}
+                  onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}
+                >
+                  <ChevronRight size={20} aria-hidden="true" />
+                </IconButton>
+              )}
             </div>
           )}
         </DialogContent>

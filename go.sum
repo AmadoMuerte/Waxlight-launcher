@@ -1,7 +1,7 @@
 git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 h1:N3IGoHHp9pb6mj1cbXbuaSXV/UMKwmbKLf53nQmtqMA=
 git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3/go.mod h1:QtOLZGz8olr4qH2vWK0QH0w0O4T9fEIjMuWpKUsH7nc=
-github.com/AmadoMuerte/vintagestory-go v0.4.0 h1:22ALwrbonnkXlM7IA3kwuIBAqsMQf3G04NeQzmhqpi8=
-github.com/AmadoMuerte/vintagestory-go v0.4.0/go.mod h1:qFWEC4NBCWAip+r90DU5stI/wG9ars1IJ0+2WUoeDlo=
+github.com/AmadoMuerte/vintagestory-go v0.4.3 h1:QRYrfOSSsRad3UXR6irDEbCaBl6toh4Tgxs1ogU+kgE=
+github.com/AmadoMuerte/vintagestory-go v0.4.3/go.mod h1:qFWEC4NBCWAip+r90DU5stI/wG9ars1IJ0+2WUoeDlo=
 github.com/AmadoMuerte/wailsdoc v0.3.0 h1:ATaa1IhPZ3wXFs3spZ9pGFLIaSOM10U6Hear02zF+s8=
 github.com/AmadoMuerte/wailsdoc v0.3.0/go.mod h1:KjmI0Mp3VGBZECrCSSeEO8Cnbwpry+lnR+SuVpUzYJc=
 github.com/bep/debounce v1.2.1 h1:v67fRdBA9UQu2NhLFXrSg0Brw7CexQekrBwDMM8bzeY=

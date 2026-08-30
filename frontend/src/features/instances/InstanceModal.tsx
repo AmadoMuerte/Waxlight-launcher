@@ -417,6 +417,7 @@ export function InstanceModal({
     argumentsText !== instance.launchArguments.join(" ") ||
     environmentText !== formatEnvironmentVariables(instance.environmentVariables) ||
     coverSourcePath !== undefined;
+  const nestedDialogOpen = updatesDialogOpen || removeModConfirm.open || removeModDepsDialog.open;
 
   function resetSettings() {
     setName(instance.name);
@@ -430,7 +431,11 @@ export function InstanceModal({
   }
 
   return (
-    <Modal title={instance.name} className="instanceDialog" onClose={onClose}>
+    <Modal
+      title={instance.name}
+      className={`instanceDialog${nestedDialogOpen ? " instanceDialogLocked" : ""}`}
+      onClose={onClose}
+    >
       <Tabs
         className="shrink-0 overflow-x-auto border-b border-border-subtle bg-surface-1 px-6"
         label={t("instance_details")}
