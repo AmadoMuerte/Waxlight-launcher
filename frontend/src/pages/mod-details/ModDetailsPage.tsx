@@ -20,6 +20,7 @@ import {
 } from "../../features/mods/lib";
 import { ModArtwork } from "../../features/mods/ModArtwork";
 import { ModDescription } from "../../features/mods/ModDescription";
+import { ModScreenshotCarousel } from "../../features/mods/ModScreenshotCarousel";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
 import { modShareURL } from "../../shared/lib/waxlight-links";
@@ -228,6 +229,15 @@ export function ModDetailsPage() {
       </Card>
 
       <PageContent className="mt-6">
+        {mod.screenshots.length > 0 && (
+          <ModScreenshotCarousel
+            key={mod.id}
+            screenshots={mod.screenshots}
+            modName={mod.name}
+            onOpen={(index) => setLightbox(index)}
+          />
+        )}
+
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
           <div className="flex min-w-0 flex-col gap-6">
             <Card>
@@ -242,36 +252,6 @@ export function ModDetailsPage() {
                 />
               </CardContent>
             </Card>
-
-            {mod.screenshots.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("screenshots")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {mod.screenshots.map((screenshot, index) => (
-                      <button
-                        key={screenshot.url}
-                        type="button"
-                        onClick={() => setLightbox(index)}
-                        className="overflow-hidden rounded-md border border-border-subtle bg-surface-input transition-colors hover:border-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      >
-                        <img
-                          src={screenshot.url}
-                          alt={
-                            screenshot.caption ||
-                            t("screenshot_alt", { name: mod.name, number: index + 1 })
-                          }
-                          loading="lazy"
-                          className="aspect-video w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             <Card>
               <CardHeader>
