@@ -269,13 +269,24 @@
     min-width: 0;
     padding: 48px clamp(28px, 5vw, 78px) 80px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  /* A native WebView scrollbar is painted above DOM layers, including dialogs. */
+  body:has([data-slot="dialog-content"]) .appMain {
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  body:has([data-slot="dialog-content"]) .appMain::-webkit-scrollbar {
+    display: none;
   }
 
   .appActions {
     position: fixed;
     z-index: 10;
     top: 18px;
-    right: 22px;
+    right: clamp(28px, 5vw, 78px);
     display: flex;
     align-items: center;
     gap: var(--space-xs);

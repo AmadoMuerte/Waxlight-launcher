@@ -20,6 +20,7 @@ import {
 } from "../../features/mods/lib";
 import { ModArtwork } from "../../features/mods/ModArtwork";
 import { ModDescription } from "../../features/mods/ModDescription";
+import { ModScreenshotCarousel } from "../../features/mods/ModScreenshotCarousel";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
 import { modShareURL } from "../../shared/lib/waxlight-links";
@@ -228,6 +229,15 @@ export function ModDetailsPage() {
       </Card>
 
       <PageContent className="mt-6">
+        {mod.screenshots.length > 0 && (
+          <ModScreenshotCarousel
+            key={mod.id}
+            screenshots={mod.screenshots}
+            modName={mod.name}
+            onOpen={(index) => setLightbox(index)}
+          />
+        )}
+
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
           <div className="flex min-w-0 flex-col gap-6">
             <Card>
@@ -242,38 +252,6 @@ export function ModDetailsPage() {
                 />
               </CardContent>
             </Card>
-
-            {mod.screenshots.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("screenshots")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {mod.screenshots.map((screenshot, index) => (
-                      <button
-                        key={screenshot.url}
-                        type="button"
-                        aria-label={
-                          screenshot.caption ||
-                          t("screenshot_alt", { name: mod.name, number: index + 1 })
-                        }
-                        onClick={() => setLightbox(index)}
-                        className="h-16 w-28 shrink-0 overflow-hidden rounded-md border border-border-subtle bg-surface-input transition-colors hover:border-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:h-20 sm:w-36"
-                      >
-                        <img
-                          src={screenshot.url}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             <Card>
               <CardHeader>

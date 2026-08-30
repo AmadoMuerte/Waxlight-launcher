@@ -212,6 +212,15 @@
     overflow-y: auto;
   }
 
+  .instanceDialogLocked .instanceTabBody {
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .instanceDialogLocked .instanceTabBody::-webkit-scrollbar {
+    display: none;
+  }
+
   .instanceHeroBanner {
     position: relative;
     min-height: 150px;

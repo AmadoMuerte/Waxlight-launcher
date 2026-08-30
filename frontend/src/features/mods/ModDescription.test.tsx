@@ -47,4 +47,17 @@ describe("ModDescription", () => {
     expect(container.querySelector("[onclick]")).toBeNull();
     expect(screen.getByText("Safe text")).not.toBeNull();
   });
+
+  it("hides HTTPS images that fail to load", () => {
+    render(
+      <ModDescription
+        description={'<img src="https://example.com/not-an-image" alt="Unavailable image">'}
+        fallback="Summary"
+        onOpenExternal={vi.fn()}
+      />,
+    );
+
+    fireEvent.error(screen.getByRole("img", { name: "Unavailable image" }));
+    expect(screen.queryByRole("img", { name: "Unavailable image" })).toBeNull();
+  });
 });
