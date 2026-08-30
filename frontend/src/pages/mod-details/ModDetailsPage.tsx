@@ -430,19 +430,21 @@ export function ModDetailsPage() {
         }}
       >
         <DialogContent
-          className="w-[min(960px,calc(100vw-48px))] bg-bg-app"
+          className="max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-[1400px] bg-bg-app"
           aria-label={t("screenshot_viewer")}
         >
           {lightbox !== undefined && mod.screenshots[lightbox] && (
-            <div className="flex items-center gap-4 px-4 py-6">
-              <IconButton
-                aria-label={t("previous_screenshot")}
-                onClick={() =>
-                  setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)
-                }
-              >
-                <ChevronLeft size={20} aria-hidden="true" />
-              </IconButton>
+            <div className="flex min-h-0 items-center gap-2 p-3 sm:gap-4 sm:p-6">
+              {mod.screenshots.length > 1 && (
+                <IconButton
+                  aria-label={t("previous_screenshot")}
+                  onClick={() =>
+                    setLightbox((lightbox - 1 + mod.screenshots.length) % mod.screenshots.length)
+                  }
+                >
+                  <ChevronLeft size={20} aria-hidden="true" />
+                </IconButton>
+              )}
               <figure className="min-w-0 flex-1 text-center">
                 <img
                   src={mod.screenshots[lightbox].url}
@@ -450,7 +452,7 @@ export function ModDetailsPage() {
                     mod.screenshots[lightbox].caption ||
                     t("screenshot_alt", { name: mod.name, number: lightbox + 1 })
                   }
-                  className="mx-auto max-h-[70vh] max-w-full object-contain"
+                  className="mx-auto max-h-[calc(100vh-112px)] max-w-full object-contain"
                 />
                 {mod.screenshots[lightbox].caption && (
                   <figcaption className="mt-3 text-sm text-text-muted">
@@ -458,12 +460,14 @@ export function ModDetailsPage() {
                   </figcaption>
                 )}
               </figure>
-              <IconButton
-                aria-label={t("next_screenshot")}
-                onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}
-              >
-                <ChevronRight size={20} aria-hidden="true" />
-              </IconButton>
+              {mod.screenshots.length > 1 && (
+                <IconButton
+                  aria-label={t("next_screenshot")}
+                  onClick={() => setLightbox((lightbox + 1) % mod.screenshots.length)}
+                >
+                  <ChevronRight size={20} aria-hidden="true" />
+                </IconButton>
+              )}
             </div>
           )}
         </DialogContent>

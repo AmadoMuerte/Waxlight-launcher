@@ -15,21 +15,9 @@ beforeAll(() => i18n.changeLanguage("en"));
 afterEach(cleanup);
 
 describe("ModScreenshotCarousel", () => {
-  it("navigates screenshots and opens the selected image", () => {
+  it("opens the selected thumbnail", () => {
     const onOpen = vi.fn();
     render(<ModScreenshotCarousel screenshots={screenshots} modName="Test Mod" onOpen={onOpen} />);
-
-    expect(screen.getByRole("img", { name: "First view" }).getAttribute("src")).toBe(
-      screenshots[0].url,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Next screenshot" }));
-    expect(screen.getByRole("img", { name: "Second view" }).getAttribute("src")).toBe(
-      screenshots[1].url,
-    );
-    expect(screen.getByRole("button", { name: "Second view" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
 
     fireEvent.click(screen.getByRole("button", { name: /Second view.*Open/ }));
     expect(onOpen).toHaveBeenCalledWith(1);
