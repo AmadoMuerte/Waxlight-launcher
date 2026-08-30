@@ -1,14 +1,14 @@
 export namespace deeplink {
-	
+
 	export class Target {
 	    type: string;
 	    modId?: string;
 	    address?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Target(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -20,15 +20,15 @@ export namespace deeplink {
 }
 
 export namespace supportreports {
-	
+
 	export class Preview {
 	    snapshotId: string;
 	    payload: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Preview(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.snapshotId = source["snapshotId"];
@@ -38,11 +38,11 @@ export namespace supportreports {
 	export class Result {
 	    reportId: string;
 	    status: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Result(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.reportId = source["reportId"];
@@ -53,7 +53,7 @@ export namespace supportreports {
 }
 
 export namespace wails {
-	
+
 	export class AccountDTO {
 	    id: string;
 	    username: string;
@@ -62,11 +62,11 @@ export namespace wails {
 	    status: string;
 	    isDefault: boolean;
 	    lastValidatedAt?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new AccountDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -88,11 +88,11 @@ export namespace wails {
 	    latest: boolean;
 	    installed: boolean;
 	    installStatus?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new AvailableGameVersionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -111,11 +111,11 @@ export namespace wails {
 	    instanceName: string;
 	    installed: boolean;
 	    message: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModInstallationResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -129,11 +129,11 @@ export namespace wails {
 	    instanceName: string;
 	    version: string;
 	    enabled: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstalledModInstanceDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -159,11 +159,11 @@ export namespace wails {
 	    installedInstances: InstalledModInstanceDTO[];
 	    latestVersion?: string;
 	    updateAvailable: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadedModDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -183,7 +183,7 @@ export namespace wails {
 	        this.latestVersion = source["latestVersion"];
 	        this.updateAvailable = source["updateAvailable"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -206,18 +206,18 @@ export namespace wails {
 	    taskId: string;
 	    downloaded: DownloadedModDTO;
 	    installations: ModInstallationResultDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModInstallResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.taskId = source["taskId"];
 	        this.downloaded = this.convertValues(source["downloaded"], DownloadedModDTO);
 	        this.installations = this.convertValues(source["installations"], ModInstallationResultDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -241,11 +241,11 @@ export namespace wails {
 	    versionId: string;
 	    result: ModInstallResultDTO;
 	    error?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new BatchModInstallResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -253,7 +253,7 @@ export namespace wails {
 	        this.result = this.convertValues(source["result"], ModInstallResultDTO);
 	        this.error = source["error"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -275,11 +275,11 @@ export namespace wails {
 	export class CloneInstanceRequest {
 	    sourceId: string;
 	    name: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new CloneInstanceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.sourceId = source["sourceId"];
@@ -290,11 +290,11 @@ export namespace wails {
 	    name: string;
 	    from?: string;
 	    to?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModChangeDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -308,11 +308,11 @@ export namespace wails {
 	    updated: ModChangeDTO[];
 	    added: ModChangeDTO[];
 	    removed: ModChangeDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ConfigurationChangesDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.gameVersionFrom = source["gameVersionFrom"];
@@ -321,7 +321,7 @@ export namespace wails {
 	        this.added = this.convertValues(source["added"], ModChangeDTO);
 	        this.removed = this.convertValues(source["removed"], ModChangeDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -349,11 +349,11 @@ export namespace wails {
 	    directory: string;
 	    launchArguments: string[];
 	    environmentVariables: Record<string, string>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new CreateInstanceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -370,11 +370,11 @@ export namespace wails {
 	    currentPath: string;
 	    defaultPath: string;
 	    lastError: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DataFolderDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.currentPath = source["currentPath"];
@@ -388,11 +388,11 @@ export namespace wails {
 	    instanceIds: string[];
 	    downloadOnly: boolean;
 	    allowIncompatible: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadCatalogModRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -405,11 +405,11 @@ export namespace wails {
 	export class DownloadModTargetRequest {
 	    modId: string;
 	    versionId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadModTargetRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -419,17 +419,17 @@ export namespace wails {
 	export class DownloadModsBatchRequest {
 	    instanceId: string;
 	    targets: DownloadModTargetRequest[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadModsBatchRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
 	        this.targets = this.convertValues(source["targets"], DownloadModTargetRequest);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -451,28 +451,28 @@ export namespace wails {
 	export class DownloadedModCleanupResultDTO {
 	    removedCount: number;
 	    freedBytes: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadedModCleanupResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.removedCount = source["removedCount"];
 	        this.freedBytes = source["freedBytes"];
 	    }
 	}
-	
+
 	export class ExportInstanceRequest {
 	    instanceId: string;
 	    targetPath: string;
 	    name: string;
 	    description: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ExportInstanceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -486,11 +486,11 @@ export namespace wails {
 	    name: string;
 	    address: string;
 	    instanceId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new FavoriteServerDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -510,11 +510,11 @@ export namespace wails {
 	    status: string;
 	    sizeBytes: number;
 	    installedAt: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new GameVersionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -538,11 +538,11 @@ export namespace wails {
 	    installVersion: boolean;
 	    allowIncompatible: boolean;
 	    skipUnavailable: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ImportInstanceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.packagePath = source["packagePath"];
@@ -560,11 +560,11 @@ export namespace wails {
 	    versionId: string;
 	    instanceIds: string[];
 	    allowIncompatible: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstallDownloadedModRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -578,11 +578,11 @@ export namespace wails {
 	    sourcePath: string;
 	    name: string;
 	    version: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstallModFileRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -594,11 +594,11 @@ export namespace wails {
 	export class InstallModFilesRequest {
 	    instanceId: string;
 	    sourcePaths: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstallModFilesRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -608,11 +608,11 @@ export namespace wails {
 	export class ModFileFailureDTO {
 	    path: string;
 	    error: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModFileFailureDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -623,18 +623,18 @@ export namespace wails {
 	    installed: string[];
 	    skipped: string[];
 	    failed: ModFileFailureDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstallModFilesResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.installed = source["installed"];
 	        this.skipped = source["skipped"];
 	        this.failed = this.convertValues(source["failed"], ModFileFailureDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -659,11 +659,11 @@ export namespace wails {
 	    sourcePath: string;
 	    executableRelativePath: string;
 	    expectedSha256: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstallVersionRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -686,11 +686,11 @@ export namespace wails {
 	    updatePolicy: string;
 	    sizeBytes: number;
 	    installedAt: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstalledModDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -707,7 +707,7 @@ export namespace wails {
 	        this.installedAt = source["installedAt"];
 	    }
 	}
-	
+
 	export class InstanceDTO {
 	    id: string;
 	    name: string;
@@ -726,11 +726,11 @@ export namespace wails {
 	    totalModCount: number;
 	    playtimeSeconds: number;
 	    coverUrl?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstanceDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -760,11 +760,11 @@ export namespace wails {
 	    notUpdatableAbsent: number;
 	    notUpdatableCatalogError: number;
 	    incompatible: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModUpdateSummaryDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.totalMods = source["totalMods"];
@@ -780,11 +780,11 @@ export namespace wails {
 	    modId: string;
 	    name: string;
 	    requirement: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModDependencyDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -805,11 +805,11 @@ export namespace wails {
 	    prerelease: boolean;
 	    addedDeps: ModDependencyDTO[];
 	    removedDeps: ModDependencyDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModUpdateDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -825,7 +825,7 @@ export namespace wails {
 	        this.addedDeps = this.convertValues(source["addedDeps"], ModDependencyDTO);
 	        this.removedDeps = this.convertValues(source["removedDeps"], ModDependencyDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -848,18 +848,18 @@ export namespace wails {
 	    gameVersion: string;
 	    mods: ModUpdateDTO[];
 	    summary: ModUpdateSummaryDTO;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstanceModUpdateReportDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.gameVersion = source["gameVersion"];
 	        this.mods = this.convertValues(source["mods"], ModUpdateDTO);
 	        this.summary = this.convertValues(source["summary"], ModUpdateSummaryDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -890,11 +890,11 @@ export namespace wails {
 	    sizeBytes: number;
 	    modCount: number;
 	    worldCount: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new InstanceSnapshotDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -919,11 +919,11 @@ export namespace wails {
 	    matchesCurrent: boolean;
 	    changeCount: number;
 	    changes: ConfigurationChangesDTO;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LastKnownGoodDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.recordedAt = source["recordedAt"];
@@ -935,7 +935,7 @@ export namespace wails {
 	        this.changeCount = source["changeCount"];
 	        this.changes = this.convertValues(source["changes"], ConfigurationChangesDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -957,11 +957,11 @@ export namespace wails {
 	export class LaunchRequest {
 	    instanceId: string;
 	    accountId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LaunchRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -972,11 +972,11 @@ export namespace wails {
 	    valid: boolean;
 	    issues: string[];
 	    warnings: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LaunchValidationDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.valid = source["valid"];
@@ -995,11 +995,11 @@ export namespace wails {
 	    assetName: string;
 	    assetSize: number;
 	    installationMode: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LauncherUpdateDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.installedVersion = source["installedVersion"];
@@ -1025,11 +1025,11 @@ export namespace wails {
 	    latestVersion?: string;
 	    updateAvailable: boolean;
 	    reason?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LocalModLinkDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -1048,18 +1048,18 @@ export namespace wails {
 	    linked: LocalModLinkDTO[];
 	    notMatched: LocalModLinkDTO[];
 	    failed: LocalModLinkDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LinkLocalModsResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.linked = this.convertValues(source["linked"], LocalModLinkDTO);
 	        this.notMatched = this.convertValues(source["notMatched"], LocalModLinkDTO);
 	        this.failed = this.convertValues(source["failed"], LocalModLinkDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1078,17 +1078,17 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
+
 	export class LoginResultDTO {
 	    status: string;
 	    account?: AccountDTO;
 	    flowId?: string;
 	    message?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LoginResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.status = source["status"];
@@ -1096,7 +1096,7 @@ export namespace wails {
 	        this.flowId = source["flowId"];
 	        this.message = source["message"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1126,11 +1126,11 @@ export namespace wails {
 	    detectedGameVersion: string;
 	    versionConfidence: string;
 	    warnings: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new MigrationCandidateDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -1150,11 +1150,11 @@ export namespace wails {
 	    name: string;
 	    description: string;
 	    gameVersionId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new MigrationImportRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.sourcePath = source["sourcePath"];
@@ -1163,23 +1163,23 @@ export namespace wails {
 	        this.gameVersionId = source["gameVersionId"];
 	    }
 	}
-	
+
 	export class ModDeletePreviewDTO {
 	    modId: string;
 	    modName: string;
 	    dependencies: InstalledModDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModDeletePreviewDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
 	        this.modName = source["modName"];
 	        this.dependencies = this.convertValues(source["dependencies"], InstalledModDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1198,7 +1198,7 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
+
 	export class ModVersionDTO {
 	    id: string;
 	    version: string;
@@ -1208,11 +1208,11 @@ export namespace wails {
 	    fileSize: number;
 	    publishedAt?: string;
 	    changelog?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModVersionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1228,11 +1228,11 @@ export namespace wails {
 	export class ModScreenshotDTO {
 	    url: string;
 	    caption?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModScreenshotDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.url = source["url"];
@@ -1262,11 +1262,11 @@ export namespace wails {
 	    websiteUrl?: string;
 	    sourceUrl?: string;
 	    license?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModDetailsDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1292,7 +1292,7 @@ export namespace wails {
 	        this.sourceUrl = source["sourceUrl"];
 	        this.license = source["license"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1311,10 +1311,10 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
-	
-	
-	
+
+
+
+
 	export class ModSearchRequest {
 	    text: string;
 	    gameVersion: string;
@@ -1326,11 +1326,11 @@ export namespace wails {
 	    sort: string;
 	    page: number;
 	    pageSize: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModSearchRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.text = source["text"];
@@ -1362,11 +1362,11 @@ export namespace wails {
 	    isDownloaded: boolean;
 	    isInstalled: boolean;
 	    updateAvailable: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModSummaryDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1394,11 +1394,11 @@ export namespace wails {
 	    totalItems: number;
 	    totalPages: number;
 	    hasNext: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModSearchResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.items = this.convertValues(source["items"], ModSummaryDTO);
@@ -1408,7 +1408,7 @@ export namespace wails {
 	        this.totalPages = source["totalPages"];
 	        this.hasNext = source["hasNext"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1427,52 +1427,52 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
+
 	export class ModTagDTO {
 	    name: string;
 	    count: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModTagDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.count = source["count"];
 	    }
 	}
-	
+
 	export class ModUpdateResultDTO {
 	    updated: number;
 	    skippedByPolicy: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModUpdateResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.updated = source["updated"];
 	        this.skippedByPolicy = source["skippedByPolicy"];
 	    }
 	}
-	
+
 	export class ModUpdateTargetDTO {
 	    modId: string;
 	    versionId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModUpdateTargetDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
 	        this.versionId = source["versionId"];
 	    }
 	}
-	
+
 	export class NewsItemDTO {
 	    id: string;
 	    title: string;
@@ -1481,11 +1481,11 @@ export namespace wails {
 	    imageUrl?: string;
 	    publishedAt: string;
 	    category: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new NewsItemDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1503,11 +1503,11 @@ export namespace wails {
 	    fetchedAt: string;
 	    unreadCount: number;
 	    refreshFailed: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new NewsFeedDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.items = this.convertValues(source["items"], NewsItemDTO);
@@ -1516,7 +1516,7 @@ export namespace wails {
 	        this.unreadCount = source["unreadCount"];
 	        this.refreshFailed = source["refreshFailed"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1535,7 +1535,7 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
+
 	export class OperationDTO {
 	    id: string;
 	    type: string;
@@ -1553,11 +1553,11 @@ export namespace wails {
 	    createdAt: string;
 	    startedAt?: string;
 	    finishedAt?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new OperationDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1584,11 +1584,11 @@ export namespace wails {
 	    gameVersion: string;
 	    ready: boolean;
 	    message: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new OptimumStatusDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -1602,11 +1602,11 @@ export namespace wails {
 	    name?: string;
 	    homepage?: string;
 	    source?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageAuthorDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -1617,11 +1617,11 @@ export namespace wails {
 	export class PackageGameVersionDTO {
 	    id: string;
 	    name: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageGameVersionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1638,11 +1638,11 @@ export namespace wails {
 	    status: string;
 	    message?: string;
 	    hasEmbedded?: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageModCheckDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -1671,11 +1671,11 @@ export namespace wails {
 	    totalSize: number;
 	    unverifiedFiles: number;
 	    warnings: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageInspectionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -1693,7 +1693,7 @@ export namespace wails {
 	        this.unverifiedFiles = source["unverifiedFiles"];
 	        this.warnings = source["warnings"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1722,11 +1722,11 @@ export namespace wails {
 	    checksum?: string;
 	    downloadUrl?: string;
 	    enabled: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageModDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.modId = source["modId"];
@@ -1750,11 +1750,11 @@ export namespace wails {
 	    mods: PackageModDTO[];
 	    configFiles: string[];
 	    hasIcon: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PackageManifestDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schemaVersion = source["schemaVersion"];
@@ -1767,7 +1767,7 @@ export namespace wails {
 	        this.configFiles = source["configFiles"];
 	        this.hasIcon = source["hasIcon"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1786,8 +1786,8 @@ export namespace wails {
 		    return a;
 		}
 	}
-	
-	
+
+
 	export class PlaySessionDTO {
 	    id: string;
 	    instanceId: string;
@@ -1799,11 +1799,11 @@ export namespace wails {
 	    exitCode?: number;
 	    crashed: boolean;
 	    recovered: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PlaySessionDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1827,11 +1827,11 @@ export namespace wails {
 	    requiresWhitelist: boolean;
 	    accessRestricted: boolean;
 	    joinable: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PublicServerDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -1849,11 +1849,11 @@ export namespace wails {
 	    name: string;
 	    address: string;
 	    instanceId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SaveFavoriteServerRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -1866,11 +1866,11 @@ export namespace wails {
 	    instanceId: string;
 	    accountId?: string;
 	    address: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ServerLaunchRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
@@ -1891,11 +1891,11 @@ export namespace wails {
 	    automaticSafetySnapshots: boolean;
 	    automaticSnapshotRetention: number;
 	    librarySort: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.language = source["language"];
@@ -1918,11 +1918,11 @@ export namespace wails {
 	    averageSessionSeconds: number;
 	    mostPlayedInstanceId?: string;
 	    recentSessions: PlaySessionDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new StatisticsDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.totalPlaytimeSeconds = source["totalPlaytimeSeconds"];
@@ -1931,7 +1931,7 @@ export namespace wails {
 	        this.mostPlayedInstanceId = source["mostPlayedInstanceId"];
 	        this.recentSessions = this.convertValues(source["recentSessions"], PlaySessionDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1954,18 +1954,18 @@ export namespace wails {
 	    instanceId: string;
 	    mods: ModUpdateTargetDTO[];
 	    allowIncompatible: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new UpdateInstanceModsRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.instanceId = source["instanceId"];
 	        this.mods = this.convertValues(source["mods"], ModUpdateTargetDTO);
 	        this.allowIncompatible = source["allowIncompatible"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -1994,11 +1994,11 @@ export namespace wails {
 	    launchArguments: string[];
 	    environmentVariables?: Record<string, string>;
 	    coverSourcePath?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new UpdateInstanceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -2017,11 +2017,11 @@ export namespace wails {
 	    notMatched: LocalModLinkDTO[];
 	    skipped: string[];
 	    failed: LocalModLinkDTO[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new UploadModsResultDTO(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.linked = this.convertValues(source["linked"], LocalModLinkDTO);
@@ -2029,7 +2029,7 @@ export namespace wails {
 	        this.skipped = source["skipped"];
 	        this.failed = this.convertValues(source["failed"], LocalModLinkDTO);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
