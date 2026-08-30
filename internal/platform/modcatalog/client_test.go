@@ -73,7 +73,7 @@ func TestClientMapsDetailsWithoutComments(t *testing.T) {
 			"modid":51,"name":"Player Corpse","text":"<p>Safe description</p>","author":"Ada","side":"both","type":"mod","downloads":42,
 			"created":"2026-01-01 10:00:00","lastreleased":"2026-08-01 10:00:00","tags":["Utility"],"comments":[{"text":"must not map"}],
 			"releases":[{"releaseid":7,"mainfile":"https://cdn.test/mod.zip","filename":"mod.zip","tags":["1.21.0"],"modversion":"2.0.0","created":"2026-08-01 10:00:00","changelog":"<p>New</p>"}],
-			"screenshots":["https://cdn.test/screen.png"]
+			"screenshots":[{"mainfile":"https://moddbcdn.test/screen.png","filename":"screen.png"}]
 		}}`), nil
 	})
 	client := NewClientWithURL(&http.Client{Transport: transport}, "https://catalog.test")
@@ -86,6 +86,9 @@ func TestClientMapsDetailsWithoutComments(t *testing.T) {
 	}
 	if details.Versions[0].DownloadURL != "https://cdn.test/mod.zip" {
 		t.Fatal("download URL was not mapped")
+	}
+	if details.Screenshots[0].URL != "https://moddbcdn.test/screen.png" {
+		t.Fatalf("screenshot URL was not mapped: %#v", details.Screenshots[0])
 	}
 }
 

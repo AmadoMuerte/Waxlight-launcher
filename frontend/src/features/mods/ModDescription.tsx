@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -52,9 +52,18 @@ function DescriptionLink({ href, children }: { href?: string; children?: ReactNo
 
 function DescriptionImage({ src, alt }: { src?: string; alt?: string }) {
   const url = httpsURL(src);
-  if (!url) return null;
+  const [failedURL, setFailedURL] = useState<string>();
+  if (!url || failedURL === url) return null;
 
-  return <img src={url} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" />;
+  return (
+    <img
+      src={url}
+      alt={alt ?? ""}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailedURL(url)}
+    />
+  );
 }
 
 const descriptionComponents = { a: DescriptionLink, img: DescriptionImage };
