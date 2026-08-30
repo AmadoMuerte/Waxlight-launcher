@@ -19,6 +19,7 @@ import {
   sideLabel,
 } from "../../features/mods/lib";
 import { ModArtwork } from "../../features/mods/ModArtwork";
+import { ModDescription } from "../../features/mods/ModDescription";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
 import { modShareURL } from "../../shared/lib/waxlight-links";
@@ -234,9 +235,11 @@ export function ModDetailsPage() {
                 <CardTitle>{t("description")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm leading-7 whitespace-pre-wrap text-text-secondary">
-                  {plainText(mod.description) || mod.summary}
-                </p>
+                <ModDescription
+                  description={mod.description}
+                  fallback={mod.summary}
+                  onOpenExternal={openExternal}
+                />
               </CardContent>
             </Card>
 
@@ -278,7 +281,7 @@ export function ModDetailsPage() {
                 {mod.versions.length === 0 ? (
                   <p className="text-sm text-text-muted">{t("no_downloadable_releases")}</p>
                 ) : (
-                  <ul className="divide-y divide-border-subtle">
+                  <ul className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto pr-2">
                     {mod.versions.map((release) => (
                       <li
                         key={release.id}
@@ -303,7 +306,7 @@ export function ModDetailsPage() {
                             )}
                           </p>
                           {release.changelog && (
-                            <p className="text-xs leading-5 text-text-muted">
+                            <p className="line-clamp-3 text-xs leading-5 text-text-muted">
                               {plainText(release.changelog)}
                             </p>
                           )}
@@ -337,8 +340,8 @@ export function ModDetailsPage() {
                       >
                         <strong>{installed.instanceName}</strong>
                         <span className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
-                          {t("version_value", { version: installed.version })}
-                          {installed.enabled ? t("enabled") : t("disabled")}
+                          <span>{t("version_value", { version: installed.version })}</span>
+                          <span>{installed.enabled ? t("enabled") : t("disabled")}</span>
                         </span>
                       </li>
                     ))}
