@@ -159,13 +159,6 @@ func (service *CatalogService) listDownloadedMods(ctx context.Context) ([]Downlo
 		}
 	}
 	for index := range items {
-		if items[index].Tags == nil {
-			details, catalogErr := service.catalog.Get(ctx, items[index].ModID)
-			if catalogErr == nil {
-				items[index].Tags = append([]string{}, details.Tags...)
-				_ = service.downloads.Save(ctx, items[index])
-			}
-		}
 		items[index].InstalledInstances = installedBySource[modDownloadKey(items[index].ModID, items[index].VersionID)]
 	}
 	sort.Slice(items, func(left, right int) bool {
@@ -178,6 +171,35 @@ func (service *CatalogService) listDownloadedMods(ctx context.Context) ([]Downlo
 // instances where each release is installed.
 func (service *CatalogService) ListDownloadedMods(ctx context.Context) ([]DownloadedMod, error) {
 	return service.listDownloadedMods(ctx)
+}
+
+// BackfillDownloadedModTags persists missing catalog tags of cached mod
+// releases. It runs once at startup so read paths never write: a failing
+// cache write here is logged and retried on the next launch instead of
+// looping silently on every read.
+func (service *CatalogService) BackfillDownloadedModTags(ctx context.Context) {
+	items, err := service.downloads.List(ctx)
+	if err != nil {
+		slog.Warn("could not list cached mods for the tag backfill", "error", err)
+		return
+	}
+	for index := range items {
+		if ctx.Err() != nil {
+			return
+		}
+		if items[index].Tags != nil {
+			continue
+		}
+		details, catalogErr := service.catalog.Get(ctx, items[index].ModID)
+		if catalogErr != nil {
+			slog.Warn("could not fetch catalog tags for a cached mod", "modId", items[index].ModID, "error", catalogErr)
+			continue
+		}
+		items[index].Tags = append([]string{}, details.Tags...)
+		if err := service.downloads.Save(ctx, items[index]); err != nil {
+			slog.Warn("could not persist backfilled tags of a cached mod", "modId", items[index].ModID, "error", err)
+		}
+	}
 }
 
 // CheckModUpdates refreshes the latest-version and update state of every

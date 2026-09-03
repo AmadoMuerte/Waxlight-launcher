@@ -81,6 +81,13 @@ func (service *Service) ListMods(ctx context.Context, instanceID string) ([]Inst
 	if err != nil {
 		return nil, err
 	}
+	if info, statErr := os.Stat(instance.Directory); statErr != nil || !info.IsDir() {
+		// The instance directory is missing (moved by hand, drive unplugged).
+		// Never reconcile against a missing directory: scanning an empty or
+		// freshly recreated directory would delete every stored mod record.
+		slog.Warn("instance directory is missing; keeping the stored mod records", "instanceId", instanceID, "directory", instance.Directory)
+		return service.repository.ListMods(ctx, instanceID)
+	}
 	if err = service.files.EnsureLayout(instance.Directory); err != nil {
 		return nil, err
 	}
