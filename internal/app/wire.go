@@ -70,6 +70,7 @@ type Container struct {
 	Controllers    []any
 	CoverHandler   *wailstransport.InstanceCoverHandler
 	DeepLinks      *DeepLinks
+	modsCatalog    *mods.CatalogService
 	store          *sqlite.SQLiteStore
 	telemetry      *telemetry.Service
 }
@@ -123,7 +124,16 @@ func NewWithHome(home string) (*Container, error) {
 	}
 	slog.Info("wire: database opened")
 	if err := dataRootManager.FinalizePrevious(func(oldRoot, newRoot string) error {
-		return store.RelocatePaths(context.Background(), oldRoot, newRoot)
+		if err := store.RelocatePaths(context.Background(), oldRoot, newRoot); err != nil {
+			return err
+		}
+		// The downloaded-mod cache stores file paths too; heal stale absolute
+		// paths from the previous root. Cache healing is best-effort: a failure
+		// here only means a re-download later, never broken instance data.
+		if err := modstorage.New(newRoot).RelocateOldRoot(context.Background(), oldRoot); err != nil {
+			slog.Warn("wire: could not rewrite cached mod paths after the data folder move", "error", err)
+		}
+		return nil
 	}); err != nil {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("finish data folder relocation: %w", err)
@@ -528,6 +538,7 @@ func NewWithHome(home string) (*Container, error) {
 		Controllers:    controllers,
 		CoverHandler:   wailstransport.NewInstanceCoverHandler(instanceQueries),
 		DeepLinks:      deepLinks,
+		modsCatalog:    modsCatalogService,
 		store:          store,
 		telemetry:      telemetryService,
 	}, nil
@@ -606,6 +617,9 @@ func (container *Container) Startup(ctx context.Context) {
 	// startup hygiene task cancelable, but do not let a blocked keyring prevent
 	// the application from shutting down.
 	go container.AccountService.ValidateStaleAccounts(container.Lifecycle.Context(), 24*time.Hour)
+	// Older cache entries may lack catalog tags; persist them once here so the
+	// read paths stay read-only.
+	container.Lifecycle.Go(func(ctx context.Context) { container.modsCatalog.BackfillDownloadedModTags(ctx) })
 	container.telemetryHeartbeat()
 }
 

@@ -14,7 +14,8 @@ import (
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db       *sql.DB
+	dataRoot string
 }
 
 func Open(path string) (*SQLiteStore, error) {
@@ -26,7 +27,12 @@ func Open(path string) (*SQLiteStore, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	store := &SQLiteStore{db: db}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	store := &SQLiteStore{db: db, dataRoot: filepath.Dir(absPath)}
 	if err := store.migrate(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, err
