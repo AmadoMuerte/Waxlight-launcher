@@ -70,7 +70,7 @@ func (registry *Registry) Guard(instanceID string, marker string, runningMessage
 	}
 	slotRelease, holder := registry.slot.TryAcquire(instanceID, marker)
 	if holder != "" {
-		return nil, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return nil, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	return slotRelease, nil
 }

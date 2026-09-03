@@ -249,7 +249,7 @@ func (coordinator *Coordinator) launch(
 	releaseLaunch := coordinator.registry.BeginLaunch()
 	defer releaseLaunch()
 	if coordinator.registry.Busy(instanceID) {
-		return sessions.PlaySession{}, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return sessions.PlaySession{}, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	validation, err := coordinator.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
