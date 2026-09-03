@@ -371,6 +371,48 @@ func TestPrepareStartupFailedFinalizeKeepsOldRoot(t *testing.T) {
 	}
 }
 
+func TestPrepareStartupRejectsMissingPointerTarget(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	missing := filepath.Join(t.TempDir(), "unplugged-drive")
+	if err := manager.writeMarker(pointerFile, missing); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := manager.PrepareStartup(); err == nil {
+		t.Fatal("expected an error when the relocated data folder is missing")
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatal("the missing data folder must not be created silently")
+	}
+}
+
+func TestPrepareStartupCancelsFinalizeWithoutDatabase(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	from := t.TempDir() // exists but has no waxlight.db
+	target := filepath.Join(t.TempDir(), "data")
+	staging := filepath.Join(t.TempDir(), "staging")
+	if err := os.MkdirAll(staging, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.writePending(Marker{
+		From: from, To: target, CopyTarget: staging,
+		Phase: PhaseFinalize, TargetCreated: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := manager.PrepareStartup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != manager.Home() {
+		t.Fatalf("finalize without a database must keep the old root, got %q", root)
+	}
+	if message, err := manager.ReadError(); err != nil || message == "" {
+		t.Fatalf("expected recorded error, got %q, %v", message, err)
+	}
+}
+
 func TestFinalizePreviousRewritesAndRemovesOld(t *testing.T) {
 	home := t.TempDir()
 	manager := NewWithHome(home)

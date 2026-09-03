@@ -21,7 +21,7 @@ func (s *SQLiteStore) ListMods(ctx context.Context, instanceID string) ([]mods.I
 	defer rows.Close()
 	var mods []mods.InstalledMod
 	for rows.Next() {
-		mod, err := scanMod(rows)
+		mod, err := s.scanMod(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -30,12 +30,13 @@ func (s *SQLiteStore) ListMods(ctx context.Context, instanceID string) ([]mods.I
 	return mods, rows.Err()
 }
 
-func scanMod(row scanner) (mods.InstalledMod, error) {
+func (s *SQLiteStore) scanMod(row scanner) (mods.InstalledMod, error) {
 	var mod mods.InstalledMod
 	var enabled, managed int
 	var installed, updated string
 	err := row.Scan(&mod.ID, &mod.InstanceID, &mod.Name, &mod.Version, &mod.FileName, &mod.FilePath,
 		&enabled, &managed, &mod.Source, &mod.UpdatePolicy, &mod.SizeBytes, &installed, &updated)
+	mod.FilePath = s.resolvePath(mod.FilePath)
 	mod.Enabled = enabled == 1
 	mod.Managed = managed == 1
 	mod.UpdatePolicy = mods.NormalizeUpdatePolicy(mod.UpdatePolicy)
@@ -45,7 +46,7 @@ func scanMod(row scanner) (mods.InstalledMod, error) {
 }
 
 func (s *SQLiteStore) GetMod(ctx context.Context, id string) (mods.InstalledMod, error) {
-	mod, err := scanMod(s.db.QueryRowContext(ctx, `SELECT `+modColumns+` FROM installed_mods WHERE id=?`, id))
+	mod, err := s.scanMod(s.db.QueryRowContext(ctx, `SELECT `+modColumns+` FROM installed_mods WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return mod, errs.NewError(mods.ErrModNotFound, "Mod not found")
 	}
@@ -54,6 +55,7 @@ func (s *SQLiteStore) GetMod(ctx context.Context, id string) (mods.InstalledMod,
 
 func (s *SQLiteStore) SaveMod(ctx context.Context, mod mods.InstalledMod) error {
 	mod.UpdatePolicy = mods.NormalizeUpdatePolicy(mod.UpdatePolicy)
+	mod.FilePath = s.storedPath(mod.FilePath)
 	_, err := s.db.ExecContext(ctx, `INSERT INTO installed_mods(`+modColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version, file_name=excluded.file_name,
 		file_path=excluded.file_path, enabled=excluded.enabled, managed=excluded.managed, source=excluded.source, update_policy=excluded.update_policy,

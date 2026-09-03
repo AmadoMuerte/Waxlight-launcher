@@ -473,7 +473,7 @@ func (s *Service) Delete(ctx context.Context, instanceID, snapshotID string) err
 		return err
 	}
 	if s.slot.IsBusy(instanceID) {
-		return errs.NewError(ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return errs.NewError(ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	if err := s.storage.Remove(instanceID, snapshotID); err != nil {
 		return err

@@ -3,6 +3,7 @@
 package securefs
 
 import (
+	"errors"
 	"os"
 
 	"golang.org/x/sys/windows"
@@ -43,7 +44,14 @@ func Apply(path string, _ os.FileMode, directory bool) error {
 	if err != nil {
 		return err
 	}
-	return windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT,
+	err = windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT,
 		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION,
 		nil, nil, acl, nil)
+	if errors.Is(err, windows.ERROR_INVALID_FUNCTION) || errors.Is(err, windows.ERROR_NOT_SUPPORTED) {
+		// Filesystems without ACL support (exFAT, FAT32, some removable or
+		// network drives) cannot be hardened; treat hardening as a no-op so
+		// the data folder may live there.
+		return nil
+	}
+	return err
 }

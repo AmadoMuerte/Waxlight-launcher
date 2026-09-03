@@ -349,15 +349,16 @@ func TestInterruptedOperationsReconcileAcrossRestartAndRemainManageable(t *testi
 }
 
 func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
-	store, err := sqlite.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	dbPath := filepath.Join(t.TempDir(), "waxlight.db")
+	store, err := sqlite.Open(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
 	ctx := context.Background()
+	storeRoot := filepath.Dir(dbPath)
 
 	oldRoot := filepath.Join(string(filepath.Separator), "old", "waxlight")
-	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
 
 	now := time.Now().UTC()
 	if err := store.SaveVersion(ctx, versions.GameVersion{
@@ -386,7 +387,9 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := store.RelocatePaths(ctx, oldRoot, newRoot); err != nil {
+	// After a data-root move the stored paths become root-relative and resolve
+	// against the current data root on read.
+	if err := store.RelocatePaths(ctx, oldRoot, storeRoot); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,11 +400,11 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 	if len(versions) != 1 {
 		t.Fatalf("expected one version, got %d", len(versions))
 	}
-	wantInstall := filepath.Join(newRoot, "versions", "v1")
+	wantInstall := filepath.Join(storeRoot, "versions", "v1")
 	if versions[0].InstallationDir != wantInstall {
 		t.Fatalf("installation dir = %q, want %q", versions[0].InstallationDir, wantInstall)
 	}
-	if versions[0].ExecutablePath != filepath.Join(newRoot, "versions", "v1", "game") {
+	if versions[0].ExecutablePath != filepath.Join(storeRoot, "versions", "v1", "game") {
 		t.Fatalf("executable path was not rewritten: %q", versions[0].ExecutablePath)
 	}
 
@@ -412,24 +415,25 @@ func TestRelocatePathsRewritesStoredAbsolutePaths(t *testing.T) {
 	if len(instances) != 1 {
 		t.Fatalf("expected one instance, got %d", len(instances))
 	}
-	if instances[0].Directory != filepath.Join(newRoot, "instances", "i1") {
+	if instances[0].Directory != filepath.Join(storeRoot, "instances", "i1") {
 		t.Fatalf("instance directory was not rewritten: %q", instances[0].Directory)
 	}
-	if instances[0].CoverPath == nil || *instances[0].CoverPath != filepath.Join(newRoot, "instances", "i1", "cover.png") {
+	if instances[0].CoverPath == nil || *instances[0].CoverPath != filepath.Join(storeRoot, "instances", "i1", "cover.png") {
 		t.Fatalf("instance cover path was not rewritten: %v", instances[0].CoverPath)
 	}
 }
 
 func TestRelocatePathsIsIdempotent(t *testing.T) {
-	store, err := sqlite.Open(filepath.Join(t.TempDir(), "waxlight.db"))
+	dbPath := filepath.Join(t.TempDir(), "waxlight.db")
+	store, err := sqlite.Open(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
 	ctx := context.Background()
+	storeRoot := filepath.Dir(dbPath)
 
 	oldRoot := filepath.Join(string(filepath.Separator), "old", "waxlight")
-	newRoot := filepath.Join(string(filepath.Separator), "new", "waxlight")
 	now := time.Now().UTC()
 	if err := store.SaveVersion(ctx, versions.GameVersion{
 		ID:              "v1",
@@ -445,7 +449,7 @@ func TestRelocatePathsIsIdempotent(t *testing.T) {
 	}
 
 	for attempt := 0; attempt < 2; attempt++ {
-		if err := store.RelocatePaths(ctx, oldRoot, newRoot); err != nil {
+		if err := store.RelocatePaths(ctx, oldRoot, storeRoot); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -453,7 +457,95 @@ func TestRelocatePathsIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if versions[0].InstallationDir != filepath.Join(newRoot, "versions", "v1") {
+	if versions[0].InstallationDir != filepath.Join(storeRoot, "versions", "v1") {
 		t.Fatalf("path changed after repeated relocation: %q", versions[0].InstallationDir)
+	}
+}
+
+func TestStoredPathsResolveAgainstCurrentDataRoot(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "waxlight.db")
+	store, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+	storeRoot := filepath.Dir(dbPath)
+
+	now := time.Now().UTC()
+	if err := store.SaveVersion(ctx, versions.GameVersion{
+		ID:              "v1",
+		Name:            "Test",
+		Platform:        "linux",
+		Architecture:    "amd64",
+		InstallationDir: filepath.Join(storeRoot, "versions", "v1"),
+		ExecutablePath:  filepath.Join(storeRoot, "versions", "v1", "game"),
+		Status:          "installed",
+		InstalledAt:     now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	customDir := filepath.Join(t.TempDir(), "custom-instance")
+	if err := store.SaveInstance(ctx, instances.Instance{
+		ID:              "i1",
+		Name:            "Setup",
+		GameVersionID:   "v1",
+		Directory:       filepath.Join(storeRoot, "instances", "i1"),
+		Status:          "ready",
+		LaunchArguments: []string{},
+		CreatedAt:       now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveInstance(ctx, instances.Instance{
+		ID:              "i2",
+		Name:            "Custom",
+		GameVersionID:   "v1",
+		Directory:       customDir,
+		Status:          "ready",
+		LaunchArguments: []string{},
+		CreatedAt:       now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Paths under the data root are stored root-relative in the database.
+	raw, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	var stored string
+	if err := raw.QueryRow(`SELECT directory FROM instances WHERE id='i1'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if filepath.IsAbs(stored) {
+		t.Fatalf("instance directory under the data root must be stored relative, got %q", stored)
+	}
+	if err := raw.QueryRow(`SELECT directory FROM instances WHERE id='i2'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != customDir {
+		t.Fatalf("custom directory outside the data root must stay absolute, got %q", stored)
+	}
+
+	// Reads resolve relative paths against the current data root and keep
+	// custom absolute paths untouched.
+	instances, err := store.ListInstances(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]string{}
+	for _, instance := range instances {
+		byID[instance.ID] = instance.Directory
+	}
+	if byID["i1"] != filepath.Join(storeRoot, "instances", "i1") {
+		t.Fatalf("instance directory was not resolved: %q", byID["i1"])
+	}
+	if byID["i2"] != customDir {
+		t.Fatalf("custom instance directory changed: %q", byID["i2"])
+	}
+	if used, err := store.IsDirectoryUsed(ctx, filepath.Join(storeRoot, "instances", "i1"), ""); err != nil || !used {
+		t.Fatalf("IsDirectoryUsed must match the resolved path: used=%v err=%v", used, err)
 	}
 }

@@ -311,7 +311,7 @@ func (m *Manager) PrepareStartup() (string, error) {
 		return "", err
 	}
 	if marker == nil {
-		return current, nil
+		return m.validatePointerTarget(current)
 	}
 	switch marker.Phase {
 	case PhaseCopy:
@@ -321,7 +321,7 @@ func (m *Manager) PrepareStartup() (string, error) {
 		if err := m.clearPending(); err != nil {
 			return "", err
 		}
-		return current, nil
+		return m.validatePointerTarget(current)
 	case PhaseFinalize:
 		if err := m.finishPending(marker); err != nil {
 			if marker.Committed {
@@ -332,13 +332,33 @@ func (m *Manager) PrepareStartup() (string, error) {
 				_ = m.clearPending()
 			}
 			_ = m.writeError(fmt.Sprintf("data folder relocation failed: %v", err))
-			return current, nil
+			return m.validatePointerTarget(current)
 		}
 		return marker.To, nil
 	default:
 		_ = m.clearPending()
+		return m.validatePointerTarget(current)
+	}
+}
+
+// validatePointerTarget refuses to start on a relocated data root that does
+// not exist. Without this check a missing drive or a mistyped pointer would
+// silently boot the launcher with a fresh empty database, looking like data
+// loss. The default home directory (no pointer) is created by the caller.
+func (m *Manager) validatePointerTarget(current string) (string, error) {
+	pointer, err := m.readMarkerFile(pointerFile)
+	if err != nil {
+		return "", err
+	}
+	if pointer == "" {
 		return current, nil
 	}
+	if _, err := os.Stat(pointer); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("the data folder %q does not exist; restore it or correct the %q file in %q", pointer, pointerFile, m.home)
+	} else if err != nil {
+		return "", err
+	}
+	return current, nil
 }
 
 // FinalizePrevious rewrites the stored absolute paths from a previous data root
@@ -414,6 +434,9 @@ func (m *Manager) finishPending(marker *Marker) error {
 		} else if err != nil {
 			return err
 		}
+	}
+	if _, err := os.Stat(filepath.Join(marker.From, databaseName)); errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("the database is missing in the previous data folder %q; the move was cancelled to avoid data loss", marker.From)
 	}
 	for _, name := range DatabaseFiles() {
 		source := filepath.Join(marker.From, name)

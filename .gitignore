@@ -1,5 +1,9 @@
 # Build and release output
-/build/
+/build/*
+# The Windows application manifest is a build input tracked in the repo.
+!/build/windows/
+/build/windows/*
+!/build/windows/wails.exe.manifest
 /dist/
 /release/
 /artifacts/
