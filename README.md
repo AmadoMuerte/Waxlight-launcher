@@ -47,6 +47,61 @@ Each release includes `SHA256SUMS` for integrity checks.
 
 > On Windows, unsigned Waxlight builds may trigger Microsoft Defender SmartScreen. Download Waxlight only from this repository's Releases page.
 
+## NixOS
+
+Waxlight is packaged as a [Nix flake](https://nixos.wiki/wiki/Flakes) for `x86_64-linux`. The
+package builds the launcher natively against GTK3 and WebKitGTK 4.1 — no `steam-run`, `nix-ld`,
+or manual library setup is needed. All user data (configuration, instances, mods, logs, and
+account sessions) stays in the standard XDG directories under `~/.config/waxlight/` and is
+never written into the immutable Nix store.
+
+Run Waxlight without installing:
+
+```bash
+nix run github:AmadoMuerte/Waxlight-launcher
+```
+
+Install it into your user profile, which also adds it to your desktop application launcher:
+
+```bash
+nix profile install github:AmadoMuerte/Waxlight-launcher
+```
+
+To use Waxlight from another flake, for example as part of your NixOS configuration
+(`flake.nix`):
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    waxlight.url = "github:AmadoMuerte/Waxlight-launcher";
+  };
+
+  outputs = { nixpkgs, waxlight, ... }: {
+    nixosConfigurations.my-machine = nixpkgs.lib.nixosSystem {
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [ waxlight.packages.${pkgs.system}.default ];
+        })
+      ];
+    };
+  };
+}
+```
+
+Uninstall Waxlight from the user profile:
+
+```bash
+nix profile remove Waxlight-launcher
+```
+
+Launcher self-updates are disabled in the Nix build: Waxlight never tries to replace its own
+executable inside `/nix/store`. Update it through Nix instead:
+
+```bash
+nix profile upgrade Waxlight-launcher
+```
+
 ## Getting started
 
 1. Sign in under **Accounts**.
