@@ -224,6 +224,96 @@ jobs:
           file build/bin/waxlight
           ls -lh build/bin/waxlight
 
+  nix:
+    name: Nix package (${{ matrix.system }})
+    runs-on: ubuntu-24.04
+    needs:
+      - quality
+
+    strategy:
+      fail-fast: false
+      matrix:
+        system:
+          - x86_64-linux
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@b67ad2f0e8376a0bc947db191e4484285b6f5b56 # v17
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Start Nix build cache
+        uses: DeterminateSystems/magic-nix-cache-action@2cdbb78a6eed25b3bc8b97f863549be5f6567e55 # v9
+
+      - name: Validate the flake
+        run: nix flake check
+
+      - name: Verify the Nix package builds for the target system
+        run: nix build --no-link
+
+      - name: Verity the desktop entry and icon are installed
+        shell: bash
+        run: |
+          output="$(nix build --no-link --print-out-paths)"
+          test -f "$output/share/applications/com.waxlight.launcher.desktop"
+          test -f "$output/share/icons/hicolor/scalable/apps/com.waxlight.launcher.svg"
+          test -x "$output/bin/waxlight"
+
+      - name: Smoke-run the Nix package and guard the store
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install \
+            --no-install-recommends \
+            -y \
+            dbus \
+            xvfb
+
+          output="$(nix build --no-link --print-out-paths)"
+          store_work_dir="$(dirname "$(readlink -f "$output/bin/waxlight")")"
+
+          before="$(ls -A "$store_work_dir" | sort)"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/waxlight-config"
+          export XDG_DATA_HOME="$RUNNER_TEMP/waxlight-data"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/waxlight-cache"
+          export XDG_STATE_HOME="$RUNNER_TEMP/waxlight-state"
+          rm -rf "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
+
+          set +e
+          timeout 25 \
+            xvfb-run -a \
+            dbus-run-session -- \
+            "$output/bin/waxlight" >"$RUNNER_TEMP/waxlight-run.log" 2>&1
+          run_exit=$?
+          set -e
+
+          after="$(ls -A "$store_work_dir" | sort)"
+
+          if [[ "$before" != "$after" ]]; then
+            echo "The Nix package wrote into its immutable store directory:" >&2
+            diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") >&2 || true
+            exit 1
+          fi
+
+          if [[ "$run_exit" -ne 124 ]]; then
+            echo "Waxlight exited early ($run_exit) instead of staying alive:" >&2
+            tail -40 "$RUNNER_TEMP/waxlight-run.log" >&2
+            exit 1
+          fi
+
+          if ! compgen -G "$XDG_CONFIG_HOME/waxlight/waxlight.db" >/dev/null; then
+            echo "Waxlight did not create its database under XDG_CONFIG_HOME" >&2
+            find "$XDG_CONFIG_HOME" >&2 || true
+            exit 1
+          fi
+
+          echo "Store directory unchanged; writable data created under XDG user directories."
+
   windows-build:
     name: Windows production build
     runs-on: windows-latest
