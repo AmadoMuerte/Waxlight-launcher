@@ -81,7 +81,7 @@ let
     libxkbcommon
     libxrender
     libxext
-    libxext
+    libxau
     libxdmcp
     libxcb
     fontconfig
