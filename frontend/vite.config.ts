@@ -12,6 +12,6 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: Number.POSITIVE_INFINITY },
-  server: { port: 34115 },
+  server: { host: "127.0.0.1", port: 34115 },
   test: { setupFiles: ["./src/test-setup.ts"] },
 });

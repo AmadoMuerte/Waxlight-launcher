@@ -10,7 +10,7 @@
   "frontend:install": "npm ci --include=dev",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
-  "frontend:dev:serverUrl": "auto",
+  "frontend:dev:serverUrl": "http://127.0.0.1:34115",
   "author": {
     "name": "AmadoMuerte"
   },
