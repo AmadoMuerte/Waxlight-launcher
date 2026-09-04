@@ -365,6 +365,18 @@ func (coordinator *Coordinator) launch(
 		environment[key] = value
 	}
 	environment["WAXLIGHT_INSTANCE_DIR"] = instance.Directory
+	if runtime.GOOS == "windows" {
+		// Vintage Story ships native libraries such as nanosvg.dll in lib,
+		// while Windows does not search that subdirectory automatically.
+		libDirectory := filepath.Join(filepath.Dir(target.Executable), "lib")
+		existingPath := environment["PATH"]
+		if existingPath == "" {
+			existingPath = os.Getenv("PATH")
+		}
+		if !pathContains(existingPath, libDirectory) {
+			environment["PATH"] = libDirectory + string(os.PathListSeparator) + existingPath
+		}
+	}
 	dotnetFound := false
 	if runtime.GOOS == "linux" && instance.GameClient != instances.GameClientOptimum && coordinator.dotnet != nil {
 		found, compatible := coordinator.dotnet.Detect(dotnet.RequiredMajor)
