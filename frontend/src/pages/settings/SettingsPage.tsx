@@ -691,13 +691,15 @@ export function SettingsPage() {
               <Card variant="subtle" className="divide-y divide-border-subtle">
                 {moving ? (
                   <SettingRow column title={t("data_folder_moving")}>
-                    <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
-                    {dataFolderProgress?.totalBytes ? (
-                      <p className="mt-2 text-center text-[13px] leading-relaxed text-text-muted">
-                        {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
-                        {formatBytes(dataFolderProgress.totalBytes)}
-                      </p>
-                    ) : null}
+                    <div className="flex w-full flex-col">
+                      <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
+                      {dataFolderProgress?.totalBytes ? (
+                        <p className="mt-2 text-center text-[13px] leading-relaxed text-text-muted">
+                          {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
+                          {formatBytes(dataFolderProgress.totalBytes)}
+                        </p>
+                      ) : null}
+                    </div>
                   </SettingRow>
                 ) : (
                   <>
