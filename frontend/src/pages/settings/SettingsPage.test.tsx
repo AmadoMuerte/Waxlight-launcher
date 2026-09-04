@@ -37,6 +37,7 @@ const settingsApi = vi.hoisted(() => ({
   selectOptimumInstallation: vi.fn(),
   openOptimumInstallationGuide: vi.fn(),
   selectDataFolder: vi.fn(),
+  validateDataFolderTarget: vi.fn(),
   moveDataFolder: vi.fn(),
 }));
 
@@ -100,6 +101,7 @@ beforeEach(() => {
     lastError: "",
   });
   settingsApi.selectDataFolder.mockResolvedValue("");
+  settingsApi.validateDataFolderTarget.mockResolvedValue(undefined);
   settingsApi.moveDataFolder.mockResolvedValue(undefined);
   appShell.state.launcherUpdate = undefined;
   appShell.state.checkForUpdate.mockReset();
@@ -164,4 +166,42 @@ it("opens the official Optimum installation guide", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Installation guide" }));
 
   expect(settingsApi.openOptimumInstallationGuide).toHaveBeenCalledOnce();
+});
+
+it("blocks the move and explains when the target is not writable", async () => {
+  settingsApi.selectDataFolder.mockResolvedValue("C:\\Program Files\\Waxlight");
+  settingsApi.validateDataFolderTarget.mockRejectedValue(
+    new Error("FILE_PERMISSION_DENIED: Waxlight has no write access to this folder"),
+  );
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
+
+  expect(await screen.findByText("Waxlight cannot write to this folder")).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("no write access to it");
+  expect(screen.queryByRole("button", { name: "Move" })).toBeNull();
+});
+
+it("offers the move confirmation for a writable target", async () => {
+  settingsApi.selectDataFolder.mockResolvedValue("D:\\WaxlightData");
+  settingsApi.validateDataFolderTarget.mockResolvedValue(undefined);
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
+
+  expect(await screen.findByRole("button", { name: "Move" })).toBeTruthy();
+  expect(settingsApi.validateDataFolderTarget).toHaveBeenCalledWith("D:\\WaxlightData");
+});
+
+it("surfaces non-access validation errors without opening the move dialog", async () => {
+  settingsApi.selectDataFolder.mockResolvedValue("/current/nested");
+  settingsApi.validateDataFolderTarget.mockRejectedValue(
+    new Error("the data folder must not be inside the current data root"),
+  );
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Change…" }));
+
+  await waitFor(() => expect(useToastStore.getState().notify).toHaveBeenCalled());
+  expect(screen.queryByRole("button", { name: "Move" })).toBeNull();
 });

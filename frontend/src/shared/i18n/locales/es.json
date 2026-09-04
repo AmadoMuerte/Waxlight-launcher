@@ -664,6 +664,8 @@
   "data_folder_move_error": "No se pudo mover la carpeta de datos",
   "data_folder_previous_error": "Un movimiento anterior de la carpeta de datos falló: {{message}}",
   "data_folder_move": "Mover",
+  "data_folder_target_not_writable_title": "Waxlight no puede escribir en esta carpeta",
+  "data_folder_target_not_writable_hint": "Esta ubicación está protegida por el sistema operativo y el lanzador no tiene permiso de escritura. Guarda tus datos en otro lugar donde Waxlight pueda escribir, por ejemplo en una carpeta vacía nueva en otra unidad o dentro de tus carpetas de usuario. El lanzador necesita permiso para crear, renombrar y eliminar archivos allí.",
   "default_instance_name": "Instancia",
   "import_waiting_for_game_download": "La instancia estará disponible cuando la versión del juego termine de descargarse.",
   "logs_console": "Consola del lanzador",

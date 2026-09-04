@@ -664,6 +664,8 @@
   "data_folder_move_error": "Nie udało się przenieść folderu danych",
   "data_folder_previous_error": "Poprzednie przeniesienie folderu danych nie powiodło się: {{message}}",
   "data_folder_move": "Przenieś",
+  "data_folder_target_not_writable_title": "Waxlight nie może zapisywać w tym folderze",
+  "data_folder_target_not_writable_hint": "To miejsce jest chronione przez system operacyjny, a launcher nie ma do niego uprawnień do zapisu. Przechowuj dane w miejscu, w którym Waxlight może zapisywać, np. w nowym pustym folderze na innym dysku lub w swoich folderach użytkownika. Aplikacja potrzebuje uprawnień do tworzenia, zmiany nazw i usuwania plików w tym miejscu.",
   "default_instance_name": "Instancja",
   "import_waiting_for_game_download": "Instancja będzie dostępna po pobraniu wersji gry.",
   "logs_console": "Konsola launchera",

@@ -65,3 +65,7 @@ export function SetLibrarySort(arg1) {
 export function UpdateSettings(arg1) {
   return window['go']['wails']['SettingsController']['UpdateSettings'](arg1);
 }
+
+export function ValidateDataFolderTarget(arg1) {
+  return window['go']['wails']['SettingsController']['ValidateDataFolderTarget'](arg1);
+}

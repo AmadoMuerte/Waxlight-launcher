@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -26,6 +28,41 @@ func TestCurrentDefaultsToHome(t *testing.T) {
 	}
 	if current != manager.Home() {
 		t.Fatalf("default data root = %q, want home %q", current, manager.Home())
+	}
+}
+
+func TestCheckTargetAcceptsWritableDirectory(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	target := t.TempDir()
+	if err := manager.CheckTarget(target); err != nil {
+		t.Fatalf("CheckTarget(writable) = %v", err)
+	}
+	if entries, err := os.ReadDir(target); err != nil || len(entries) != 0 {
+		t.Fatalf("target was modified by the check: %v, %v", entries, err)
+	}
+}
+
+func TestEnsureTargetWritableMapsUnwritableLowLevel(t *testing.T) {
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	writeFile(t, blocked, "a file, not a directory")
+	created, err := ensureTargetWritable(blocked + string(os.PathSeparator) + "data")
+	if created {
+		t.Fatal("uncreatable target was reported as created")
+	}
+	if !errors.Is(err, settings.ErrDataFolderNotWritable) {
+		t.Fatalf("error = %v, want ErrDataFolderNotWritable", err)
+	}
+}
+
+func TestEnsureTargetWritableMapsUnwritableProbe(t *testing.T) {
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	writeFile(t, blocked, "a file, not a directory")
+	created, err := ensureTargetWritable(filepath.Join(blocked, "data"))
+	if created {
+		t.Fatal("uncreatable target was reported as created")
+	}
+	if !errors.Is(err, settings.ErrDataFolderNotWritable) {
+		t.Fatalf("error = %v, want ErrDataFolderNotWritable", err)
 	}
 }
 

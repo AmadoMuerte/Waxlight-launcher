@@ -664,6 +664,8 @@
   "data_folder_move_error": "Der Datenordner konnte nicht verschoben werden",
   "data_folder_previous_error": "Ein früherer Verschiebevorgang ist fehlgeschlagen: {{message}}",
   "data_folder_move": "Verschieben",
+  "data_folder_target_not_writable_title": "Waxlight kann nicht in diesen Ordner schreiben",
+  "data_folder_target_not_writable_hint": "Dieser Ort ist durch das Betriebssystem geschützt, und der Launcher hat dort keine Schreibrechte. Speichere deine Daten stattdessen an einem Ort, in den Waxlight schreiben kann, zum Beispiel in einem neuen leeren Ordner auf einem anderen Laufwerk oder in deinen Benutzerordnern. Der Launcher benötigt dort Berechtigungen zum Erstellen, Umbenennen und Löschen von Dateien.",
   "default_instance_name": "Instanz",
   "import_waiting_for_game_download": "Die Instanz ist verfügbar, sobald die Spielversion heruntergeladen wurde.",
   "logs_console": "Launcher-Konsole",

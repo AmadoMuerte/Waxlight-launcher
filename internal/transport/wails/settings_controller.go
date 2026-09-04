@@ -100,6 +100,16 @@ func (controller *SettingsController) MoveDataFolder(target string) error {
 	return controller.dataRoot.Move(controller.lifecycle.Context(), target)
 }
 
+// ValidateDataFolderTarget checks whether a target can be used as the launcher
+// data folder, including write access, without starting a relocation. It lets
+// the frontend warn the user before the move is confirmed.
+//
+// Errors:
+//   - file_permission_denied: the launcher cannot create or write in the target
+func (controller *SettingsController) ValidateDataFolderTarget(target string) error {
+	return controller.dataRoot.Check(controller.lifecycle.Context(), target)
+}
+
 // SelectGameArchive prompts for a local game archive.
 func (controller *SettingsController) SelectGameArchive() (string, error) {
 	return controller.dialogs.SelectGameArchive()
