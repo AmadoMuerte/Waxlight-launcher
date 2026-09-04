@@ -693,10 +693,10 @@ export function SettingsPage() {
                   <SettingRow column title={t("data_folder_moving")}>
                     <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
                     {dataFolderProgress?.totalBytes ? (
-                      <small className="settingRowDescription">
+                      <p className="mt-2 text-center text-[13px] leading-relaxed text-text-muted">
                         {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
                         {formatBytes(dataFolderProgress.totalBytes)}
-                      </small>
+                      </p>
                     ) : null}
                   </SettingRow>
                 ) : (
