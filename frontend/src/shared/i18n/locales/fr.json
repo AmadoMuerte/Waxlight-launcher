@@ -664,6 +664,8 @@
   "data_folder_move_error": "Impossible de déplacer le dossier de données",
   "data_folder_previous_error": "Un déplacement précédent du dossier de données a échoué : {{message}}",
   "data_folder_move": "Déplacer",
+  "data_folder_target_not_writable_title": "Waxlight ne peut pas écrire dans ce dossier",
+  "data_folder_target_not_writable_hint": "Cet emplacement est protégé par le système d'exploitation et le lanceur n'y a pas accès en écriture. Stocke tes données dans un autre endroit où Waxlight peut écrire, par exemple un nouveau dossier vide sur un autre disque ou dans tes dossiers utilisateur. Le lanceur doit pouvoir créer, renommer et supprimer des fichiers à cet emplacement.",
   "default_instance_name": "Instance",
   "import_waiting_for_game_download": "L'instance sera disponible une fois la version du jeu téléchargée.",
   "logs_console": "Console du lanceur",

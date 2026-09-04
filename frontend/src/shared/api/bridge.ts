@@ -61,3 +61,11 @@ export function errorMessage(error: unknown): string {
   }
   return "An unknown error occurred";
 }
+
+// errorCode extracts the errs code prefix (for example "FILE_PERMISSION_DENIED")
+// from a backend error so pages can react to known failure classes. Returns ""
+// when the error carries no code.
+export function errorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return /^([A-Z][A-Z_]*):/.exec(message)?.[1] ?? "";
+}

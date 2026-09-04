@@ -664,6 +664,8 @@
   "data_folder_move_error": "Não foi possível mover a pasta de dados",
   "data_folder_previous_error": "Uma mudança anterior da pasta de dados falhou: {{message}}",
   "data_folder_move": "Mover",
+  "data_folder_target_not_writable_title": "O Waxlight não consegue escrever nesta pasta",
+  "data_folder_target_not_writable_hint": "Este local é protegido pelo sistema operativo e o iniciador não tem permissão de escrita nele. Guarda os teus dados noutro lugar onde o Waxlight possa escrever, por exemplo numa nova pasta vazia noutro disco ou dentro das tuas pastas de utilizador. O iniciador precisa de permissão para criar, renomear e eliminar ficheiros lá.",
   "default_instance_name": "Instância",
   "import_waiting_for_game_download": "A instância estará disponível quando a versão do jogo terminar de baixar.",
   "logs_console": "Console do lançador",

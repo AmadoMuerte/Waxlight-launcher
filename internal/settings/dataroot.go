@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -9,6 +10,11 @@ import (
 )
 
 const progressInterval = 150 * time.Millisecond
+
+// ErrDataFolderNotWritable is wrapped around a relocation-target write failure
+// so the feature layer can map it to a user-facing permission error. It is
+// implemented by the dataroot adapter.
+var ErrDataFolderNotWritable = errors.New("data folder target is not writable")
 
 // DataRootService coordinates relocation without depending on Wails or a host platform.
 type DataRootService struct {
@@ -44,6 +50,18 @@ func (service *DataRootService) Get() (DataFolder, error) {
 	return DataFolder{CurrentPath: current, DefaultPath: service.root.Home(), LastError: lastError}, nil
 }
 
+// Check verifies that a target can be used as the launcher data folder,
+// including write access, without starting a relocation. A write failure maps
+// to a permission error so the frontend can show guidance before the move is
+// confirmed.
+func (service *DataRootService) Check(_ context.Context, target string) error {
+	err := service.root.CheckTarget(target)
+	if errors.Is(err, ErrDataFolderNotWritable) {
+		return errs.NewError(errs.ErrFilePermission, "Waxlight has no write access to this folder")
+	}
+	return err
+}
+
 func (service *DataRootService) Move(ctx context.Context, target string) error {
 	if err := service.gate.BeginRelocation(); err != nil {
 		return err
@@ -59,6 +77,9 @@ func (service *DataRootService) Move(ctx context.Context, target string) error {
 	}
 	relocation, err := service.root.PrepareRelocation(target)
 	if err != nil {
+		if errors.Is(err, ErrDataFolderNotWritable) {
+			return errs.NewError(errs.ErrFilePermission, "Waxlight has no write access to this folder")
+		}
 		return err
 	}
 	service.events.Publish("data-folder:progress", RelocationProgress{Phase: "preparing"})

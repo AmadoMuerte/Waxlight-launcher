@@ -128,7 +128,8 @@
       "SelectModFiles",
       "SelectOptimumInstallation",
       "SetLibrarySort",
-      "UpdateSettings"
+      "UpdateSettings",
+      "ValidateDataFolderTarget"
     ],
     "SnapshotController": [
       "CreateInstanceSnapshot",
