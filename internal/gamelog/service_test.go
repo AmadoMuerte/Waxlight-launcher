@@ -141,6 +141,21 @@ func TestWatchGameLogCapturesMainGameLogAppends(t *testing.T) {
 	}
 }
 
+func TestWatchGameLogReleasesFilesOnStop(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "instance.log")
+	if err := os.WriteFile(logPath, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stop := Watch("W", logPath)
+	stop()
+
+	if err := os.Rename(dir, filepath.Join(filepath.Dir(dir), filepath.Base(dir)+"-renamed")); err != nil {
+		t.Fatalf("instance directory remained locked after stopping log watcher: %v", err)
+	}
+}
+
 func TestWatchGameLogForwardsNewCrashReportWhole(t *testing.T) {
 	oldInterval := pollInterval
 	pollInterval = 10 * time.Millisecond

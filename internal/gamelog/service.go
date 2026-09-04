@@ -127,6 +127,7 @@ func newTailer(instanceName string, logPath string) *tailer {
 }
 
 func (tailer *tailer) run(stop <-chan struct{}) {
+	defer tailer.closeFiles()
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
@@ -137,6 +138,18 @@ func (tailer *tailer) run(stop <-chan struct{}) {
 		case <-ticker.C:
 		}
 		tailer.tick(false)
+	}
+}
+
+func (tailer *tailer) closeFiles() {
+	for path, state := range tailer.files {
+		if state.file == nil {
+			continue
+		}
+		if err := state.file.Close(); err != nil {
+			slog.Debug("could not close game log file", "path", path, "error", err)
+		}
+		state.file = nil
 	}
 }
 
