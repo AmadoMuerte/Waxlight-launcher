@@ -59,6 +59,11 @@ let
     npmRoot = frontendSrc;
     nodejs = nodejs_22;
   };
+
+  # Vintage Story on Linux is a .NET application. The launcher detects a
+  # compatible runtime and injects DOTNET_ROOT/PATH into the game process, so
+  # the package ships the required runtime instead of relying on the system.
+  dotnetRoot = "${pkgs.dotnetCorePackages.dotnet_10.runtime.unwrapped}/share/dotnet";
 in
 # buildGoModule provides the Go module cache through vendorHash (a fixed-output
 # derivation), so the build is fully reproducible inside the Nix sandbox. The
@@ -111,6 +116,12 @@ pkgs.buildGoModule {
     install -Dm644 NOTICE $out/share/doc/waxlight/NOTICE
     install -Dm644 README.md $out/share/doc/waxlight/README.md
     runHook postInstall
+  '';
+
+  # Expose the bundled .NET runtime through DOTNET_ROOT and PATH so the
+  # launcher finds it and passes it to the game process.
+  preFixup = ''
+    gappsWrapperArgs+=(--set DOTNET_ROOT ${dotnetRoot} --prefix PATH : ${dotnetRoot})
   '';
 
   meta = {
