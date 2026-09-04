@@ -30,6 +30,10 @@ coverage.out
 /coverage/
 /vendor/
 
+# Nix build output
+/result
+/result-*
+
 # Waxlight local data
 *.db
 *.db-shm
