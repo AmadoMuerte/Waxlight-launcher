@@ -79,10 +79,10 @@ let
     libXrandr
     libXxf86vm
     libxkbcommon
-    xorg.libXrender
-    xorg.libXext
-    xorg.libXau
-    xorg.libXdmcp
+    libxrender
+    libxext
+    libxext
+    libxdmcp
     libxcb
     fontconfig
     cairo
