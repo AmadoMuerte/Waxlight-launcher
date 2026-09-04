@@ -112,6 +112,8 @@ nix profile upgrade Waxlight-launcher
 
 A valid Vintage Story account with access to the game is required.
 
+> On Windows, the game also requires the **Microsoft Visual C++ Redistributable 2015–2022 (x64)**. Without it the game may fail to start with an `Unable to load DLL 'nanosvg' (or one of its dependencies)` error. Install it from <https://aka.ms/vs/17/release/vc_redist.x64.exe>.
+
 ## Data & privacy
 
 Default data locations:
