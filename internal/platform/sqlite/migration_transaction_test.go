@@ -16,15 +16,15 @@ func TestFailedMigrationRollsBackSchemaAndVersion(t *testing.T) {
 	}
 	defer db.Close()
 
-	original := migrations
-	migrations = []migration{{version: 1, apply: func(ctx context.Context, tx *sql.Tx) error {
+	original := baseMigrations
+	baseMigrations = []migration{{version: 1, apply: func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `CREATE TABLE migration_will_rollback (id TEXT PRIMARY KEY)`); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `THIS IS NOT VALID SQL`)
 		return err
 	}}}
-	t.Cleanup(func() { migrations = original })
+	t.Cleanup(func() { baseMigrations = original })
 
 	store := &SQLiteStore{db: db}
 	if err := store.migrate(context.Background()); err == nil {

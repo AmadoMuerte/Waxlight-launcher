@@ -197,6 +197,23 @@ type Relocation struct {
 	marker  Marker
 }
 
+// CheckTarget verifies that a target can be used as the launcher data folder,
+// including write access, without recording a relocation or touching any other
+// state. It backs the settings dialog's pre-move warning.
+func (m *Manager) CheckTarget(target string) error {
+	if err := m.ValidateTarget(target); err != nil {
+		return err
+	}
+	created, err := ensureTargetWritable(target)
+	if err != nil {
+		return err
+	}
+	if created {
+		return os.Remove(target)
+	}
+	return nil
+}
+
 // PrepareRelocation validates and records a relocation before background work starts.
 func (m *Manager) PrepareRelocation(target string) (settings.Relocation, error) {
 	current, err := m.Current()
@@ -206,22 +223,9 @@ func (m *Manager) PrepareRelocation(target string) (settings.Relocation, error) 
 	if err := ValidateTarget(current, target); err != nil {
 		return nil, err
 	}
-	targetCreated := false
-	if _, err := os.Stat(target); os.IsNotExist(err) {
-		if err := os.MkdirAll(target, 0o700); err != nil {
-			return nil, err
-		}
-		targetCreated = true
-	}
-	probe := filepath.Join(target, ".waxlight-write-probe")
-	if file, err := os.Create(probe); err != nil {
-		if targetCreated {
-			_ = os.RemoveAll(target)
-		}
-		return nil, fmt.Errorf("the data folder target is not writable: %w", err)
-	} else {
-		_ = file.Close()
-		_ = os.Remove(probe)
+	targetCreated, err := ensureTargetWritable(target)
+	if err != nil {
+		return nil, err
 	}
 	if targetCreated {
 		if err := os.Remove(target); err != nil {
@@ -241,6 +245,34 @@ func (m *Manager) PrepareRelocation(target string) (settings.Relocation, error) 
 		return nil, err
 	}
 	return &Relocation{manager: m, marker: marker}, nil
+}
+
+// ensureTargetWritable creates the target directory when it is missing and
+// verifies it accepts a file write, cleaning up the created directory on
+// failure. It reports whether the target was created so the caller can remove
+// it again on success. Creation or write failures map to
+// settings.ErrDataFolderNotWritable.
+func ensureTargetWritable(target string) (bool, error) {
+	created := false
+	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(target, 0o700); err != nil {
+			return false, fmt.Errorf("%w: %v", settings.ErrDataFolderNotWritable, err)
+		}
+		created = true
+	} else if err != nil {
+		return false, fmt.Errorf("%w: %v", settings.ErrDataFolderNotWritable, err)
+	}
+	probe := filepath.Join(target, ".waxlight-write-probe")
+	if file, err := os.Create(probe); err != nil {
+		if created {
+			_ = os.RemoveAll(target)
+		}
+		return false, fmt.Errorf("%w: %v", settings.ErrDataFolderNotWritable, err)
+	} else {
+		_ = file.Close()
+		_ = os.Remove(probe)
+	}
+	return created, nil
 }
 
 // Run copies the data and relaunches the application in the caller-owned worker.
@@ -311,7 +343,7 @@ func (m *Manager) PrepareStartup() (string, error) {
 		return "", err
 	}
 	if marker == nil {
-		return current, nil
+		return m.validatePointerTarget(current)
 	}
 	switch marker.Phase {
 	case PhaseCopy:
@@ -321,7 +353,7 @@ func (m *Manager) PrepareStartup() (string, error) {
 		if err := m.clearPending(); err != nil {
 			return "", err
 		}
-		return current, nil
+		return m.validatePointerTarget(current)
 	case PhaseFinalize:
 		if err := m.finishPending(marker); err != nil {
 			if marker.Committed {
@@ -332,13 +364,33 @@ func (m *Manager) PrepareStartup() (string, error) {
 				_ = m.clearPending()
 			}
 			_ = m.writeError(fmt.Sprintf("data folder relocation failed: %v", err))
-			return current, nil
+			return m.validatePointerTarget(current)
 		}
 		return marker.To, nil
 	default:
 		_ = m.clearPending()
+		return m.validatePointerTarget(current)
+	}
+}
+
+// validatePointerTarget refuses to start on a relocated data root that does
+// not exist. Without this check a missing drive or a mistyped pointer would
+// silently boot the launcher with a fresh empty database, looking like data
+// loss. The default home directory (no pointer) is created by the caller.
+func (m *Manager) validatePointerTarget(current string) (string, error) {
+	pointer, err := m.readMarkerFile(pointerFile)
+	if err != nil {
+		return "", err
+	}
+	if pointer == "" {
 		return current, nil
 	}
+	if _, err := os.Stat(pointer); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("the data folder %q does not exist; restore it or correct the %q file in %q", pointer, pointerFile, m.home)
+	} else if err != nil {
+		return "", err
+	}
+	return current, nil
 }
 
 // FinalizePrevious rewrites the stored absolute paths from a previous data root
@@ -414,6 +466,9 @@ func (m *Manager) finishPending(marker *Marker) error {
 		} else if err != nil {
 			return err
 		}
+	}
+	if _, err := os.Stat(filepath.Join(marker.From, databaseName)); errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("the database is missing in the previous data folder %q; the move was cancelled to avoid data loss", marker.From)
 	}
 	for _, name := range DatabaseFiles() {
 		source := filepath.Join(marker.From, name)

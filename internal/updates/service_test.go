@@ -532,3 +532,39 @@ func TestPurgeStaleUpdateSessionsKeepsOtherData(t *testing.T) {
 		t.Fatalf("non-update data must be preserved: %v", err)
 	}
 }
+
+func TestManagedUpdatesSkipCheckAndInstall(t *testing.T) {
+	previous := externallyManaged
+	externallyManaged = "1"
+	t.Cleanup(func() { externallyManaged = previous })
+
+	downloader := &updateDownloaderStub{}
+	installer := &updateInstallerStub{}
+	signatureVerifier := &signatureVerifierStub{}
+	source := updateSourceStub{err: errors.New("update source must not be queried")}
+	service := NewService(source, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "v0.1.4", nil)
+
+	if !ManagedExternally() {
+		t.Fatal("ManagedExternally should report true for externally managed builds")
+	}
+
+	update, err := service.Check(context.Background(), "stable")
+	if err != nil {
+		t.Fatalf("managed update check failed: %v", err)
+	}
+	if update.Available {
+		t.Fatal("managed builds must never report an available update")
+	}
+	if update.InstallationMode != "installed" {
+		t.Fatalf("managed update mode: got %q, want installed", update.InstallationMode)
+	}
+	if update.InstalledVersion != "0.1.4" || update.Version != "0.1.4" {
+		t.Fatalf("managed update versions: got %q/%q, want 0.1.4", update.InstalledVersion, update.Version)
+	}
+
+	err = service.Install(context.Background(), "stable", nil)
+	var appError *errs.AppError
+	if !errors.As(err, &appError) || appError.Code != ErrUpdateUnsupported {
+		t.Fatalf("managed install error: got %v, want code %q", err, ErrUpdateUnsupported)
+	}
+}

@@ -18,7 +18,7 @@ import { modCatalogApi } from "../../entities/mod/api";
 import { settingsApi } from "../../entities/settings/api";
 import type { DataFolder, DataFolderProgress, Settings } from "../../entities/settings/model";
 import { useOptimumStatusQuery, useSettingsQuery } from "../../entities/settings/queries";
-import { errorMessage } from "../../shared/api/bridge";
+import { errorCode, errorMessage } from "../../shared/api/bridge";
 import {
   DOWNLOADED_MODS_QUERY_KEY,
   OPTIMUM_STATUS_QUERY_KEY,
@@ -96,6 +96,7 @@ export function SettingsPage() {
   const [dataFolderProgress, setDataFolderProgress] = useState<DataFolderProgress>();
   const [moveTarget, setMoveTarget] = useState("");
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveTargetBlocked, setMoveTargetBlocked] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -269,11 +270,29 @@ export function SettingsPage() {
       if (!target) {
         return;
       }
-      setMoveTarget(target);
-      setMoveDialogOpen(true);
+      setMoveTargetBlocked(false);
+      try {
+        await settingsApi.validateDataFolderTarget(target);
+        setMoveTarget(target);
+        setMoveDialogOpen(true);
+      } catch (validationError) {
+        setMoveTarget(target);
+        if (errorCode(validationError) === "FILE_PERMISSION_DENIED") {
+          setMoveTargetBlocked(true);
+          setMoveDialogOpen(true);
+        } else {
+          notifyRef.current(errorMessage(validationError), "error");
+        }
+      }
     } catch (error) {
       notifyRef.current(errorMessage(error), "error");
     }
+  }
+
+  function closeMoveDialog() {
+    setMoveDialogOpen(false);
+    setMoveTarget("");
+    setMoveTargetBlocked(false);
   }
 
   async function confirmDataFolderMove() {
@@ -288,7 +307,12 @@ export function SettingsPage() {
       await settingsApi.moveDataFolder(moveTarget);
     } catch (error) {
       setMoving(false);
-      notifyRef.current(errorMessage(error), "error");
+      notifyRef.current(
+        errorCode(error) === "FILE_PERMISSION_DENIED"
+          ? t("data_folder_target_not_writable_title")
+          : errorMessage(error),
+        "error",
+      );
     }
   }
 
@@ -667,13 +691,15 @@ export function SettingsPage() {
               <Card variant="subtle" className="divide-y divide-border-subtle">
                 {moving ? (
                   <SettingRow column title={t("data_folder_moving")}>
-                    <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
-                    {dataFolderProgress?.totalBytes ? (
-                      <small className="settingRowDescription">
-                        {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
-                        {formatBytes(dataFolderProgress.totalBytes)}
-                      </small>
-                    ) : null}
+                    <div className="flex w-full flex-col">
+                      <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
+                      {dataFolderProgress?.totalBytes ? (
+                        <p className="mt-2 text-center text-[13px] leading-relaxed text-text-muted">
+                          {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
+                          {formatBytes(dataFolderProgress.totalBytes)}
+                        </p>
+                      ) : null}
+                    </div>
                   </SettingRow>
                 ) : (
                   <>
@@ -762,14 +788,30 @@ export function SettingsPage() {
 
       <ConfirmDialog
         open={moveDialogOpen}
-        title={t("data_folder_move_confirm_title")}
-        message={t("data_folder_move_confirm_message")}
-        warningMessage={t("data_folder_move_confirm_warning")}
+        title={t(
+          moveTargetBlocked
+            ? "data_folder_target_not_writable_title"
+            : "data_folder_move_confirm_title",
+        )}
+        message={moveTargetBlocked ? undefined : t("data_folder_move_confirm_message")}
+        warningMessage={moveTargetBlocked ? undefined : t("data_folder_move_confirm_warning")}
         confirmLabel={t("data_folder_move")}
         destructive
+        hideConfirm={moveTargetBlocked}
         onConfirm={() => void confirmDataFolderMove()}
-        onCancel={() => setMoveDialogOpen(false)}
-      />
+        onCancel={closeMoveDialog}
+      >
+        {moveTargetBlocked && (
+          <div className="px-6 pt-6">
+            <div
+              role="alert"
+              className="rounded-lg border border-danger-border bg-danger-surface px-4 py-3 text-danger"
+            >
+              <p className="text-[13px] leading-6">{t("data_folder_target_not_writable_hint")}</p>
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={cleanupPreview !== undefined}

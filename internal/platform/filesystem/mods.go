@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -32,6 +33,9 @@ func (ModFileManager) Scan(instanceDirectory string) ([]mods.DiscoveredMod, erro
 		root := filepath.Join(instanceDirectory, directory.name)
 		entries, err := os.ReadDir(root)
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			return nil, err
 		}
 		for _, entry := range entries {

@@ -2,10 +2,13 @@ package settings
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
 )
 
@@ -126,12 +129,24 @@ type fakeChecker struct{ err error }
 
 func (checker fakeChecker) CheckDataRootRelocation(context.Context) error { return checker.err }
 
-type fakeRoot struct{ relocation Relocation }
+type fakeRoot struct {
+	relocation  Relocation
+	prepareErr  error
+	checkTarget func(string) error
+}
 
-func (fakeRoot) Current() (string, error)                          { return "/current", nil }
-func (fakeRoot) Home() string                                      { return "/default" }
-func (fakeRoot) ReadError() (string, error)                        { return "", nil }
-func (root fakeRoot) PrepareRelocation(string) (Relocation, error) { return root.relocation, nil }
+func (fakeRoot) Current() (string, error)   { return "/current", nil }
+func (fakeRoot) Home() string               { return "/default" }
+func (fakeRoot) ReadError() (string, error) { return "", nil }
+func (root fakeRoot) PrepareRelocation(string) (Relocation, error) {
+	return root.relocation, root.prepareErr
+}
+func (root fakeRoot) CheckTarget(target string) error {
+	if root.checkTarget != nil {
+		return root.checkTarget(target)
+	}
+	return nil
+}
 
 type fakeRelocation struct {
 	run func(func(int64, int64)) error
@@ -268,5 +283,48 @@ func TestSuccessfulDataRootMoveKeepsGateThroughQuit(t *testing.T) {
 	last := recorded[len(recorded)-1]
 	if last != (eventRecord{name: "data-folder:progress", payload: RelocationProgress{Progress: 1, Phase: "relaunching"}}) {
 		t.Fatalf("unexpected relaunch event: %#v", last)
+	}
+}
+
+func TestDataRootCheckMapsNotWritableToPermissionError(t *testing.T) {
+	service := NewDataRootService(
+		fakeRoot{checkTarget: func(string) error { return fmt.Errorf("%w: open: access is denied", ErrDataFolderNotWritable) }},
+		&mutations.Gate{}, fakeChecker{}, &testWorkers{}, &eventRecorder{}, fakeQuitter{},
+	)
+	err := service.Check(context.Background(), "/protected")
+	var appErr *errs.AppError
+	if !errors.As(err, &appErr) || appErr.Code != errs.ErrFilePermission {
+		t.Fatalf("error = %#v, want FILE_PERMISSION_DENIED", err)
+	}
+}
+
+func TestDataRootCheckPassesThroughOtherErrors(t *testing.T) {
+	want := errors.New("target contains the current root")
+	service := NewDataRootService(
+		fakeRoot{checkTarget: func(string) error { return want }},
+		&mutations.Gate{}, fakeChecker{}, &testWorkers{}, &eventRecorder{}, fakeQuitter{},
+	)
+	if err := service.Check(context.Background(), "/nested"); !errors.Is(err, want) {
+		t.Fatalf("error = %v, want %v", err, want)
+	}
+}
+
+func TestDataRootMoveMapsPrepareRelocationNotWritable(t *testing.T) {
+	gate := &mutations.Gate{}
+	service := NewDataRootService(
+		fakeRoot{prepareErr: fmt.Errorf("%w: mkdir: access is denied", ErrDataFolderNotWritable)},
+		gate,
+		fakeChecker{},
+		&testWorkers{},
+		&eventRecorder{},
+		fakeQuitter{},
+	)
+	err := service.Move(context.Background(), "/protected")
+	var appErr *errs.AppError
+	if !errors.As(err, &appErr) || appErr.Code != errs.ErrFilePermission {
+		t.Fatalf("error = %#v, want FILE_PERMISSION_DENIED", err)
+	}
+	if gate.Busy() {
+		t.Fatal("failed relocation did not release the gate")
 	}
 }

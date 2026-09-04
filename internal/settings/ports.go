@@ -38,6 +38,7 @@ type DataRoot interface {
 	Home() string
 	ReadError() (string, error)
 	PrepareRelocation(string) (Relocation, error)
+	CheckTarget(string) error
 }
 
 type Relocation interface {

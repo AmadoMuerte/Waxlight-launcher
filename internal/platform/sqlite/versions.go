@@ -22,7 +22,7 @@ func (s *SQLiteStore) ListVersions(ctx context.Context) ([]versions.GameVersion,
 	defer rows.Close()
 	var result []versions.GameVersion
 	for rows.Next() {
-		version, err := scanVersion(rows)
+		version, err := s.scanVersion(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -31,19 +31,21 @@ func (s *SQLiteStore) ListVersions(ctx context.Context) ([]versions.GameVersion,
 	return result, rows.Err()
 }
 
-func scanVersion(row scanner) (versions.GameVersion, error) {
+func (s *SQLiteStore) scanVersion(row scanner) (versions.GameVersion, error) {
 	var version versions.GameVersion
 	var installed string
 	var verified sql.NullString
 	err := row.Scan(&version.ID, &version.Name, &version.Channel, &version.Platform, &version.Architecture,
 		&version.InstallationDir, &version.ExecutablePath, &version.Status, &installed, &verified, &version.SizeBytes)
+	version.InstallationDir = s.resolvePath(version.InstallationDir)
+	version.ExecutablePath = s.resolvePath(version.ExecutablePath)
 	version.InstalledAt, _ = time.Parse(time.RFC3339Nano, installed)
 	version.VerifiedAt = parseTS(verified)
 	return version, err
 }
 
 func (s *SQLiteStore) GetVersion(ctx context.Context, id string) (versions.GameVersion, error) {
-	version, err := scanVersion(s.db.QueryRowContext(ctx, `SELECT `+versionColumns+` FROM game_versions WHERE id = ?`, id))
+	version, err := s.scanVersion(s.db.QueryRowContext(ctx, `SELECT `+versionColumns+` FROM game_versions WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return version, errs.NewError(errs.ErrVersionNotFound, "Game version not found")
 	}
@@ -51,6 +53,8 @@ func (s *SQLiteStore) GetVersion(ctx context.Context, id string) (versions.GameV
 }
 
 func (s *SQLiteStore) SaveVersion(ctx context.Context, version versions.GameVersion) error {
+	version.InstallationDir = s.storedPath(version.InstallationDir)
+	version.ExecutablePath = s.storedPath(version.ExecutablePath)
 	_, err := s.db.ExecContext(ctx, `INSERT INTO game_versions(`+versionColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		version.ID, version.Name, version.Channel, version.Platform, version.Architecture, version.InstallationDir,
 		version.ExecutablePath, version.Status, ts(version.InstalledAt), optTS(version.VerifiedAt), version.SizeBytes)
@@ -61,6 +65,8 @@ func (s *SQLiteStore) SaveVersion(ctx context.Context, version versions.GameVers
 }
 
 func (s *SQLiteStore) UpdateVersion(ctx context.Context, version versions.GameVersion) error {
+	version.InstallationDir = s.storedPath(version.InstallationDir)
+	version.ExecutablePath = s.storedPath(version.ExecutablePath)
 	result, err := s.db.ExecContext(ctx, `UPDATE game_versions SET name=?, channel=?, platform=?, architecture=?,
 		installation_dir=?, executable_path=?, status=?, installed_at=?, verified_at=?, size_bytes=? WHERE id=?`,
 		version.Name, version.Channel, version.Platform, version.Architecture, version.InstallationDir,

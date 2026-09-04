@@ -2,11 +2,13 @@ package launching
 
 import (
 	"context"
+	"debug/elf"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -32,6 +34,12 @@ import (
 // tests can shorten it. Launch snapshots the value once and hands it to the
 // goroutines, so tests may restore it without racing background readers.
 var gameStartupWindow = 60 * time.Second
+
+// managedELFInterpreterEnv points package manager builds (the Nix flake) at
+// the glibc loader their wrapper ships. When set, the game's ELF interpreter
+// is rewritten to it so third-party game binaries run on NixOS without
+// requiring nix-ld or a system stub loader.
+const managedELFInterpreterEnv = "WAXLIGHT_ELF_INTERPRETER"
 
 // GameStartupWindow returns the current launch success window (for tests).
 func GameStartupWindow() time.Duration {
@@ -249,7 +257,7 @@ func (coordinator *Coordinator) launch(
 	releaseLaunch := coordinator.registry.BeginLaunch()
 	defer releaseLaunch()
 	if coordinator.registry.Busy(instanceID) {
-		return sessions.PlaySession{}, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running snapshot operation to finish")
+		return sessions.PlaySession{}, errs.NewError(snapshots.ErrSnapshotInProgress, "Wait for the running operation on this instance to finish")
 	}
 	validation, err := coordinator.ValidateLaunch(ctx, instanceID, accountID)
 	if err != nil {
@@ -377,6 +385,18 @@ func (coordinator *Coordinator) launch(
 			slog.Info(".NET runtime detection", "platform", runtime.GOOS, "requiredMajor", dotnet.RequiredMajor, "existingDotnetRoot", existingRoot, "dotnetExecutable", found.Executable, "runtimeRoot", found.Root, "runtimeVersion", found.Version, "source", found.Source, "status", "compatible")
 		} else {
 			slog.Warn(".NET runtime detection", "platform", runtime.GOOS, "requiredMajor", dotnet.RequiredMajor, "existingDotnetRoot", existingRoot, "dotnetExecutable", found.Executable, "status", "not_found")
+		}
+	}
+
+	if interpreter := os.Getenv(managedELFInterpreterEnv); runtime.GOOS == "linux" && instance.GameClient != instances.GameClientOptimum && interpreter != "" {
+		if err := ensureLinuxInterpreter(target.Executable, interpreter); err != nil {
+			closeLaunchLog(logFile, instance.Name)
+			coordinator.clearInjectedCredentials(cleanupCredentials, instance)
+			return sessions.PlaySession{}, &errs.AppError{
+				Code:    errs.ErrFilePermission,
+				Message: "Could not prepare the game executable for this platform",
+				Cause:   err,
+			}
 		}
 	}
 
@@ -815,4 +835,42 @@ func (coordinator *Coordinator) reportError(ctx context.Context, code, component
 	if coordinator.telemetry != nil {
 		coordinator.telemetry.Error(ctx, code, component, operation)
 	}
+}
+
+// ensureLinuxInterpreter rewrites the ELF interpreter of a third-party game
+// executable to the glibc loader shipped by the package manager. It is a
+// no-op when there is nothing to do (no package-managed loader configured, the
+// executable is not an ELF, or the interpreter already matches) and otherwise
+// patches the file once, so the game keeps running across later launches.
+func ensureLinuxInterpreter(executable, interpreter string) error {
+	file, err := elf.Open(executable)
+	if err != nil {
+		return nil
+	}
+	current := ""
+	for _, program := range file.Progs {
+		if program.Type != elf.PT_INTERP {
+			continue
+		}
+		data, readErr := io.ReadAll(io.LimitReader(program.Open(), 4096))
+		if readErr != nil {
+			file.Close()
+			return fmt.Errorf("read the game ELF interpreter: %w", readErr)
+		}
+		current = strings.TrimRight(string(data), "\x00")
+		break
+	}
+	file.Close()
+	if current == "" || current == interpreter {
+		return nil
+	}
+	patchelf, err := exec.LookPath("patchelf")
+	if err != nil {
+		return fmt.Errorf("patchelf is required to run the game on this platform: %w", err)
+	}
+	command := exec.Command(patchelf, "--set-interpreter", interpreter, executable)
+	if output, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("set the game ELF interpreter: %w: %s", err, output)
+	}
+	return nil
 }

@@ -57,6 +57,8 @@ Waxlight — независимый open-source лаунчер, который �
 
 Для работы нужен действующий аккаунт Vintage Story с доступом к игре.
 
+> В Windows для игры также требуется **Microsoft Visual C++ Redistributable 2015–2022 (x64)**. Без него игра может не запуститься с ошибкой `Unable to load DLL 'nanosvg' (or one of its dependencies)`. Установить: [последние поддерживаемые загрузки Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170).
+
 ## Данные и конфиденциальность
 
 Папки данных по умолчанию:

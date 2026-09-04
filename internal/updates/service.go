@@ -16,6 +16,21 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
+// externallyManaged disables launcher self-updates when the installed package
+// owns them through the system package manager (for example the Nix flake).
+// Packaging builds inject it at link time with:
+//
+//	-X github.com/AmadoMuerte/Waxlight-launcher/internal/updates.externallyManaged=1
+var externallyManaged string
+
+// ManagedExternally reports whether launcher updates are owned outside the
+// application, so its own update flow must stay off.
+func ManagedExternally() bool { return externallyManaged != "" }
+
+// managedUpdateLog is logged once so frequent update checks (auto-check,
+// channel switches, manual checks) do not spam the log.
+var managedUpdateLog sync.Once
+
 // Service owns launcher update checks, verified downloads, and installation
 // orchestration. All dependencies are immutable at construction; telemetry is
 // strictly best-effort and never affects the update outcome.
@@ -74,6 +89,16 @@ func (service *Service) Check(
 	ctx context.Context,
 	channel string,
 ) (Update, error) {
+	if ManagedExternally() {
+		managedUpdateLog.Do(func() {
+			slog.Info("launcher self-updates are managed by the system package manager; skipping update check")
+		})
+		return Update{
+			InstalledVersion: strings.TrimPrefix(service.currentVersion, "v"),
+			Version:          strings.TrimPrefix(service.currentVersion, "v"),
+			InstallationMode: "installed",
+		}, nil
+	}
 	channel, err := normalizeUpdateChannel(channel)
 	if err != nil {
 		return Update{}, err
@@ -100,6 +125,9 @@ func (service *Service) Install(
 	channel string,
 	publish func(Progress),
 ) error {
+	if ManagedExternally() {
+		return errs.NewError(ErrUpdateUnsupported, "Launcher updates are managed by the system package manager")
+	}
 	if err := service.mutationGate.Begin(); err != nil {
 		return err
 	}

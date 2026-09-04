@@ -23,7 +23,7 @@ func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, 
 	defer rows.Close()
 	var result []instances.Instance
 	for rows.Next() {
-		instance, err := scanInstance(rows)
+		instance, err := scanInstance(rows, s.resolvePath)
 		if err != nil {
 			return nil, err
 		}
@@ -32,7 +32,7 @@ func (s *SQLiteStore) ListInstances(ctx context.Context) ([]instances.Instance, 
 	return result, rows.Err()
 }
 
-func scanInstance(row scanner) (instances.Instance, error) {
+func scanInstance(row scanner, resolve func(string) string) (instances.Instance, error) {
 	var instance instances.Instance
 	var account, cover, last sql.NullString
 	var isPinned int
@@ -50,8 +50,10 @@ func scanInstance(row scanner) (instances.Instance, error) {
 	if account.Valid {
 		instance.DefaultAccountID = &account.String
 	}
+	instance.Directory = resolve(instance.Directory)
 	if cover.Valid {
-		instance.CoverPath = &cover.String
+		resolved := resolve(cover.String)
+		instance.CoverPath = &resolved
 	}
 	instance.LastPlayedAt = parseTS(last)
 	instance.IsPinned = isPinned == 1
@@ -66,7 +68,7 @@ func scanInstance(row scanner) (instances.Instance, error) {
 }
 
 func (s *SQLiteStore) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
-	instance, err := scanInstance(s.db.QueryRowContext(ctx, `SELECT `+instanceColumns+` FROM instances WHERE id = ?`, id))
+	instance, err := scanInstance(s.db.QueryRowContext(ctx, `SELECT `+instanceColumns+` FROM instances WHERE id = ?`, id), s.resolvePath)
 	if errors.Is(err, sql.ErrNoRows) {
 		return instance, errs.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
@@ -80,6 +82,11 @@ func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Insta
 	instance.GameClient, valid = instances.NormalizeGameClient(instance.GameClient)
 	if !valid {
 		return errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
+	}
+	instance.Directory = s.storedPath(instance.Directory)
+	if instance.CoverPath != nil {
+		stored := s.storedPath(*instance.CoverPath)
+		instance.CoverPath = &stored
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO instances(`+instanceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description,
@@ -98,7 +105,7 @@ func (s *SQLiteStore) SaveInstance(ctx context.Context, instance instances.Insta
 
 func (s *SQLiteStore) SetInstancePinned(ctx context.Context, id string, pinned bool) (instances.Instance, error) {
 	instance, err := scanInstance(s.db.QueryRowContext(ctx,
-		`UPDATE instances SET is_pinned=? WHERE id=? RETURNING `+instanceColumns, btoi(pinned), id))
+		`UPDATE instances SET is_pinned=? WHERE id=? RETURNING `+instanceColumns, btoi(pinned), id), s.resolvePath)
 	if errors.Is(err, sql.ErrNoRows) {
 		return instance, errs.NewError(instances.ErrInstanceNotFound, "Instance not found")
 	}
@@ -118,36 +125,6 @@ func (s *SQLiteStore) DeleteInstance(ctx context.Context, id string) error {
 
 func (s *SQLiteStore) IsDirectoryUsed(ctx context.Context, path, except string) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instances WHERE directory=? AND id<>?`, path, except).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instances WHERE directory=? AND id<>?`, s.storedPath(path), except).Scan(&count)
 	return count > 0, err
-}
-
-type relocationStatement struct {
-	query string
-	args  []any
-}
-
-func (s *SQLiteStore) RelocatePaths(ctx context.Context, oldRoot, newRoot string) error {
-	prefixLength := len(oldRoot) + 1
-	statements := []relocationStatement{
-		{query: `UPDATE game_versions SET installation_dir=? || substr(installation_dir, ?),
-			executable_path=? || substr(executable_path, ?) WHERE instr(installation_dir, ?)=1 OR instr(executable_path, ?)=1`,
-			args: []any{newRoot, prefixLength, newRoot, prefixLength, oldRoot, oldRoot}},
-		{query: `UPDATE instances SET directory=? || substr(directory, ?), cover_path=? || substr(cover_path, ?)
-			WHERE instr(directory, ?)=1 OR instr(cover_path, ?)=1`,
-			args: []any{newRoot, prefixLength, newRoot, prefixLength, oldRoot, oldRoot}},
-		{query: `UPDATE installed_mods SET file_path=? || substr(file_path, ?) WHERE instr(file_path, ?)=1`,
-			args: []any{newRoot, prefixLength, oldRoot}},
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	for _, statement := range statements {
-		if _, err := tx.ExecContext(ctx, statement.query, statement.args...); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
 }

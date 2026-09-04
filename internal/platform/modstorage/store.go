@@ -22,7 +22,11 @@ type Store struct {
 }
 
 func New(root string) *Store {
-	return &Store{root: filepath.Join(root, "cache", "mods")}
+	return &Store{root: cacheRoot(root)}
+}
+
+func cacheRoot(dataRoot string) string {
+	return filepath.Join(dataRoot, "cache", "mods")
 }
 
 func (store *Store) List(ctx context.Context) ([]mods.DownloadedMod, error) {
@@ -44,6 +48,7 @@ func (store *Store) List(ctx context.Context) ([]mods.DownloadedMod, error) {
 		if err != nil {
 			return nil
 		}
+		value.FilePath = store.resolvePath(value.FilePath)
 		result = append(result, value)
 		return nil
 	})
@@ -66,7 +71,11 @@ func (store *Store) Get(
 	if errors.Is(err, os.ErrNotExist) {
 		return value, errs.NewError(mods.ErrModVersionNotFound, "Downloaded mod version not found")
 	}
-	return value, err
+	if err != nil {
+		return value, err
+	}
+	value.FilePath = store.resolvePath(value.FilePath)
+	return value, nil
 }
 
 func (store *Store) Save(_ context.Context, value mods.DownloadedMod) error {
@@ -74,12 +83,73 @@ func (store *Store) Save(_ context.Context, value mods.DownloadedMod) error {
 	if err != nil {
 		return err
 	}
+	value.FilePath = store.storedPath(value.FilePath)
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
+	if err := atomicfile.Write(path, encoded, 0o600); err != nil {
+		return err
+	}
 	slog.Info("cached mod saved", "modId", value.ModID, "versionId", value.VersionID)
-	return atomicfile.Write(path, encoded, 0o600)
+	return nil
+}
+
+// storedPath converts an absolute file path inside the cache root into a
+// root-relative one, so a data-root move never invalidates the cache. Files
+// outside the root (local mods linked in place) stay absolute.
+func (store *Store) storedPath(path string) string {
+	if path == "" || !filepath.IsAbs(path) {
+		return path
+	}
+	rel, err := filepath.Rel(store.root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return path
+	}
+	return rel
+}
+
+func (store *Store) resolvePath(path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(store.root, path)
+}
+
+// RelocateOldRoot rewrites cached metadata that still references the previous
+// data root after a move, converting those paths to root-relative ones.
+func (store *Store) RelocateOldRoot(ctx context.Context, oldRoot string) error {
+	if oldRoot == "" {
+		return nil
+	}
+	prefix := cacheRoot(oldRoot) + string(filepath.Separator)
+	return filepath.WalkDir(store.root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if errors.Is(walkErr, os.ErrNotExist) {
+				return nil
+			}
+			return walkErr
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.IsDir() || entry.Name() != metadataFile {
+			return nil
+		}
+		value, err := readMetadata(path)
+		if err != nil {
+			return nil
+		}
+		if !strings.HasPrefix(value.FilePath, prefix) {
+			return nil
+		}
+		value.FilePath = strings.TrimPrefix(value.FilePath, prefix)
+		encoded, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return err
+		}
+		return atomicfile.Write(path, encoded, 0o600)
+	})
 }
 
 func (store *Store) Delete(_ context.Context, modID, versionID string) error {

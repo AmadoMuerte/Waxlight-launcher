@@ -10,14 +10,14 @@
   "frontend:install": "npm ci --include=dev",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
-  "frontend:dev:serverUrl": "auto",
+  "frontend:dev:serverUrl": "http://127.0.0.1:34115",
   "author": {
     "name": "AmadoMuerte"
   },
   "info": {
     "companyName": "AmadoMuerte",
     "productName": "Waxlight Launcher",
-    "productVersion": "0.4.7",
+    "productVersion": "0.4.8",
     "copyright": "Copyright © 2026 AmadoMuerte",
     "comments": "Free software licensed under the GNU General Public License v3.0.",
     "protocols": [

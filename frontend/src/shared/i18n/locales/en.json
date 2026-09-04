@@ -672,6 +672,8 @@
   "data_folder_move_error": "Could not move the data folder",
   "data_folder_previous_error": "A previous data folder move failed: {{message}}",
   "data_folder_move": "Move",
+  "data_folder_target_not_writable_title": "Waxlight cannot write to this folder",
+  "data_folder_target_not_writable_hint": "This location is protected by the operating system and the launcher has no write access to it. Store your data somewhere Waxlight can write to instead, for example a new empty folder on another drive or inside your user folders. The launcher needs permission to create, rename and delete files there.",
   "privacy_and_telemetry": "Privacy & telemetry",
   "privacy_and_telemetry_description": "Control what Waxlight may share. Telemetry is disabled by default and can be enabled here.",
   "send_usage_analytics": "Send usage analytics",

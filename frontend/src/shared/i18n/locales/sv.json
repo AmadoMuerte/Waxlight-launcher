@@ -664,6 +664,8 @@
   "data_folder_move_error": "Det gick inte att flytta data-mappen",
   "data_folder_previous_error": "En tidigare flytt av data-mappen misslyckades: {{message}}",
   "data_folder_move": "Flytta",
+  "data_folder_target_not_writable_title": "Waxlight kan inte skriva till den här mappen",
+  "data_folder_target_not_writable_hint": "Den här platsen skyddas av operativsystemet och startaren har ingen skrivbehörighet där. Spara i stället dina data där Waxlight kan skriva, till exempel i en ny tom mapp på en annan enhet eller i dina användarmappar. Startaren behöver behörighet att skapa, byta namn på och ta bort filer där.",
   "default_instance_name": "Instans",
   "import_waiting_for_game_download": "Instansen blir tillgänglig när spelversionen har laddats ner.",
   "logs_console": "Lanserkonsol",

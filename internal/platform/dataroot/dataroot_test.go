@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -26,6 +28,41 @@ func TestCurrentDefaultsToHome(t *testing.T) {
 	}
 	if current != manager.Home() {
 		t.Fatalf("default data root = %q, want home %q", current, manager.Home())
+	}
+}
+
+func TestCheckTargetAcceptsWritableDirectory(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	target := t.TempDir()
+	if err := manager.CheckTarget(target); err != nil {
+		t.Fatalf("CheckTarget(writable) = %v", err)
+	}
+	if entries, err := os.ReadDir(target); err != nil || len(entries) != 0 {
+		t.Fatalf("target was modified by the check: %v, %v", entries, err)
+	}
+}
+
+func TestEnsureTargetWritableMapsUnwritableLowLevel(t *testing.T) {
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	writeFile(t, blocked, "a file, not a directory")
+	created, err := ensureTargetWritable(blocked + string(os.PathSeparator) + "data")
+	if created {
+		t.Fatal("uncreatable target was reported as created")
+	}
+	if !errors.Is(err, settings.ErrDataFolderNotWritable) {
+		t.Fatalf("error = %v, want ErrDataFolderNotWritable", err)
+	}
+}
+
+func TestEnsureTargetWritableMapsUnwritableProbe(t *testing.T) {
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	writeFile(t, blocked, "a file, not a directory")
+	created, err := ensureTargetWritable(filepath.Join(blocked, "data"))
+	if created {
+		t.Fatal("uncreatable target was reported as created")
+	}
+	if !errors.Is(err, settings.ErrDataFolderNotWritable) {
+		t.Fatalf("error = %v, want ErrDataFolderNotWritable", err)
 	}
 }
 
@@ -365,6 +402,48 @@ func TestPrepareStartupFailedFinalizeKeepsOldRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatalf("failed target should be removed: %v", err)
+	}
+	if message, err := manager.ReadError(); err != nil || message == "" {
+		t.Fatalf("expected recorded error, got %q, %v", message, err)
+	}
+}
+
+func TestPrepareStartupRejectsMissingPointerTarget(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	missing := filepath.Join(t.TempDir(), "unplugged-drive")
+	if err := manager.writeMarker(pointerFile, missing); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := manager.PrepareStartup(); err == nil {
+		t.Fatal("expected an error when the relocated data folder is missing")
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatal("the missing data folder must not be created silently")
+	}
+}
+
+func TestPrepareStartupCancelsFinalizeWithoutDatabase(t *testing.T) {
+	manager := NewWithHome(t.TempDir())
+	from := t.TempDir() // exists but has no waxlight.db
+	target := filepath.Join(t.TempDir(), "data")
+	staging := filepath.Join(t.TempDir(), "staging")
+	if err := os.MkdirAll(staging, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.writePending(Marker{
+		From: from, To: target, CopyTarget: staging,
+		Phase: PhaseFinalize, TargetCreated: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := manager.PrepareStartup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != manager.Home() {
+		t.Fatalf("finalize without a database must keep the old root, got %q", root)
 	}
 	if message, err := manager.ReadError(); err != nil || message == "" {
 		t.Fatalf("expected recorded error, got %q, %v", message, err)

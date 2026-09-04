@@ -6,14 +6,14 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 10
+const currentSchemaVersion = 11
 
 type migration struct {
 	version int
 	apply   func(context.Context, *sql.Tx) error
 }
 
-var migrations = []migration{
+var baseMigrations = []migration{
 	{version: 1, apply: createBaseSchema},
 	{version: 2, apply: addAuthenticationAndOperationTitles},
 	{version: 3, apply: addAccountUIDIndex},
@@ -24,6 +24,18 @@ var migrations = []migration{
 	{version: 8, apply: addInstanceEnvironmentVariables},
 	{version: 9, apply: addInstancePinned},
 	{version: 10, apply: addInstalledModUpdatePolicy},
+}
+
+func (s *SQLiteStore) migrations() []migration {
+	list := append([]migration{}, baseMigrations...)
+	return append(list, migration{version: 11, apply: s.relativizeDataRootPaths})
+}
+
+// relativizeDataRootPaths migrates stored absolute paths under the current
+// data root to root-relative paths, so a data-root move no longer rewrites
+// the database.
+func (s *SQLiteStore) relativizeDataRootPaths(ctx context.Context, tx *sql.Tx) error {
+	return relativizePathsUnder(ctx, tx, s.dataRoot)
 }
 
 func (s *SQLiteStore) migrate(ctx context.Context) error {
@@ -57,7 +69,7 @@ func (s *SQLiteStore) migrate(ctx context.Context) error {
 		return err
 	}
 
-	for _, item := range migrations {
+	for _, item := range s.migrations() {
 		if applied[item.version] {
 			continue
 		}

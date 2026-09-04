@@ -179,3 +179,33 @@ func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
 		t.Fatalf("unexpected persisted mods: %#v, %v", persisted, err)
 	}
 }
+
+func TestListModsKeepsRecordsWhenInstanceDirectoryMissing(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Missing")
+
+	archivePath := filepath.Join(instance.Directory, "Mods", "smithingplus.zip")
+	writeVintageStoryMod(t, archivePath, `{"modid":"smithingplus","name":"Smithing Plus","version":"2.4.1"}`)
+	installedMods, err := fixture.modsService.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installedMods) != 1 {
+		t.Fatalf("expected one installed mod, got %#v", installedMods)
+	}
+
+	if err := os.RemoveAll(instance.Directory); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := fixture.modsService.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kept) != 1 || kept[0].ID != installedMods[0].ID {
+		t.Fatalf("stored mod records must survive a missing instance directory: %#v", kept)
+	}
+	if _, err := os.Stat(instance.Directory); !os.IsNotExist(err) {
+		t.Fatal("listing mods must not recreate the instance directory")
+	}
+}

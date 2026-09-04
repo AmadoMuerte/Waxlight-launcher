@@ -63,7 +63,7 @@ func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {
 	assertIndex(t, path, "accounts_uid_lookup")
 	assertColumns(t, path, "instances", "game_client", "environment_variables", "is_pinned")
 	assertColumns(t, path, "installed_mods", "update_policy")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 }
 
 func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
@@ -97,7 +97,7 @@ func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
 	assertColumns(t, path, "operations", "id", "type", "resource_id", "title", "status", "progress",
 		"current_bytes", "total_bytes", "bytes_per_second", "error_code", "error_message", "created_at",
 		"started_at", "finished_at", "title_key", "title_params")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 
 	store, err = sqlite.Open(path)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 
 	db = openRawDatabase(t, path)
 	defer db.Close()

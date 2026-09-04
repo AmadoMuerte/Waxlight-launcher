@@ -1,4 +1,5 @@
 import { Info, TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +15,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  hideConfirm?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -27,6 +30,8 @@ export function ConfirmDialog({
   cancelLabel,
   destructive = false,
   loading = false,
+  hideConfirm = false,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -89,30 +94,34 @@ export function ConfirmDialog({
           </div>
         )}
 
+        {children}
+
         <DialogFooter className="px-6 pb-6 pt-7">
           <Button type="button" variant="ghost" disabled={loading} onClick={onCancel}>
             {cancelLabel ?? t("cancel")}
           </Button>
 
-          <Button
-            type="button"
-            variant={destructive ? "danger" : "primary"}
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {loading
-              ? t("processing", {
-                  defaultValue: "Processing…",
-                })
-              : (confirmLabel ??
-                (destructive
-                  ? t("delete", {
-                      defaultValue: "Delete",
-                    })
-                  : t("confirm", {
-                      defaultValue: "Confirm",
-                    })))}
-          </Button>
+          {!hideConfirm && (
+            <Button
+              type="button"
+              variant={destructive ? "danger" : "primary"}
+              disabled={loading}
+              onClick={onConfirm}
+            >
+              {loading
+                ? t("processing", {
+                    defaultValue: "Processing…",
+                  })
+                : (confirmLabel ??
+                  (destructive
+                    ? t("delete", {
+                        defaultValue: "Delete",
+                      })
+                    : t("confirm", {
+                        defaultValue: "Confirm",
+                      })))}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

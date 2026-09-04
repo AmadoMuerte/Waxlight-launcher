@@ -20,5 +20,7 @@ export const settingsApi = {
   openDirectory: (path: string) => call<void>("SettingsController", "OpenDirectory", path),
   getDataFolder: () => call<DataFolder>("SettingsController", "GetDataFolder"),
   selectDataFolder: () => call<string>("SettingsController", "SelectDataFolder"),
+  validateDataFolderTarget: (target: string) =>
+    call<void>("SettingsController", "ValidateDataFolderTarget", target),
   moveDataFolder: (target: string) => call<void>("SettingsController", "MoveDataFolder", target),
 };
