@@ -59,6 +59,46 @@ let
     npmRoot = frontendSrc;
     nodejs = nodejs_22;
   };
+
+  # Vintage Story on Linux is a .NET application. The launcher detects a
+  # compatible runtime and injects DOTNET_ROOT/PATH into the game process, so
+  # the package ships the required runtime instead of relying on the system.
+  dotnetRoot = "${pkgs.dotnetCorePackages.dotnet_10.runtime.unwrapped}/share/dotnet";
+
+  # The game is a third-party binary (not built with Nix) and needs the system
+  # C++ runtime, the bundled glfw's X11/OpenGL stack, and the native libraries
+  # it P/Invokes at startup (Cairo and friends), so the launcher's wrapper
+  # exposes them through LD_LIBRARY_PATH.
+  gameLibs = with pkgs; [
+    gcc.cc.lib
+    libGL
+    libGLU
+    libX11
+    libXcursor
+    libXi
+    libXrandr
+    libXxf86vm
+    libxkbcommon
+    libxrender
+    libxext
+    libxau
+    libxdmcp
+    libxcb
+    fontconfig
+    cairo
+    freetype
+    pixman
+    libpng
+    expat
+    brotli
+    bzip2
+    zlib
+  ];
+
+  # The NixOS stub loader at /lib64/ld-linux-x86-64.so.2 refuses to run generic
+  # dynamic executables, so the launcher is pointed at the packaged glibc
+  # loader and rewrites the game's ELF interpreter to it (with patchelf).
+  elfInterpreter = "${pkgs.glibc.out}/lib/ld-linux-x86-64.so.2";
 in
 # buildGoModule provides the Go module cache through vendorHash (a fixed-output
 # derivation), so the build is fully reproducible inside the Nix sandbox. The
@@ -111,6 +151,22 @@ pkgs.buildGoModule {
     install -Dm644 NOTICE $out/share/doc/waxlight/NOTICE
     install -Dm644 README.md $out/share/doc/waxlight/README.md
     runHook postInstall
+  '';
+
+  # Expose the bundled .NET runtime through DOTNET_ROOT and PATH so the
+  # launcher finds it and passes it to the game process, expose the third-party
+  # game's native library dependencies through LD_LIBRARY_PATH, and point the
+  # launcher at the packaged ELF loader plus patchelf for the game binary.
+  preFixup = let
+    libraryPath = lib.makeLibraryPath gameLibs;
+  in ''
+    gappsWrapperArgs+=(
+      --set DOTNET_ROOT ${dotnetRoot}
+      --set WAXLIGHT_ELF_INTERPRETER ${elfInterpreter}
+      --prefix PATH : ${pkgs.patchelf}/bin
+      --prefix PATH : ${dotnetRoot}
+      --prefix LD_LIBRARY_PATH : ${libraryPath}
+    )
   '';
 
   meta = {

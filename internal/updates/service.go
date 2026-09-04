@@ -27,6 +27,10 @@ var externallyManaged string
 // application, so its own update flow must stay off.
 func ManagedExternally() bool { return externallyManaged != "" }
 
+// managedUpdateLog is logged once so frequent update checks (auto-check,
+// channel switches, manual checks) do not spam the log.
+var managedUpdateLog sync.Once
+
 // Service owns launcher update checks, verified downloads, and installation
 // orchestration. All dependencies are immutable at construction; telemetry is
 // strictly best-effort and never affects the update outcome.
@@ -86,7 +90,9 @@ func (service *Service) Check(
 	channel string,
 ) (Update, error) {
 	if ManagedExternally() {
-		slog.Info("launcher self-updates are managed by the system package manager; skipping update check")
+		managedUpdateLog.Do(func() {
+			slog.Info("launcher self-updates are managed by the system package manager; skipping update check")
+		})
 		return Update{
 			InstalledVersion: strings.TrimPrefix(service.currentVersion, "v"),
 			Version:          strings.TrimPrefix(service.currentVersion, "v"),
