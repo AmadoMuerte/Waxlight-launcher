@@ -646,7 +646,7 @@ export function ModsPage() {
             <div
               className={
                 layout === "grid"
-                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4"
+                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4"
                   : "grid grid-cols-1 gap-4"
               }
             >

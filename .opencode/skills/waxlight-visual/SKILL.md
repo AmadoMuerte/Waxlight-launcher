@@ -17,9 +17,18 @@ Use the global headed `playwright` MCP. Do not write browser automation or add b
    - Regular desktop window: 1280x900.
    - Compact desktop window: 800x600.
    - Do not test mobile viewports. Waxlight is a desktop launcher and does not support mobile layouts.
-4. Inspect these routes through the hash router:
-   - `http://localhost:34116/#/dev/ui`
+4. Inspect every registered route at both viewports through the hash router:
+   - `http://localhost:34116/#/library`
+   - `http://localhost:34116/#/mods`
+   - `http://localhost:34116/#/mods/:modId` when catalog data provides a real ID
+   - `http://localhost:34116/#/versions`
    - `http://localhost:34116/#/servers`
+   - `http://localhost:34116/#/news`
+   - `http://localhost:34116/#/operations`
+   - `http://localhost:34116/#/accounts`
+   - `http://localhost:34116/#/statistics`
+   - `http://localhost:34116/#/settings`
+   - `http://localhost:34116/#/dev/ui` in development builds
 5. For each relevant page, use a DOM/accessibility snapshot, inspect console and network errors, and take a screenshot when visual evidence is useful.
 6. Navigate by visible controls first. Use a route URL only when checking a specific page directly.
 7. Browser-mode checks frontend rendering. If the Wails bridge is unavailable in a plain browser, record it as an expected environment limitation, not a product regression. Use the native Wails window for bridge-specific behavior.

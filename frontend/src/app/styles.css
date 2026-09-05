@@ -92,6 +92,48 @@
   }
 }
 
+@media (min-width: 761px) and (max-width: 850px) {
+  .shell {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    width: 72px;
+    align-items: center;
+    padding-inline: 10px;
+  }
+
+  .brand {
+    padding-inline: 0;
+  }
+
+  .brand > div,
+  .sidebarAccountTrigger > span:last-child,
+  .sidebarFoot {
+    display: none;
+  }
+
+  .sidebarContent,
+  .sidebarAccount {
+    width: 100%;
+  }
+
+  .navItem,
+  .sidebarAccountTrigger {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .navItem > span:not(.navPulse) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 700px) {
   .settingRow {
     flex-direction: column;

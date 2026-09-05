@@ -494,7 +494,7 @@ export function LibraryPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
             {visibleInstances.map((instance) => (
               <InstanceCard
                 key={instance.id}

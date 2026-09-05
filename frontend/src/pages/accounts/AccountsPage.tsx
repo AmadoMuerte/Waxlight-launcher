@@ -138,7 +138,7 @@ export function AccountsPage() {
             action={<Button onClick={() => setLoginAccount(null)}>{t("sign_in")}</Button>}
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(360px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
             {accounts.map((account) => (
               <AccountCard
                 key={account.id}

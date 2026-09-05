@@ -381,7 +381,7 @@ export function ServersPage() {
             <section>
               {activeTab === "public" ? (
                 <>
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))] gap-4">
                     {visiblePublicServers.map((server) => {
                       const key = serverKey(server);
                       const occurrence = publicServerKeyCounts.get(key) ?? 0;
@@ -419,7 +419,7 @@ export function ServersPage() {
                   )}
                 </>
               ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))] gap-4">
                   {favorites.map((favorite) => {
                     const catalogServer = catalogByKey.get(serverKey(favorite));
                     const server = catalogServer ?? favoriteAsPublicServer(favorite);
