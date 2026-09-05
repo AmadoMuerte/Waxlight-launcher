@@ -707,6 +707,8 @@
   "privacy_and_telemetry_description": "Styr vad Waxlight får dela. Telemetrin är avstängd som standard och kan aktiveras här.",
   "send_usage_analytics": "Skicka användningsstatistik",
   "telemetry_consent_notice": "Waxlight skickar bara ett slumpmässigt installations-ID, launcher-version, operativsystem, arkitektur och numeriska räknare (instanser, moddar). Aldrig: kontouppgifter, autentiseringstokens, personliga filer, instansnamn, moddlistor eller råa fel.",
+  "discord_rich_presence": "Discord Rich Presence",
+  "discord_rich_presence_description": "Visar din aktuella spelaktivitet i Discord. Discord måste vara igång.",
   "backups": "Säkerhetskopior",
   "backups_description": "Skapa återställningspunkter innan du experimenterar med moddar eller inställningar.",
   "create_snapshot": "Skapa ögonblicksbild",

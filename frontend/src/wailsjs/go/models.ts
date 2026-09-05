@@ -1951,6 +1951,7 @@ export namespace wails {
 	    updateChannel: string;
 	    skippedUpdateVersion: string;
 	    telemetryEnabled: boolean;
+	    richPresenceEnabled: boolean;
 	    automaticSafetySnapshots: boolean;
 	    automaticSnapshotRetention: number;
 	    librarySort: string;
@@ -1971,6 +1972,7 @@ export namespace wails {
 	        this.updateChannel = source["updateChannel"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.telemetryEnabled = source["telemetryEnabled"];
+	        this.richPresenceEnabled = source["richPresenceEnabled"];
 	        this.automaticSafetySnapshots = source["automaticSafetySnapshots"];
 	        this.automaticSnapshotRetention = source["automaticSnapshotRetention"];
 	        this.librarySort = source["librarySort"];

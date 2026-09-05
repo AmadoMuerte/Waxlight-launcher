@@ -18,6 +18,7 @@ const settings: Settings = {
   updateChannel: "stable",
   skippedUpdateVersion: "0.2.0",
   telemetryEnabled: true,
+  richPresenceEnabled: true,
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
@@ -41,6 +42,8 @@ const settingsApi = vi.hoisted(() => ({
   validateDataFolderTarget: vi.fn(),
   moveDataFolder: vi.fn(),
 }));
+
+const presenceSetEnabled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 interface AppShellState {
   launcherVersion: string;
@@ -69,6 +72,10 @@ vi.mock("../../app/stores/app-shell", () => appShell);
 
 vi.mock("../../wailsjs/runtime/runtime", () => ({
   EventsOn: () => () => undefined,
+}));
+
+vi.mock("../../wailsjs/go/wails/PresenceController", () => ({
+  SetEnabled: presenceSetEnabled,
 }));
 
 vi.mock("../../shared/i18n", () => ({
@@ -138,6 +145,32 @@ it("persists the automatic safety backups switch", async () => {
       expect.objectContaining({ automaticSafetySnapshots: false }),
     ),
   );
+});
+
+it("updates Rich Presence only after the setting is persisted", async () => {
+  let finishSave: ((saved: Settings) => void) | undefined;
+  settingsApi.update.mockImplementationOnce(
+    () => new Promise<Settings>((resolve) => (finishSave = resolve)),
+  );
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("switch", { name: "Discord Rich Presence" }));
+
+  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledOnce());
+  expect(presenceSetEnabled).not.toHaveBeenCalled();
+  finishSave?.({ ...settings, richPresenceEnabled: false });
+  await waitFor(() => expect(presenceSetEnabled).toHaveBeenCalledWith(false));
+});
+
+it("does not update Rich Presence when persistence fails", async () => {
+  settingsApi.update.mockRejectedValueOnce(new Error("save failed"));
+  renderPage();
+
+  fireEvent.click(await screen.findByRole("switch", { name: "Discord Rich Presence" }));
+
+  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledOnce());
+  await waitFor(() => expect(useToastStore.getState().notify).toHaveBeenCalled());
+  expect(presenceSetEnabled).not.toHaveBeenCalled();
 });
 
 it("stores a manually selected Optimum installation", async () => {

@@ -64,6 +64,7 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		OptimumPath:     request.OptimumPath,
 		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
 		SkippedUpdateVersion: request.SkippedUpdateVersion, TelemetryEnabled: request.TelemetryEnabled,
+		RichPresenceEnabled:        request.RichPresenceEnabled,
 		AutomaticSafetySnapshots:   request.AutomaticSafetySnapshots,
 		AutomaticSnapshotRetention: request.AutomaticSnapshotRetention,
 		LibrarySort:                request.LibrarySort,

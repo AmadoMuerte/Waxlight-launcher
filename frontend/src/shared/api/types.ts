@@ -480,6 +480,7 @@ export interface Settings {
   updateChannel: "stable" | "prerelease";
   skippedUpdateVersion: string;
   telemetryEnabled: boolean;
+  richPresenceEnabled: boolean;
   automaticSafetySnapshots: boolean;
   automaticSnapshotRetention: number;
   librarySort: LibrarySort;

@@ -50,6 +50,7 @@ import { SettingRow } from "../../shared/ui/setting-row";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { Stepper } from "../../shared/ui/stepper";
 import { Switch } from "../../shared/ui/switch";
+import { SetEnabled as presenceSetEnabled } from "../../wailsjs/go/wails/PresenceController";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 const autosaveDelayMs = 400;
@@ -75,6 +76,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
     left.telemetryEnabled === right.telemetryEnabled &&
+    left.richPresenceEnabled === right.richPresenceEnabled &&
     left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
     left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
     left.librarySort === right.librarySort &&
@@ -140,6 +142,7 @@ export function SettingsPage() {
       language: normalizeLanguage(value.language),
       globalLaunchArguments: [...value.globalLaunchArguments],
     };
+    const persistedPresenceEnabled = persisted.richPresenceEnabled;
     const revision = ++revisionRef.current;
     const timer = window.setTimeout(() => {
       async function persist() {
@@ -148,8 +151,12 @@ export function SettingsPage() {
         }
 
         try {
+          const presenceChanged = next.richPresenceEnabled !== persistedPresenceEnabled;
           const saved = await settingsApi.update(next);
           persistedRef.current = saved;
+          if (presenceChanged) {
+            void presenceSetEnabled(saved.richPresenceEnabled).catch(() => undefined);
+          }
           if (revision !== revisionRef.current) {
             return;
           }
@@ -780,6 +787,19 @@ export function SettingsPage() {
                     label={t("send_usage_analytics")}
                     checked={value.telemetryEnabled}
                     onCheckedChange={(telemetryEnabled) => setValue({ ...value, telemetryEnabled })}
+                  />
+                </SettingRow>
+
+                <SettingRow
+                  title={t("discord_rich_presence")}
+                  description={t("discord_rich_presence_description")}
+                >
+                  <Switch
+                    label={t("discord_rich_presence")}
+                    checked={value.richPresenceEnabled}
+                    onCheckedChange={(richPresenceEnabled) =>
+                      setValue({ ...value, richPresenceEnabled })
+                    }
                   />
                 </SettingRow>
               </Card>

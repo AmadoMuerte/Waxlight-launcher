@@ -683,6 +683,8 @@
   "privacy_and_telemetry_description": "Control what Waxlight may share. Telemetry is disabled by default and can be enabled here.",
   "send_usage_analytics": "Send usage analytics",
   "telemetry_consent_notice": "Waxlight sends only a random installation ID, launcher version, operating system, architecture, and numeric counts (instances, mods). Never account credentials, authentication tokens, personal files, instance names, mod lists, or raw errors.",
+  "discord_rich_presence": "Discord Rich Presence",
+  "discord_rich_presence_description": "Show your current game activity in Discord. Requires Discord to be running.",
   "default_instance_name": "Instance",
   "import_waiting_for_game_download": "The instance will be available once the game version finishes downloading.",
   "open_logs_directory": "Open logs folder",

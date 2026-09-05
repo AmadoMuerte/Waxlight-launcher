@@ -23,6 +23,7 @@ import (
 	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/credentials"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/dataroot"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/discord"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/dotnet"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/downloader"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
@@ -43,6 +44,7 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/updater"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/versionfs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/vintagestory"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/presence"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/publishers"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/servers"
@@ -73,6 +75,7 @@ type Container struct {
 	modsCatalog    *mods.CatalogService
 	store          *sqlite.SQLiteStore
 	telemetry      *telemetry.Service
+	presence       *presence.Service
 }
 
 // New constructs the container at the OS configuration directory.
@@ -188,6 +191,13 @@ func NewWithHome(home string) (*Container, error) {
 		store,
 		lifecycle,
 	)
+	presenceService := presence.NewService(settingsReader, func(appID string) presence.Client {
+		client := discord.Dial(appID)
+		if client == nil {
+			return nil
+		}
+		return discordPresenceClient{client: client}
+	})
 	instanceCreator := instances.NewCreateService(
 		store,
 		versionService,
@@ -364,6 +374,7 @@ func NewWithHome(home string) (*Container, error) {
 		recoveryService,
 		lifecycle,
 		operationManager,
+		presenceService,
 		time.Now,
 		newVersionID,
 	)
@@ -527,6 +538,7 @@ func NewWithHome(home string) (*Container, error) {
 			nativefs.Opener{},
 		),
 		wailstransport.NewLauncherUpdateController(updateService, lifecycle, eventPublisher),
+		wailstransport.NewPresenceController(presenceService, lifecycle),
 	}
 
 	return &Container{
@@ -541,6 +553,7 @@ func NewWithHome(home string) (*Container, error) {
 		modsCatalog:    modsCatalogService,
 		store:          store,
 		telemetry:      telemetryService,
+		presence:       presenceService,
 	}, nil
 }
 
@@ -620,6 +633,7 @@ func (container *Container) Startup(ctx context.Context) {
 	// Older cache entries may lack catalog tags; persist them once here so the
 	// read paths stay read-only.
 	container.Lifecycle.Go(func(ctx context.Context) { container.modsCatalog.BackfillDownloadedModTags(ctx) })
+	container.presence.Connect(container.Lifecycle.Context())
 	container.telemetryHeartbeat()
 }
 
@@ -635,6 +649,7 @@ func (container *Container) telemetryHeartbeat() {
 // closes the shared store deterministically.
 func (container *Container) Shutdown(context.Context) {
 	logging.SetEmitter(nil)
+	container.presence.Close()
 	container.Lifecycle.Shutdown()
 	// A game still running past the startup window when the launcher shuts
 	// down is evidence its configuration works; record it before the database

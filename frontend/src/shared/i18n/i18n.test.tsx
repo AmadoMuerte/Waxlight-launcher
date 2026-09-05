@@ -34,6 +34,7 @@ const settings: Settings = {
   updateChannel: "stable",
   skippedUpdateVersion: "",
   telemetryEnabled: false,
+  richPresenceEnabled: true,
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",

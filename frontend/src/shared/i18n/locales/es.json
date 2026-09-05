@@ -707,6 +707,8 @@
   "privacy_and_telemetry_description": "Controla lo que Waxlight puede compartir. La telemetría está desactivada por defecto y puede activarse aquí.",
   "send_usage_analytics": "Enviar estadísticas de uso",
   "telemetry_consent_notice": "Waxlight solo envía un identificador de instalación aleatorio, la versión del launcher, el sistema operativo, la arquitectura y contadores numéricos (instancias, mods). Nunca: credenciales de cuenta, tokens de autenticación, archivos personales, nombres de instancias, listas de mods ni errores sin procesar.",
+  "discord_rich_presence": "Discord Rich Presence",
+  "discord_rich_presence_description": "Muestra tu actividad de juego actual en Discord. Discord debe estar abierto.",
   "backups": "Copias de seguridad",
   "backups_description": "Crea puntos de restauración antes de experimentar con mods o configuración.",
   "create_snapshot": "Crear instantánea",
