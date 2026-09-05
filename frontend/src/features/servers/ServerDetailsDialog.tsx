@@ -185,7 +185,7 @@ export function ServerDetailsContent({
       {mods.length ? (
         <div>
           <h3 className="mb-2 font-display text-lg font-semibold">{t("mods")}</h3>
-          <ul className="grid gap-1 text-sm text-text-secondary">
+          <ul className="grid max-h-64 gap-1 overflow-y-auto pr-2 text-sm text-text-secondary">
             {mods.map((mod) => (
               <li key={`${mod.name}\u0000${mod.version}\u0000${mod.url}`}>
                 <button
