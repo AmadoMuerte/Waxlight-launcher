@@ -312,7 +312,7 @@ export function ServersPage() {
         >
           {activeTab === "public" && (
             <Toolbar className="flex-wrap gap-3">
-              <ToolbarGroup className="min-w-[240px] flex-1">
+              <ToolbarGroup className="min-w-[calc(240px*var(--ui-scale))] flex-1">
                 <SearchInput
                   wrapperClassName="w-full max-w-md"
                   aria-label={t("search_servers")}
@@ -381,7 +381,7 @@ export function ServersPage() {
             <section>
               {activeTab === "public" ? (
                 <>
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(260px*var(--ui-scale)),100%),1fr))] gap-4">
                     {visiblePublicServers.map((server) => {
                       const key = serverKey(server);
                       const occurrence = publicServerKeyCounts.get(key) ?? 0;
@@ -419,7 +419,7 @@ export function ServersPage() {
                   )}
                 </>
               ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(260px*var(--ui-scale)),100%),1fr))] gap-4">
                   {favorites.map((favorite) => {
                     const catalogServer = catalogByKey.get(serverKey(favorite));
                     const server = catalogServer ?? favoriteAsPublicServer(favorite);

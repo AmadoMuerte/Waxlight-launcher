@@ -40,26 +40,43 @@ export function AccountSwitcher() {
           {(defaultAccount?.displayName ?? "?").slice(0, 1).toUpperCase()}
         </span>
         <span className="min-w-0 text-left">
-          <small className="block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] tracking-wider text-text-disabled uppercase">
+          <small
+            className="block overflow-hidden text-ellipsis whitespace-nowrap tracking-wider text-text-disabled uppercase"
+            style={{ fontSize: "var(--fs-eyebrow)" }}
+          >
             {t("account")}
           </small>
-          <strong className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-text-primary">
+          <strong
+            className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-text-primary"
+            style={{ fontSize: "var(--fs-small)" }}
+          >
             {defaultAccount?.displayName ?? t("account_not_selected")}
           </strong>
         </span>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent side="bottom" align="start" sideOffset={7} className="w-[240px]">
+      <DropdownMenuContent
+        side="bottom"
+        align="start"
+        sideOffset={7}
+        className="w-[calc(240px*var(--ui-scale))]"
+      >
         {accounts.map((account) => (
           <DropdownMenuItem key={account.id} onSelect={() => void handleSelect(account)}>
             <span className="grid w-3.5 shrink-0 place-items-center text-accent">
               {account.isDefault && <Check size={13} strokeWidth={3} aria-hidden="true" />}
             </span>
             <span className="min-w-0">
-              <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-text-primary">
+              <strong
+                className="block overflow-hidden text-ellipsis whitespace-nowrap text-text-primary"
+                style={{ fontSize: "var(--fs-small)" }}
+              >
                 {account.displayName}
               </strong>
-              <small className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-text-muted">
+              <small
+                className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-text-muted"
+                style={{ fontSize: "var(--fs-label)" }}
+              >
                 {account.email}
               </small>
             </span>

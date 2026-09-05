@@ -268,7 +268,7 @@ function LanguageSelectRow() {
   const [language, setLanguage] = useState("en");
   return (
     <Select value={language} onValueChange={setLanguage}>
-      <SelectTrigger className="w-[220px]">
+      <SelectTrigger className="w-[calc(220px*var(--ui-scale))]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -304,7 +304,7 @@ export function UiLabPage() {
                 <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">
                   {group}
                 </h3>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(150px*var(--ui-scale)),1fr))] gap-3">
                   {colors.map(([label, token]) => (
                     <div
                       key={token}
@@ -313,7 +313,9 @@ export function UiLabPage() {
                       <div className="h-14" style={{ background: `var(${token})` }} />
                       <div className="bg-surface-1 px-3 py-2">
                         <strong className="block text-xs">{label}</strong>
-                        <code className="text-[11px] text-text-muted">{token}</code>
+                        <code className="text-[length:var(--fs-label)] text-text-muted">
+                          {token}
+                        </code>
                       </div>
                     </div>
                   ))}
@@ -344,7 +346,7 @@ export function UiLabPage() {
               actions={<Button variant="secondary">Section action</Button>}
             />
             <Toolbar>
-              <ToolbarGroup className="min-w-[240px] flex-1">
+              <ToolbarGroup className="min-w-[calc(240px*var(--ui-scale))] flex-1">
                 <SearchInput
                   wrapperClassName="w-full max-w-sm"
                   aria-label="Toolbar search"
@@ -482,7 +484,7 @@ export function UiLabPage() {
         </Section>
 
         <Section title="Cover art placeholders">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(180px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(180px*var(--ui-scale)),100%),1fr))] gap-4">
             {["A Warm Home", "Player Corpse", "Better Ruins", "Snowbound", "123", "Терра"].map(
               (name) => (
                 <CoverArt key={name} className="aspect-[16/9] rounded-md" seed={name} alt={name} />
@@ -511,7 +513,7 @@ export function UiLabPage() {
         </Section>
 
         <Section title="Domain patterns">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(300px*var(--ui-scale)),100%),1fr))] gap-4">
             <InstanceCard
               instance={mockInstance}
               version={mockVersion}
@@ -548,7 +550,7 @@ export function UiLabPage() {
         </Section>
 
         <Section title="Mod cards">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(300px*var(--ui-scale)),100%),1fr))] gap-4">
             <ModCard mod={mockMod} layout="grid" {...modCardHandlers} />
             <ModCard
               mod={{
@@ -629,7 +631,7 @@ export function UiLabPage() {
 
         <Section title="Server cards">
           <TooltipProvider>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(280px*var(--ui-scale)),100%),1fr))] gap-4">
               <ServerCard server={mockPublicServer} {...serverCardHandlers} />
               <ServerCard
                 server={mockPublicServer}
@@ -821,7 +823,7 @@ export function UiLabPage() {
         </Section>
 
         <Section title="Stat cards">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(220px*var(--ui-scale)),100%),1fr))] gap-4">
             <StatCard
               icon={Clock}
               label="Total playtime"
@@ -913,7 +915,7 @@ export function UiLabPage() {
         </Section>
 
         <Section title="Account cards">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(300px*var(--ui-scale)),100%),1fr))] gap-4">
             <AccountCard account={mockAccount} {...accountCardHandlers} />
             <AccountCard
               account={{

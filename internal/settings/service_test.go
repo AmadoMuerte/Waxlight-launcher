@@ -119,6 +119,21 @@ func TestServiceRejectsInvalidAutomaticSnapshotRetention(t *testing.T) {
 	}
 }
 
+func TestServiceRejectsInvalidUIScale(t *testing.T) {
+	repository := &memoryRepository{value: Defaults()}
+	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	for _, scale := range []float64{0.74, 1.51} {
+		value := Defaults()
+		value.UIScale = scale
+		if _, err := service.Update(context.Background(), value); err == nil {
+			t.Fatalf("ui scale %g was accepted", scale)
+		}
+	}
+	if repository.saves != 0 {
+		t.Fatalf("invalid ui scale was persisted %d times", repository.saves)
+	}
+}
+
 var errBusy = &testError{"busy"}
 
 type testError struct{ message string }

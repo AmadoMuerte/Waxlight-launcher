@@ -28,8 +28,10 @@ directory:
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 cd cmd/waxlight
-wails dev
+wails dev -browser -devserver localhost:34116
 ```
+
+The Wails dev server runs at http://localhost:34116 with the full backend bridge. Port 34115 is only the Vite frontend — do not open it directly, or the backend will be unavailable.
 
 ## Before opening a pull request
 

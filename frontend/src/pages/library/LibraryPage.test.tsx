@@ -94,6 +94,7 @@ const settings: Settings = {
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
+  uiScale: 1,
 };
 
 function instance(id: string, name: string, overrides: Partial<Instance> = {}): Instance {

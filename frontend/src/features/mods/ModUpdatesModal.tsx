@@ -279,12 +279,12 @@ function ModUpdateRow({
       {(!compatible || mod.prerelease) && (
         <div className="mt-2 flex flex-wrap gap-2">
           {!compatible && (
-            <span className="rounded-full border border-danger-border bg-danger-surface px-2 py-0.5 text-[11px] font-semibold text-danger-foreground">
+            <span className="rounded-full border border-danger-border bg-danger-surface px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-danger-foreground">
               {t("update_incompatible_with", { version: gameVersion })}
             </span>
           )}
           {mod.prerelease && (
-            <span className="rounded-full border border-border-default bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+            <span className="rounded-full border border-border-default bg-surface-3 px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-text-secondary">
               {t("mod_update_prerelease")}
             </span>
           )}

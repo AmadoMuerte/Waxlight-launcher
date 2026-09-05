@@ -34,12 +34,14 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
         aria-hidden="true"
       />
       <span className="min-w-0 flex-1">
-        <strong className="block text-[13px] text-text-primary">{notification.title}</strong>
+        <strong className="block text-[length:var(--fs-body)] text-text-primary">
+          {notification.title}
+        </strong>
         <span className="mt-0.5 block text-xs leading-5 text-text-muted">
           {notification.message}
         </span>
         {notification.action && (
-          <span className="mt-1 block text-[11px] font-semibold text-accent">
+          <span className="mt-1 block text-[length:var(--fs-label)] font-semibold text-accent">
             {notification.action.label}
           </span>
         )}

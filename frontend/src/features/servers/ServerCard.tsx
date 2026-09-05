@@ -141,7 +141,7 @@ export const ServerCard = memo(function ServerCard({
               {server.name}
             </h3>
             <p
-              className="mt-1 truncate font-mono text-[11px] text-text-muted"
+              className="mt-1 truncate font-mono text-[length:var(--fs-label)] text-text-muted"
               title={server.address}
             >
               {server.address || t("server_address")}

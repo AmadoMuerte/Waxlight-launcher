@@ -21,6 +21,7 @@ const settings: Settings = {
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
+  uiScale: 1,
 };
 
 const settingsQuery = vi.hoisted(() => ({

@@ -88,7 +88,7 @@ export const InstanceCard = memo(function InstanceCard({
           </div>
           {updateCount > 0 && (
             <span
-              className="absolute right-3 bottom-3 max-w-[calc(100%-24px)] truncate rounded-full border border-border-default bg-surface-2/95 px-2 py-1 text-[11px] font-bold text-warning"
+              className="absolute right-3 bottom-3 max-w-[calc(100%-24px)] truncate rounded-full border border-border-default bg-surface-2/95 px-2 py-1 text-[length:var(--fs-label)] font-bold text-warning"
               title={t("mod_updates_available", { count: updateCount })}
             >
               {t("mod_updates_available", { count: updateCount })}

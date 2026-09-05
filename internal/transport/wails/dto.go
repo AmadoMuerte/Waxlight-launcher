@@ -394,6 +394,7 @@ type SettingsDTO struct {
 	AutomaticSafetySnapshots   bool     `json:"automaticSafetySnapshots"`
 	AutomaticSnapshotRetention int      `json:"automaticSnapshotRetention"`
 	LibrarySort                string   `json:"librarySort"`
+	UIScale                    float64  `json:"uiScale"`
 }
 
 func settingsDTO(settings settings.Settings) SettingsDTO {
@@ -415,6 +416,7 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 		AutomaticSafetySnapshots:   settings.AutomaticSafetySnapshots,
 		AutomaticSnapshotRetention: settings.AutomaticSnapshotRetention,
 		LibrarySort:                settings.LibrarySort,
+		UIScale:                    settings.UIScale,
 	}
 }
 
