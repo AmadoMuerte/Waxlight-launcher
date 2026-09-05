@@ -285,7 +285,7 @@ export function InstancePickerDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <div className="pb-1 text-right text-[13px] leading-5 text-text-secondary">
+            <div className="pb-1 text-right text-[length:var(--fs-body)] leading-5 text-text-secondary">
               <span>
                 {release && release.gameVersions.length > 0
                   ? formatGameVersions(release.gameVersions)
@@ -417,7 +417,7 @@ export function InstancePickerDialog({
               aria-label={t("download_progress_header")}
             />
           </div>
-          <p className="text-[13px] text-text-muted">
+          <p className="text-[length:var(--fs-body)] text-text-muted">
             {progress?.totalBytes
               ? t("download_progress", {
                   downloaded: formatBytes(progress.downloadedBytes),
@@ -449,7 +449,7 @@ export function InstancePickerDialog({
               {result.installations.map((item) => (
                 <div
                   key={item.instanceId}
-                  className="flex justify-between gap-3 py-2.5 text-[13px]"
+                  className="flex justify-between gap-3 py-2.5 text-[length:var(--fs-body)]"
                 >
                   <strong>{item.instanceName}</strong>
                   <span className={item.installed ? "text-success" : "text-danger"}>
@@ -461,7 +461,7 @@ export function InstancePickerDialog({
           )}
           {downloadedDependencies.length > 0 && (
             <div className="w-[min(460px,100%)] divide-y divide-border-subtle">
-              <div className="flex justify-between gap-3 py-2.5 text-[13px]">
+              <div className="flex justify-between gap-3 py-2.5 text-[length:var(--fs-body)]">
                 <strong>
                   {t("required_dependencies_downloaded", {
                     count: downloadedDependencies.length,
@@ -474,7 +474,7 @@ export function InstancePickerDialog({
               {downloadedDependencies.map((dependency) => (
                 <div
                   key={`${dependency.modId}:${dependency.version}`}
-                  className="flex justify-between gap-3 py-2.5 text-[13px]"
+                  className="flex justify-between gap-3 py-2.5 text-[length:var(--fs-body)]"
                 >
                   <strong>{dependency.name}</strong>
                   <span className="text-text-muted">{dependency.version}</span>

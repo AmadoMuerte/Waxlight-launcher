@@ -24,3 +24,11 @@ func (service *CatalogService) List(ctx context.Context) ([]PublicServer, error)
 	}
 	return service.catalog.List(ctx)
 }
+
+// Get returns the full public details for one catalog server.
+func (service *CatalogService) Get(ctx context.Context, id string) (PublicServer, error) {
+	if service.catalog == nil {
+		return PublicServer{}, errs.NewError(errs.ErrValidation, "Public server catalog is unavailable")
+	}
+	return service.catalog.Get(ctx, id)
+}

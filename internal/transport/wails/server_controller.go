@@ -38,14 +38,35 @@ type FavoriteServerDTO struct {
 
 // PublicServerDTO describes a catalog server and whether the current client can join it.
 type PublicServerDTO struct {
-	Name              string `json:"name"`
-	Address           string `json:"address"`
-	Description       string `json:"description"`
-	Players           int    `json:"players"`
-	ModCount          int    `json:"modCount"`
-	RequiresWhitelist bool   `json:"requiresWhitelist"`
-	AccessRestricted  bool   `json:"accessRestricted"`
-	Joinable          bool   `json:"joinable"`
+	ID                string         `json:"id"`
+	URL               string         `json:"url"`
+	Name              string         `json:"name"`
+	Address           string         `json:"address"`
+	Description       string         `json:"description"`
+	FullDescription   string         `json:"fullDescription"`
+	DescriptionHTML   string         `json:"descriptionHtml"`
+	ImageURL          string         `json:"imageUrl"`
+	BannerURL         string         `json:"bannerUrl"`
+	GameVersion       string         `json:"gameVersion"`
+	Players           int            `json:"players"`
+	MaxPlayers        int            `json:"maxPlayers"`
+	ModCount          int            `json:"modCount"`
+	Location          string         `json:"location"`
+	Languages         []string       `json:"languages"`
+	Operator          string         `json:"operator"`
+	OperatorURL       string         `json:"operatorUrl"`
+	Modified          bool           `json:"modified"`
+	RequiresWhitelist bool           `json:"requiresWhitelist"`
+	AccessRestricted  bool           `json:"accessRestricted"`
+	Joinable          bool           `json:"joinable"`
+	Mods              []ServerModDTO `json:"mods"`
+}
+
+// ServerModDTO describes a mod reported by a server detail page.
+type ServerModDTO struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	URL     string `json:"url"`
 }
 
 // ListFavoriteServers returns the multiplayer servers saved by the user.
@@ -74,6 +95,15 @@ func (controller *ServerController) ListPublicServers() ([]PublicServerDTO, erro
 	return result, nil
 }
 
+// GetPublicServer returns the full public details for one catalog server.
+func (controller *ServerController) GetPublicServer(id string) (PublicServerDTO, error) {
+	server, err := controller.catalog.Get(controller.lifecycle.Context(), id)
+	if err != nil {
+		return PublicServerDTO{}, err
+	}
+	return publicServerDTO(server), nil
+}
+
 // SaveFavoriteServer creates or updates a favorite server and its optional instance association.
 func (controller *ServerController) SaveFavoriteServer(request SaveFavoriteServerRequest) (FavoriteServerDTO, error) {
 	server, err := controller.favorites.Save(controller.lifecycle.Context(), servers.SaveInput{
@@ -93,9 +123,26 @@ func favoriteServerDTO(server servers.FavoriteServer) FavoriteServerDTO {
 
 func publicServerDTO(server servers.PublicServer) PublicServerDTO {
 	return PublicServerDTO{
+		ID:   server.ID,
+		URL:  server.URL,
 		Name: server.Name, Address: server.Address, Description: server.Description,
-		Players: server.Players, ModCount: server.ModCount,
+		FullDescription: server.FullDescription, DescriptionHTML: server.DescriptionHTML,
+		ImageURL: server.ImageURL, BannerURL: server.BannerURL, GameVersion: server.GameVersion,
+		Players: server.Players, MaxPlayers: server.MaxPlayers, ModCount: server.ModCount,
+		Location: server.Location, Languages: append([]string(nil), server.Languages...),
+		Operator: server.Operator, OperatorURL: server.OperatorURL, Modified: server.Modified,
 		RequiresWhitelist: server.RequiresWhitelist, AccessRestricted: server.PasswordProtected,
-		Joinable: server.Joinable,
+		Joinable: server.Joinable, Mods: serverModsDTO(server.Mods),
 	}
+}
+
+func serverModsDTO(items []servers.ServerMod) []ServerModDTO {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]ServerModDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, ServerModDTO{Name: item.Name, Version: item.Version, URL: item.URL})
+	}
+	return result
 }

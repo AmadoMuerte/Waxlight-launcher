@@ -6,6 +6,10 @@ export function DeleteFavoriteServer(arg1) {
   return window['go']['wails']['ServerController']['DeleteFavoriteServer'](arg1);
 }
 
+export function GetPublicServer(arg1) {
+  return window['go']['wails']['ServerController']['GetPublicServer'](arg1);
+}
+
 export function ListFavoriteServers() {
   return window['go']['wails']['ServerController']['ListFavoriteServers']();
 }

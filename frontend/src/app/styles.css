@@ -19,12 +19,15 @@
 @import "./styles/domain.css";
 @media (max-width: 1100px) {
   .appMain {
-    padding-inline: 28px;
+    padding-inline: calc(28px * var(--ui-scale));
   }
 
   .tableHead,
   .tableRow {
-    grid-template-columns: minmax(140px, 1.5fr) minmax(110px, 0.9fr) minmax(90px, 0.7fr) 160px;
+    grid-template-columns: minmax(calc(140px * var(--ui-scale)), 1.5fr) minmax(
+        calc(110px * var(--ui-scale)),
+        0.9fr
+      ) minmax(calc(90px * var(--ui-scale)), 0.7fr) calc(160px * var(--ui-scale));
   }
 
   .tableHead > :nth-child(4),
@@ -40,7 +43,7 @@
 
   .settingsLayout {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: calc(20px * var(--ui-scale));
   }
 
   .settingsNav {
@@ -55,15 +58,15 @@
   }
 
   .shell {
-    grid-template-columns: 184px minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
   }
 
   .sidebar {
-    width: 184px;
+    width: var(--sidebar-w-compact);
   }
 
   .appMain {
-    padding-inline: 22px;
+    padding-inline: calc(22px * var(--ui-scale));
   }
 
   .pageHeader {
@@ -92,11 +95,53 @@
   }
 }
 
+@media (min-width: 761px) and (max-width: 850px) {
+  .shell {
+    grid-template-columns: var(--sidebar-w-icon) minmax(0, 1fr);
+  }
+
+  .sidebar {
+    width: var(--sidebar-w-icon);
+    align-items: center;
+    padding-inline: calc(10px * var(--ui-scale));
+  }
+
+  .brand {
+    padding-inline: 0;
+  }
+
+  .brand > div,
+  .sidebarAccountTrigger > span:last-child,
+  .sidebarFoot {
+    display: none;
+  }
+
+  .sidebarContent,
+  .sidebarAccount {
+    width: 100%;
+  }
+
+  .navItem,
+  .sidebarAccountTrigger {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .navItem > span:not(.navPulse) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 700px) {
   .settingRow {
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: calc(14px * var(--ui-scale));
   }
 
   .settingRowControl {
@@ -117,12 +162,12 @@
     position: relative;
     width: 100%;
     height: auto;
-    padding: 14px;
+    padding: var(--space-md);
     border-right: 0;
     border-bottom: 1px solid var(--color-surface-3);
   }
   .brand {
-    padding: 0 4px 12px;
+    padding: 0 calc(4px * var(--ui-scale)) calc(12px * var(--ui-scale));
   }
   .sideNav {
     flex-direction: row;
@@ -130,7 +175,7 @@
   }
   .navItem {
     flex: 0 0 auto;
-    padding: 9px 11px;
+    padding: var(--space-sm) calc(11px * var(--ui-scale));
   }
   .navItemIcon {
     display: none;
@@ -141,25 +186,25 @@
   .appMain {
     width: 100%;
     height: auto;
-    padding: 24px 16px 60px;
+    padding: calc(24px * var(--ui-scale)) calc(16px * var(--ui-scale)) calc(60px * var(--ui-scale));
   }
   .appActions {
-    top: 18px;
-    right: 18px;
+    top: calc(18px * var(--ui-scale));
+    right: calc(18px * var(--ui-scale));
   }
   .pageHeader {
-    gap: 16px;
+    gap: calc(16px * var(--ui-scale));
   }
   .pageHeader h1 {
-    font-size: 36px;
+    font-size: calc(36px * var(--ui-scale));
   }
   .versionTable .tableHead {
     display: none;
   }
   .versionTable .tableRow {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 16px;
+    gap: var(--space-md);
+    padding: var(--space-lg);
   }
   .versionTable .tableRow > :nth-child(2),
   .versionTable .tableRow > :nth-child(3),
@@ -168,8 +213,8 @@
   }
   .versionRow {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 16px;
+    gap: var(--space-md);
+    padding: var(--space-lg);
   }
   .versionRow > .status {
     grid-column: 1;
@@ -186,7 +231,7 @@
   }
   .modalBody,
   .instanceTabBody {
-    padding: 20px;
+    padding: calc(20px * var(--ui-scale));
   }
   .formRow {
     grid-template-columns: 1fr;
@@ -203,16 +248,16 @@
     flex-wrap: wrap;
   }
   .installedModRow {
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: calc(42px * var(--ui-scale)) minmax(0, 1fr);
   }
   .modsTab .installedModRow {
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: calc(34px * var(--ui-scale)) minmax(0, 1fr);
   }
   .installedModControls {
     flex-wrap: wrap;
   }
   .installedModControls .installedModVersion {
-    width: min(180px, 100%);
+    width: min(calc(180px * var(--ui-scale)), 100%);
   }
   .modRowActions {
     grid-column: 1 / -1;
@@ -228,7 +273,7 @@
     align-self: flex-start;
   }
   .settingsFooter {
-    padding: 16px 20px;
+    padding: var(--space-lg) calc(20px * var(--ui-scale));
   }
 }
 

@@ -51,7 +51,7 @@ export function ServerJoinDialog({
           </p>
         )}
         {server.accessRestricted && (
-          <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] leading-5 text-warning">
+          <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[length:var(--fs-body)] leading-5 text-warning">
             {t("server_password_enter_in_game")}
           </p>
         )}

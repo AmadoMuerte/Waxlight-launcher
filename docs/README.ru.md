@@ -82,8 +82,10 @@ cd Waxlight-launcher
 npm ci --include=dev --prefix frontend
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 cd cmd/waxlight
-wails dev
+wails dev -browser -devserver localhost:34116
 ```
+
+Dev-сервер Wails работает по адресу http://localhost:34116 и содержит полную интеграцию с бэкендом. Порт 34115 — только Vite-фронтенд; не открывайте его напрямую, иначе бэкенд будет недоступен.
 
 Production-сборка из корня репозитория:
 

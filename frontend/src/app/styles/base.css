@@ -7,6 +7,10 @@
     font-synthesis: none;
   }
 
+  html {
+    font-size: calc(16px * var(--ui-scale));
+  }
+
   * {
     box-sizing: border-box;
     scrollbar-color: var(--color-text-disabled) var(--color-surface-1);
@@ -24,7 +28,7 @@
     background:
       radial-gradient(circle at 70% -20%, #26180c 0, transparent 32%), var(--color-bg-app);
     color: var(--color-text-primary);
-    font-size: 14px;
+    font-size: var(--fs-input);
     line-height: 1.5;
   }
 
@@ -41,7 +45,7 @@
 
   .shell {
     display: grid;
-    grid-template-columns: 224px minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
     height: 100vh;
     min-height: 100vh;
     overflow: hidden;
@@ -54,8 +58,8 @@
     inset: 0 auto 0 0;
     display: flex;
     flex-direction: column;
-    width: 224px;
-    padding: 28px 16px 22px;
+    width: var(--sidebar-w);
+    padding: var(--sidebar-py) var(--sidebar-px) calc(22px * var(--ui-scale));
     border-right: 1px solid var(--color-border-subtle);
     background: var(--color-bg-sidebar);
     backdrop-filter: blur(18px);
@@ -70,8 +74,8 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 10px 36px;
+    gap: var(--space-md);
+    padding: 0 calc(10px * var(--ui-scale)) calc(36px * var(--ui-scale));
   }
 
   .brand strong,
@@ -81,27 +85,27 @@
 
   .brand strong {
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: var(--fs-heading-lg);
     letter-spacing: 0.2px;
   }
 
   .brand span {
-    margin-top: -2px;
+    margin-top: calc(-2px * var(--ui-scale));
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--fs-xs);
     letter-spacing: 3.4px;
   }
 
   .brand-icon {
-    width: 55px;
-    height: 55px;
+    width: var(--size-brand-icon);
+    height: var(--size-brand-icon);
     border-radius: var(--radius-lg);
   }
 
   .sideNav {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: calc(5px * var(--ui-scale));
   }
 
   .navItem {
@@ -110,11 +114,11 @@
     align-items: center;
     gap: var(--space-md);
     min-width: 0;
-    padding: 11px 13px;
+    padding: var(--space-sm) var(--space-md);
     overflow: hidden;
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 600;
     text-decoration: none;
     text-overflow: ellipsis;
@@ -147,17 +151,17 @@
   }
 
   .navItemIcon {
-    flex: 0 0 21px;
-    width: 21px;
+    flex: 0 0 var(--size-icon);
+    width: var(--size-icon);
     color: currentcolor;
   }
 
   .miniAvatar {
     display: grid;
-    flex: 0 0 28px;
+    flex: 0 0 var(--size-avatar);
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: var(--size-avatar);
+    height: var(--size-avatar);
     border-radius: 50%;
     color: var(--color-accent-hover);
     background: var(--color-accent-muted);
@@ -166,9 +170,9 @@
 
   .navPulse {
     position: absolute;
-    right: 12px;
-    width: 7px;
-    height: 7px;
+    right: calc(12px * var(--ui-scale));
+    width: calc(7px * var(--ui-scale));
+    height: calc(7px * var(--ui-scale));
     border-radius: 50%;
     background: var(--color-accent);
     box-shadow: 0 0 8px var(--color-accent);
@@ -182,8 +186,8 @@
     display: flex;
     width: 100%;
     align-items: center;
-    gap: 10px;
-    padding: 10px;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     outline: 0;
@@ -207,7 +211,7 @@
 
   .sidebarFoot {
     margin-top: auto;
-    padding: 20px 0 0;
+    padding: calc(20px * var(--ui-scale)) 0 0;
     border-top: 1px solid var(--color-border-subtle);
   }
 
@@ -215,15 +219,15 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 9px;
-    min-height: 48px;
-    padding: 6px 10px;
+    gap: calc(9px * var(--ui-scale));
+    min-height: calc(48px * var(--ui-scale));
+    padding: var(--space-sm) calc(10px * var(--ui-scale));
     overflow: hidden;
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
     color: var(--color-text-primary);
     background: var(--color-surface-ghost-hover);
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 700;
     text-decoration: none;
     transition:
@@ -245,29 +249,29 @@
 
   .discordLinkIcon {
     display: grid;
-    flex: 0 0 28px;
+    flex: 0 0 var(--size-avatar);
     place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: var(--size-avatar);
+    height: var(--size-avatar);
+    border-radius: var(--radius-sm);
     color: #fff;
     background: #5865f2;
     box-shadow: 0 0 14px #5865f250;
   }
 
   .discordLinkIcon svg {
-    width: 19px;
-    height: 19px;
+    width: calc(19px * var(--ui-scale));
+    height: calc(19px * var(--ui-scale));
     fill: currentColor;
   }
 
   .appMain {
     grid-column: 2;
     width: 100%;
-    max-width: 1560px;
+    max-width: calc(1560px * var(--ui-scale));
     height: 100vh;
     min-width: 0;
-    padding: 48px clamp(28px, 5vw, 78px) 80px;
+    padding: calc(48px * var(--ui-scale)) var(--page-px) calc(80px * var(--ui-scale));
     overflow-y: auto;
     scrollbar-gutter: stable;
   }
@@ -285,8 +289,8 @@
   .appActions {
     position: fixed;
     z-index: 10;
-    top: 18px;
-    right: clamp(28px, 5vw, 78px);
+    top: calc(18px * var(--ui-scale));
+    right: var(--page-px);
     display: flex;
     align-items: center;
     gap: var(--space-xs);
@@ -305,18 +309,18 @@
 
   .notificationBadge {
     position: absolute;
-    top: -5px;
-    right: -5px;
+    top: calc(-5px * var(--ui-scale));
+    right: calc(-5px * var(--ui-scale));
     display: grid;
-    min-width: 17px;
-    height: 17px;
+    min-width: calc(17px * var(--ui-scale));
+    height: calc(17px * var(--ui-scale));
     place-items: center;
-    padding: 0 4px;
+    padding: 0 calc(4px * var(--ui-scale));
     border: 2px solid var(--color-bg-app);
     border-radius: var(--radius-full);
     color: var(--color-accent-foreground);
     background: var(--color-accent);
-    font-size: 9px;
+    font-size: var(--fs-badge);
     font-weight: 800;
     line-height: 1;
   }
@@ -325,9 +329,9 @@
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 28px;
+    gap: var(--space-2xl);
     min-width: 0;
-    margin-bottom: 32px;
+    margin-bottom: calc(32px * var(--ui-scale));
   }
 
   .pageHeaderCopy {
@@ -344,16 +348,16 @@
 
   .eyebrow {
     color: var(--color-accent);
-    font-size: 11px;
+    font-size: var(--fs-label);
     font-weight: 700;
     letter-spacing: 2.8px;
     text-transform: uppercase;
   }
 
   .pageHeader h1 {
-    margin: 7px 0 9px;
+    margin: calc(7px * var(--ui-scale)) 0 calc(9px * var(--ui-scale));
     font-family: var(--font-display);
-    font-size: 43px;
+    font-size: var(--fs-hero);
     font-weight: 600;
     line-height: 1;
   }
@@ -361,8 +365,8 @@
   .pageHeader p {
     margin: 0;
     color: var(--color-text-muted);
-    max-width: 680px;
-    font-size: 15px;
+    max-width: calc(680px * var(--ui-scale));
+    font-size: var(--fs-heading-sm);
     line-height: 1.55;
   }
 
@@ -394,30 +398,30 @@
   .sectionHeader h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: var(--fs-heading-lg);
     font-weight: 600;
     line-height: 1.15;
   }
 
   .sectionHeader p {
-    max-width: 680px;
+    max-width: calc(680px * var(--ui-scale));
     margin: var(--space-xs) 0 0;
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-body);
   }
 
   .sectionHeaderEyebrow {
     display: block;
     margin-bottom: var(--space-xs);
     color: var(--color-accent);
-    font-size: 10px;
+    font-size: var(--fs-eyebrow);
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
   }
 
   .sectionHeader.compact h2 {
-    font-size: 20px;
+    font-size: calc(20px * var(--ui-scale));
   }
 
   .sectionHeaderActions,
@@ -452,13 +456,13 @@
 
   .tabsList button,
   .segmentedControl button {
-    min-height: 40px;
-    padding: 8px 12px;
+    min-height: var(--size-button);
+    padding: var(--space-sm) var(--space-md);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
     background: transparent;
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 700;
     cursor: pointer;
     transition:
@@ -500,13 +504,13 @@
     gap: var(--space-sm);
     max-width: 100%;
     min-width: 0;
-    min-height: 40px;
-    padding: 9px var(--space-lg);
+    min-height: var(--size-button);
+    padding: calc(9px * var(--ui-scale)) var(--space-lg);
     overflow: hidden;
     border: 0;
     border-radius: var(--radius-md);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -612,8 +616,8 @@
   }
 
   .spinner {
-    width: 15px;
-    height: 15px;
+    width: calc(15px * var(--ui-scale));
+    height: calc(15px * var(--ui-scale));
     border: 2px solid rgb(255 255 255 / 14%);
     border-top-color: var(--color-accent);
     border-radius: 50%;
@@ -643,14 +647,14 @@
   .inputAction {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     min-width: 0;
     flex-wrap: wrap;
   }
 
   .muted {
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-body);
     line-height: 1.5;
   }
 
@@ -659,13 +663,13 @@
     align-items: center;
     max-width: 100%;
     min-width: 0;
-    padding: 4px 8px;
+    padding: calc(4px * var(--ui-scale)) var(--space-sm);
     overflow: hidden;
     border: 1px solid var(--color-border-default);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     color: var(--color-text-secondary);
     background: var(--color-surface-3);
-    font-size: 11px;
+    font-size: var(--fs-label);
     font-weight: 700;
     letter-spacing: 0.7px;
     text-overflow: ellipsis;
@@ -718,8 +722,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 310px;
-    padding: 38px;
+    min-height: calc(310px * var(--ui-scale));
+    padding: calc(38px * var(--ui-scale));
     border: 1px dashed var(--color-border-subtle);
     border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--color-surface-1) 60%, transparent);
@@ -733,21 +737,21 @@
   }
 
   .empty h2 {
-    margin: 14px 0 6px;
+    margin: calc(14px * var(--ui-scale)) 0 calc(6px * var(--ui-scale));
     font-family: var(--font-display);
-    font-size: 25px;
+    font-size: calc(25px * var(--ui-scale));
   }
 
   .empty p {
-    max-width: 440px;
-    margin: 0 0 20px;
+    max-width: calc(440px * var(--ui-scale));
+    margin: 0 0 calc(20px * var(--ui-scale));
     color: var(--color-text-muted);
-    font-size: 14px;
+    font-size: var(--fs-input);
     line-height: 1.6;
   }
 
   .errorState {
-    min-height: 220px;
+    min-height: calc(220px * var(--ui-scale));
     border-style: solid;
     border-color: color-mix(in srgb, var(--color-danger) 38%, transparent);
   }
@@ -758,19 +762,19 @@
 
   .loadingState {
     display: flex;
-    min-height: 160px;
+    min-height: calc(160px * var(--ui-scale));
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: calc(14px * var(--ui-scale));
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-body);
   }
 
   .loadingFlame {
     display: grid;
-    width: 46px;
-    height: 46px;
+    width: calc(46px * var(--ui-scale));
+    height: calc(46px * var(--ui-scale));
     place-items: center;
     border-radius: 50%;
     color: var(--color-accent-foreground);
@@ -798,20 +802,20 @@
   }
 
   .appLoading .loadingFlame {
-    width: 60px;
-    height: 60px;
+    width: calc(60px * var(--ui-scale));
+    height: calc(60px * var(--ui-scale));
   }
 
   .appLoading .loadingFlame svg {
-    width: 24px;
-    height: 24px;
+    width: calc(24px * var(--ui-scale));
+    height: calc(24px * var(--ui-scale));
   }
 
   .iconButton {
     display: inline-grid;
-    flex: 0 0 40px;
-    width: 40px;
-    height: 40px;
+    flex: 0 0 var(--size-button);
+    width: var(--size-button);
+    height: var(--size-button);
     place-items: center;
     padding: 0;
     border: 1px solid var(--color-border-subtle);
@@ -827,16 +831,16 @@
   }
 
   .iconButton.sm {
-    flex-basis: 30px;
-    width: 30px;
-    height: 30px;
+    flex-basis: var(--size-button-sm);
+    width: var(--size-button-sm);
+    height: var(--size-button-sm);
     border-radius: var(--radius-sm);
   }
 
   .iconButton.lg {
-    flex-basis: 42px;
-    width: 42px;
-    height: 42px;
+    flex-basis: var(--size-button-lg);
+    width: var(--size-button-lg);
+    height: var(--size-button-lg);
   }
 
   .iconButton.ghost {
@@ -879,14 +883,14 @@
 
   .modalBody {
     min-height: 0;
-    padding: 24px;
+    padding: var(--space-2xl);
     overflow-y: auto;
   }
 
   .formFields {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--space-lg);
   }
 
   .formFields > .field,
@@ -898,16 +902,16 @@
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
     min-width: 0;
     color: var(--color-text-secondary);
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 600;
   }
 
   .field small {
     color: var(--color-text-disabled);
-    font-size: 12px;
+    font-size: var(--fs-small);
     font-weight: 400;
     line-height: 1.4;
   }
@@ -920,15 +924,15 @@
   .field input,
   .field textarea {
     width: 100%;
-    min-height: 40px;
+    min-height: var(--size-input);
     min-width: 0;
-    padding: 9px 12px;
+    padding: calc(9px * var(--ui-scale)) var(--space-md);
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
     outline: 0;
     color: var(--color-text-primary);
     background: var(--color-surface-input);
-    font-size: 14px;
+    font-size: var(--fs-input);
     transition:
       border-color var(--duration-fast),
       background-color var(--duration-fast),
@@ -956,7 +960,7 @@
   }
 
   .passwordField input {
-    padding-right: 46px;
+    padding-right: calc(46px * var(--ui-scale));
   }
 
   .input:focus,
@@ -987,15 +991,15 @@
   }
 
   .field textarea {
-    min-height: 104px;
+    min-height: calc(104px * var(--ui-scale));
     resize: vertical;
   }
 
   .stepper {
     display: flex;
     align-items: stretch;
-    min-height: 40px;
-    max-width: 140px;
+    min-height: var(--size-input);
+    max-width: calc(140px * var(--ui-scale));
     overflow: hidden;
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
@@ -1021,7 +1025,7 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    width: 44px;
+    width: var(--size-stepper-btn);
     padding: 0;
     border: 0;
     color: var(--color-text-muted);
@@ -1033,8 +1037,8 @@
   }
 
   .stepperButton svg {
-    width: 16px;
-    height: 16px;
+    width: calc(16px * var(--ui-scale));
+    height: calc(16px * var(--ui-scale));
   }
 
   .stepperButton:hover:not(:disabled) {
@@ -1052,7 +1056,7 @@
     min-width: 0;
     width: auto;
     min-height: 0;
-    padding: 10px 4px;
+    padding: var(--space-sm) calc(4px * var(--ui-scale));
     border: 0;
     color: var(--color-text-primary);
     background: transparent;
@@ -1078,7 +1082,7 @@
   .formRow {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: var(--space-lg);
     min-width: 0;
   }
 
@@ -1087,15 +1091,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    gap: var(--space-2xl);
     min-width: 0;
-    padding: 16px 20px;
+    padding: var(--space-lg) calc(20px * var(--ui-scale));
   }
 
   .settingRowColumn {
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: calc(14px * var(--ui-scale));
   }
 
   .settingRowDisabled {
@@ -1110,24 +1114,24 @@
   .settingRowTitle {
     display: block;
     color: var(--color-text-primary);
-    font-size: 14px;
+    font-size: var(--fs-input);
     font-weight: 600;
   }
 
   .settingRowDescription {
     display: block;
-    margin-top: 4px;
+    margin-top: calc(4px * var(--ui-scale));
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-body);
     font-weight: 400;
     line-height: 1.45;
   }
 
   .settingRowWarning {
     display: block;
-    margin-top: 6px;
+    margin-top: calc(6px * var(--ui-scale));
     color: var(--color-danger);
-    font-size: 13px;
+    font-size: var(--fs-body);
     line-height: 1.45;
   }
 
@@ -1144,7 +1148,7 @@
 
   .modalActions {
     justify-content: flex-end;
-    margin-top: 4px;
+    margin-top: calc(4px * var(--ui-scale));
   }
 
   .settingsFooter {
@@ -1152,23 +1156,23 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 24px;
+    gap: var(--space-md);
+    padding: var(--space-lg) var(--space-2xl);
     border-top: 1px solid var(--color-border-subtle);
     background: color-mix(in srgb, var(--color-surface-1) 96%, transparent);
   }
 
   .inputAction > input {
-    flex: 1 1 280px;
+    flex: 1 1 calc(280px * var(--ui-scale));
   }
 
   .inlineError {
-    padding: 10px 12px;
+    padding: calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale));
     border: 1px solid var(--color-danger-border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     color: var(--color-danger-foreground);
     background: var(--color-danger-surface);
-    font-size: 13px;
+    font-size: var(--fs-body);
     line-height: 1.45;
   }
 
@@ -1178,7 +1182,7 @@
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-body);
     text-decoration: underline;
   }
 
@@ -1194,19 +1198,19 @@
   .notice {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    padding: 14px 16px;
+    gap: calc(5px * var(--ui-scale));
+    padding: calc(14px * var(--ui-scale)) calc(16px * var(--ui-scale));
     border: 1px solid var(--color-warning-border);
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
     background: var(--color-warning-surface);
-    font-size: 13px;
+    font-size: var(--fs-body);
     line-height: 1.5;
   }
 
   .notice b {
     color: var(--color-warning);
-    font-size: 14px;
+    font-size: var(--fs-input);
   }
 
   /* Search field with a leading icon and a clear button (see shared/ui/search-input) */
@@ -1220,24 +1224,24 @@
   .searchInputIcon {
     position: absolute;
     top: 50%;
-    left: 12px;
+    left: calc(12px * var(--ui-scale));
     color: var(--color-text-muted);
     pointer-events: none;
     transform: translateY(-50%);
   }
 
   .searchInput .input {
-    padding-right: 36px;
-    padding-left: 36px;
+    padding-right: calc(36px * var(--ui-scale));
+    padding-left: calc(36px * var(--ui-scale));
   }
 
   .searchInputClear {
     position: absolute;
     top: 50%;
-    right: 6px;
+    right: calc(6px * var(--ui-scale));
     display: grid;
-    width: 28px;
-    height: 28px;
+    width: var(--size-search-clear);
+    height: var(--size-search-clear);
     place-items: center;
     padding: 0;
     border: 0;
@@ -1287,7 +1291,7 @@
     z-index: 1;
     color: var(--cover-ink);
     font-family: var(--font-display);
-    font-size: 44px;
+    font-size: calc(44px * var(--ui-scale));
     font-weight: 600;
     line-height: 1;
     opacity: 0.9;
@@ -1311,8 +1315,8 @@
   /* Circular selection toggle shown on card artwork (see shared/ui/selection-checkbox) */
   .selectionCheckbox {
     display: grid;
-    width: 30px;
-    height: 30px;
+    width: calc(30px * var(--ui-scale));
+    height: calc(30px * var(--ui-scale));
     place-items: center;
     padding: 0;
     border: 1.5px solid rgb(255 255 255 / 55%);

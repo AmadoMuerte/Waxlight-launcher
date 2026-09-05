@@ -8,9 +8,11 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/launching"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/discord"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/presence"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/supportreports"
@@ -20,6 +22,27 @@ import (
 type optimumLaunchAdapter struct {
 	service *optimumfeature.Service
 }
+
+type discordPresenceClient struct {
+	client *discord.Client
+}
+
+func (adapter discordPresenceClient) Connected() bool { return adapter.client.Connected() }
+
+func (adapter discordPresenceClient) SetActivity(activity presence.Activity) error {
+	return adapter.client.SetActivity(discord.Activity{
+		State:          activity.State,
+		Details:        activity.Details,
+		LargeImageKey:  activity.LargeImageKey,
+		LargeImageText: activity.LargeImageText,
+		SmallImageKey:  activity.SmallImageKey,
+		SmallImageText: activity.SmallImageText,
+		StartTimestamp: activity.StartTimestamp,
+	})
+}
+
+func (adapter discordPresenceClient) ClearActivity() error { return adapter.client.ClearActivity() }
+func (adapter discordPresenceClient) Close()               { adapter.client.Close() }
 
 type supportLogAdapter struct{}
 

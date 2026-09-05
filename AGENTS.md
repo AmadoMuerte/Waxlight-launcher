@@ -10,7 +10,7 @@
 - Run `make lint` for Linux-targeted Go static analysis and frontend `oxlint`; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
 - Pre-commit runs `make format-check lint` and blocks commits on failure. Use `git commit --no-verify` only for an emergency bypass.
 - Full release validation requires a version: `make release-check VERSION=X.Y.Z`.
-- `make release VERSION=X.Y.Z` must be run from a clean `dev` branch based on the latest `origin/dev`. It creates and pushes `release/vX.Y.Z`, then opens a pull request into `dev`.
+- `make release VERSION=X.Y.Z` must be run from a clean `dev` branch based on the latest `origin/dev`. It creates and pushes `release/vX.Y.Z`, then opens a pull request into `dev`. When `go.mod`/`go.sum` changed since the last release it first refreshes the Nix `vendorHash` in `nix/waxlight.nix` via `make nix-update-hash`, which requires `nix` on a `x86_64-linux` host; otherwise the Nix refresh is skipped.
 - Never run release commands from `main`, feature branches, fix branches, or pull request branches.
 - Run `wails dev` only from `cmd/waxlight`. Build supported desktop artifacts with `make wails-build`; plain `go build` without Wails desktop tags is not a supported GUI build.
 - Native credential-store integration tests are tagged and require Linux Secret Service or Windows Credential Manager; CI provides those platform services.

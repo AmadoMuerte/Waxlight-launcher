@@ -106,8 +106,13 @@
       "DeleteOperation",
       "ListOperations"
     ],
+    "PresenceController": [
+      "Connect",
+      "SetEnabled"
+    ],
     "ServerController": [
       "DeleteFavoriteServer",
+      "GetPublicServer",
       "ListFavoriteServers",
       "ListPublicServers",
       "SaveFavoriteServer"

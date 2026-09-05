@@ -160,7 +160,7 @@ export function ModDetailsPage() {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="grid gap-6 p-6 lg:grid-cols-[200px_minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid gap-6 p-6 lg:grid-cols-[calc(200px*var(--ui-scale))_minmax(0,1fr)_auto] lg:items-center">
           <ModArtwork
             src={mod.imageUrl}
             alt={t("cover_alt", { name: mod.name })}
@@ -174,19 +174,19 @@ export function ModDetailsPage() {
               {t("by_author", { name: mod.authorName })}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+              <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-text-secondary">
                 {sideLabel(mod.side)}
               </span>
               {mod.gameVersions.slice(-3).map((version) => (
                 <span
                   key={version}
-                  className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary"
+                  className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-text-secondary"
                 >
                   {version}
                 </span>
               ))}
               {local && (
-                <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-text-secondary">
                   {t("downloaded_version", { version: local.downloadedVersion })}
                 </span>
               )}
@@ -238,7 +238,7 @@ export function ModDetailsPage() {
           />
         )}
 
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_calc(290px*var(--ui-scale))]">
           <div className="flex min-w-0 flex-col gap-6">
             <Card>
               <CardHeader>
@@ -270,7 +270,7 @@ export function ModDetailsPage() {
                         <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <strong className="text-sm">{release.version}</strong>
-                            <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                            <span className="rounded-full border border-border-subtle bg-surface-3 px-2 py-0.5 text-[length:var(--fs-label)] font-semibold text-text-secondary">
                               {releaseTypeLabel(release.releaseType)}
                             </span>
                           </div>
@@ -363,7 +363,7 @@ export function ModDetailsPage() {
                     {mod.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-md bg-surface-3 px-2 py-1 text-[11px] font-medium text-text-secondary"
+                        className="rounded-md bg-surface-3 px-2 py-1 text-[length:var(--fs-label)] font-medium text-text-secondary"
                       >
                         {tag}
                       </span>
@@ -430,7 +430,7 @@ export function ModDetailsPage() {
         }}
       >
         <DialogContent
-          className="max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-[1400px] bg-bg-app"
+          className="max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-[calc(1400px*var(--ui-scale))] bg-bg-app"
           aria-label={t("screenshot_viewer")}
         >
           {lightbox !== undefined && mod.screenshots[lightbox] && (

@@ -40,7 +40,7 @@ function DropdownMenuSubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
-        "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-text-secondary outline-none select-none focus:bg-surface-hover focus:text-text-primary data-[state=open]:bg-surface-hover data-[state=open]:text-text-primary",
+        "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[length:var(--fs-body)] text-text-secondary outline-none select-none focus:bg-surface-hover focus:text-text-primary data-[state=open]:bg-surface-hover data-[state=open]:text-text-primary",
         inset && "pl-8",
         className,
       )}
@@ -108,7 +108,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-3.5 [&>svg]:shrink-0",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[length:var(--fs-body)] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-3.5 [&>svg]:shrink-0",
         variant === "destructive" &&
           "text-danger-foreground focus:bg-danger-surface focus:text-danger-foreground",
         inset && "pl-8",
@@ -129,7 +129,7 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-[length:var(--fs-body)] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       checked={checked}
@@ -154,7 +154,7 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-[length:var(--fs-body)] text-text-secondary outline-none select-none transition-colors focus:bg-surface-hover focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
@@ -178,7 +178,7 @@ function DropdownMenuLabel({
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       className={cn(
-        "px-2 py-1.5 text-[11px] font-semibold text-text-disabled uppercase tracking-wider",
+        "px-2 py-1.5 text-[length:var(--fs-label)] font-semibold text-text-disabled uppercase tracking-wider",
         inset && "pl-8",
         className,
       )}
@@ -204,7 +204,10 @@ function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTML
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn("ml-auto text-[11px] tracking-widest text-text-disabled", className)}
+      className={cn(
+        "ml-auto text-[length:var(--fs-label)] tracking-widest text-text-disabled",
+        className,
+      )}
       {...props}
     />
   );

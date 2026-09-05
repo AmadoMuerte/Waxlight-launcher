@@ -47,7 +47,7 @@ export function TagMultiSelect({ tags, selected, onChange }: TagMultiSelectProps
           <ChevronDown className="size-4 shrink-0 text-text-secondary" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[320px]" align="start">
+      <DropdownMenuContent className="w-[calc(320px*var(--ui-scale))]" align="start">
         <div className="flex items-center gap-2 rounded-md border border-border-default bg-surface-input px-2.5">
           <Search className="size-3.5 shrink-0 text-text-muted" aria-hidden="true" />
           <input
@@ -69,7 +69,7 @@ export function TagMultiSelect({ tags, selected, onChange }: TagMultiSelectProps
               <DropdownMenuCheckboxItem
                 key={tag.name}
                 checked={selected.includes(tag.name)}
-                className="text-[13px]"
+                className="text-[length:var(--fs-body)]"
                 onSelect={(event) => {
                   event.preventDefault();
                   toggle(tag.name);

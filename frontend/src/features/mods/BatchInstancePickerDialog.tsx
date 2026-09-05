@@ -152,7 +152,7 @@ export function BatchInstancePickerDialog({
       className="w-[min(980px,calc(100vw-32px))]"
       onClose={onClose}
     >
-      <div className="grid min-h-[400px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(260px,34%)]">
+      <div className="grid min-h-[calc(400px*var(--ui-scale))] grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(calc(260px*var(--ui-scale)),34%)]">
         <section className="flex min-h-0 flex-col gap-4 p-6">
           <p className="muted">{t("choose_instance_for_mods", { count: mods.length })}</p>
           {instances.length === 0 ? (
@@ -233,7 +233,7 @@ export function BatchInstancePickerDialog({
             </p>
           )}
           {results && (
-            <div className="space-y-1.5 text-[13px]">
+            <div className="space-y-1.5 text-[length:var(--fs-body)]">
               {results.map((result) => {
                 const failedInstallations = (result.result?.installations ?? []).filter(
                   (item) => !item.installed,

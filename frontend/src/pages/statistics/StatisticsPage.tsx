@@ -50,7 +50,7 @@ export function StatisticsPage() {
         <PageContent>
           <PageSection>
             <SectionHeader variant="compact" title={t("summary")} />
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(220px*var(--ui-scale)),100%),1fr))] gap-4">
               <StatCard
                 icon={Clock}
                 label={t("total_playtime")}

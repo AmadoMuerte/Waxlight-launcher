@@ -106,7 +106,8 @@ export const ModCard = memo(function ModCard({
         <div
           className={cn(
             "min-w-0",
-            layout === "list" && "sm:grid sm:grid-cols-[minmax(180px,26%)_minmax(0,1fr)]",
+            layout === "list" &&
+              "sm:grid sm:grid-cols-[minmax(calc(180px*var(--ui-scale)),26%)_minmax(0,1fr)]",
           )}
         >
           <div className="relative">

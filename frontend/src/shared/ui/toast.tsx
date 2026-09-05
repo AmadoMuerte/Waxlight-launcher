@@ -12,7 +12,7 @@ function ToastViewport(props: React.ComponentProps<typeof ToastPrimitive.Viewpor
   return (
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
-      className="fixed right-6 bottom-6 z-[70] flex w-[420px] max-w-[calc(100vw-48px)] flex-col gap-2.5 outline-none"
+      className="fixed right-6 bottom-6 z-[70] flex w-[var(--toast-w)] max-w-[calc(100vw-48px)] flex-col gap-2.5 outline-none"
       {...props}
     />
   );
@@ -29,7 +29,7 @@ function Toast({ className, variant = "ok", ...props }: ToastProps) {
     <ToastPrimitive.Root
       data-slot="toast"
       className={cn(
-        "group pointer-events-auto relative flex w-full max-w-[420px] items-center gap-2.5 overflow-hidden rounded-lg border p-3 pr-8 text-[13px] text-text-primary shadow-elevated transition-all",
+        "group pointer-events-auto relative flex w-full max-w-[var(--toast-w)] items-center gap-2.5 overflow-hidden rounded-lg border p-3 pr-8 text-text-primary shadow-elevated transition-all",
         variant === "ok" && "border-success-border bg-success-surface",
         variant === "error" && "border-danger-border bg-danger-surface",
         "data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none",
@@ -45,7 +45,8 @@ function ToastAction(props: React.ComponentProps<typeof ToastPrimitive.Action>) 
   return (
     <ToastPrimitive.Action
       data-slot="toast-action"
-      className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-transparent px-3 text-[12px] font-semibold text-text-secondary transition-colors hover:bg-surface-ghost-hover focus:outline-2 focus:outline-accent disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-transparent px-3 font-semibold text-text-secondary transition-colors hover:bg-surface-ghost-hover focus:outline-2 focus:outline-accent disabled:pointer-events-none disabled:opacity-50"
+      style={{ fontSize: "var(--fs-small)" }}
       {...props}
     />
   );
@@ -68,7 +69,7 @@ function ToastIcon({ variant }: { variant?: ToastVariant }) {
   return (
     <Icon
       size={16}
-      className={variant === "error" ? "text-danger-foreground" : "text-success"}
+      className={cn("size-4", variant === "error" ? "text-danger-foreground" : "text-success")}
       aria-hidden="true"
     />
   );

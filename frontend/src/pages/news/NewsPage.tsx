@@ -35,7 +35,9 @@ const NewsCard = memo(function NewsCard({ item }: { item: NewsItem }) {
     <Card className="overflow-hidden">
       <article
         className={
-          item.imageUrl && !imageFailed ? "md:grid md:grid-cols-[minmax(240px,38%)_1fr]" : ""
+          item.imageUrl && !imageFailed
+            ? "md:grid md:grid-cols-[minmax(calc(240px*var(--ui-scale)),38%)_1fr]"
+            : ""
         }
       >
         {item.imageUrl && !imageFailed && (

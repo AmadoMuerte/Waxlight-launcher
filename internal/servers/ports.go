@@ -33,6 +33,7 @@ type InstanceReader interface {
 // Catalog lists public server listings from the Vintage Story catalog.
 type Catalog interface {
 	List(context.Context) ([]PublicServer, error)
+	Get(context.Context, string) (PublicServer, error)
 }
 
 // MutationGate coordinates launcher-wide writes with data-root relocation.

@@ -11,6 +11,7 @@ import { ServersPage } from "./ServersPage";
 
 const serversApi = vi.hoisted(() => ({
   listPublic: vi.fn(),
+  getPublic: vi.fn(),
   listFavorites: vi.fn(),
   saveFavorite: vi.fn(),
   removeFavorite: vi.fn(),
@@ -84,6 +85,7 @@ describe("server visibility filters", () => {
       publicServer("Whitelist Server", true),
     ]);
     serversApi.listFavorites.mockResolvedValue([]);
+    serversApi.getPublic.mockResolvedValue(undefined);
     instancesApi.list.mockResolvedValue([]);
     versionsApi.list.mockResolvedValue([]);
     launcherApi.launch.mockResolvedValue(undefined);
@@ -159,6 +161,28 @@ describe("server visibility filters", () => {
     const dialog = await screen.findByRole("dialog", { name: "Catalog Server" });
     await user.click(within(dialog).getAllByRole("button", { name: "Close" })[0]);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("loads full catalog details only after opening a server", async () => {
+    const user = userEvent.setup();
+    const server = { ...publicServer("Catalog Server", false), id: "42" };
+    serversApi.listPublic.mockResolvedValue([server]);
+    serversApi.getPublic.mockResolvedValue({
+      ...server,
+      fullDescription: "The complete server description.",
+      gameVersion: "1.22.7",
+      maxPlayers: 40,
+      location: "Sweden",
+      languages: ["English"],
+    });
+    renderPage();
+
+    await screen.findByText("Catalog Server");
+    expect(serversApi.getPublic).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Open server details" }));
+
+    expect(await screen.findByText("The complete server description.")).toBeTruthy();
+    expect(serversApi.getPublic).toHaveBeenCalledWith("42");
   });
 
   it("opens favorite server details from a server deep link", async () => {

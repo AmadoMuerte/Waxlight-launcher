@@ -39,16 +39,16 @@ export function AccountCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <strong className="min-w-0 truncate text-[15px] font-semibold text-text-primary">
+            <strong className="min-w-0 truncate text-[length:var(--fs-heading-sm)] font-semibold text-text-primary">
               {account.displayName}
             </strong>
             {account.isDefault && (
-              <span className="shrink-0 rounded-full border border-border-default bg-accent-muted px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+              <span className="shrink-0 rounded-full border border-border-default bg-accent-muted px-2.5 py-0.5 text-[length:var(--fs-label)] font-semibold text-accent">
                 {t("selected_status")}
               </span>
             )}
           </div>
-          <small className="mt-0.5 block truncate text-[13px] text-text-muted">
+          <small className="mt-0.5 block truncate text-[length:var(--fs-body)] text-text-muted">
             {account.email}
           </small>
           <div className="mt-2">

@@ -40,6 +40,9 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 	if value.AutomaticSnapshotRetention < AutomaticSnapshotRetentionMin || value.AutomaticSnapshotRetention > AutomaticSnapshotRetentionMax {
 		return value, errs.NewError(errs.ErrValidation, "Automatic snapshots to keep must be between 1 and 100")
 	}
+	if value.UIScale < 0.75 || value.UIScale > 1.5 {
+		return value, errs.NewError(errs.ErrValidation, "UI scale must be between 0.75 and 1.5")
+	}
 	value.Language = language.NormalizeLanguage(value.Language)
 	channel, err := normalizeUpdateChannel(value.UpdateChannel)
 	if err != nil {

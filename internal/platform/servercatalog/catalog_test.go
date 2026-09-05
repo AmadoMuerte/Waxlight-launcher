@@ -33,6 +33,25 @@ func TestClientMapsPublicServerListings(t *testing.T) {
 	}
 }
 
+func TestClientMapsPublicServerDetails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/s/42" {
+			http.NotFound(writer, request)
+			return
+		}
+		_, _ = writer.Write([]byte(`<aside><div id="server-info"><img alt="Thumbnail" src="/files/thumb.png"><span>Players:</span><span>12 / 40</span><span>Game Version:</span><span>1.22.7</span><span>Location:</span><span>United States</span><span>Languages:</span><span><span class="tag" title="English">en</span></span><span>Operated By:</span><a href="/u/operator">Owner</a><a href="vintagestoryjoin://example.org:42420">Join</a></div></aside><main class="server" data-sid="42"><h1>Example</h1><img alt="Banner" src="/files/banner.png"><div class="text-section"><p>Full description</p></div><ul><li><a class="external" href="https://mods.vintagestory.at/show/mod/1">Example Mod@1.2.3</a></li></ul></main>`))
+	}))
+	defer server.Close()
+
+	got, err := NewClientWithURL(server.Client(), server.URL).Get(context.Background(), "42")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "42" || got.Name != "Example" || got.Players != 12 || got.MaxPlayers != 40 || got.GameVersion != "1.22.7" || got.Location != "United States" || got.ImageURL != server.URL+"/files/thumb.png" || got.BannerURL != server.URL+"/files/banner.png" || got.Operator != "Owner" || len(got.Languages) != 1 || got.Languages[0] != "English" || len(got.Mods) != 1 || got.Mods[0].Version != "1.2.3" {
+		t.Fatalf("unexpected server details: %#v", got)
+	}
+}
+
 func TestClientMapsCatalogFailureToAppError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		http.Error(writer, "no", http.StatusServiceUnavailable)

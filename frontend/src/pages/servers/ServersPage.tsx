@@ -9,7 +9,11 @@ import { useGameVersionsQuery } from "../../entities/game-version/queries";
 import { useInstancesQuery } from "../../entities/instance/queries";
 import { serversApi } from "../../entities/server/api";
 import type { FavoriteServer, PublicServer } from "../../entities/server/model";
-import { useFavoriteServersQuery, usePublicServersQuery } from "../../entities/server/queries";
+import {
+  useFavoriteServersQuery,
+  usePublicServerDetailsQuery,
+  usePublicServersQuery,
+} from "../../entities/server/queries";
 import { serverKey } from "../../features/servers/lib";
 import { ServerCard } from "../../features/servers/ServerCard";
 import { ServerDetailsDialog } from "../../features/servers/ServerDetailsDialog";
@@ -72,6 +76,7 @@ export function ServersPage() {
   const [joiningKey, setJoiningKey] = useState<string | null>(null);
   const [favoriteBusyKey, setFavoriteBusyKey] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
+  const publicServerDetails = usePublicServerDetailsQuery(detailsServer?.id);
 
   const refreshFavorites = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: FAVORITE_SERVERS_QUERY_KEY });
@@ -173,6 +178,7 @@ export function ServersPage() {
   const visiblePublicServers = catalog.slice(0, visibleServerCount);
 
   const detailsFavorite = detailsServer ? favoriteByKey.get(serverKey(detailsServer)) : undefined;
+  const detailedServer = publicServerDetails.data ?? detailsServer;
   const detailsPreferredInstance = detailsFavorite?.instanceId
     ? instanceById.get(detailsFavorite.instanceId)
     : undefined;
@@ -306,7 +312,7 @@ export function ServersPage() {
         >
           {activeTab === "public" && (
             <Toolbar className="flex-wrap gap-3">
-              <ToolbarGroup className="min-w-[240px] flex-1">
+              <ToolbarGroup className="min-w-[calc(240px*var(--ui-scale))] flex-1">
                 <SearchInput
                   wrapperClassName="w-full max-w-md"
                   aria-label={t("search_servers")}
@@ -375,7 +381,7 @@ export function ServersPage() {
             <section>
               {activeTab === "public" ? (
                 <>
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(260px*var(--ui-scale)),100%),1fr))] gap-4">
                     {visiblePublicServers.map((server) => {
                       const key = serverKey(server);
                       const occurrence = publicServerKeyCounts.get(key) ?? 0;
@@ -413,7 +419,7 @@ export function ServersPage() {
                   )}
                 </>
               ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(260px*var(--ui-scale)),100%),1fr))] gap-4">
                   {favorites.map((favorite) => {
                     const catalogServer = catalogByKey.get(serverKey(favorite));
                     const server = catalogServer ?? favoriteAsPublicServer(favorite);
@@ -442,17 +448,22 @@ export function ServersPage() {
         </div>
       </PageContent>
 
-      {detailsServer && (
+      {detailedServer && (
         <ServerDetailsDialog
-          server={detailsServer}
+          server={detailedServer}
           favorite={detailsFavorite}
           preferredInstance={detailsPreferredInstance}
-          favoriteBusy={detailsFavorite ? favoriteBusyKey === serverKey(detailsServer) : false}
-          onToggleFavorite={() => toggleFavorite(detailsServer, detailsFavorite)}
+          detailsLoading={publicServerDetails.isLoading}
+          detailsError={
+            publicServerDetails.isError ? errorMessage(publicServerDetails.error) : undefined
+          }
+          onRetry={() => void publicServerDetails.refetch()}
+          favoriteBusy={detailsFavorite ? favoriteBusyKey === serverKey(detailedServer) : false}
+          onToggleFavorite={() => toggleFavorite(detailedServer, detailsFavorite)}
           onClose={() => setDetailsServer(undefined)}
-          onCopyAddress={() => void copyAddress(detailsServer.address)}
-          onCopyLink={() => void copyWaxlightLink(detailsServer.address)}
-          onJoin={() => requestPlay(detailsServer, detailsFavorite)}
+          onCopyAddress={() => void copyAddress(detailedServer.address)}
+          onCopyLink={() => void copyWaxlightLink(detailedServer.address)}
+          onJoin={() => requestPlay(detailedServer, detailsFavorite)}
         />
       )}
 

@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { FAVORITE_SERVERS_QUERY_KEY, PUBLIC_SERVERS_QUERY_KEY } from "../../shared/api/keys";
+import {
+  FAVORITE_SERVERS_QUERY_KEY,
+  PUBLIC_SERVER_DETAILS_QUERY_KEY,
+  PUBLIC_SERVERS_QUERY_KEY,
+} from "../../shared/api/keys";
 import { serversApi } from "./api";
 
 export function useFavoriteServersQuery() {
@@ -17,5 +21,14 @@ export function usePublicServersQuery() {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+}
+
+export function usePublicServerDetailsQuery(id?: string) {
+  return useQuery({
+    queryKey: PUBLIC_SERVER_DETAILS_QUERY_KEY(id ?? ""),
+    queryFn: () => serversApi.getPublic(id!),
+    enabled: Boolean(id),
+    staleTime: Infinity,
   });
 }
