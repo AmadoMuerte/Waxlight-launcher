@@ -199,14 +199,33 @@ const modCardHandlers = {
 };
 
 const mockPublicServer: PublicServer = {
+  id: "ui-lab-server",
+  url: "https://servers.vintagestory.at/s/42",
   name: "The Lighthouse Community",
   address: "lighthouse.example.com:42420",
   description: "A relaxed community server focused on building, trading, and long winters.",
+  fullDescription:
+    "A relaxed community server focused on building, trading, and long winters. Meet fellow players and make a home by the coast.",
+  descriptionHtml:
+    "<p>A relaxed community server focused on <strong>building</strong>, trading, and long winters. Meet fellow players and make a home by the coast.</p>",
+  imageUrl: "https://placehold.co/640x240/24382b/a3c9a8?text=Lighthouse",
+  bannerUrl: "https://placehold.co/960x320/24382b/a3c9a8?text=Lighthouse+Community",
+  gameVersion: "1.22.7",
   players: 18,
+  maxPlayers: 40,
   modCount: 12,
+  location: "Sweden",
+  languages: ["English", "Swedish"],
+  operator: "Lighthouse Guild",
+  operatorUrl: "https://example.com",
+  modified: true,
   requiresWhitelist: false,
   accessRestricted: false,
   joinable: true,
+  mods: [
+    { name: "Better Ruins", version: "0.4.0", url: "https://mods.vintagestory.at" },
+    { name: "Carry On", version: "1.14.3", url: "https://mods.vintagestory.at" },
+  ],
 };
 
 const mockFavorite: FavoriteServer = {

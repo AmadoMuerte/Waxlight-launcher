@@ -4,6 +4,8 @@ import {wails} from '../models';
 
 export function DeleteFavoriteServer(arg1:string):Promise<void>;
 
+export function GetPublicServer(arg1:string):Promise<wails.PublicServerDTO>;
+
 export function ListFavoriteServers():Promise<Array<wails.FavoriteServerDTO>>;
 
 export function ListPublicServers():Promise<Array<wails.PublicServerDTO>>;

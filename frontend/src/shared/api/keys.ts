@@ -8,6 +8,7 @@ export const SETTINGS_QUERY_KEY = ["settings"] as const;
 export const OPTIMUM_STATUS_QUERY_KEY = ["settings", "optimum"] as const;
 export const FAVORITE_SERVERS_QUERY_KEY = ["favorite-servers"] as const;
 export const PUBLIC_SERVERS_QUERY_KEY = ["public-servers"] as const;
+export const PUBLIC_SERVER_DETAILS_QUERY_KEY = (id: string) => ["public-servers", id] as const;
 export const NEWS_QUERY_KEY = ["news"] as const;
 
 export const DOWNLOADED_MODS_QUERY_KEY = ["mods", "downloaded"] as const;
