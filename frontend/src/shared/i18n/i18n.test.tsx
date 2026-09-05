@@ -37,6 +37,7 @@ const settings: Settings = {
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
+  uiScale: 1,
 };
 
 async function renderPage() {

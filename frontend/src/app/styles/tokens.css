@@ -70,4 +70,51 @@
   --gradient-accent: linear-gradient(135deg, #f6bc55, #dd9227);
   --shadow-accent: 0 8px 24px #dd922733;
   --glow-accent: 0 0 22px #f2a93b40;
+
+  --ui-scale: 1;
+
+  /* Font sizes */
+  --fs-xs: calc(8px * var(--ui-scale));
+  --fs-badge: calc(9px * var(--ui-scale));
+  --fs-eyebrow: calc(10px * var(--ui-scale));
+  --fs-label: calc(11px * var(--ui-scale));
+  --fs-small: calc(12px * var(--ui-scale));
+  --fs-body: calc(13px * var(--ui-scale));
+  --fs-input: calc(14px * var(--ui-scale));
+  --fs-heading-sm: calc(15px * var(--ui-scale));
+  --fs-heading: calc(19px * var(--ui-scale));
+  --fs-heading-lg: calc(24px * var(--ui-scale));
+  --fs-hero: calc(43px * var(--ui-scale));
+
+  /* Component sizes */
+  --size-button: calc(40px * var(--ui-scale));
+  --size-button-sm: calc(30px * var(--ui-scale));
+  --size-button-lg: calc(42px * var(--ui-scale));
+  --size-input: calc(40px * var(--ui-scale));
+  --size-avatar: calc(28px * var(--ui-scale));
+  --size-icon: calc(21px * var(--ui-scale));
+  --size-brand-icon: calc(55px * var(--ui-scale));
+  --size-stepper-btn: calc(44px * var(--ui-scale));
+  --size-search-clear: calc(28px * var(--ui-scale));
+  --size-checkbox: calc(18px * var(--ui-scale));
+  --size-switch-w: calc(40px * var(--ui-scale));
+  --size-switch-h: calc(22px * var(--ui-scale));
+
+  /* Sidebar */
+  --sidebar-w: calc(224px * var(--ui-scale));
+  --sidebar-w-compact: calc(184px * var(--ui-scale));
+  --sidebar-w-icon: calc(72px * var(--ui-scale));
+  --sidebar-px: calc(16px * var(--ui-scale));
+  --sidebar-py: calc(28px * var(--ui-scale));
+
+  /* Page content */
+  --page-px: clamp(calc(28px * var(--ui-scale)), 5vw, calc(78px * var(--ui-scale)));
+
+  /* Dialogs */
+  --dialog-w: calc(680px * var(--ui-scale));
+  --dialog-w-lg: calc(820px * var(--ui-scale));
+  --dialog-w-sm: calc(540px * var(--ui-scale));
+
+  /* Toast */
+  --toast-w: calc(420px * var(--ui-scale));
 }

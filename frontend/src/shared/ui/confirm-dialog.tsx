@@ -54,7 +54,7 @@ export function ConfirmDialog({
         closable={!loading}
         aria-describedby={hasMessage ? descriptionId : undefined}
         style={{
-          width: "min(640px, calc(100vw - 32px))",
+          width: "min(calc(640px * var(--ui-scale)), calc(100vw - 32px))",
           maxWidth: "none",
         }}
         className="gap-0 overflow-hidden p-0"
@@ -73,7 +73,7 @@ export function ConfirmDialog({
               {hasMessage && (
                 <p
                   id={descriptionId}
-                  className="mt-3 max-w-[470px] text-sm leading-6 text-text-secondary"
+                  className="mt-3 max-w-[calc(470px*var(--ui-scale))] text-sm leading-6 text-text-secondary"
                 >
                   {message}
                 </p>
@@ -84,12 +84,12 @@ export function ConfirmDialog({
 
         {hasWarning && (
           <div className="px-6 pt-6">
-            <div className="grid grid-cols-[24px_minmax(0,1fr)] items-start gap-3 rounded-lg border border-warning-border bg-warning-surface px-4 py-3 text-warning">
+            <div className="grid grid-cols-[calc(24px*var(--ui-scale))_minmax(0,1fr)] items-start gap-3 rounded-lg border border-warning-border bg-warning-surface px-4 py-3 text-warning">
               <div className="mt-0.5">
                 <Info className="size-5" aria-hidden="true" />
               </div>
 
-              <p className="text-[13px] leading-6">{warningMessage}</p>
+              <p className="text-[length:var(--fs-body)] leading-6">{warningMessage}</p>
             </div>
           </div>
         )}

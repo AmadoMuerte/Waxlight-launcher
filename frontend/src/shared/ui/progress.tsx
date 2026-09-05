@@ -28,7 +28,7 @@ function Progress({
       max={max}
       className={cn(
         "relative w-full overflow-hidden rounded-full bg-surface-3",
-        compact ? "h-1" : "h-[7px]",
+        compact ? "h-1" : "h-[calc(7px*var(--ui-scale))]",
         className,
       )}
       {...props}

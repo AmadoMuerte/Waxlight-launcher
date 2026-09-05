@@ -483,6 +483,7 @@ export interface Settings {
   automaticSafetySnapshots: boolean;
   automaticSnapshotRetention: number;
   librarySort: LibrarySort;
+  uiScale: number;
 }
 
 export interface DataFolder {

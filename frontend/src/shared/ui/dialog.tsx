@@ -55,7 +55,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 flex max-h-[85vh] w-[min(680px,calc(100vw-48px))] translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-xl border border-border-default bg-surface-2 shadow-dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+          "fixed left-[50%] top-[50%] z-50 flex max-h-[85vh] w-[min(var(--dialog-w),calc(100vw-48px))] translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-xl border border-border-default bg-surface-2 shadow-dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           className,
         )}
         onEscapeKeyDown={(event) => {
@@ -111,7 +111,8 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("min-w-0 font-display text-[28px] font-[650] leading-[1.15]", className)}
+      className={cn("min-w-0 font-display font-[650] leading-[1.15]", className)}
+      style={{ fontSize: "calc(28px * var(--ui-scale))" }}
       {...props}
     />
   );

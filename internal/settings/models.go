@@ -26,6 +26,7 @@ type Settings struct {
 	AutomaticSafetySnapshots   bool
 	AutomaticSnapshotRetention int
 	LibrarySort                string
+	UIScale                    float64
 }
 
 func Defaults() Settings {
@@ -40,6 +41,7 @@ func Defaults() Settings {
 		AutomaticSafetySnapshots:   true,
 		AutomaticSnapshotRetention: AutomaticSnapshotRetentionDefault,
 		LibrarySort:                LibrarySortLastPlayed,
+		UIScale:                    1.0,
 	}
 }
 

@@ -19,6 +19,7 @@
 /docs/site/node_modules/
 /frontend/.vite/
 /frontend/coverage/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

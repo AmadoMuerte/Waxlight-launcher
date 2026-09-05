@@ -67,6 +67,7 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		AutomaticSafetySnapshots:   request.AutomaticSafetySnapshots,
 		AutomaticSnapshotRetention: request.AutomaticSnapshotRetention,
 		LibrarySort:                request.LibrarySort,
+		UIScale:                    request.UIScale,
 	})
 	return settingsDTO(value), err
 }

@@ -109,7 +109,7 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
             <ToolbarGroup>
               <Input
                 type="search"
-                className="w-[210px]"
+                className="w-[calc(210px*var(--ui-scale))]"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -125,7 +125,10 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
                   setVisibleCount(20);
                 }}
               >
-                <SelectTrigger className="w-[220px]" aria-label={t("release_channel")}>
+                <SelectTrigger
+                  className="w-[calc(220px*var(--ui-scale))]"
+                  aria-label={t("release_channel")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

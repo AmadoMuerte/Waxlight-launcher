@@ -543,7 +543,7 @@ export function ModsPage() {
         >
           <section className="rounded-lg border border-border-subtle bg-surface-1">
             <Toolbar className="flex-wrap gap-3 p-3">
-              <ToolbarGroup className="min-w-[240px] flex-1">
+              <ToolbarGroup className="min-w-[calc(240px*var(--ui-scale))] flex-1">
                 <SearchInput
                   wrapperClassName="w-full max-w-md"
                   aria-label={t("search_mods")}
@@ -646,7 +646,7 @@ export function ModsPage() {
             <div
               className={
                 layout === "grid"
-                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4"
+                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(calc(280px*var(--ui-scale)),100%),1fr))] gap-4"
                   : "grid grid-cols-1 gap-4"
               }
             >

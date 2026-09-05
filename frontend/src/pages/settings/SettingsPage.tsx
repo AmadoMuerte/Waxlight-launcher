@@ -5,6 +5,7 @@ import {
   Download,
   HardDrive,
   Package,
+  Palette,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
@@ -37,6 +38,7 @@ import { Page, PageContent, PageSection } from "../../shared/ui/page";
 import { PageHeader } from "../../shared/ui/page-header";
 import { Progress } from "../../shared/ui/progress";
 import { SectionHeader } from "../../shared/ui/section-header";
+import { SegmentedControl } from "../../shared/ui/segmented-control";
 import {
   Select,
   SelectContent,
@@ -53,6 +55,7 @@ import { EventsOn } from "../../wailsjs/runtime/runtime";
 const autosaveDelayMs = 400;
 
 const SETTINGS_SECTIONS = [
+  { id: "appearance", icon: Palette, labelKey: "appearance" },
   { id: "downloads", icon: Download, labelKey: "downloads_and_game" },
   { id: "backups", icon: Archive, labelKey: "backups" },
   { id: "updates", icon: RefreshCw, labelKey: "launcher_updates" },
@@ -75,6 +78,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
     left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
     left.librarySort === right.librarySort &&
+    left.uiScale === right.uiScale &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -433,6 +437,29 @@ export function SettingsPage() {
           </nav>
 
           <div className="settingsSections">
+            <PageSection id="settings-appearance">
+              <SectionHeader
+                variant="compact"
+                title={t("appearance")}
+                description={t("appearance_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow title={t("ui_scale")} description={t("ui_scale_description")}>
+                  <SegmentedControl
+                    label={t("ui_scale")}
+                    value={String(value.uiScale ?? 1)}
+                    options={[
+                      { value: "0.75", label: "0.75×" },
+                      { value: "1", label: t("default") },
+                      { value: "1.25", label: "1.25×" },
+                      { value: "1.5", label: "1.5×" },
+                    ]}
+                    onValueChange={(v) => setValue({ ...value, uiScale: Number(v) })}
+                  />
+                </SettingRow>
+              </Card>
+            </PageSection>
+
             <PageSection id="settings-downloads">
               <SectionHeader
                 variant="compact"
@@ -449,7 +476,7 @@ export function SettingsPage() {
                       void changeAppLanguage(normalized);
                     }}
                   >
-                    <SelectTrigger className="w-[220px]">
+                    <SelectTrigger className="w-[calc(220px*var(--ui-scale))]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -581,7 +608,7 @@ export function SettingsPage() {
                       });
                     }}
                   >
-                    <SelectTrigger className="w-[220px]">
+                    <SelectTrigger className="w-[calc(220px*var(--ui-scale))]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -593,7 +620,7 @@ export function SettingsPage() {
 
                 <SettingRow title={t("current_launcher_version")}>
                   <Input
-                    className="w-[220px]"
+                    className="w-[calc(220px*var(--ui-scale))]"
                     value={currentVersion || "—"}
                     readOnly
                     aria-label={t("current_launcher_version")}
@@ -694,7 +721,7 @@ export function SettingsPage() {
                     <div className="flex w-full flex-col">
                       <Progress value={Math.round((dataFolderProgress?.progress ?? 0) * 100)} />
                       {dataFolderProgress?.totalBytes ? (
-                        <p className="mt-2 text-center text-[13px] leading-relaxed text-text-muted">
+                        <p className="mt-2 text-center text-[length:var(--fs-body)] leading-relaxed text-text-muted">
                           {formatBytes(dataFolderProgress.copiedBytes)} /{" "}
                           {formatBytes(dataFolderProgress.totalBytes)}
                         </p>
@@ -779,7 +806,7 @@ export function SettingsPage() {
               </Card>
             </PageSection>
 
-            <p className="px-1 text-[12px] leading-relaxed text-text-disabled">
+            <p className="px-1 text-[length:var(--fs-small)] leading-relaxed text-text-disabled">
               {t("not_affiliated_notice")}
             </p>
           </div>
@@ -807,7 +834,9 @@ export function SettingsPage() {
               role="alert"
               className="rounded-lg border border-danger-border bg-danger-surface px-4 py-3 text-danger"
             >
-              <p className="text-[13px] leading-6">{t("data_folder_target_not_writable_hint")}</p>
+              <p className="text-[length:var(--fs-body)] leading-6">
+                {t("data_folder_target_not_writable_hint")}
+              </p>
             </div>
           </div>
         )}

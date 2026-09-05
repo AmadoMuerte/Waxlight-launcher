@@ -50,7 +50,7 @@ export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFilt
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(160px*var(--ui-scale)),1fr))] gap-3">
         <Field label={t("game_version")}>
           <Select
             value={query.gameVersion ? `version:${query.gameVersion}` : "all"}

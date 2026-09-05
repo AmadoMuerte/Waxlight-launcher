@@ -428,7 +428,7 @@ export function LibraryPage() {
 
       <PageContent>
         <Toolbar>
-          <ToolbarGroup className="min-w-[240px] flex-1">
+          <ToolbarGroup className="min-w-[calc(240px*var(--ui-scale))] flex-1">
             <SearchInput
               wrapperClassName="w-full max-w-sm"
               aria-label={t("search_instances")}
@@ -449,7 +449,7 @@ export function LibraryPage() {
               disabled={!settings || instances.length === 0}
               onValueChange={(value) => handleSortChange(normalizeLibrarySort(value))}
             >
-              <SelectTrigger className="w-[170px]" aria-label={t("sort_by")}>
+              <SelectTrigger className="w-[calc(170px*var(--ui-scale))]" aria-label={t("sort_by")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -494,7 +494,7 @@ export function LibraryPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(280px*var(--ui-scale)),100%),1fr))] gap-4">
             {visibleInstances.map((instance) => (
               <InstanceCard
                 key={instance.id}

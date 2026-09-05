@@ -183,6 +183,13 @@ export function App() {
   }, [settings]);
 
   useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--ui-scale",
+      String(Math.min(1.5, Math.max(0.75, settings?.uiScale ?? 1))),
+    );
+  }, [settings?.uiScale]);
+
+  useEffect(() => {
     if (!settings) {
       return;
     }
