@@ -101,7 +101,10 @@ help:
 	@echo
 	@echo "  make nix-update-hash"
 	@echo "      Update the Go vendorHash in nix/waxlight.nix when a nix build"
-	@echo "      reports a hash mismatch."
+	@echo "      reports a hash mismatch. Requires nix on Linux x86_64 (the"
+	@echo "      derivation in nix/waxlight.nix only supports x86_64-linux)."
+	@echo "      make release runs this automatically when Go dependencies"
+	@echo "      changed since the last release."
 	@echo
 	@echo "  make api-inventory"
 	@echo "      Regenerate the checked-in Wails API inventory."
@@ -123,6 +126,10 @@ help:
 	@echo "      release notes (or generate them from commit history with"
 	@echo "      AUTO=1), then update versions, validate, push a release branch,"
 	@echo "      and open a pull request into dev. Merging dev into main publishes it."
+	@echo "      If go.mod or go.sum changed since the last release, the Go"
+	@echo "      vendorHash in nix/waxlight.nix is refreshed first via make"
+	@echo "      nix-update-hash (needs nix on Linux x86_64); otherwise the"
+	@echo "      Nix refresh is skipped because nothing in the release changes it."
 	@echo
 	@echo "  make release-notes VERSION=X.Y.Z [AUTO=1]"
 	@echo "      Prepare or reuse releases/vX.Y.Z.md and wait for you to"
@@ -327,6 +334,38 @@ release: \
 	check-tag \
 	check-synced
 	@gh auth status >/dev/null
+
+	@# The Nix vendorHash only depends on the Go dependency set, and a release
+	@# never changes it, so the refresh is skipped unless go.mod/go.sum moved
+	@# since the last release. The requirement check runs before any worktree
+	@# change so a missing tool cannot abort a release halfway through.
+	@# --no-merges skips the merge commits of release PRs (their message body
+	@# repeats the chore(release): subject and would shadow the real release
+	@# commit); an absent baseline (first release, shallow or rewritten history)
+	@# counts as changed so the vendorHash refresh is never skipped for lack of
+	@# history and the diff never sees an empty revision.
+	@last_release="$$($(GIT) log --no-merges -1 --format=%H --grep='^chore(release):' HEAD)"; \
+	if [[ -n "$$last_release" ]] && git diff --quiet "$$last_release" HEAD -- go.mod go.sum; then \
+		echo "Go dependencies unchanged since the last release; skipping the Nix vendorHash refresh."; \
+	else \
+		if [[ -z "$$last_release" ]]; then \
+			echo "No previous release commit found; refreshing the Nix vendorHash."; \
+		else \
+			echo "Go dependencies changed since the last release; refreshing the Nix vendorHash."; \
+		fi; \
+		if ! command -v nix >/dev/null 2>&1; then \
+			echo "error: the Nix vendorHash refresh requires nix, which is not installed or not in PATH" >&2; \
+			echo "error: install Nix or update nix/waxlight.nix manually before releasing" >&2; \
+			exit 1; \
+		fi; \
+		if [[ "$$(uname -s)/$$(uname -m)" != "Linux/x86_64" ]]; then \
+			echo "error: nix/waxlight.nix only supports x86_64-linux" >&2; \
+			echo "error: run make release on a Linux x86_64 host or update nix/waxlight.nix manually" >&2; \
+			exit 1; \
+		fi; \
+		$(MAKE) nix-update-hash; \
+	fi
+
 	$(MAKE) release-notes VERSION="$(VERSION)" AUTO="$(AUTO)"
 	@echo
 	@echo "Preparing Waxlight Launcher $(RELEASE_TAG)..."
@@ -338,7 +377,7 @@ release: \
 	@echo
 	@echo "Creating $(RELEASE_BRANCH)..."
 	$(GIT) switch -c "$(RELEASE_BRANCH)"
-	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json releases/v$(VERSION).md
+	$(GIT) add wails.json cmd/waxlight/wails.json internal/version/wails.json nix/waxlight.nix releases/v$(VERSION).md
 	$(GIT) commit -m "chore(release): $(RELEASE_TAG)"
 
 	@echo
