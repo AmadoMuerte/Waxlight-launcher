@@ -101,14 +101,35 @@ export interface FavoriteServer {
 }
 
 export interface PublicServer {
+  /** Present for servers from the official catalog; favorites have no catalog ID. */
+  id?: string;
+  url?: string;
   name: string;
   address: string;
   description: string;
+  fullDescription?: string;
+  descriptionHtml?: string;
+  imageUrl?: string;
+  bannerUrl?: string;
+  gameVersion?: string;
   players: number;
+  maxPlayers?: number;
   modCount: number;
+  location?: string;
+  languages?: string[];
+  operator?: string;
+  operatorUrl?: string;
+  modified?: boolean;
   requiresWhitelist: boolean;
   accessRestricted: boolean;
   joinable: boolean;
+  mods?: ServerMod[];
+}
+
+export interface ServerMod {
+  name: string;
+  version: string;
+  url: string;
 }
 
 export interface InstanceSnapshot {

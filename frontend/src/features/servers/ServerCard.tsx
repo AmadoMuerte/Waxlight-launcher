@@ -2,12 +2,14 @@ import {
   Boxes,
   Copy,
   Eye,
+  Globe2,
   Heart,
   Link,
   LockKeyhole,
   MoreHorizontal,
   ShieldCheck,
   Users,
+  Wrench,
 } from "lucide-react";
 import { memo, useId } from "react";
 import type { MouseEvent } from "react";
@@ -72,7 +74,7 @@ export const ServerCard = memo(function ServerCard({
         />
 
         <div className="relative">
-          <CoverArt className="aspect-[16/5] min-h-20" seed={server.name} />
+          <CoverArt className="aspect-[16/5] min-h-20" seed={server.name} src={server.imageUrl} />
           <div className="absolute top-3 right-3 z-[2] flex items-center gap-1.5">
             <IconButton
               size="sm"
@@ -155,9 +157,12 @@ export const ServerCard = memo(function ServerCard({
             {server.players > 0 && (
               <span className="inline-flex items-center gap-1">
                 <Users size={12} aria-hidden="true" />
-                {t("server_players", { count: server.players })}
+                {server.maxPlayers
+                  ? `${server.players} / ${server.maxPlayers}`
+                  : t("server_players", { count: server.players })}
               </span>
             )}
+            {server.gameVersion && <span>{server.gameVersion}</span>}
             {server.modCount > 0 && (
               <span className="inline-flex items-center gap-1">
                 <Boxes size={12} aria-hidden="true" />
@@ -174,6 +179,18 @@ export const ServerCard = memo(function ServerCard({
               <span className="inline-flex items-center gap-1">
                 <LockKeyhole size={12} aria-hidden="true" />
                 {t("server_password")}
+              </span>
+            )}
+            {server.modified && (
+              <span className="inline-flex items-center gap-1">
+                <Wrench size={12} aria-hidden="true" />
+                {t("mods")}
+              </span>
+            )}
+            {server.location && (
+              <span className="inline-flex items-center gap-1" title={server.location}>
+                <Globe2 size={12} aria-hidden="true" />
+                {server.location}
               </span>
             )}
           </div>

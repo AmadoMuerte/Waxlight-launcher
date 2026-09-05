@@ -17,12 +17,28 @@ func (catalog catalog) List(context.Context) ([]PublicServer, error) {
 	return catalog.servers, catalog.err
 }
 
+func (catalog catalog) Get(context.Context, string) (PublicServer, error) {
+	if len(catalog.servers) == 0 {
+		return PublicServer{}, catalog.err
+	}
+	return catalog.servers[0], catalog.err
+}
+
 func TestCatalogServiceListsPublicServers(t *testing.T) {
 	service := NewCatalogService(catalog{servers: []PublicServer{{Name: "Example", Players: 12}}})
 
 	servers, err := service.List(context.Background())
 	if err != nil || len(servers) != 1 || servers[0].Name != "Example" {
 		t.Fatalf("List() = %+v, %v", servers, err)
+	}
+}
+
+func TestCatalogServiceGetsPublicServer(t *testing.T) {
+	service := NewCatalogService(catalog{servers: []PublicServer{{ID: "42", Name: "Example"}}})
+
+	server, err := service.Get(context.Background(), "42")
+	if err != nil || server.ID != "42" {
+		t.Fatalf("Get() = %+v, %v", server, err)
 	}
 }
 

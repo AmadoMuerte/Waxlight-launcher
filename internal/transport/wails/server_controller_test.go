@@ -90,6 +90,10 @@ func (catalogStub) List(context.Context) ([]servers.PublicServer, error) {
 	}}, nil
 }
 
+func (catalogStub) Get(_ context.Context, id string) (servers.PublicServer, error) {
+	return servers.PublicServer{ID: id, Name: "Example", FullDescription: "Full description"}, nil
+}
+
 func TestServerControllerListsFavoriteServers(t *testing.T) {
 	controller, repository := newServerController()
 	repository.items = []servers.FavoriteServer{{ID: "one", Name: "Cozy", Address: "example.org:42420"}}
@@ -112,6 +116,15 @@ func TestServerControllerListsPublicServers(t *testing.T) {
 	}
 	if result[0].AccessRestricted {
 		t.Fatal("public server DTO access restriction mismatch")
+	}
+}
+
+func TestServerControllerGetsPublicServer(t *testing.T) {
+	controller, _ := newServerController()
+
+	result, err := controller.GetPublicServer("42")
+	if err != nil || result.ID != "42" || result.FullDescription != "Full description" {
+		t.Fatalf("GetPublicServer() = %+v, %v", result, err)
 	}
 }
 

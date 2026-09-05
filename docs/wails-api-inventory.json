@@ -108,6 +108,7 @@
     ],
     "ServerController": [
       "DeleteFavoriteServer",
+      "GetPublicServer",
       "ListFavoriteServers",
       "ListPublicServers",
       "SaveFavoriteServer"
