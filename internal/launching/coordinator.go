@@ -58,6 +58,14 @@ type Validation struct {
 	Warnings []string
 }
 
+// PresenceNotifier is called when a game starts or stops, allowing
+// features like Discord Rich Presence to react without being imported
+// directly by the launching feature.
+type PresenceNotifier interface {
+	GameStarted()
+	GameStopped()
+}
+
 // Coordinator owns game-process orchestration: launch validation, starting,
 // stopping, tracking, credential injection and cleanup, launcher-owned
 // diagnostic logs, play-session persistence, and failed-startup handling.
@@ -81,6 +89,7 @@ type Coordinator struct {
 	recovery       LaunchRecovery
 	workers        WorkerGroup
 	operations     OperationLister
+	presence       PresenceNotifier
 	now            func() time.Time
 	newID          func() string
 }
@@ -105,6 +114,7 @@ func NewCoordinator(
 	recovery LaunchRecovery,
 	workers WorkerGroup,
 	operations OperationLister,
+	presence PresenceNotifier,
 	now func() time.Time,
 	newID func() string,
 ) *Coordinator {
@@ -128,6 +138,7 @@ func NewCoordinator(
 		recovery:       recovery,
 		workers:        workers,
 		operations:     operations,
+		presence:       presence,
 		now:            now,
 		newID:          newID,
 	}
@@ -456,6 +467,9 @@ func (coordinator *Coordinator) launch(
 	})
 
 	coordinator.publish("game:started", session)
+	if coordinator.presence != nil {
+		coordinator.presence.GameStarted()
+	}
 	coordinator.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
 	// Snapshot the startup window once on the caller goroutine; the launch
@@ -710,6 +724,9 @@ func (coordinator *Coordinator) waitForGame(
 		payload["message"] = "Vintage Story could not start because a compatible .NET runtime was not found. Vintage Story 1.22 requires .NET 10."
 	}
 	coordinator.publish("game:exited", payload)
+	if coordinator.presence != nil && len(coordinator.registry.RunningInstanceIDs()) == 0 {
+		coordinator.presence.GameStopped()
+	}
 }
 
 // Stop requests a running game to stop; force kills it instead.

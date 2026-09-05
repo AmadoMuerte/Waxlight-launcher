@@ -5,11 +5,12 @@ go 1.25.13
 require (
 	github.com/AmadoMuerte/vintagestory-go v0.5.0
 	github.com/AmadoMuerte/wailsdoc v0.3.0
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/otiai10/copy v1.14.1
-	github.com/wailsapp/wails/v2 v2.12.0
+	github.com/wailsapp/wails/v2 v2.15.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/mod v0.39.0
 	golang.org/x/sys v0.47.0

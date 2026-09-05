@@ -23,6 +23,7 @@ type Settings struct {
 	UpdateChannel              string
 	SkippedUpdateVersion       string
 	TelemetryEnabled           bool
+	RichPresenceEnabled        bool
 	AutomaticSafetySnapshots   bool
 	AutomaticSnapshotRetention int
 	LibrarySort                string
@@ -38,6 +39,7 @@ func Defaults() Settings {
 		CheckForUpdates:            true,
 		UpdateChannel:              "stable",
 		TelemetryEnabled:           false,
+		RichPresenceEnabled:        true,
 		AutomaticSafetySnapshots:   true,
 		AutomaticSnapshotRetention: AutomaticSnapshotRetentionDefault,
 		LibrarySort:                LibrarySortLastPlayed,

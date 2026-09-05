@@ -51,6 +51,11 @@ func (recovery *lkgTestRecovery) RecordLastKnownGood(context.Context, instances.
 }
 func (*lkgTestRecovery) HandleFailedLaunch(instances.Instance) {}
 
+type lkgTestPresence struct{ stopped atomic.Int32 }
+
+func (*lkgTestPresence) GameStarted()          {}
+func (presence *lkgTestPresence) GameStopped() { presence.stopped.Add(1) }
+
 func TestExitedLaunchIsNotRecordedWhileCleanupRuns(t *testing.T) {
 	registry := NewRegistry(mutations.NewSlot())
 	recovery := &lkgTestRecovery{}
@@ -123,6 +128,33 @@ func TestExit131WithoutDotnetPublishesStartupMessage(t *testing.T) {
 	payload, ok := events.payload.(map[string]any)
 	if !ok || events.name != "game:exited" || payload["message"] == nil {
 		t.Fatalf("published %q %#v", events.name, events.payload)
+	}
+}
+
+func TestPresenceReturnsIdleOnlyAfterLastGameStops(t *testing.T) {
+	registry := NewRegistry(mutations.NewSlot())
+	presence := &lkgTestPresence{}
+	coordinator := &Coordinator{
+		registry:  registry,
+		instances: lkgTestInstances{},
+		sessions:  lkgTestSessions{},
+		recovery:  &lkgTestRecovery{},
+		presence:  presence,
+		now:       time.Now,
+	}
+	first := instances.Instance{ID: "first", Name: "First"}
+	second := instances.Instance{ID: "second", Name: "Second"}
+	registry.Start(first.ID, runningGame{sessionID: "first-session"})
+	registry.Start(second.ID, runningGame{sessionID: "second-session"})
+
+	coordinator.waitForGame(first, lkgTestProcess{}, "first-session", time.Now(), io.NopCloser(nil), func() error { return nil }, func() {}, time.Minute, func() {}, false)
+	if got := presence.stopped.Load(); got != 0 {
+		t.Fatalf("GameStopped calls with another game running = %d, want 0", got)
+	}
+
+	coordinator.waitForGame(second, lkgTestProcess{}, "second-session", time.Now(), io.NopCloser(nil), func() error { return nil }, func() {}, time.Minute, func() {}, false)
+	if got := presence.stopped.Load(); got != 1 {
+		t.Fatalf("GameStopped calls after final game exits = %d, want 1", got)
 	}
 }
 

@@ -45,6 +45,7 @@ RELEASE_BRANCH = release/$(RELEASE_TAG)
 	vet \
 	security \
 	architecture \
+	nix-update-hash \
 	security-patterns \
 	vulncheck \
 	api-inventory \
@@ -97,6 +98,10 @@ help:
 	@echo
 	@echo "  make security"
 	@echo "      Run security-pattern and vulnerability checks."
+	@echo
+	@echo "  make nix-update-hash"
+	@echo "      Update the Go vendorHash in nix/waxlight.nix when a nix build"
+	@echo "      reports a hash mismatch."
 	@echo
 	@echo "  make api-inventory"
 	@echo "      Regenerate the checked-in Wails API inventory."
@@ -282,6 +287,9 @@ vet:
 
 architecture:
 	./scripts/check-architecture.sh
+
+nix-update-hash:
+	./scripts/update-nix-vendor-hash.sh
 
 security-patterns:
 	./scripts/check-security-patterns.sh
