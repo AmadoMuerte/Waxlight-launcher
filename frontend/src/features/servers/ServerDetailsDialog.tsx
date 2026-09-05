@@ -53,8 +53,15 @@ export function ServerDetailsContent({
   onToggleFavorite,
 }: ServerDetailsContentProps) {
   const { t } = useTranslation();
+  const mods = server.mods
+    ? [
+        ...new Map(
+          server.mods.map((mod) => [`${mod.name}\u0000${mod.version}\u0000${mod.url}`, mod]),
+        ).values(),
+      ]
+    : [];
   return (
-    <div className="flex min-h-0 flex-col gap-5 p-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
       {(server.bannerUrl || server.imageUrl) && (
         <CoverArt
           className="aspect-[3/1] min-h-28 rounded-md border border-border-subtle"
@@ -175,12 +182,12 @@ export function ServerDetailsContent({
         )}
       </div>
 
-      {server.mods?.length ? (
+      {mods.length ? (
         <div>
           <h3 className="mb-2 font-display text-lg font-semibold">{t("mods")}</h3>
           <ul className="grid gap-1 text-sm text-text-secondary">
-            {server.mods.map((mod) => (
-              <li key={`${mod.name}:${mod.version}`}>
+            {mods.map((mod) => (
+              <li key={`${mod.name}\u0000${mod.version}\u0000${mod.url}`}>
                 <button
                   type="button"
                   className="text-left hover:text-accent"
@@ -228,7 +235,7 @@ export function ServerDetailsDialog({
 }: ServerDetailsDialogProps) {
   const { t } = useTranslation();
   return (
-    <Modal title={server.name} onClose={onClose}>
+    <Modal title={server.name} onClose={onClose} className="serverDetailsDialog">
       <ServerDetailsContent server={server} {...content} />
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>

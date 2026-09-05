@@ -8,6 +8,7 @@ import type { FavoriteServer, Instance, PublicServer } from "../../shared/api";
 import i18n from "../../shared/i18n";
 import { TooltipProvider } from "../../shared/ui/tooltip";
 import { ServerCard } from "./ServerCard";
+import { ServerDetailsContent } from "./ServerDetailsDialog";
 
 const server: PublicServer = {
   name: "The Lighthouse Community",
@@ -175,5 +176,22 @@ describe("ServerCard", () => {
     renderCard({}, { ...server, players: 0, modCount: 0 });
     expect(screen.queryByText(/players?$/)).toBeNull();
     expect(screen.queryByText(/mods?$/)).toBeNull();
+  });
+
+  it("shows duplicate catalog mods once in details", () => {
+    render(
+      <ServerDetailsContent
+        server={{
+          ...server,
+          mods: [
+            { name: "Duplicated mod", version: "1.0.0", url: "https://example.com/mod" },
+            { name: "Duplicated mod", version: "1.0.0", url: "https://example.com/mod" },
+          ],
+        }}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Duplicated mod@1.0.0" })).toHaveLength(1);
   });
 });

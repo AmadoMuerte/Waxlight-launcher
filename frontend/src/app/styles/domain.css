@@ -1524,4 +1524,8 @@
     background: var(--color-accent-muted);
     border: 1px solid var(--color-accent-muted);
   }
+
+  .serverDetailsDialog [data-slot="dialog-title"] {
+    overflow-wrap: anywhere;
+  }
 }
