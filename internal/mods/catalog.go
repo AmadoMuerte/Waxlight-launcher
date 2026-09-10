@@ -305,6 +305,50 @@ func (service *CatalogService) downloadCatalogMod(
 		targetInstances = append(targetInstances, instance)
 	}
 
+	installedVersions := make(map[string]map[string][]string, len(targetInstances))
+	releases := make([]func(), 0, len(targetInstances))
+	if !request.DownloadOnly && len(targetInstances) > 0 {
+		instanceIDs := make([]string, 0, len(targetInstances))
+		for _, instance := range targetInstances {
+			if _, alreadyLocked := lockedInstances[instance.ID]; !alreadyLocked {
+				instanceIDs = append(instanceIDs, instance.ID)
+			}
+		}
+		sort.Strings(instanceIDs)
+		for _, instanceID := range instanceIDs {
+			release, lockErr := service.lockInstanceMutations(instanceID)
+			if lockErr != nil {
+				for index := len(releases) - 1; index >= 0; index-- {
+					releases[index]()
+				}
+				return ModInstallResult{}, lockErr
+			}
+			releases = append(releases, release)
+		}
+		defer func() {
+			for index := len(releases) - 1; index >= 0; index-- {
+				releases[index]()
+			}
+		}()
+
+		for _, instance := range targetInstances {
+			installed, listErr := service.lister.ListMods(ctx, instance.ID)
+			if listErr != nil {
+				return ModInstallResult{}, listErr
+			}
+			byModID := make(map[string][]string)
+			for _, mod := range installed {
+				modID, _, managedSource := ParseModDBSource(mod.Source)
+				if !managedSource || !mod.Enabled || !mod.Managed {
+					continue
+				}
+				canonicalID := strings.ToLower(strings.TrimSpace(modID))
+				byModID[canonicalID] = append(byModID[canonicalID], mod.Version)
+			}
+			installedVersions[instance.ID] = byModID
+		}
+	}
+
 	taskID := service.newID()
 	downloadCtx, existingTask, err := service.tasks.Begin(ctx, taskID, details.ID, selected.ID)
 	if err != nil {
@@ -326,6 +370,8 @@ func (service *CatalogService) downloadCatalogMod(
 		true,
 		resolved,
 		visiting,
+		installedVersions,
+		"",
 		&plan,
 		&newDownloads,
 	)
@@ -343,17 +389,7 @@ func (service *CatalogService) downloadCatalogMod(
 
 	allInstalled := true
 	for _, instance := range targetInstances {
-		var instanceRelease func()
-		if _, alreadyLocked := lockedInstances[instance.ID]; !alreadyLocked {
-			instanceRelease, err = service.lockInstanceMutations(instance.ID)
-			if err != nil {
-				return result, err
-			}
-		}
-		installation := service.installModPlan(downloadCtx, plan, instance)
-		if instanceRelease != nil {
-			instanceRelease()
-		}
+		installation := service.installModPlan(downloadCtx, plan, instance, installedVersions[instance.ID])
 		result.Installations = append(result.Installations, installation)
 		allInstalled = allInstalled && installation.Installed
 	}
