@@ -20,6 +20,7 @@ type modInstallPlanItem struct {
 	Downloaded    DownloadedMod
 	Root          bool
 	DownloadedNow bool
+	Requirements  []string
 }
 
 // resolveAndDownloadCatalogMod downloads a catalog mod, resolves its
@@ -34,6 +35,8 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 	root bool,
 	resolved map[string]ModVersion,
 	visiting map[string]struct{},
+	installedVersions map[string]map[string][]string,
+	requirement string,
 	plan *[]modInstallPlanItem,
 	newDownloads *[]DownloadedMod,
 ) (DownloadedMod, error) {
@@ -93,6 +96,21 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 				Cause:   getErr,
 			}
 		}
+		dependencyCanonicalID := canonicalCatalogModID(dependencyDetails)
+		if alreadyResolved, ok := resolved[dependencyCanonicalID]; ok {
+			if modVersionSatisfies(alreadyResolved.Version, requirement) {
+				addCatalogModRequirement(plan, dependencyCanonicalID, requirement)
+				continue
+			}
+			// A later branch can require a newer version of a shared library.
+			// Replace the earlier plan item with the version satisfying this branch.
+			delete(resolved, dependencyCanonicalID)
+			removeCatalogModFromInstallPlan(plan, dependencyDetails.ID)
+		}
+		if allTargetsSatisfyDependency(installedVersions, dependencyCanonicalID, requirement) {
+			continue
+		}
+
 		dependencyVersion, found := findDependencyVersion(
 			dependencyDetails.Versions,
 			requirement,
@@ -115,17 +133,6 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 			)
 		}
 
-		dependencyCanonicalID := canonicalCatalogModID(dependencyDetails)
-		if alreadyResolved, ok := resolved[dependencyCanonicalID]; ok {
-			if modVersionSatisfies(alreadyResolved.Version, requirement) {
-				continue
-			}
-			// A later branch can require a newer version of a shared library.
-			// Replace the earlier plan item with the version satisfying this branch.
-			delete(resolved, dependencyCanonicalID)
-			removeCatalogModFromInstallPlan(plan, dependencyDetails.ID)
-		}
-
 		if _, resolveErr := service.resolveAndDownloadCatalogMod(
 			ctx,
 			taskID,
@@ -136,6 +143,8 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 			false,
 			resolved,
 			visiting,
+			installedVersions,
+			requirement,
 			plan,
 			newDownloads,
 		); resolveErr != nil {
@@ -148,6 +157,7 @@ func (service *CatalogService) resolveAndDownloadCatalogMod(
 		Downloaded:    downloaded,
 		Root:          root,
 		DownloadedNow: downloadedNow,
+		Requirements:  []string{requirement},
 	})
 	return downloaded, nil
 }
@@ -327,12 +337,16 @@ func (service *CatalogService) installModPlan(
 	ctx context.Context,
 	plan []modInstallPlanItem,
 	instance InstanceRef,
+	installedVersions map[string][]string,
 ) ModInstallationResult {
 	result := ModInstallationResult{
 		InstanceID:   instance.ID,
 		InstanceName: instance.Name,
 	}
 	for _, item := range plan {
+		if !item.Root && versionsSatisfyDependencies(installedVersions[strings.ToLower(strings.TrimSpace(item.Downloaded.ModID))], item.Requirements) {
+			continue
+		}
 		installation := service.installDownloadedMod(ctx, item.Downloaded, instance)
 		if !installation.Installed {
 			if item.Root {
@@ -351,6 +365,43 @@ func (service *CatalogService) installModPlan(
 	}
 	result.Message = "The installation plan did not contain the requested mod"
 	return result
+}
+
+func allTargetsSatisfyDependency(installedVersions map[string]map[string][]string, modID, requirement string) bool {
+	if len(installedVersions) == 0 {
+		return false
+	}
+	for _, byModID := range installedVersions {
+		if !versionsSatisfyDependencies(byModID[modID], []string{requirement}) {
+			return false
+		}
+	}
+	return true
+}
+
+func versionsSatisfyDependencies(versions, requirements []string) bool {
+	for _, version := range versions {
+		satisfies := true
+		for _, requirement := range requirements {
+			if !modVersionSatisfies(version, requirement) {
+				satisfies = false
+				break
+			}
+		}
+		if satisfies {
+			return true
+		}
+	}
+	return false
+}
+
+func addCatalogModRequirement(plan *[]modInstallPlanItem, modID, requirement string) {
+	for index := range *plan {
+		if strings.EqualFold(strings.TrimSpace((*plan)[index].Downloaded.ModID), modID) {
+			(*plan)[index].Requirements = append((*plan)[index].Requirements, requirement)
+			return
+		}
+	}
 }
 
 // installDownloadedMod installs a cached catalog release into an instance,
