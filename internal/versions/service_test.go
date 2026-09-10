@@ -17,11 +17,14 @@ import (
 )
 
 type testRepository struct {
-	mu         sync.Mutex
-	versions   map[string]GameVersion
-	operations map[string]operations.Operation
-	reference  string
-	saveErr    error
+	mu          sync.Mutex
+	versions    map[string]GameVersion
+	operations  map[string]operations.Operation
+	reference   string
+	saveErr     error
+	saveCalls   int
+	updateCalls int
+	deleteCalls int
 }
 
 func newTestRepository() *testRepository {
@@ -51,6 +54,7 @@ func (repository *testRepository) GetVersion(_ context.Context, id string) (Game
 func (repository *testRepository) SaveVersion(_ context.Context, version GameVersion) error {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
+	repository.saveCalls++
 	if repository.saveErr != nil {
 		return repository.saveErr
 	}
@@ -63,6 +67,7 @@ func (repository *testRepository) SaveVersion(_ context.Context, version GameVer
 
 func (repository *testRepository) UpdateVersion(_ context.Context, version GameVersion) error {
 	repository.mu.Lock()
+	repository.updateCalls++
 	repository.versions[version.ID] = version
 	repository.mu.Unlock()
 	return nil
@@ -70,6 +75,7 @@ func (repository *testRepository) UpdateVersion(_ context.Context, version GameV
 
 func (repository *testRepository) DeleteVersion(_ context.Context, id string) error {
 	repository.mu.Lock()
+	repository.deleteCalls++
 	delete(repository.versions, id)
 	repository.mu.Unlock()
 	return nil
@@ -190,6 +196,7 @@ func (filesystem *testFilesystem) RemoveVersion(string, string) error {
 type testLocalInstaller struct {
 	started chan struct{}
 	release chan struct{}
+	findErr error
 }
 
 func (installer testLocalInstaller) Install(ctx context.Context, _, target, _, _ string, _ func(int64, int64)) (string, int64, error) {
@@ -206,7 +213,10 @@ func (installer testLocalInstaller) Install(ctx context.Context, _, target, _, _
 	return target + "/Vintagestory", 4, nil
 }
 
-func (testLocalInstaller) FindExecutable(root, _ string) (string, error) {
+func (installer testLocalInstaller) FindExecutable(root, _ string) (string, error) {
+	if installer.findErr != nil {
+		return "", installer.findErr
+	}
 	return root + "/Vintagestory", nil
 }
 
@@ -311,6 +321,90 @@ func TestCatalogInstallReturnsStableResult(t *testing.T) {
 	}
 	if installed.ID != "1.22" || installed.ExecutablePath != "/versions/1.22/Vintagestory" {
 		t.Fatalf("unexpected install result: %+v", installed)
+	}
+}
+
+func TestResolveExecutableMarksMissingVersionAndReturnsNotFound(t *testing.T) {
+	repository := newTestRepository()
+	repository.versions["1.22"] = GameVersion{
+		ID: "1.22", InstallationDir: "/versions/1.22", ExecutablePath: "/missing", Status: "installed",
+	}
+	service, _ := newTestService(repository, nil, nil, testLocalInstaller{findErr: errors.New("not found")}, &testFilesystem{})
+
+	if _, err := service.ResolveExecutable(context.Background(), "1.22"); !hasCode(err, errs.ErrVersionNotFound) {
+		t.Fatalf("ResolveExecutable error = %v, want version not found", err)
+	}
+	missing := repository.versions["1.22"]
+	if missing.Status != "failed" || missing.ExecutablePath != "" || missing.VerifiedAt == nil {
+		t.Fatalf("missing version was not persisted: %+v", missing)
+	}
+}
+
+func TestListAndListAvailableReportMissingVersion(t *testing.T) {
+	repository := newTestRepository()
+	repository.versions["1.22"] = GameVersion{
+		ID: "1.22", InstallationDir: "/versions/1.22", ExecutablePath: "/missing", Status: "installed",
+	}
+	service, _ := newTestService(repository, testCatalog{catalogVersion("1.22")}, nil, testLocalInstaller{findErr: errors.New("not found")}, &testFilesystem{})
+
+	installed, err := service.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 1 || installed[0].Status != "failed" {
+		t.Fatalf("List result = %+v, want failed version", installed)
+	}
+	available, err := service.ListAvailable(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(available) != 1 || available[0].Installed || available[0].InstallStatus == nil || *available[0].InstallStatus != "failed" {
+		t.Fatalf("ListAvailable result = %+v, want reinstallable failed version", available)
+	}
+}
+
+func TestSameIDLocalReinstallUpdatesExistingVersion(t *testing.T) {
+	repository := newTestRepository()
+	repository.versions["1.22"] = GameVersion{
+		ID: "1.22", Name: "old", InstallationDir: "/versions/1.22", ExecutablePath: "/missing", Status: "installed",
+	}
+	service, _ := newTestService(repository, nil, nil, testLocalInstaller{findErr: errors.New("not found")}, &testFilesystem{})
+
+	if _, err := service.InstallLocal(context.Background(), "1.22", "reinstalled", "/source", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	assertReinstallUpdated(t, repository, "reinstalled")
+}
+
+func TestSameIDCatalogReinstallUpdatesExistingVersion(t *testing.T) {
+	repository := newTestRepository()
+	repository.versions["1.22"] = GameVersion{
+		ID: "1.22", Name: "old", InstallationDir: "/versions/1.22", ExecutablePath: "/missing", Status: "installed",
+	}
+	release := catalogVersion("1.22")
+	release.Name = "reinstalled"
+	service, _ := newTestService(repository, testCatalog{release}, &testDownloader{}, testLocalInstaller{findErr: errors.New("not found")}, &testFilesystem{})
+
+	install, err := service.InstallCatalog(context.Background(), "1.22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := install.Wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	assertReinstallUpdated(t, repository, "reinstalled")
+}
+
+func assertReinstallUpdated(t *testing.T, repository *testRepository, wantName string) {
+	t.Helper()
+	repository.mu.Lock()
+	defer repository.mu.Unlock()
+	version := repository.versions["1.22"]
+	if version.Name != wantName || version.Status != "installed" {
+		t.Fatalf("reinstalled version = %+v", version)
+	}
+	if repository.saveCalls != 0 || repository.deleteCalls != 0 || repository.updateCalls < 2 {
+		t.Fatalf("persistence calls: save=%d update=%d delete=%d", repository.saveCalls, repository.updateCalls, repository.deleteCalls)
 	}
 }
 

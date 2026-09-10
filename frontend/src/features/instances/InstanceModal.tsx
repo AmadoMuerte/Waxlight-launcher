@@ -241,8 +241,10 @@ export function InstanceModal({
     try {
       const result = await modsApi.linkLocal(instance.id);
       await loadMods();
-      const report = await loadUpdates();
-      if (report) onModUpdatesChanged?.(instance.id, report);
+      if (result.linked.length > 0) {
+        const report = await loadUpdates();
+        if (report) onModUpdatesChanged?.(instance.id, report);
+      }
       await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
       if (result.linked.length > 0) {
         notify(t("mods_linked_count", { count: result.linked.length }));

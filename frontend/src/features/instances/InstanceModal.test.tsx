@@ -248,7 +248,7 @@ describe("confirmDeletion gate", () => {
   });
 
   it("installs a selected catalog version from the instance mods tab", async () => {
-    const { onModUpdatesChanged } = renderModal();
+    renderModal();
     const user = await openModsTab();
 
     await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
@@ -261,11 +261,24 @@ describe("confirmDeletion gate", () => {
         allowIncompatible: false,
       }),
     );
-    await waitFor(() =>
-      expect(onModUpdatesChanged).toHaveBeenCalledWith(
-        "instance-1",
-        expect.objectContaining({ gameVersion: "1.20" }),
-      ),
+  });
+
+  it("does not recheck updates after no-op local linking", async () => {
+    const { onModUpdatesChanged } = renderModal();
+
+    await waitFor(() => expect(modsApi.linkLocal).toHaveBeenCalledOnce());
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledOnce());
+    expect(onModUpdatesChanged).not.toHaveBeenCalled();
+  });
+
+  it("rechecks updates after linking local mods", async () => {
+    modsApi.linkLocal.mockResolvedValue({ linked: [installedMod], notMatched: [] });
+    const { onModUpdatesChanged } = renderModal();
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(2));
+    expect(onModUpdatesChanged).toHaveBeenCalledWith(
+      "instance-1",
+      expect.objectContaining({ gameVersion: "1.20" }),
     );
   });
 

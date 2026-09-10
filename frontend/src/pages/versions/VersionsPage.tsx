@@ -26,6 +26,9 @@ export function VersionsPage() {
   const notify = useToastStore((state) => state.notify);
   const { data: versions = [] } = useGameVersionsQuery();
   const { data: settings } = useSettingsQuery();
+  const installedVersionIDs = versions
+    .filter((version) => version.status === "installed")
+    .map((version) => version.id);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -118,12 +121,12 @@ export function VersionsPage() {
           </PageSection>
         )}
 
-        <AvailableVersions installedVersionIDs={versions.map((version) => version.id)} />
+        <AvailableVersions installedVersionIDs={installedVersionIDs} />
       </PageContent>
 
       {installDialogOpen && (
         <InstallLocalVersionModal
-          installedVersionIDs={new Set(versions.map((version) => version.id))}
+          installedVersionIDs={new Set(installedVersionIDs)}
           onClose={() => setInstallDialogOpen(false)}
           onDone={async () => {
             setInstallDialogOpen(false);

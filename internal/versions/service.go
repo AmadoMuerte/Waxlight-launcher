@@ -44,7 +44,14 @@ func (service *QueryService) ResolveExecutable(ctx context.Context, id string) (
 	if err != nil {
 		return GameVersion{}, err
 	}
-	return service.repair(ctx, version)
+	version, installed, err := service.verify(ctx, version)
+	if err != nil {
+		return GameVersion{}, err
+	}
+	if !installed {
+		return GameVersion{}, errs.NewError(errs.ErrVersionNotFound, "Game version executable not found")
+	}
+	return version, nil
 }
 
 func (service *QueryService) List(ctx context.Context) ([]GameVersion, error) {
@@ -53,32 +60,66 @@ func (service *QueryService) List(ctx context.Context) ([]GameVersion, error) {
 		return nil, err
 	}
 	for index := range installed {
-		if repaired, repairErr := service.repair(ctx, installed[index]); repairErr == nil {
-			installed[index] = repaired
+		installed[index], _, err = service.verify(ctx, installed[index])
+		if err != nil {
+			return nil, err
 		}
 	}
 	return installed, nil
 }
 
-func (service *QueryService) repair(ctx context.Context, version GameVersion) (GameVersion, error) {
-	if service.filesystem.ExecutableExists(version.ExecutablePath) {
-		return version, nil
+func (service *QueryService) verify(ctx context.Context, version GameVersion) (GameVersion, bool, error) {
+	return verifyVersion(ctx, service.repository, service.localInstaller, service.filesystem, service.now, version)
+}
+
+func verifyVersion(
+	ctx context.Context,
+	repository Repository,
+	localInstaller LocalInstaller,
+	filesystem Filesystem,
+	now func() time.Time,
+	version GameVersion,
+) (GameVersion, bool, error) {
+	if filesystem.ExecutableExists(version.ExecutablePath) {
+		if version.Status != "installed" {
+			version.Status = "installed"
+			verifiedAt := now().UTC()
+			version.VerifiedAt = &verifiedAt
+			if err := repository.UpdateVersion(ctx, version); err != nil {
+				return version, false, err
+			}
+		}
+		return version, true, nil
 	}
-	executable, err := service.localInstaller.FindExecutable(version.InstallationDir, "")
+	executable, err := localInstaller.FindExecutable(version.InstallationDir, "")
 	if err != nil {
-		return version, err
+		return markVersionMissing(ctx, repository, now, version)
 	}
-	if err := service.filesystem.MakeExecutable(executable); err != nil {
-		return version, err
+	if err := filesystem.MakeExecutable(executable); err != nil {
+		return markVersionMissing(ctx, repository, now, version)
 	}
 	version.ExecutablePath = executable
 	version.Status = "installed"
-	now := service.now().UTC()
-	version.VerifiedAt = &now
-	if err := service.repository.UpdateVersion(ctx, version); err != nil {
-		return version, err
+	verifiedAt := now().UTC()
+	version.VerifiedAt = &verifiedAt
+	if err := repository.UpdateVersion(ctx, version); err != nil {
+		return version, false, err
 	}
-	return version, nil
+	return version, true, nil
+}
+
+func markVersionMissing(ctx context.Context, repository Repository, now func() time.Time, version GameVersion) (GameVersion, bool, error) {
+	if version.Status == "failed" && version.ExecutablePath == "" {
+		return version, false, nil
+	}
+	version.ExecutablePath = ""
+	version.Status = "failed"
+	verifiedAt := now().UTC()
+	version.VerifiedAt = &verifiedAt
+	if err := repository.UpdateVersion(ctx, version); err != nil {
+		return version, false, err
+	}
+	return version, false, nil
 }
 
 func (service *QueryService) ListAvailable(ctx context.Context) ([]AvailableGameVersion, error) {
@@ -96,11 +137,15 @@ func (service *QueryService) ListAvailable(ctx context.Context) ([]AvailableGame
 	}
 	byID := make(map[string]GameVersion, len(installed))
 	for _, version := range installed {
+		version, _, err = service.verify(ctx, version)
+		if err != nil {
+			return nil, err
+		}
 		byID[version.ID] = version
 	}
 	for index := range available {
 		if version, ok := byID[available[index].ID]; ok {
-			available[index].Installed = true
+			available[index].Installed = version.Status == "installed"
 			status := version.Status
 			available[index].InstallStatus = &status
 		}
