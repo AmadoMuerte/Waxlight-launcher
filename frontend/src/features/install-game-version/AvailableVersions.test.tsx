@@ -75,8 +75,9 @@ describe("official version catalog", () => {
     expect(notify).toHaveBeenCalledWith("Downloading Vintage Story 1.22.6");
   });
 
-  it("filters preview releases and disables installed versions", async () => {
-    renderCatalog(["1.23.0-pre.1"]);
+  it("filters preview releases and disables catalog-installed versions", async () => {
+    api.available.mockResolvedValue([releases[0], { ...releases[1], installed: true }]);
+    renderCatalog();
     await screen.findByText("1.22.6");
     const user = userEvent.setup();
     await user.click(screen.getByLabelText("Release channel"));

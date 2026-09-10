@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +19,7 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/modstorage"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
@@ -444,6 +444,36 @@ func installedModByName(items []mods.InstalledMod, name string) mods.InstalledMo
 type staticModCatalog struct {
 	details     mods.ModDetails
 	detailsByID map[string]mods.ModDetails
+}
+
+type blockingCatalog struct {
+	mods.Catalog
+	started chan struct{}
+	unblock chan struct{}
+	err     error
+	once    sync.Once
+}
+
+func newBlockingCatalog(catalog mods.Catalog, err error) *blockingCatalog {
+	return &blockingCatalog{
+		Catalog: catalog,
+		started: make(chan struct{}),
+		unblock: make(chan struct{}),
+		err:     err,
+	}
+}
+
+func (catalog *blockingCatalog) List(ctx context.Context) ([]mods.ModSummary, error) {
+	catalog.once.Do(func() { close(catalog.started) })
+	select {
+	case <-catalog.unblock:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	if catalog.err != nil {
+		return nil, catalog.err
+	}
+	return catalog.Catalog.List(ctx)
 }
 
 func (catalog staticModCatalog) List(context.Context) ([]mods.ModSummary, error) {
