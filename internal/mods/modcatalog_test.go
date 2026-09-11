@@ -377,6 +377,54 @@ func TestDownloadCatalogModUpgradesSharedDependencyVersion(t *testing.T) {
 	}
 }
 
+func TestDownloadCatalogModAppliesEverySharedDependencyRequirementToMixedTargets(t *testing.T) {
+	root := mods.ModDetails{ModSummary: mods.ModSummary{ID: "root", Name: "Root"}, Versions: []mods.ModVersion{{
+		ID: "root-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "root.zip", DownloadURL: "https://cdn.test/root.zip",
+	}}}
+	parentB := mods.ModDetails{ModSummary: mods.ModSummary{ID: "b", Name: "Parent B"}, Versions: []mods.ModVersion{{
+		ID: "b-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "b.zip", DownloadURL: "https://cdn.test/b.zip",
+	}}}
+	parentC := mods.ModDetails{ModSummary: mods.ModSummary{ID: "c", Name: "Parent C"}, Versions: []mods.ModVersion{{
+		ID: "c-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "c.zip", DownloadURL: "https://cdn.test/c.zip",
+	}}}
+	dependency := mods.ModDetails{ModSummary: mods.ModSummary{ID: "d", Name: "Dependency D"}, Versions: []mods.ModVersion{
+		{ID: "d-2", Version: "2.0.0", GameVersions: []string{"1.20"}, FileName: "d-2.zip", DownloadURL: "https://cdn.test/d-2.zip"},
+		{ID: "d-3", Version: "3.0.0", GameVersions: []string{"1.20"}, FileName: "d-3.zip", DownloadURL: "https://cdn.test/d-3.zip"},
+	}}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{detailsByID: map[string]mods.ModDetails{
+		"root": root, "b": parentB, "c": parentC, "d": dependency,
+	}}, modArchiveDownloader{manifests: map[string]map[string]any{
+		"https://cdn.test/root.zip": {"modid": "root", "version": "1.0.0", "dependencies": map[string]string{"b": "1.0.0", "c": "1.0.0"}},
+		"https://cdn.test/b.zip":    {"modid": "b", "version": "1.0.0", "dependencies": map[string]string{"d": ">=2.0.0"}},
+		"https://cdn.test/c.zip":    {"modid": "c", "version": "1.0.0", "dependencies": map[string]string{"d": ">=3.0.0"}},
+		"https://cdn.test/d-2.zip":  {"modid": "d", "version": "2.0.0", "dependencies": map[string]string{}},
+		"https://cdn.test/d-3.zip":  {"modid": "d", "version": "3.0.0", "dependencies": map[string]string{}},
+	}})
+	ctx := context.Background()
+	first := fixture.createTestInstance(t, "Has D2")
+	second := fixture.createTestInstance(t, "Missing D")
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "d", VersionID: "d-2", InstanceIDs: []string{first.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "root", VersionID: "root-1", InstanceIDs: []string{first.ID, second.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, instance := range []mods.InstanceRef{first, second} {
+		installed, err := fixture.repository.ListMods(ctx, instance.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dependency := installedModByName(installed, "Dependency D"); dependency.Source != "moddb:d:d-3" {
+			t.Fatalf("%s did not receive D3: %#v", instance.Name, dependency)
+		}
+	}
+}
+
 func twoVersionCorpseCatalog() staticModCatalog {
 	details := mods.ModDetails{
 		ModSummary: mods.ModSummary{
@@ -457,4 +505,189 @@ func TestUpdateKeepsCacheVersionUsedByAnotherInstance(t *testing.T) {
 	if len(byVersion["7"].InstalledInstances) != 1 || len(byVersion["9"].InstalledInstances) != 1 {
 		t.Fatalf("each version must list its own instance: %#v", downloaded)
 	}
+}
+
+func TestDownloadCatalogModPreservesSatisfyingInstalledDependency(t *testing.T) {
+	fixture := newDependencyPreservationFixture(t, "3.0.1")
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Preserve dependency")
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "Dependency", VersionID: "dep-320", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := fixture.repository.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencyBefore := installedModByName(before, "Dependency")
+
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "root", VersionID: "root-1", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := fixture.repository.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencyAfter := installedModByName(after, "Dependency")
+	if dependencyAfter.ID != dependencyBefore.ID || dependencyAfter.Source != "moddb:Dependency:dep-320" ||
+		dependencyAfter.Version != "3.2.0" || dependencyAfter.FilePath != dependencyBefore.FilePath {
+		t.Fatalf("satisfying installed dependency was replaced: before=%#v after=%#v", dependencyBefore, dependencyAfter)
+	}
+	if _, err := fixture.downloads.Get(ctx, "Dependency", "dep-301"); err == nil {
+		t.Fatal("obsolete dependency release was downloaded")
+	}
+}
+
+func TestDownloadCatalogModDoesNotPreserveMissingInstalledDependency(t *testing.T) {
+	fixture := newDependencyPreservationFixture(t, "3.0.1")
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Missing dependency file")
+	if err := fixture.repository.SaveMod(ctx, mods.InstalledMod{
+		ID:         "missing-dependency",
+		InstanceID: instance.ID,
+		Name:       "Dependency",
+		Version:    "3.2.0",
+		FileName:   "dependency-3.2.0.zip",
+		FilePath:   filepath.Join(instance.Directory, "Mods", "dependency-3.2.0.zip"),
+		Enabled:    true,
+		Managed:    true,
+		Source:     "moddb:Dependency:dep-320",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "root", VersionID: "root-1", InstanceIDs: []string{instance.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependency := installedModByName(installed, "Dependency")
+	if dependency.ID == "missing-dependency" || dependency.Source != "moddb:Dependency:dep-301" {
+		t.Fatalf("missing dependency record satisfied install: %#v", dependency)
+	}
+	if _, err := os.Stat(dependency.FilePath); err != nil {
+		t.Fatalf("required dependency file was not installed: %v", err)
+	}
+	if _, err := fixture.downloads.Get(ctx, "Dependency", "dep-301"); err != nil {
+		t.Fatalf("required dependency was not downloaded: %v", err)
+	}
+}
+
+func TestDownloadCatalogModPreservesDependencyOnlyInSatisfyingTargets(t *testing.T) {
+	fixture := newDependencyPreservationFixture(t, "3.0.1")
+	ctx := context.Background()
+	preserved := fixture.createTestInstance(t, "Has dependency")
+	missing := fixture.createTestInstance(t, "Missing dependency")
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "Dependency", VersionID: "dep-320", InstanceIDs: []string{preserved.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+		ModID: "root", VersionID: "root-1", InstanceIDs: []string{missing.ID, preserved.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		instance mods.InstanceRef
+		source   string
+	}{
+		{instance: preserved, source: "moddb:Dependency:dep-320"},
+		{instance: missing, source: "moddb:Dependency:dep-301"},
+	} {
+		installed, err := fixture.repository.ListMods(ctx, test.instance.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dependency := installedModByName(installed, "Dependency"); dependency.Source != test.source {
+			t.Fatalf("unexpected dependency in %s: %#v", test.instance.Name, dependency)
+		}
+	}
+}
+
+func TestDownloadCatalogModReplacesDependencyThatDoesNotSatisfyRequirement(t *testing.T) {
+	for _, requirement := range []string{"=3.0.1", "<3.2.0"} {
+		t.Run(requirement, func(t *testing.T) {
+			fixture := newDependencyPreservationFixture(t, requirement)
+			ctx := context.Background()
+			instance := fixture.createTestInstance(t, "Replace dependency")
+			if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+				ModID: "Dependency", VersionID: "dep-320", InstanceIDs: []string{instance.ID},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+				ModID: "root", VersionID: "root-1", InstanceIDs: []string{instance.ID},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			installed, err := fixture.repository.ListMods(ctx, instance.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if dependency := installedModByName(installed, "Dependency"); dependency.Source != "moddb:Dependency:dep-301" {
+				t.Fatalf("unsatisfied dependency was not replaced: %#v", dependency)
+			}
+		})
+	}
+}
+
+func TestDownloadCatalogModWithoutInstallTargetsStillDownloadsDependencies(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		downloadOnly bool
+		withTarget   bool
+	}{
+		{name: "empty targets"},
+		{name: "download only", downloadOnly: true, withTarget: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newDependencyPreservationFixture(t, "3.0.1")
+			ctx := context.Background()
+			var instanceIDs []string
+			if test.withTarget {
+				instance := fixture.createTestInstance(t, "Download only")
+				if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+					ModID: "Dependency", VersionID: "dep-320", InstanceIDs: []string{instance.ID},
+				}); err != nil {
+					t.Fatal(err)
+				}
+				instanceIDs = []string{instance.ID}
+			}
+			if _, err := fixture.catalogService.DownloadCatalogMod(ctx, mods.DownloadModRequest{
+				ModID: "root", VersionID: "root-1", InstanceIDs: instanceIDs, DownloadOnly: test.downloadOnly,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := fixture.downloads.Get(ctx, "Dependency", "dep-301"); err != nil {
+				t.Fatalf("dependency was not cached: %v", err)
+			}
+		})
+	}
+}
+
+func newDependencyPreservationFixture(t *testing.T, requirement string) testFixture {
+	t.Helper()
+	root := mods.ModDetails{ModSummary: mods.ModSummary{ID: "root", Name: "Root"}, Versions: []mods.ModVersion{{
+		ID: "root-1", Version: "1.0.0", GameVersions: []string{"1.20"}, FileName: "root.zip", DownloadURL: "https://cdn.test/root.zip",
+	}}}
+	dependency := mods.ModDetails{ModSummary: mods.ModSummary{ID: "Dependency", Name: "Dependency"}, Versions: []mods.ModVersion{
+		{ID: "dep-301", Version: "3.0.1", GameVersions: []string{"1.20"}, FileName: "dependency-3.0.1.zip", DownloadURL: "https://cdn.test/dependency-3.0.1.zip"},
+		{ID: "dep-320", Version: "3.2.0", GameVersions: []string{"1.20"}, FileName: "dependency-3.2.0.zip", DownloadURL: "https://cdn.test/dependency-3.2.0.zip"},
+	}}
+	return newTestFixtureWithDeps(t, staticModCatalog{detailsByID: map[string]mods.ModDetails{
+		"root": root, "dependency": dependency,
+	}}, modArchiveDownloader{manifests: map[string]map[string]any{
+		"https://cdn.test/root.zip":             {"modid": "root", "version": "1.0.0", "dependencies": map[string]string{"dependency": requirement}},
+		"https://cdn.test/dependency-3.0.1.zip": {"modid": "dependency", "version": "3.0.1", "dependencies": map[string]string{}},
+		"https://cdn.test/dependency-3.2.0.zip": {"modid": "dependency", "version": "3.2.0", "dependencies": map[string]string{}},
+	}})
 }

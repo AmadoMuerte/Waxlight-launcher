@@ -4,9 +4,13 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 )
 
 func writeLocalModZip(t *testing.T, path, modID, name, version string) {
@@ -123,6 +127,115 @@ func TestLinkLocalModsSkipsModWithoutCatalogModID(t *testing.T) {
 	}
 	if len(result.Linked) != 0 || len(result.NotMatched) != 1 || len(result.Failed) != 0 {
 		t.Fatalf("expected a strict modid-based miss, got %#v", result)
+	}
+}
+
+func TestLinkLocalModsDoesNotHoldInstanceLockWhileCatalogIsBlocked(t *testing.T) {
+	catalog := newBlockingCatalog(corpseCatalog(), errors.New("network unavailable"))
+	fixture := newTestFixtureWithDeps(t, catalog, recordingDownloader{})
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "BlockedCatalog")
+	modPath := filepath.Join(instance.Directory, "Mods", "playercorpse.zip")
+	writeLocalModZip(t, modPath, "playercorpse", "Player Corpse", "2.0.0")
+
+	type outcome struct {
+		result mods.LinkLocalModsResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := fixture.catalogService.LinkLocalMods(ctx, instance.ID)
+		done <- outcome{result: result, err: err}
+	}()
+
+	select {
+	case <-catalog.started:
+	case <-time.After(time.Second):
+		close(catalog.unblock)
+		t.Fatal("catalog lookup did not start")
+	}
+	instanceRelease, lockErr := fixture.lock.Lock(instance.ID, "test")
+	if lockErr == nil {
+		instanceRelease()
+	}
+	close(catalog.unblock)
+	if lockErr != nil {
+		t.Fatalf("instance lock was held during catalog lookup: %v", lockErr)
+	}
+
+	linked := <-done
+	if linked.err != nil {
+		t.Fatal(linked.err)
+	}
+	if len(linked.result.Linked) != 0 || len(linked.result.NotMatched) != 1 {
+		t.Fatalf("network failure must leave mod unlinked: %#v", linked.result)
+	}
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 1 || installed[0].Managed || installed[0].Source != "local" {
+		t.Fatalf("network failure modified local mod: %#v", installed)
+	}
+}
+
+func TestLinkLocalModsDoesNotOverwriteStaleCandidate(t *testing.T) {
+	catalog := newBlockingCatalog(corpseCatalog(), nil)
+	fixture := newTestFixtureWithDeps(t, catalog, recordingDownloader{})
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "StaleCandidate")
+	modPath := filepath.Join(instance.Directory, "Mods", "playercorpse.zip")
+	writeLocalModZip(t, modPath, "playercorpse", "Player Corpse", "2.0.0")
+
+	type outcome struct {
+		result mods.LinkLocalModsResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := fixture.catalogService.LinkLocalMods(ctx, instance.ID)
+		done <- outcome{result: result, err: err}
+	}()
+
+	select {
+	case <-catalog.started:
+	case <-time.After(time.Second):
+		close(catalog.unblock)
+		t.Fatal("catalog lookup did not start")
+	}
+	installed, err := fixture.repository.ListMods(ctx, instance.ID)
+	if err != nil || len(installed) != 1 {
+		close(catalog.unblock)
+		t.Fatalf("unexpected installed mods before stale update: %#v, %v", installed, err)
+	}
+	instanceRelease, err := fixture.lock.Lock(instance.ID, "test")
+	if err != nil {
+		close(catalog.unblock)
+		t.Fatal(err)
+	}
+	stale := installed[0]
+	stale.FilePath = filepath.Join(instance.Directory, "Mods", "replacement.zip")
+	if err := fixture.repository.SaveMod(ctx, stale); err != nil {
+		instanceRelease()
+		close(catalog.unblock)
+		t.Fatal(err)
+	}
+	instanceRelease()
+	close(catalog.unblock)
+
+	linked := <-done
+	if linked.err != nil {
+		t.Fatal(linked.err)
+	}
+	if len(linked.result.Linked) != 0 {
+		t.Fatalf("stale candidate was reported as linked: %#v", linked.result)
+	}
+	current, err := fixture.repository.GetMod(ctx, stale.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.FilePath != stale.FilePath || current.Managed || current.Source != "local" {
+		t.Fatalf("stale candidate was overwritten: %#v", current)
 	}
 }
 

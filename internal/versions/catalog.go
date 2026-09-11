@@ -57,7 +57,8 @@ func (service *CatalogInstallService) InstallCatalog(ctx context.Context, versio
 	if service.downloader == nil || service.packageInstaller == nil {
 		return Install{}, errs.NewError(errs.ErrVersionCatalog, "Game version downloads are not configured")
 	}
-	if err := ensureMissing(ctx, service.repository, versionID); err != nil {
+	existing, err := ensureMissing(ctx, service.repository, service.query.localInstaller, service.query.filesystem, service.query.now, versionID)
+	if err != nil {
 		return Install{}, err
 	}
 	available, err := service.query.ListAvailable(ctx)
@@ -97,7 +98,7 @@ func (service *CatalogInstallService) InstallCatalog(ctx context.Context, versio
 	future, err := operations.Start(service.runtime.operations, ctx, operation, operationKey(selected.ID), func(workerCtx context.Context) (GameVersion, error) {
 		<-gateOwnership
 		defer service.runtime.gate.End()
-		return service.runCatalogInstall(workerCtx, release, operation)
+		return service.runCatalogInstall(workerCtx, release, operation, existing)
 	})
 	if errors.Is(err, operations.ErrKeyActive) {
 		return Install{}, errs.NewError(errs.ErrVersionExists, "This game version is already being installed")
@@ -139,7 +140,7 @@ func (service *CatalogInstallService) checkDiskSpace(release AvailableGameVersio
 	return nil
 }
 
-func (service *CatalogInstallService) runCatalogInstall(ctx context.Context, release AvailableGameVersion, operation operations.Operation) (GameVersion, error) {
+func (service *CatalogInstallService) runCatalogInstall(ctx context.Context, release AvailableGameVersion, operation operations.Operation, existing bool) (GameVersion, error) {
 	now := service.runtime.now().UTC()
 	operation.StartedAt, operation.Status = &now, operations.StatusRunning
 	service.runtime.operations.SaveBestEffort(operation, operations.EventUpdated)
@@ -175,12 +176,12 @@ func (service *CatalogInstallService) runCatalogInstall(ctx context.Context, rel
 				service.runtime.fail(&operation, err, errs.ErrDownloadFailed)
 				return GameVersion{}, err
 			}
-			return service.installDownloaded(ctx, release, downloadPath, operation, lastSaved)
+			return service.installDownloaded(ctx, release, downloadPath, operation, lastSaved, existing)
 		}
 	}
 }
 
-func (service *CatalogInstallService) installDownloaded(ctx context.Context, release AvailableGameVersion, downloadPath string, operation operations.Operation, lastSaved time.Time) (GameVersion, error) {
+func (service *CatalogInstallService) installDownloaded(ctx context.Context, release AvailableGameVersion, downloadPath string, operation operations.Operation, lastSaved time.Time, existing bool) (GameVersion, error) {
 	if ctx.Err() != nil {
 		return GameVersion{}, service.runtime.cancel(operation, downloadPath)
 	}
@@ -222,7 +223,12 @@ func (service *CatalogInstallService) installDownloaded(ctx context.Context, rel
 		Architecture: release.Architecture, InstallationDir: target, ExecutablePath: executable,
 		Status: "installed", InstalledAt: installedAt, VerifiedAt: &installedAt, SizeBytes: size,
 	}
-	if err := service.repository.SaveVersion(ctx, version); err != nil {
+	if existing {
+		err = service.repository.UpdateVersion(ctx, version)
+	} else {
+		err = service.repository.SaveVersion(ctx, version)
+	}
+	if err != nil {
 		if cancelled(err) {
 			return GameVersion{}, service.runtime.cancelInstall(operation, downloadPath, target, release.ID)
 		}

@@ -33,6 +33,17 @@ const installedVersion = {
   installedAt: "2026-01-01T00:00:00Z",
 };
 
+const catalogVersion = {
+  id: "1.20",
+  name: "1.20",
+  channel: "stable",
+  platform: "linux",
+  architecture: "amd64",
+  downloadSize: 100,
+  latest: true,
+  installed: false,
+};
+
 function renderPage() {
   const notify = vi.fn();
   useToastStore.setState({ notify });
@@ -98,5 +109,52 @@ describe("confirmDeletion gate", () => {
     await user.click(screen.getByRole("button", { name: "Remove" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(api.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("version availability", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
+    api.available.mockResolvedValue([catalogVersion]);
+  });
+
+  it("keeps missing versions visible and allows reinstall", async () => {
+    api.list.mockResolvedValue([{ ...installedVersion, status: "failed", executablePath: "" }]);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Failed")).toBeTruthy();
+    const catalogInstall = screen.getByRole("button", { name: "Download" });
+    if (!(catalogInstall instanceof HTMLButtonElement))
+      throw new Error("catalog control is not a button");
+    expect(catalogInstall.disabled).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Install from file" }));
+    await user.type(screen.getByLabelText("Version ID"), "1.20");
+    const localInstall = screen.getByRole("button", { name: "Install" });
+    if (!(localInstall instanceof HTMLButtonElement))
+      throw new Error("local control is not a button");
+    expect(localInstall.disabled).toBe(false);
+  });
+
+  it("disables catalog and local install for installed versions", async () => {
+    api.list.mockResolvedValue([installedVersion]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const catalogInstall = await screen.findByRole("button", { name: "Installed" });
+    if (!(catalogInstall instanceof HTMLButtonElement))
+      throw new Error("catalog control is not a button");
+    expect(catalogInstall.disabled).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Install from file" }));
+    await user.type(screen.getByLabelText("Version ID"), "1.20");
+    const localInstall = screen.getByRole("button", { name: "Install" });
+    if (!(localInstall instanceof HTMLButtonElement))
+      throw new Error("local control is not a button");
+    expect(localInstall.disabled).toBe(true);
   });
 });

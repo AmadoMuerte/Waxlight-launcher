@@ -248,7 +248,7 @@ describe("confirmDeletion gate", () => {
   });
 
   it("installs a selected catalog version from the instance mods tab", async () => {
-    const { onModUpdatesChanged } = renderModal();
+    renderModal();
     const user = await openModsTab();
 
     await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
@@ -261,11 +261,24 @@ describe("confirmDeletion gate", () => {
         allowIncompatible: false,
       }),
     );
-    await waitFor(() =>
-      expect(onModUpdatesChanged).toHaveBeenCalledWith(
-        "instance-1",
-        expect.objectContaining({ gameVersion: "1.20" }),
-      ),
+  });
+
+  it("does not recheck updates after no-op local linking", async () => {
+    const { onModUpdatesChanged } = renderModal();
+
+    await waitFor(() => expect(modsApi.linkLocal).toHaveBeenCalledOnce());
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledOnce());
+    expect(onModUpdatesChanged).not.toHaveBeenCalled();
+  });
+
+  it("rechecks updates after linking local mods", async () => {
+    modsApi.linkLocal.mockResolvedValue({ linked: [installedMod], notMatched: [] });
+    const { onModUpdatesChanged } = renderModal();
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(2));
+    expect(onModUpdatesChanged).toHaveBeenCalledWith(
+      "instance-1",
+      expect.objectContaining({ gameVersion: "1.20" }),
     );
   });
 
@@ -280,6 +293,36 @@ describe("confirmDeletion gate", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Selected version is incompatible",
     );
+  });
+
+  it("filters installed mods by search and shows the nothing found empty state", async () => {
+    const carryOnMod = {
+      ...installedMod,
+      id: "mod-2",
+      name: "Carry On",
+      fileName: "carryon.zip",
+      source: "moddb:carryon:1",
+    };
+    modsApi.list.mockResolvedValue([installedMod, carryOnMod]);
+    renderModal();
+    const user = await openModsTab();
+
+    await screen.findByText("Player Corpse");
+    await screen.findByText("Carry On");
+
+    const searchBox = screen.getByRole("textbox", { name: "Search mods" });
+    await user.type(searchBox, "corpse");
+    expect(screen.getByText("Player Corpse")).toBeTruthy();
+    expect(screen.queryByText("Carry On")).toBeNull();
+
+    await user.clear(searchBox);
+    await user.type(searchBox, "zzz");
+    expect(screen.getByText("Nothing found")).toBeTruthy();
+
+    const empty = screen.getByText("Nothing found").closest(".empty") as HTMLElement;
+    await user.click(within(empty).getByRole("button", { name: "Clear search" }));
+    await screen.findByText("Carry On");
+    expect(screen.queryByText("Nothing found")).toBeNull();
   });
 
   it("shows a confirm dialog before removing a mod when confirmDeletion is true", async () => {

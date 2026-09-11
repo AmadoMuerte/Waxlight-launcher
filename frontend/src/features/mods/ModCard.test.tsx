@@ -45,6 +45,7 @@ function renderCard(
   const handlers = {
     onOpen: vi.fn(),
     onInstall: vi.fn(),
+    onManage: vi.fn(),
     onSelectedChange: vi.fn(),
     onDelete: vi.fn(),
   };
@@ -79,16 +80,23 @@ describe("ModCard", () => {
   it("offers Download when the mod is not downloaded", async () => {
     const handlers = renderCard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
-    expect(handlers.onInstall).toHaveBeenCalledWith("51", undefined);
+    expect(handlers.onInstall).toHaveBeenCalledWith("51");
   });
 
-  it("offers Install to instance for a downloaded mod and shows its status", () => {
-    renderCard({ downloaded });
-    expect(screen.getByRole("button", { name: "Install to instance" })).toBeTruthy();
+  it("offers Manage for a downloaded mod and shows its status", async () => {
+    const handlers = renderCard({ downloaded });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Manage" }));
+    expect(handlers.onManage).toHaveBeenCalledWith(downloaded);
     expect(screen.getByText("Downloaded · Not installed")).toBeTruthy();
   });
 
-  it("offers Install to another when already installed somewhere", () => {
+  it("installs cached catalog releases when management is unavailable", async () => {
+    const handlers = renderCard({ downloaded, onManage: undefined });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Install to instance" }));
+    expect(handlers.onInstall).toHaveBeenCalledWith("51", downloaded);
+  });
+
+  it("offers Manage when already installed somewhere", () => {
     renderCard({
       downloaded: {
         ...downloaded,
@@ -97,16 +105,16 @@ describe("ModCard", () => {
         ],
       },
     });
-    expect(screen.getByRole("button", { name: "Install to another" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
     expect(screen.getByText("Installed in 1 instance")).toBeTruthy();
   });
 
-  it("shows Update with the version range when an update is available", () => {
+  it("keeps Manage action when an update is available", () => {
     renderCard({
       downloaded: { ...downloaded, updateAvailable: true, latestVersion: "2.1.0" },
       mod: { ...mod, isDownloaded: true, updateAvailable: true },
     });
-    expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
     expect(screen.getByText("2.0.0 → 2.1.0")).toBeTruthy();
   });
 

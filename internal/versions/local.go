@@ -53,7 +53,8 @@ func (service *LocalInstallService) InstallLocal(
 	if strings.TrimSpace(sourcePath) == "" {
 		return operations.Operation{}, errs.NewError(errs.ErrValidation, "Select a game archive or directory")
 	}
-	if err := ensureMissing(ctx, service.repository, id); err != nil {
+	existing, err := ensureMissing(ctx, service.repository, service.localInstaller, service.runtime.filesystem, service.runtime.now, id)
+	if err != nil {
 		return operations.Operation{}, err
 	}
 
@@ -66,7 +67,7 @@ func (service *LocalInstallService) InstallLocal(
 		Progress: 0.05, CreatedAt: now, StartedAt: &now,
 	}
 	future, err := operations.Start(service.runtime.operations, ctx, operation, operationKey(id), func(workerCtx context.Context) (localInstallResult, error) {
-		return service.runLocalInstall(workerCtx, operation, id, name, sourcePath, executableRelativePath, checksum)
+		return service.runLocalInstall(workerCtx, operation, id, name, sourcePath, executableRelativePath, checksum, existing)
 	})
 	if errors.Is(err, operations.ErrKeyActive) {
 		return operations.Operation{}, errs.NewError(errs.ErrVersionExists, "This game version is already being installed")
@@ -91,6 +92,7 @@ func (service *LocalInstallService) runLocalInstall(
 	ctx context.Context,
 	operation operations.Operation,
 	id, name, sourcePath, executableRelativePath, checksum string,
+	existing bool,
 ) (localInstallResult, error) {
 	target := service.runtime.filesystem.VersionPath(id)
 	lastSaved := service.runtime.now()
@@ -125,7 +127,12 @@ func (service *LocalInstallService) runLocalInstall(
 		InstallationDir: target, ExecutablePath: executable, Status: "installed", InstalledAt: finished,
 		VerifiedAt: &finished, SizeBytes: size,
 	}
-	if err := service.repository.SaveVersion(ctx, version); err != nil {
+	if existing {
+		err = service.repository.UpdateVersion(ctx, version)
+	} else {
+		err = service.repository.SaveVersion(ctx, version)
+	}
+	if err != nil {
 		if cancelled(err) {
 			return localInstallResult{operation: operation}, service.runtime.cancelInstall(operation, "", target, id)
 		}
@@ -139,11 +146,26 @@ func (service *LocalInstallService) runLocalInstall(
 
 func operationKey(id string) string { return "game-version:" + id }
 
-func ensureMissing(ctx context.Context, repository Repository, id string) error {
-	if _, err := repository.GetVersion(ctx, id); err == nil {
-		return errs.NewError(errs.ErrVersionExists, "This game version is already installed")
+func ensureMissing(
+	ctx context.Context,
+	repository Repository,
+	localInstaller LocalInstaller,
+	filesystem Filesystem,
+	now func() time.Time,
+	id string,
+) (bool, error) {
+	version, err := repository.GetVersion(ctx, id)
+	if err == nil {
+		_, installed, err := verifyVersion(ctx, repository, localInstaller, filesystem, now, version)
+		if err != nil {
+			return false, err
+		}
+		if installed {
+			return false, errs.NewError(errs.ErrVersionExists, "This game version is already installed")
+		}
+		return true, nil
 	} else if !isCode(err, errs.ErrVersionNotFound) {
-		return err
+		return false, err
 	}
-	return nil
+	return false, nil
 }

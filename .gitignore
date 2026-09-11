@@ -13,6 +13,7 @@
 /docs/site/.vitepress/cache/
 /docs/site/.vitepress/dist/
 /docs/site/api/
+.direnv/
 
 # Frontend dependencies and caches
 /frontend/node_modules/
@@ -55,6 +56,7 @@ account-secrets.json
 
 # IDEs and editors
 .omo
+.opencode/
 .idea/
 .vscode/
 *.swp

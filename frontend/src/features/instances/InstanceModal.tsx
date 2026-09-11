@@ -10,7 +10,7 @@ import {
   Plus,
   UserRound,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
@@ -38,6 +38,7 @@ import { Empty } from "../../shared/ui/empty";
 import { Field } from "../../shared/ui/field";
 import { Input } from "../../shared/ui/input";
 import { Modal } from "../../shared/ui/modal";
+import { SearchInput } from "../../shared/ui/search-input";
 import { StatusPill } from "../../shared/ui/status-pill";
 import { SubmitForm } from "../../shared/ui/submit-form";
 import { Tabs } from "../../shared/ui/tabs";
@@ -108,6 +109,7 @@ export function InstanceModal({
   const [versionsByModID, setVersionsByModID] = useState<Record<string, ModVersion[]>>({});
   const [loadingVersionModIDs, setLoadingVersionModIDs] = useState<Set<string>>(new Set());
   const [updatingModID, setUpdatingModID] = useState("");
+  const [modSearch, setModSearch] = useState("");
   const [versionChangeError, setVersionChangeError] = useState<{
     modID: string;
     message: string;
@@ -241,8 +243,10 @@ export function InstanceModal({
     try {
       const result = await modsApi.linkLocal(instance.id);
       await loadMods();
-      const report = await loadUpdates();
-      if (report) onModUpdatesChanged?.(instance.id, report);
+      if (result.linked.length > 0) {
+        const report = await loadUpdates();
+        if (report) onModUpdatesChanged?.(instance.id, report);
+      }
       await queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY });
       if (result.linked.length > 0) {
         notify(t("mods_linked_count", { count: result.linked.length }));
@@ -399,6 +403,13 @@ export function InstanceModal({
     });
   }
 
+  const normalizedModSearch = modSearch.trim().toLocaleLowerCase();
+  const visibleMods = useMemo(() => {
+    if (!normalizedModSearch) return mods;
+    return mods.filter((mod) =>
+      `${mod.name} ${mod.fileName}`.toLocaleLowerCase().includes(normalizedModSearch),
+    );
+  }, [mods, normalizedModSearch]);
   const selectedVersion = versions.find((version) => version.id === instance.gameVersionId);
   const settingsVersion = versions.find((version) => version.id === versionID);
   const selectedAccount = accounts.find((account) => account.id === instance.defaultAccountId);
@@ -604,6 +615,16 @@ export function InstanceModal({
             </div>
           </header>
 
+          {mods.length > 0 && (
+            <SearchInput
+              wrapperClassName="mb-[calc(12px*var(--ui-scale))] max-w-sm"
+              aria-label={t("search_mods")}
+              placeholder={t("search_mods_placeholder")}
+              value={modSearch}
+              onValueChange={setModSearch}
+            />
+          )}
+
           {mods.length === 0 ? (
             <Empty
               icon={<Boxes size={24} aria-hidden="true" />}
@@ -621,9 +642,20 @@ export function InstanceModal({
                 </div>
               }
             />
+          ) : visibleMods.length === 0 ? (
+            <Empty
+              icon={<Boxes size={24} aria-hidden="true" />}
+              title={t("nothing_found")}
+              description={t("try_changing_mod_filters")}
+              action={
+                <Button variant="secondary" onClick={() => setModSearch("")}>
+                  {t("clear_search")}
+                </Button>
+              }
+            />
           ) : (
             <div className="installedModList">
-              {mods.map((mod) => {
+              {visibleMods.map((mod) => {
                 const modVersions = (versionsByModID[mod.id] ?? []).filter(
                   (version) => version.version !== mod.version,
                 );

@@ -25,11 +25,6 @@ func (service *CatalogService) LinkLocalMods(ctx context.Context, instanceID str
 	if err != nil {
 		return result, err
 	}
-	instanceRelease, err := service.lockInstanceMutations(instanceID)
-	if err != nil {
-		return result, err
-	}
-	defer instanceRelease()
 	mods, err := service.lister.ListMods(ctx, instanceID)
 	if err != nil {
 		return result, err
@@ -48,17 +43,44 @@ func (service *CatalogService) LinkLocalMods(ctx context.Context, instanceID str
 			}
 			continue
 		}
-		updated := mod
-		updated.Source = ModDBSource(downloaded.ModID, downloaded.VersionID)
-		updated.Managed = true
-		updated.Version = downloaded.DownloadedVersion
-		updated.UpdatedAt = service.now().UTC()
-		if err := service.repository.SaveMod(ctx, updated); err != nil {
-			link.Reason = "Could not save the linked mod metadata"
+		instanceRelease, err := service.lockInstanceMutations(instanceID)
+		if err != nil {
+			return result, err
+		}
+		current := InstalledMod{}
+		verified, stale := false, false
+		saveErr := func() error {
+			defer instanceRelease()
+			candidate, getErr := service.repository.GetMod(ctx, mod.ID)
+			if getErr != nil {
+				return getErr
+			}
+			current = candidate
+			verified = true
+			if current.ID != mod.ID || current.InstanceID != mod.InstanceID || current.InstanceID != instanceID ||
+				current.FilePath != mod.FilePath || current.Managed || !IsLocalModSource(current.Source) {
+				stale = true
+				return nil
+			}
+			current.Source = ModDBSource(downloaded.ModID, downloaded.VersionID)
+			current.Managed = true
+			current.Version = downloaded.DownloadedVersion
+			current.UpdatedAt = service.now().UTC()
+			return service.repository.SaveMod(ctx, current)
+		}()
+		if stale {
+			continue
+		}
+		if saveErr != nil {
+			if verified {
+				link.Reason = "Could not save the linked mod metadata"
+			} else {
+				link.Reason = "Could not verify the current mod metadata"
+			}
 			result.Failed = append(result.Failed, link)
 			continue
 		}
-		service.events.Publish("mod:linked", updated)
+		service.events.Publish("mod:linked", current)
 		result.Linked = append(result.Linked, link)
 	}
 	slog.Info("local mods linked", "instance", instance.Name, "linked", len(result.Linked), "notMatched", len(result.NotMatched))
