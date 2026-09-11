@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
@@ -36,6 +36,12 @@ const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
 const instancesList = vi.hoisted(() => vi.fn());
 const versionsList = vi.hoisted(() => vi.fn());
 const availableVersionsList = vi.hoisted(() => vi.fn());
+const installedMods = vi.hoisted(() => ({
+  list: vi.fn(),
+  toggle: vi.fn(),
+  previewDelete: vi.fn(),
+  remove: vi.fn(),
+}));
 
 vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
@@ -44,6 +50,7 @@ vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesLi
 vi.mock("../../shared/api/game-versions", () => ({
   versionsApi: { list: versionsList, available: availableVersionsList },
 }));
+vi.mock("../../shared/api/mods", () => ({ modsApi: installedMods }));
 
 const summary = {
   id: "51",
@@ -159,11 +166,25 @@ function renderPage(path = "/mods?q=corpse", notify = vi.fn()) {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/mods" element={<ModsPage />} />
+          <Route
+            path="/mods"
+            element={
+              <>
+                <ModsPage />
+                <LocationProbe />
+              </>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return queryClient;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
 }
 
 function renderPageWithDetails(path = "/mods?q=corpse") {
@@ -236,6 +257,7 @@ describe("mods browser", () => {
     api.tags.mockResolvedValue([]);
     api.previewUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
     api.removeUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
+    installedMods.list.mockResolvedValue([]);
   });
 
   it("loads a URL-backed search and opens the instance picker", async () => {
@@ -248,6 +270,147 @@ describe("mods browser", () => {
     expect(await screen.findByRole("dialog", { name: "Download “Player Corpse”" })).toBeTruthy();
     expect(screen.getByText("Survival")).toBeTruthy();
     expect(screen.getByText("Compatible")).toBeTruthy();
+  });
+
+  it("uses latest cached catalog release in install mode", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [
+          { instanceId: "instance-1", instanceName: "Survival", version: "2.0.0", enabled: true },
+        ],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    renderPage("/mods");
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Install to another" }));
+    expect(await screen.findByRole("dialog", { name: "Install “Player Corpse”" })).toBeTruthy();
+    expect(screen.queryAllByRole("radio", { name: /Survival/ })).toHaveLength(0);
+    expect(screen.getByText("Installed")).toBeTruthy();
+  });
+
+  it("manages exact downloaded release and hands it to the selected instance", async () => {
+    const releases = [
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse-2.0.0.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "8",
+        downloadedVersion: "2.1.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse-2.1.0.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-03T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+    ];
+    api.downloaded.mockResolvedValue(releases);
+    api.checkUpdates.mockResolvedValue(releases);
+    api.get.mockResolvedValue({
+      ...details,
+      versions: [details.versions[0], { ...details.versions[0], id: "8", version: "2.1.0" }],
+    });
+    api.installDownloaded.mockResolvedValue({ taskId: "task-1", installations: [] });
+    renderPage("/mods?view=downloaded");
+
+    const firstCard = (await screen.findByText("Version 2.0.0 · 100 B")).closest("article");
+    expect(firstCard).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(within(firstCard as HTMLElement).getByRole("button", { name: "Manage" }));
+    expect(await screen.findByRole("dialog", { name: "Manage “Player Corpse”" })).toBeTruthy();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add to instance Survival" }));
+    expect(await screen.findByRole("dialog", { name: "Install “Player Corpse”" })).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Install" }));
+    await waitFor(() =>
+      expect(api.installDownloaded).toHaveBeenCalledWith({
+        modId: "51",
+        versionId: "7",
+        instanceIds: ["instance-1"],
+        allowIncompatible: false,
+      }),
+    );
+  });
+
+  it("invalidates downloaded mods and instances after managed removal", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [
+          { instanceId: "instance-1", instanceName: "Survival", version: "2.0.0", enabled: true },
+        ],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    installedMods.list.mockResolvedValue([
+      {
+        id: "installed-1",
+        instanceId: "instance-1",
+        name: "Player Corpse",
+        version: "2.0.0",
+        fileName: "playercorpse.zip",
+        filePath: "/mods/playercorpse.zip",
+        enabled: true,
+        managed: true,
+        source: "moddb:51:7",
+        updatePolicy: "automatic",
+        sizeBytes: 100,
+        installedAt: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    installedMods.previewDelete.mockResolvedValue({ dependencies: [] });
+    installedMods.remove.mockResolvedValue(undefined);
+    const queryClient = renderPage("/mods?view=downloaded");
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Manage" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Remove Survival" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(installedMods.remove).toHaveBeenCalledWith("installed-1", false));
+    await waitFor(() => {
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["mods", "downloaded"] });
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["instances"] });
+    });
   });
 
   it("adds selected mods to an instance as a batch", async () => {
@@ -364,6 +527,80 @@ describe("mods browser", () => {
     await userEvent.setup().click(screen.getByRole("menuitemcheckbox", { name: /Graphics/ }));
 
     expect(await screen.findByText("No downloaded mods yet")).toBeTruthy();
+  });
+
+  it("shows the instance filter only for downloaded mods and never sends it to the catalog", async () => {
+    renderPage("/mods?installedInInstanceId=instance-1");
+
+    await screen.findByText("Player Corpse");
+    expect(screen.queryByRole("combobox", { name: "Instance" })).toBeNull();
+    expect(api.search).toHaveBeenCalledWith(
+      expect.not.objectContaining({ installedInInstanceId: expect.anything() }),
+    );
+
+    await userEvent.setup().click(screen.getByRole("tab", { name: /Downloaded/ }));
+    expect(await screen.findByRole("combobox", { name: "Instance" })).toBeTruthy();
+  });
+
+  it("filters downloaded mods by instance and clears its URL-backed filter", async () => {
+    api.downloaded.mockResolvedValue([
+      {
+        modId: "51",
+        name: "Player Corpse",
+        authorName: "Ada",
+        side: "both",
+        versionId: "7",
+        downloadedVersion: "2.0.0",
+        gameVersions: ["1.20"],
+        fileName: "playercorpse.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [
+          { instanceId: "instance-1", instanceName: "Survival", version: "2.0.0", enabled: true },
+        ],
+        updateAvailable: false,
+      },
+      {
+        modId: "52",
+        name: "Other Mod",
+        authorName: "Ada",
+        side: "both",
+        versionId: "8",
+        downloadedVersion: "1.0.0",
+        gameVersions: ["1.20"],
+        fileName: "other.zip",
+        fileSize: 100,
+        downloadedAt: "2026-08-02T10:00:00Z",
+        installedInstances: [],
+        updateAvailable: false,
+      },
+    ]);
+    api.checkUpdates.mockImplementation(() => api.downloaded());
+    const user = userEvent.setup();
+    renderPage("/mods?view=downloaded");
+
+    await screen.findByText("Other Mod");
+    await user.click(screen.getByRole("combobox", { name: "Instance" }));
+    await user.click(screen.getByRole("option", { name: "Survival" }));
+
+    expect(await screen.findByText("Instance: Survival")).toBeTruthy();
+    expect(screen.queryByText("Other Mod")).toBeNull();
+    expect(screen.getByTestId("location-search").textContent).toContain(
+      "installedInInstanceId=instance-1",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Instance: Survival" }));
+    expect(await screen.findByText("Other Mod")).toBeTruthy();
+    expect(screen.getByTestId("location-search").textContent).not.toContain(
+      "installedInInstanceId",
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Instance" }));
+    await user.click(screen.getByRole("option", { name: "Survival" }));
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByTestId("location-search").textContent).not.toContain(
+      "installedInInstanceId",
+    );
   });
 
   it("lists game version series from the official catalog in the filter", async () => {

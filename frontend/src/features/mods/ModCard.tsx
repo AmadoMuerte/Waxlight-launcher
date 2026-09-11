@@ -25,6 +25,7 @@ interface ModCardProps {
   layout: "grid" | "list";
   onOpen: (modId: string) => void;
   onInstall: (modId: string, downloaded?: DownloadedMod) => void;
+  onManage?: (downloaded: DownloadedMod) => void;
   selected?: boolean;
   onSelectedChange?: (modId: string, selected: boolean) => void;
   onDelete?: (downloaded: DownloadedMod) => void;
@@ -42,6 +43,7 @@ export const ModCard = memo(function ModCard({
   layout,
   onOpen,
   onInstall,
+  onManage,
   selected = false,
   onSelectedChange,
   onDelete,
@@ -56,17 +58,20 @@ export const ModCard = memo(function ModCard({
     }
   }
 
-  const actionLabel = downloaded
-    ? downloaded.updateAvailable
-      ? t("update")
-      : downloaded.installedInstances.length > 0
-        ? t("install_to_another")
-        : t("install_to_instance")
-    : mod.updateAvailable
-      ? t("update")
-      : mod.isDownloaded
-        ? t("install_to_instance")
-        : t("download");
+  const actionLabel =
+    downloaded && onManage
+      ? t("manage")
+      : downloaded
+        ? downloaded.updateAvailable
+          ? t("update")
+          : downloaded.installedInstances.length > 0
+            ? t("install_to_another")
+            : t("install_to_instance")
+        : mod.updateAvailable
+          ? t("update")
+          : mod.isDownloaded
+            ? t("install_to_instance")
+            : t("download");
 
   let statusText: string | null = null;
   let statusClassName = "text-text-muted";
@@ -194,7 +199,13 @@ export const ModCard = memo(function ModCard({
                 className="relative z-[2]"
                 busy={installBusy}
                 onClick={(event) =>
-                  stopPropagationAndRun(event, () => onInstall(mod.id, downloaded))
+                  stopPropagationAndRun(event, () =>
+                    downloaded && onManage
+                      ? onManage(downloaded)
+                      : downloaded
+                        ? onInstall(mod.id, downloaded)
+                        : onInstall(mod.id),
+                  )
                 }
               >
                 {actionLabel}

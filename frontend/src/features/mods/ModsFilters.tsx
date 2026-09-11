@@ -12,11 +12,23 @@ interface ModsFiltersProps {
   query: Omit<ModSearchQuery, "page">;
   series: string[];
   tags: ModTag[];
+  instances?: { id: string; name: string }[];
+  installedInInstanceId?: string;
   onChange: (patch: Partial<ModSearchQuery>) => void;
+  onInstalledInInstanceChange?: (instanceId: string) => void;
   onClear: () => void;
 }
 
-export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFiltersProps) {
+export function ModsFilters({
+  query,
+  series,
+  tags,
+  instances,
+  installedInInstanceId,
+  onChange,
+  onInstalledInInstanceChange,
+  onClear,
+}: ModsFiltersProps) {
   const { t } = useTranslation();
   const active: { key: string; label: string; onRemove: () => void }[] = [];
   if (query.gameVersion) {
@@ -40,6 +52,14 @@ export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFilt
       onRemove: () => onChange({ updatedAfter: "" }),
     });
   }
+  if (installedInInstanceId) {
+    const instance = instances?.find((item) => item.id === installedInInstanceId);
+    active.push({
+      key: "installedInInstanceId",
+      label: t("instance_filter", { instance: instance?.name ?? installedInInstanceId }),
+      onRemove: () => onInstalledInInstanceChange?.(""),
+    });
+  }
   for (const tag of query.tags) {
     active.push({
       key: `tag:${tag}`,
@@ -50,7 +70,7 @@ export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFilt
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(160px*var(--ui-scale)),1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(140px*var(--ui-scale)),1fr))] gap-3">
         <Field label={t("game_version")}>
           <Select
             value={query.gameVersion ? `version:${query.gameVersion}` : "all"}
@@ -113,6 +133,26 @@ export function ModsFilters({ query, series, tags, onChange, onClear }: ModsFilt
             onChange={(next) => onChange({ tags: next })}
           />
         </Field>
+        {onInstalledInInstanceChange && (
+          <Field label={t("instance_filter_label")}>
+            <Select
+              value={installedInInstanceId || "all"}
+              onValueChange={(value) => onInstalledInInstanceChange(value === "all" ? "" : value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("all_instances")}</SelectItem>
+                {instances?.map((instance) => (
+                  <SelectItem key={instance.id} value={instance.id}>
+                    {instance.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field label={t("sort_by")}>
           <Select value={query.sort} onValueChange={(value) => onChange({ sort: modSort(value) })}>
             <SelectTrigger>

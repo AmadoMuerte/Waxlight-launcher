@@ -37,6 +37,7 @@ import {
   chooseRelease,
 } from "../../features/mods/lib";
 import { ModCard } from "../../features/mods/ModCard";
+import { ModInstancesDialog } from "../../features/mods/ModInstancesDialog";
 import { ModsFilters } from "../../features/mods/ModsFilters";
 import { errorMessage } from "../../shared/api/bridge";
 import {
@@ -75,8 +76,10 @@ export function ModsPage() {
     details: ModDetails;
     downloaded?: DownloadedMod;
     preferredVersionId?: string;
+    preferredInstanceId?: string;
   }>();
   const [openingModId, setOpeningModId] = useState("");
+  const [managing, setManaging] = useState<DownloadedMod>();
   const selectedModIds = useModSelectionStore((state) => state.selectedModIds);
   const setSelectedMod = useModSelectionStore((state) => state.setSelected);
   const clearSelectedMods = useModSelectionStore((state) => state.clear);
@@ -100,6 +103,8 @@ export function ModsPage() {
 
   const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
   const instanceId = searchParams.get("instanceId") ?? "";
+  const installedInInstanceId =
+    view === "downloaded" ? (searchParams.get("installedInInstanceId") ?? "") : "";
   const contextInstance = instances.find((item) => item.id === instanceId);
   const contextVersion = contextInstance
     ? versions.find((item) => item.id === contextInstance.gameVersionId)
@@ -197,9 +202,10 @@ export function ModsPage() {
     }
   }, [loading, location.search]);
 
+  const latestDownloadedByModId = useMemo(() => newestDownloadedByModId(downloaded), [downloaded]);
   const syncedCatalog = useMemo(
-    () => synchronizeDownloadedState(catalog, downloaded),
-    [catalog, downloaded],
+    () => synchronizeDownloadedState(catalog, latestDownloadedByModId),
+    [catalog, latestDownloadedByModId],
   );
 
   const filteredDownloaded = useMemo(() => {
@@ -217,6 +223,12 @@ export function ModsPage() {
       }
       if (query.tags.length > 0 && !query.tags.every((tag) => item.tags?.includes(tag)))
         return false;
+      if (
+        installedInInstanceId &&
+        !item.installedInstances.some((instance) => instance.instanceId === installedInInstanceId)
+      ) {
+        return false;
+      }
       return true;
     });
     const sorted = [...result];
@@ -226,7 +238,15 @@ export function ModsPage() {
       return new Date(right.downloadedAt).getTime() - new Date(left.downloadedAt).getTime();
     });
     return sorted;
-  }, [downloaded, query.gameVersion, query.side, query.sort, query.tags, query.text]);
+  }, [
+    downloaded,
+    installedInInstanceId,
+    query.gameVersion,
+    query.side,
+    query.sort,
+    query.tags,
+    query.text,
+  ]);
 
   function updateParams(values: Record<string, string | undefined>, replace = false) {
     const next = new URLSearchParams(searchParams);
@@ -253,20 +273,37 @@ export function ModsPage() {
     updateParams(next);
   }
 
+  function changeInstalledInInstance(instanceID: string) {
+    updateParams({ installedInInstanceId: instanceID || undefined });
+  }
+
   function clearFilters() {
     const next = new URLSearchParams(searchParams);
-    ["gameVersion", "side", "updatedAfter", "tag", "compatible", "page"].forEach((key) =>
-      next.delete(key),
-    );
+    [
+      "gameVersion",
+      "side",
+      "updatedAfter",
+      "tag",
+      "compatible",
+      "installedInInstanceId",
+      "page",
+    ].forEach((key) => next.delete(key));
     setSearchParams(next);
   }
 
   function resetSearchAndFilters() {
     setSearchText("");
     const next = new URLSearchParams(searchParams);
-    ["q", "gameVersion", "side", "updatedAfter", "tag", "compatible", "page"].forEach((key) =>
-      next.delete(key),
-    );
+    [
+      "q",
+      "gameVersion",
+      "side",
+      "updatedAfter",
+      "tag",
+      "compatible",
+      "installedInInstanceId",
+      "page",
+    ].forEach((key) => next.delete(key));
     setSearchParams(next);
   }
 
@@ -286,11 +323,6 @@ export function ModsPage() {
     [setSelectedMod],
   );
 
-  const downloadedByModId = useMemo(
-    () => new Map(downloaded.map((item) => [item.modId, item])),
-    [downloaded],
-  );
-
   const openBatchInstaller = useCallback(async () => {
     setOpeningBatch(true);
     try {
@@ -298,7 +330,16 @@ export function ModsPage() {
       const selected = details.flatMap((item) => {
         const release = chooseRelease(item.versions);
         return release
-          ? [{ details: item, release, downloaded: downloadedByModId.get(item.id) }]
+          ? [
+              {
+                details: item,
+                release,
+                downloaded: downloaded.find(
+                  (downloadedMod) =>
+                    downloadedMod.modId === item.id && downloadedMod.versionId === release.id,
+                ),
+              },
+            ]
           : [];
       });
       if (selected.length === 0) {
@@ -311,7 +352,7 @@ export function ModsPage() {
     } finally {
       setOpeningBatch(false);
     }
-  }, [downloadedByModId, notify, selectedModIds, t]);
+  }, [downloaded, notify, selectedModIds, t]);
 
   async function previewUnusedDownloadedMods() {
     try {
@@ -340,23 +381,16 @@ export function ModsPage() {
     }
   }
 
-  const localByModId = useMemo(
-    () => new Map(filteredDownloaded.map((item) => [item.modId, item])),
-    [filteredDownloaded],
-  );
-
   const openInstaller = useCallback(
-    async (modId: string, local?: DownloadedMod) => {
-      setOpeningModId(modId);
+    async (modId: string, local?: DownloadedMod, preferredInstanceId?: string) => {
+      setOpeningModId(downloadedIdentity(local) ?? modId);
       try {
         const details = await modCatalogApi.get(modId);
-        const localDownloaded = local ?? localByModId.get(modId);
         setInstalling({
           details,
-          downloaded: localDownloaded,
-          preferredVersionId: localDownloaded?.updateAvailable
-            ? details.versions[0]?.id
-            : localDownloaded?.versionId,
+          downloaded: local,
+          preferredVersionId: local?.updateAvailable ? details.versions[0]?.id : local?.versionId,
+          preferredInstanceId,
         });
       } catch (loadError) {
         notify(errorMessage(loadError), "error");
@@ -364,7 +398,7 @@ export function ModsPage() {
         setOpeningModId("");
       }
     },
-    [localByModId, notify],
+    [notify],
   );
 
   const openDetails = useCallback(
@@ -386,6 +420,14 @@ export function ModsPage() {
   const handleInstall = useCallback(
     (modId: string, local?: DownloadedMod) => {
       void openInstaller(modId, local);
+    },
+    [openInstaller],
+  );
+
+  const handleInstallRequest = useCallback(
+    (currentDownloaded: DownloadedMod, instance: (typeof instances)[number]) => {
+      setManaging(undefined);
+      void openInstaller(currentDownloaded.modId, currentDownloaded, instance.id);
     },
     [openInstaller],
   );
@@ -460,13 +502,19 @@ export function ModsPage() {
     }
   }
 
-  const displayed =
-    view === "all" ? syncedCatalog : filteredDownloaded.map((mod) => downloadedAsSummary(mod, t));
+  const displayed: { mod: ModSummary; downloaded?: DownloadedMod }[] =
+    view === "all"
+      ? syncedCatalog.map((mod) => ({ mod, downloaded: latestDownloadedByModId.get(mod.id) }))
+      : filteredDownloaded.map((downloadedMod) => ({
+          mod: downloadedAsSummary(downloadedMod, t),
+          downloaded: downloadedMod,
+        }));
   const hasActiveFilters =
     Boolean(query.gameVersion) ||
     Boolean(query.side) ||
     Boolean(query.updatedAfter) ||
     query.tags.length > 0 ||
+    Boolean(installedInInstanceId) ||
     Boolean(query.text);
 
   return (
@@ -570,7 +618,12 @@ export function ModsPage() {
                 query={query}
                 series={versionSeries}
                 tags={tags}
+                instances={view === "downloaded" ? instances : undefined}
+                installedInInstanceId={installedInInstanceId}
                 onChange={patchFilters}
+                onInstalledInInstanceChange={
+                  view === "downloaded" ? changeInstalledInInstance : undefined
+                }
                 onClear={clearFilters}
               />
             </div>
@@ -650,8 +703,7 @@ export function ModsPage() {
                   : "grid grid-cols-1 gap-4"
               }
             >
-              {displayed.map((mod) => {
-                const local = view === "downloaded" ? localByModId.get(mod.id) : undefined;
+              {displayed.map(({ mod, downloaded: local }) => {
                 return (
                   <ModCard
                     key={`${mod.id}:${local?.versionId ?? "catalog"}`}
@@ -660,10 +712,11 @@ export function ModsPage() {
                     layout={layout}
                     onOpen={handleOpen}
                     onInstall={handleInstall}
+                    onManage={view === "downloaded" ? setManaging : undefined}
                     selected={selectedModIds.includes(mod.id)}
                     onSelectedChange={toggleSelectedMod}
-                    installBusy={openingModId === mod.id}
-                    onDelete={local ? handleDelete : undefined}
+                    installBusy={openingModId === (downloadedIdentity(local) ?? mod.id)}
+                    onDelete={view === "downloaded" && local ? handleDelete : undefined}
                   />
                 );
               })}
@@ -690,12 +743,32 @@ export function ModsPage() {
           downloaded={installing.downloaded}
           instances={instances}
           gameVersions={versions}
-          preferredInstanceId={instanceId}
+          preferredInstanceId={installing.preferredInstanceId ?? instanceId}
           preferredVersionId={installing.preferredVersionId}
           onClose={() => setInstalling(undefined)}
           onDone={async () => {
-            await queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY });
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY }),
+              queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY }),
+            ]);
             notify(t("mod_task_completed"));
+          }}
+        />
+      )}
+
+      {managing && (
+        <ModInstancesDialog
+          mod={managing}
+          instances={instances}
+          gameVersions={versions}
+          confirmDeletion={settings?.confirmDeletion !== false}
+          onClose={() => setManaging(undefined)}
+          onInstallRequest={handleInstallRequest}
+          onMutated={async () => {
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: DOWNLOADED_MODS_QUERY_KEY }),
+              queryClient.invalidateQueries({ queryKey: INSTANCES_QUERY_KEY }),
+            ]);
           }}
         />
       )}
@@ -751,8 +824,20 @@ export function ModsPage() {
 
 function synchronizeDownloadedState(
   catalog: ModSummary[],
-  downloaded: DownloadedMod[],
+  newestByModID: Map<string, DownloadedMod>,
 ): ModSummary[] {
+  return catalog.map((item) => {
+    const local = newestByModID.get(item.id);
+    return {
+      ...item,
+      isDownloaded: local !== undefined,
+      isInstalled: (local?.installedInstances.length ?? 0) > 0,
+      updateAvailable: local?.updateAvailable ?? false,
+    };
+  });
+}
+
+function newestDownloadedByModId(downloaded: DownloadedMod[]) {
   const newestByModID = new Map<string, DownloadedMod>();
   for (const item of downloaded) {
     const current = newestByModID.get(item.modId);
@@ -763,16 +848,7 @@ function synchronizeDownloadedState(
       newestByModID.set(item.modId, item);
     }
   }
-
-  return catalog.map((item) => {
-    const local = newestByModID.get(item.id);
-    return {
-      ...item,
-      isDownloaded: local !== undefined,
-      isInstalled: (local?.installedInstances.length ?? 0) > 0,
-      updateAvailable: local?.updateAvailable ?? false,
-    };
-  });
+  return newestByModID;
 }
 
 function mergeMods(current: ModSummary[], next: ModSummary[]): ModSummary[] {
@@ -799,6 +875,10 @@ function downloadedAsSummary(mod: DownloadedMod, t: TFunction): ModSummary {
     isInstalled: mod.installedInstances.length > 0,
     updateAvailable: mod.updateAvailable,
   };
+}
+
+function downloadedIdentity(mod?: DownloadedMod) {
+  return mod && `moddb:${mod.modId}:${mod.versionId}`;
 }
 
 function readStorage(storageName: "localStorage" | "sessionStorage", key: string): string | null {
