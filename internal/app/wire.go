@@ -575,6 +575,7 @@ func newVersionID() string {
 func credentialStoreUnavailable(err error) bool {
 	return errors.Is(err, accounts.ErrStoreLocked) ||
 		errors.Is(err, accounts.ErrStoreUnavailable) ||
+		errors.Is(err, accounts.ErrStoreUnknown) ||
 		errors.Is(err, accounts.ErrPermissionDenied)
 }
 
