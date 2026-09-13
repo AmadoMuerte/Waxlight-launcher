@@ -21,6 +21,48 @@ type keyringBackend interface {
 	Delete(service, user string) error
 }
 
+type nativeStoreErrorKind uint8
+
+const (
+	nativeStoreErrorUnavailable nativeStoreErrorKind = iota + 1
+	nativeStoreErrorLocked
+	nativeStoreErrorUnlock
+	nativeStoreErrorMissing
+	nativeStoreErrorPermission
+	nativeStoreErrorDesktopSession
+	nativeStoreErrorUnknown
+)
+
+type nativeStoreErrorOperation uint8
+
+const (
+	nativeStoreErrorOperationService nativeStoreErrorOperation = iota + 1
+	nativeStoreErrorOperationUnlock
+	nativeStoreErrorOperationSearch
+	nativeStoreErrorOperationRead
+	nativeStoreErrorOperationCreate
+	nativeStoreErrorOperationDelete
+)
+
+type nativeStoreErrorTarget uint8
+
+const (
+	nativeStoreErrorTargetService nativeStoreErrorTarget = iota + 1
+	nativeStoreErrorTargetCollection
+	nativeStoreErrorTargetItem
+)
+
+type nativeStoreError struct {
+	kind      nativeStoreErrorKind
+	operation nativeStoreErrorOperation
+	target    nativeStoreErrorTarget
+	cause     error
+}
+
+func (err *nativeStoreError) Error() string { return "native credential-store failure" }
+
+func (err *nativeStoreError) Unwrap() error { return err.cause }
+
 // Store persists versioned session material in the operating system's native
 // credential service. It intentionally has no file or in-memory fallback.
 type Store struct {
@@ -86,19 +128,30 @@ func mapStoreError(err error) error {
 	if err == nil {
 		return nil
 	}
+	var nativeErr *nativeStoreError
+	if errors.As(err, &nativeErr) {
+		switch nativeErr.kind {
+		case nativeStoreErrorUnavailable:
+			return fmt.Errorf("%w: %w", accounts.ErrStoreUnavailable, err)
+		case nativeStoreErrorLocked:
+			return fmt.Errorf("%w: %w", accounts.ErrStoreLocked, err)
+		case nativeStoreErrorUnlock:
+			return fmt.Errorf("%w: %w: %w", accounts.ErrStoreUnlockFailed, accounts.ErrStoreUnavailable, err)
+		case nativeStoreErrorMissing:
+			return fmt.Errorf("%w: %w", accounts.ErrCredentialsNotFound, err)
+		case nativeStoreErrorPermission:
+			return fmt.Errorf("%w: %w", accounts.ErrPermissionDenied, err)
+		case nativeStoreErrorDesktopSession:
+			return fmt.Errorf("%w: %w: %w", accounts.ErrStoreDesktopSession, accounts.ErrStoreUnavailable, err)
+		default:
+			return fmt.Errorf("%w: %w", accounts.ErrStoreUnknown, err)
+		}
+	}
 	if errors.Is(err, keyring.ErrNotFound) {
 		return accounts.ErrCredentialsNotFound
 	}
 	if errors.Is(err, keyring.ErrUnsupportedPlatform) {
 		return accounts.ErrStoreUnavailable
 	}
-	message := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(message, "locked"), strings.Contains(message, "islocked"):
-		return fmt.Errorf("%w: native credential store is locked", accounts.ErrStoreLocked)
-	case strings.Contains(message, "denied"), strings.Contains(message, "permission"), strings.Contains(message, "access is denied"):
-		return fmt.Errorf("%w: native credential store denied access", accounts.ErrPermissionDenied)
-	default:
-		return fmt.Errorf("%w: native credential store operation failed", accounts.ErrStoreUnavailable)
-	}
+	return mapUntypedStoreError(err)
 }
