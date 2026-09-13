@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
 type reconcileInstances struct{ instances []instances.Instance }
@@ -96,6 +100,58 @@ func TestReconcileInjectedCredentialsSucceedsForAllInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertReconcileCalls(t, logs, settings)
+}
+
+type propagationInstances struct{ instance instances.Instance }
+
+func (repository propagationInstances) GetInstance(context.Context, string) (instances.Instance, error) {
+	return repository.instance, nil
+}
+func (repository propagationInstances) ListInstances(context.Context) ([]instances.Instance, error) {
+	return nil, nil
+}
+func (propagationInstances) SaveInstance(context.Context, instances.Instance) error { return nil }
+
+type propagationVersions struct{ version versions.GameVersion }
+
+func (repository propagationVersions) Get(context.Context, string) (versions.GameVersion, error) {
+	return repository.version, nil
+}
+func (repository propagationVersions) ResolveExecutable(context.Context, string) (versions.GameVersion, error) {
+	return repository.version, nil
+}
+
+type propagationAccounts struct{ err error }
+
+func (repository propagationAccounts) GetAccount(context.Context, string) (accounts.Account, error) {
+	return accounts.Account{ID: "account", Status: accounts.StatusValid}, nil
+}
+func (propagationAccounts) ListAccounts(context.Context) ([]accounts.Account, error) { return nil, nil }
+func (repository propagationAccounts) ValidateAuthorizedAccount(context.Context, string) (accounts.Account, error) {
+	return accounts.Account{}, repository.err
+}
+
+func TestLaunchPropagatesAuthorizedAccountCredentialError(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "Vintagestory")
+	if err := os.WriteFile(executable, nil, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	want := &errs.AppError{Code: errs.ErrSecretStorage, Message: "safe credential-store error", Retryable: true}
+	accountID := "account"
+	coordinator := &Coordinator{
+		registry:       NewRegistry(mutations.NewSlot()),
+		gate:           reconcileGate{},
+		instances:      propagationInstances{instance: instances.Instance{ID: "instance", Directory: t.TempDir(), GameVersionID: "version"}},
+		versions:       propagationVersions{version: versions.GameVersion{ID: "version", ExecutablePath: executable}},
+		accounts:       propagationAccounts{err: want},
+		clientSettings: &reconcileClientSettings{},
+	}
+
+	_, err := coordinator.Launch(context.Background(), "instance", &accountID)
+
+	if err != want {
+		t.Fatalf("Launch() error = %v, want unchanged authorized-account error", err)
+	}
 }
 
 func newReconcileCoordinator(hardenErrors, reconcileErrors map[string]error) (*Coordinator, *reconcileLogs, *reconcileClientSettings) {
