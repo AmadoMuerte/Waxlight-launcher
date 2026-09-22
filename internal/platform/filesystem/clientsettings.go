@@ -51,15 +51,18 @@ func matchingSections(root map[string]json.RawMessage, name string) []rawSection
 	return sections
 }
 
-func stripKeys(settings map[string]json.RawMessage, forbidden []string) {
+func stripKeys(settings map[string]json.RawMessage, forbidden []string) bool {
+	removed := false
 	for key := range settings {
 		for _, candidate := range forbidden {
 			if strings.EqualFold(key, candidate) {
 				delete(settings, key)
+				removed = true
 				break
 			}
 		}
 	}
+	return removed
 }
 
 func isJSONNull(raw json.RawMessage) bool {
@@ -178,6 +181,8 @@ func patchClientSettings(path string, account *accounts.Account) error {
 		if err := decodeJSONObject(contents, &root); err != nil {
 			return fmt.Errorf("invalid client settings: %w", err)
 		}
+	} else if errors.Is(err, os.ErrNotExist) && account == nil {
+		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read client settings: %w", err)
 	}
@@ -194,8 +199,9 @@ func patchClientSettings(path string, account *accounts.Account) error {
 		}
 		sections[section.key] = stringSettings
 	}
+	changed := false
 	for _, settings := range sections {
-		stripKeys(settings, authKeys)
+		changed = stripKeys(settings, authKeys) || changed
 	}
 	if account != nil {
 		primary := "stringsettings"
@@ -221,6 +227,10 @@ func patchClientSettings(path string, account *accounts.Account) error {
 			settings[key] = encoded
 		}
 		sections[primary] = settings
+		changed = true
+	}
+	if !changed {
+		return nil
 	}
 	for key, settings := range sections {
 		encoded, err := json.Marshal(settings)

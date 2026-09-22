@@ -354,14 +354,10 @@ func (coordinator *Coordinator) launch(
 		return sessions.PlaySession{}, err
 	}
 
-	// Record the exact launch command so issues like a wrong data path can be
-	// diagnosed from the instance log.
-	if _, writeErr := fmt.Fprintf(
-		logFile,
-		"Executing: %s %s\n",
-		target.Executable,
-		strings.Join(quoteLaunchArguments(arguments), " "),
-	); writeErr != nil {
+	// User-supplied launch arguments may contain secrets or personal paths. Keep
+	// them out of launcher-owned logs; process diagnostics still identify the
+	// executable that Waxlight started.
+	if writeErr := writeLaunchCommand(logFile, target.Executable, arguments); writeErr != nil {
 		closeLaunchLog(logFile, instance.Name)
 		coordinator.clearInjectedCredentials(cleanupCredentials, instance)
 		return sessions.PlaySession{}, &errs.AppError{
@@ -524,16 +520,9 @@ func processStartMessage(client instances.GameClient) string {
 	return "Failed to start Vintage Story"
 }
 
-func quoteLaunchArguments(arguments []string) []string {
-	result := make([]string, 0, len(arguments))
-	for _, argument := range arguments {
-		if strings.ContainsAny(argument, " \t\"") {
-			result = append(result, `"`+strings.ReplaceAll(argument, `"`, `\"`)+`"`)
-		} else {
-			result = append(result, argument)
-		}
-	}
-	return result
+func writeLaunchCommand(writer io.Writer, executable string, _ []string) error {
+	_, err := fmt.Fprintf(writer, "Executing: %s [arguments omitted]\n", executable)
+	return err
 }
 
 func buildLaunchArguments(global, instance []string, dataPath, serverAddress string) []string {
@@ -788,19 +777,33 @@ func (coordinator *Coordinator) ReconcileInjectedCredentials(ctx context.Context
 		return err
 	}
 	defer release()
-	instances, err := coordinator.instances.ListInstances(ctx)
+	stored, err := coordinator.instances.ListInstances(ctx)
 	if err != nil {
 		return err
 	}
-	var reconcileErrors []error
-	for _, instance := range instances {
-		if err := coordinator.logs.Harden(filepath.Join(instance.Directory, "Logs")); err != nil {
-			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: harden logs: %w", instance.Name, err))
+	targets := make([]instances.Instance, 0, len(stored))
+	for _, instance := range stored {
+		info, statErr := os.Stat(instance.Directory)
+		if statErr != nil || !info.IsDir() {
+			// The instance directory may be on a disconnected drive or was moved
+			// by hand. There is nothing to clean, so skip it instead of blocking
+			// launcher startup.
+			slog.Warn("instance directory is missing; skipping stale credential cleanup", "instance", instance.Name)
+			continue
 		}
+		targets = append(targets, instance)
+	}
+	var reconcileErrors []error
+	for _, instance := range targets {
 		if err := coordinator.clientSettings.Reconcile(filepath.Join(instance.Directory, "clientsettings.json")); err != nil {
 			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: reconcile client settings: %w", instance.Name, &errs.AppError{
 				Code: errs.ErrClientSettings, Message: "Could not clear stale instance authentication", Cause: err,
 			}))
+		}
+	}
+	for _, instance := range targets {
+		if err := coordinator.logs.Harden(filepath.Join(instance.Directory, "Logs")); err != nil {
+			reconcileErrors = append(reconcileErrors, fmt.Errorf("instance %q: harden logs: %w", instance.Name, err))
 		}
 	}
 	return errors.Join(reconcileErrors...)
