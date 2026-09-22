@@ -167,7 +167,7 @@ func (service *Service) RemoveAccount(ctx context.Context, accountID string) err
 		return credentialStoreError("Could not read the saved account session", credentialErr)
 	}
 	if err := service.credentials.Delete(ctx, accountID); err != nil && !errors.Is(err, ErrCredentialsNotFound) {
-		return &errs.AppError{Code: errs.ErrSecretStorage, Message: "Could not remove the saved account session", Cause: err}
+		return credentialStoreError("Could not remove the saved account session", err)
 	}
 	if err := service.repository.DeleteAccount(ctx, accountID); err != nil {
 		if credentialErr == nil {
@@ -255,7 +255,7 @@ func (service *Service) authorizedAccount(ctx context.Context, accountID string)
 		return safeAccount(account), errs.NewError(errs.ErrSessionExpired, "The account needs to be authenticated again")
 	}
 	if err != nil {
-		return account, &errs.AppError{Code: errs.ErrSecretStorage, Message: "Could not read the account session", Cause: err}
+		return account, credentialStoreError("Could not read the account session", err)
 	}
 	account.SessionKey = credential.SessionKey
 	account.SessionSignature = credential.SessionSignature
@@ -274,15 +274,21 @@ func (service *Service) saveAccountMutation(ctx context.Context, account Account
 func credentialStoreError(message string, err error) error {
 	switch {
 	case errors.Is(err, ErrStoreLocked):
-		message = "The operating-system credential store is locked. Unlock it and retry"
+		message = "The system credential store is locked. Unlock the desktop keyring and try again."
+	case errors.Is(err, ErrStoreUnlockFailed):
+		message = "The system credential store is locked and could not be unlocked. On Linux desktop environments such as COSMIC, this can happen when the session login manager does not automatically unlock the system keyring."
 	case errors.Is(err, ErrPermissionDenied):
-		message = "The operating-system credential store denied access"
+		message = "Waxlight does not have permission to access the system credential store."
+	case errors.Is(err, ErrStoreDesktopSession):
+		message = "Waxlight could not connect to the desktop session D-Bus. Start Waxlight from an active desktop session and try again."
 	case errors.Is(err, ErrStoreUnavailable):
-		message = "The operating-system credential store is unavailable. Check the desktop keyring service and retry"
+		message = "No system credential store is available. Make sure a Secret Service provider is installed and running in this desktop session."
+	case errors.Is(err, ErrStoreUnknown):
+		message = "An unknown system credential-store error occurred. Check that the desktop keyring service is working and try again."
 	case errors.Is(err, ErrCorruptCredentials):
 		message = "The saved account session is corrupt and must be replaced"
 	}
-	retryable := errors.Is(err, ErrStoreLocked) || errors.Is(err, ErrStoreUnavailable)
+	retryable := errors.Is(err, ErrStoreLocked) || errors.Is(err, ErrStoreUnlockFailed) || errors.Is(err, ErrStoreDesktopSession) || errors.Is(err, ErrStoreUnavailable)
 	return &errs.AppError{Code: errs.ErrSecretStorage, Message: message, Cause: err, Retryable: retryable}
 }
 

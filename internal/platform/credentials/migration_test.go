@@ -3,6 +3,7 @@ package credentials
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,17 +106,22 @@ func TestMigrationPartialFailureAndVerificationFailureRetainSource(t *testing.T)
 }
 
 func TestMigrationPreservesCredentialStoreErrorCategory(t *testing.T) {
-	for name, want := range map[string]error{
-		"locked":  accounts.ErrStoreLocked,
-		"denied":  accounts.ErrPermissionDenied,
-		"offline": accounts.ErrStoreUnavailable,
+	for name, test := range map[string]struct {
+		source error
+		want   error
+	}{
+		"locked":          {source: accounts.ErrStoreLocked, want: accounts.ErrStoreLocked},
+		"denied":          {source: accounts.ErrPermissionDenied, want: accounts.ErrPermissionDenied},
+		"offline":         {source: accounts.ErrStoreUnavailable, want: accounts.ErrStoreUnavailable},
+		"unlock failed":   {source: fmt.Errorf("%w: %w", accounts.ErrStoreUnlockFailed, accounts.ErrStoreUnavailable), want: accounts.ErrStoreUnavailable},
+		"desktop session": {source: fmt.Errorf("%w: %w", accounts.ErrStoreDesktopSession, accounts.ErrStoreUnavailable), want: accounts.ErrStoreUnavailable},
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
 			writeLegacy(t, root, validLegacy, 0o600)
-			store := &migrationStore{values: map[string]accounts.Credential{}, err: want}
+			store := &migrationStore{values: map[string]accounts.Credential{}, err: test.source}
 			err := NewMigrator(root, store).Run(context.Background(), []string{"account-1", "account-2"})
-			if !errors.Is(err, want) {
+			if !errors.Is(err, test.want) {
 				t.Fatalf("migration error lost credential store category: %v", err)
 			}
 		})

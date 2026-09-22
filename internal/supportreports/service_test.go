@@ -2,6 +2,7 @@ package supportreports
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -38,6 +39,9 @@ func (f fakeSessions) ListSessions(context.Context, string, int) ([]sessions.Pla
 type fakeLogs []string
 
 func (f fakeLogs) Lines() []string { return f }
+func (fakeLogs) FileLogStatus() FileLogStatus {
+	return FileLogStatus{Configured: true, Open: true, Healthy: true}
+}
 
 type fakeIdentity struct{}
 
@@ -87,6 +91,9 @@ func TestServiceCollectsSanitizedBoundedReport(t *testing.T) {
 	if sender.report.Mods[0].ModID != "examplemod" || sender.report.Mods[0].Source != "moddb" {
 		t.Fatal("mod not mapped")
 	}
+	if status := sender.report.Diagnostics.FileLog; !status.Configured || !status.Open || !status.Healthy {
+		t.Fatalf("file log status missing: %+v", status)
+	}
 }
 
 func TestServiceWorksWithoutInstance(t *testing.T) {
@@ -98,6 +105,51 @@ func TestServiceWorksWithoutInstance(t *testing.T) {
 	if strings.Contains(preview.Payload, `"instance"`) {
 		t.Fatal("unexpected instance")
 	}
+}
+
+func TestServiceReportsSafeOptionalCollectionWarnings(t *testing.T) {
+	service := NewService(failingModStore{fakeStore: fakeStore{instance: instances.Instance{ID: "i1"}}}, failingOperations{}, failingSessions{}, failingRecovery{}, fakeLogs{}, fakeIdentity{}, &fakeSender{})
+	preview, err := service.Preview(context.Background(), "Launcher does not start", "i1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Could not collect installed mod diagnostics.",
+		"Could not collect recovery diagnostics.",
+		"Could not collect recent operation diagnostics.",
+		"Could not collect recent launch diagnostics.",
+	} {
+		if !strings.Contains(preview.Payload, want) {
+			t.Fatalf("preview missing warning %q: %s", want, preview.Payload)
+		}
+	}
+	if strings.Contains(preview.Payload, "/home/alice/private") {
+		t.Fatal("collection error leaked into preview")
+	}
+}
+
+type failingModStore struct{ fakeStore }
+
+func (failingModStore) ListMods(context.Context, string) ([]mods.InstalledMod, error) {
+	return nil, errors.New("/home/alice/private")
+}
+
+type failingOperations struct{}
+
+func (failingOperations) ListLimit(context.Context, int) ([]operations.Operation, error) {
+	return nil, errors.New("/home/alice/private")
+}
+
+type failingSessions struct{}
+
+func (failingSessions) ListSessions(context.Context, string, int) ([]sessions.PlaySession, error) {
+	return nil, errors.New("/home/alice/private")
+}
+
+type failingRecovery struct{}
+
+func (failingRecovery) Summary(context.Context, string) (bool, int, error) {
+	return false, 0, errors.New("/home/alice/private")
 }
 
 func TestSubmitUsesPreviewedSnapshotAndKeepsItAfterFailure(t *testing.T) {

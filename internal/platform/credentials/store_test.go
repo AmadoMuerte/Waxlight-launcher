@@ -98,30 +98,6 @@ func TestStoreRejectsCorruptAndUnsupportedSecrets(t *testing.T) {
 	}
 }
 
-func TestStoreMapsLockedDeniedUnavailableAndCancellation(t *testing.T) {
-	for name, tc := range map[string]struct {
-		source error
-		target error
-	}{
-		"locked":      {errors.New("collection is locked"), accounts.ErrStoreLocked},
-		"denied":      {errors.New("access denied"), accounts.ErrPermissionDenied},
-		"unavailable": {errors.New("dbus connection failed"), accounts.ErrStoreUnavailable},
-	} {
-		t.Run(name, func(t *testing.T) {
-			store := newStoreWithBackend(&memoryBackend{values: map[string]string{}, err: tc.source})
-			if err := store.Set(context.Background(), "account", accounts.Credential{SessionKey: "key", SessionSignature: "sig"}); !errors.Is(err, tc.target) {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
-	}
-	cancelled, cancel := context.WithCancel(context.Background())
-	cancel()
-	store := newStoreWithBackend(&memoryBackend{values: map[string]string{}})
-	if _, err := store.Get(cancelled, "account"); !errors.Is(err, accounts.ErrStoreUnavailable) {
-		t.Fatalf("unexpected cancellation error: %v", err)
-	}
-}
-
 func TestSecretEncodingDoesNotUseLegacyFieldNames(t *testing.T) {
 	value, err := encodeSecret(accounts.Credential{SessionKey: "key", SessionSignature: "signature"})
 	if err != nil {

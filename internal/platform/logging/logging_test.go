@@ -116,6 +116,60 @@ func TestSetLogDirectoryWritesSessionFile(t *testing.T) {
 	}
 }
 
+func TestSetLogDirectoryReplaysEarlyEntriesOnce(t *testing.T) {
+	Setup(16)
+	slog.Info("before file logging")
+	dir := t.TempDir()
+	SetLogDirectory(dir, 3)
+	defer SetLogDirectory("", 0)
+	SetLogDirectory(dir, 3)
+
+	matches, err := filepath.Glob(filepath.Join(dir, logFilePrefix+"*.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one session log file, got %d", len(matches))
+	}
+	contents, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(string(contents), "before file logging"); count != 1 {
+		t.Fatalf("early entry replayed %d times", count)
+	}
+}
+
+func TestFileLogStatusRetainsOpenFailure(t *testing.T) {
+	Setup(16)
+	path := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(path, []byte("file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	SetLogDirectory(path, 3)
+	defer SetLogDirectory("", 0)
+
+	status := FileLogStatus()
+	if !status.Configured || status.Healthy || status.Open || status.LastFailure == "" {
+		t.Fatalf("unexpected file sink status: %+v", status)
+	}
+}
+
+func TestFlushAndCloseFileLog(t *testing.T) {
+	Setup(16)
+	SetLogDirectory(t.TempDir(), 3)
+	defer SetLogDirectory("", 0)
+	if err := FlushFileLog(); err != nil {
+		t.Fatalf("flush file log: %v", err)
+	}
+	if err := CloseFileLog(); err != nil {
+		t.Fatalf("close file log: %v", err)
+	}
+	if FileLogStatus().Open {
+		t.Fatal("file sink remains open")
+	}
+}
+
 func TestSetLogDirectoryPrunesOldFiles(t *testing.T) {
 	Setup(16)
 	dir := t.TempDir()

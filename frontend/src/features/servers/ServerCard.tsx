@@ -61,9 +61,11 @@ export const ServerCard = memo(function ServerCard({
 }: ServerCardProps) {
   const { t } = useTranslation();
   const titleId = useId();
+  const imageUrl = server.imageUrl;
+  const staticImageUrl = imageUrl && !/\.gif(?:$|[?#])/i.test(imageUrl) ? imageUrl : undefined;
 
   return (
-    <article className="min-w-0" aria-labelledby={titleId}>
+    <article className="serverCard min-w-0" aria-labelledby={titleId}>
       <Card className="group relative flex min-w-0 flex-col overflow-hidden transition-colors hover:border-accent/60 focus-within:border-accent/60">
         <button
           type="button"
@@ -74,7 +76,7 @@ export const ServerCard = memo(function ServerCard({
         />
 
         <div className="relative">
-          <CoverArt className="aspect-[16/5] min-h-20" seed={server.name} src={server.imageUrl} />
+          <CoverArt className="aspect-[16/5] min-h-20" seed={server.name} src={staticImageUrl} />
           <div className="absolute top-3 right-3 z-[2] flex items-center gap-1.5">
             <IconButton
               size="sm"

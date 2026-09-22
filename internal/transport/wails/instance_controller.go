@@ -40,7 +40,7 @@ type instancePlaytime interface {
 }
 
 type instanceModCounter interface {
-	ListMods(context.Context, string) ([]mods.InstalledMod, error)
+	ListStoredMods(context.Context, string) ([]mods.InstalledMod, error)
 }
 
 type instanceDataMigration interface {
@@ -190,7 +190,7 @@ func (controller *InstanceController) ListInstances() ([]InstanceDTO, error) {
 
 	for _, instance := range storedInstances {
 		dto := instanceDTO(instance)
-		mods, modsErr := controller.modCounter.ListMods(ctx, instance.ID)
+		mods, modsErr := controller.modCounter.ListStoredMods(ctx, instance.ID)
 		if modsErr != nil {
 			slog.Warn("could not count mods for the instance list", "instance", instance.ID, "error", modsErr)
 		}

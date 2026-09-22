@@ -123,6 +123,34 @@ func TestClearClientSettingsRemovesOnlyAuthentication(t *testing.T) {
 	}
 }
 
+func TestClearClientSettingsDoesNotRewriteCleanFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clientsettings.json")
+	original := []byte("{\n  \"stringSettings\": {\"language\": \"en\"}\n}\n")
+	if err := os.WriteFile(path, original, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := (ClientSettingsService{}).Clear(path); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(contents, original) {
+		t.Fatalf("clean client settings were rewritten: %q", contents)
+	}
+}
+
+func TestClearClientSettingsDoesNotCreateMissingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clientsettings.json")
+	if err := (ClientSettingsService{}).Clear(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("missing client settings were created: %v", err)
+	}
+}
+
 func TestPatchClientSettingsReportsWriteError(t *testing.T) {
 	parentFile := filepath.Join(t.TempDir(), "not-a-directory")
 	if err := os.WriteFile(parentFile, []byte("block"), 0o600); err != nil {

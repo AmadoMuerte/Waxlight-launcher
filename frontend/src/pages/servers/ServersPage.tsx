@@ -242,29 +242,44 @@ export function ServersPage() {
     setShowWhitelistServers(false);
   }
 
-  async function copyWaxlightLink(address: string) {
-    const url = serverShareURL(address);
-    if (!url) {
-      notify(t("invalid_waxlight_link"), "error");
-      return;
-    }
-    try {
-      if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
-      notify(t("server_link_copied"));
-    } catch {
-      notify(t("waxlight_link_copy_failed"), "error");
-    }
-  }
+  const copyWaxlightLink = useCallback(
+    async (address: string) => {
+      const url = serverShareURL(address);
+      if (!url) {
+        notify(t("invalid_waxlight_link"), "error");
+        return;
+      }
+      try {
+        if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
+        notify(t("server_link_copied"));
+      } catch {
+        notify(t("waxlight_link_copy_failed"), "error");
+      }
+    },
+    [notify, t],
+  );
 
-  async function copyAddress(address: string) {
-    if (!address) return;
-    try {
-      if (!(await ClipboardSetText(address))) throw new Error("clipboard unavailable");
-      notify(t("server_address_copied"));
-    } catch {
-      notify(t("waxlight_link_copy_failed"), "error");
-    }
-  }
+  const copyAddress = useCallback(
+    async (address: string) => {
+      if (!address) return;
+      try {
+        if (!(await ClipboardSetText(address))) throw new Error("clipboard unavailable");
+        notify(t("server_address_copied"));
+      } catch {
+        notify(t("waxlight_link_copy_failed"), "error");
+      }
+    },
+    [notify, t],
+  );
+
+  const handleCopyAddress = useCallback(
+    (address: string) => void copyAddress(address),
+    [copyAddress],
+  );
+  const handleCopyLink = useCallback(
+    (address: string) => void copyWaxlightLink(address),
+    [copyWaxlightLink],
+  );
 
   return (
     <Page>
@@ -401,8 +416,8 @@ export function ServersPage() {
                           onJoin={requestPlay}
                           onToggleFavorite={toggleFavorite}
                           onDetails={setDetailsServer}
-                          onCopyAddress={(address) => void copyAddress(address)}
-                          onCopyLink={(address) => void copyWaxlightLink(address)}
+                          onCopyAddress={handleCopyAddress}
+                          onCopyLink={handleCopyLink}
                         />
                       );
                     })}
@@ -436,8 +451,8 @@ export function ServersPage() {
                         onJoin={requestPlay}
                         onToggleFavorite={toggleFavorite}
                         onDetails={setDetailsServer}
-                        onCopyAddress={(address) => void copyAddress(address)}
-                        onCopyLink={(address) => void copyWaxlightLink(address)}
+                        onCopyAddress={handleCopyAddress}
+                        onCopyLink={handleCopyLink}
                       />
                     );
                   })}
@@ -461,8 +476,8 @@ export function ServersPage() {
           favoriteBusy={detailsFavorite ? favoriteBusyKey === serverKey(detailedServer) : false}
           onToggleFavorite={() => toggleFavorite(detailedServer, detailsFavorite)}
           onClose={() => setDetailsServer(undefined)}
-          onCopyAddress={() => void copyAddress(detailedServer.address)}
-          onCopyLink={() => void copyWaxlightLink(detailedServer.address)}
+          onCopyAddress={() => handleCopyAddress(detailedServer.address)}
+          onCopyLink={() => handleCopyLink(detailedServer.address)}
           onJoin={() => requestPlay(detailedServer, detailsFavorite)}
         />
       )}

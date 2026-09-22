@@ -178,6 +178,16 @@ describe("ServerCard", () => {
     expect(screen.queryByText(/mods?$/)).toBeNull();
   });
 
+  it("loads static covers in the catalog", () => {
+    renderCard({}, { ...server, imageUrl: "https://cdn.test/cover.png" });
+    expect(document.querySelector("img")?.getAttribute("src")).toBe("https://cdn.test/cover.png");
+  });
+
+  it("does not load animated GIF covers", () => {
+    renderCard({}, { ...server, imageUrl: "https://cdn.test/cover.GIF?v=2" });
+    expect(document.querySelector("img")).toBeNull();
+  });
+
   it("shows duplicate catalog mods once in details", () => {
     render(
       <ServerDetailsContent

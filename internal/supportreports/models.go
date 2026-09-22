@@ -78,6 +78,19 @@ type Logs struct {
 	Launcher []string `json:"launcher,omitempty"`
 }
 
+// FileLogStatus reports launcher file-log availability without exposing its
+// directory or failure details.
+type FileLogStatus struct {
+	Configured bool `json:"configured"`
+	Open       bool `json:"open"`
+	Healthy    bool `json:"healthy"`
+}
+
+type Diagnostics struct {
+	FileLog  FileLogStatus `json:"fileLog"`
+	Warnings []string      `json:"warnings,omitempty"`
+}
+
 type Report struct {
 	SchemaVersion  int         `json:"schemaVersion"`
 	InstallationID string      `json:"installationId"`
@@ -90,6 +103,7 @@ type Report struct {
 	Launch         *Launch     `json:"launch,omitempty"`
 	Recovery       *Recovery   `json:"recovery,omitempty"`
 	Logs           Logs        `json:"logs"`
+	Diagnostics    Diagnostics `json:"diagnostics"`
 }
 
 // Preview is a sanitized support-report payload plus the short-lived

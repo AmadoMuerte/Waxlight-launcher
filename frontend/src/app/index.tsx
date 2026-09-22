@@ -22,6 +22,7 @@ setMissingKeyReporter((languages, namespace, key) => {
 });
 
 installGlobalErrorLogging();
+log.info("Frontend bootstrap started");
 
 const rootElement = document.getElementById("root");
 

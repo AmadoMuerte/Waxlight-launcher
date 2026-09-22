@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 )
 
@@ -60,6 +62,7 @@ func (client *fakeAuthClient) Validate(
 
 type memorySecretStore struct {
 	values    map[string]accounts.Credential
+	getErr    error
 	setErr    error
 	deleteErr error
 }
@@ -69,6 +72,9 @@ func newMemorySecretStore() *memorySecretStore {
 }
 
 func (store *memorySecretStore) Get(_ context.Context, id string) (accounts.Credential, error) {
+	if store.getErr != nil {
+		return accounts.Credential{}, store.getErr
+	}
 	secret, ok := store.values[id]
 	if !ok {
 		return accounts.Credential{}, accounts.ErrCredentialsNotFound
@@ -364,6 +370,84 @@ func TestAccountSelectionValidationAndRemoval(t *testing.T) {
 	}
 	if _, err := store.GetAccount(context.Background(), id); err == nil {
 		t.Fatal("account metadata was not removed")
+	}
+}
+
+func TestCredentialStoreFailuresUseSafeMappedErrors(t *testing.T) {
+	const diagnosticMarker = "WAXLIGHT_SYNTHETIC_CREDENTIAL_DIAGNOSTIC"
+
+	tests := []struct {
+		name        string
+		configure   func(*memorySecretStore, error)
+		invoke      func(*accounts.Service, string) error
+		storeError  error
+		wantMessage string
+		wantRetry   bool
+	}{
+		{
+			name:      "remove account delete failure",
+			configure: func(store *memorySecretStore, err error) { store.deleteErr = err },
+			invoke: func(service *accounts.Service, accountID string) error {
+				return service.RemoveAccount(context.Background(), accountID)
+			},
+			storeError:  fmt.Errorf("%w: %w: %w", accounts.ErrStoreDesktopSession, accounts.ErrStoreUnavailable, errors.New(diagnosticMarker)),
+			wantMessage: "Waxlight could not connect to the desktop session D-Bus. Start Waxlight from an active desktop session and try again.",
+			wantRetry:   true,
+		},
+		{
+			name:      "authorized account get failure",
+			configure: func(store *memorySecretStore, err error) { store.getErr = err },
+			invoke: func(service *accounts.Service, accountID string) error {
+				_, err := service.AuthorizedAccount(context.Background(), accountID)
+				return err
+			},
+			storeError:  fmt.Errorf("%w: %w", accounts.ErrPermissionDenied, errors.New(diagnosticMarker)),
+			wantMessage: "Waxlight does not have permission to access the system credential store.",
+			wantRetry:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service, _, _, secrets := newAccountFixture(t)
+			result, err := service.Login(context.Background(), "player@example.com", "password")
+			if err != nil || result.Account == nil {
+				t.Fatalf("Login() = %#v, %v", result, err)
+			}
+			test.configure(secrets, test.storeError)
+
+			err = test.invoke(service, result.Account.ID)
+
+			var appErr *errs.AppError
+			if !errors.As(err, &appErr) {
+				t.Fatalf("credential error = %v, want AppError", err)
+			}
+			if appErr.Code != errs.ErrSecretStorage || appErr.Message != test.wantMessage || appErr.Retryable != test.wantRetry {
+				t.Fatalf("credential app error = %#v", appErr)
+			}
+			if !errors.Is(err, test.storeError) {
+				t.Fatalf("credential error lost cause: %v", err)
+			}
+			if strings.Contains(appErr.Error(), diagnosticMarker) {
+				t.Fatalf("public error leaked diagnostic marker: %v", appErr)
+			}
+		})
+	}
+}
+
+func TestAuthorizedAccountReturnsSessionExpiredWhenCredentialsAreMissing(t *testing.T) {
+	service, _, _, secrets := newAccountFixture(t)
+	result, err := service.Login(context.Background(), "player@example.com", "password")
+	if err != nil || result.Account == nil {
+		t.Fatalf("Login() = %#v, %v", result, err)
+	}
+	secrets.getErr = accounts.ErrCredentialsNotFound
+
+	_, err = service.AuthorizedAccount(context.Background(), result.Account.ID)
+
+	var appErr *errs.AppError
+	if !errors.As(err, &appErr) || appErr.Code != errs.ErrSessionExpired || appErr.Retryable {
+		t.Fatalf("AuthorizedAccount() = %v, want non-retryable SESSION_EXPIRED", err)
 	}
 }
 
