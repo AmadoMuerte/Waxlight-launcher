@@ -2,13 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackendUnavailableError } from "../api/bridge";
 import { logsApi } from "../api/logs";
 import { flushLogs, installGlobalErrorLogging, log, resetDedupState, setMinLevel } from "./logger";
-
-vi.mock("../api/bridge", () => ({
-  BackendUnavailableError: class MockBackendUnavailableError extends Error {},
-}));
 
 vi.mock("../api/logs", () => ({
   logsApi: { write: vi.fn() },
@@ -19,6 +14,7 @@ const write = vi.mocked(logsApi.write);
 async function flushAndSettle() {
   flushLogs();
   await vi.advanceTimersByTimeAsync(0);
+  await Promise.resolve();
 }
 
 describe("log", () => {
@@ -73,8 +69,8 @@ describe("log", () => {
     expect(write.mock.calls[0][1]).toHaveLength(4000);
   });
 
-  it("falls back to the browser console when the backend is unavailable", async () => {
-    write.mockRejectedValue(new BackendUnavailableError());
+  it("falls back to the browser console for every forwarding error", async () => {
+    write.mockRejectedValue(new Error("forwarding failed"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     log.error("no backend");

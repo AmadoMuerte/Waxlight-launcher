@@ -1,4 +1,3 @@
-import { BackendUnavailableError } from "../api/bridge";
 import { logsApi, type LogLevel } from "../api/logs";
 
 const levelOrder: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
@@ -74,17 +73,11 @@ export function flushLogs() {
   }
   const batch = queue;
   queue = [];
-  void Promise.allSettled(
-    batch.map(async (line) => {
-      try {
-        await logsApi.write(line.level, line.message.slice(0, MAX_MESSAGE_LENGTH), line.attrs);
-      } catch (error) {
-        if (error instanceof BackendUnavailableError) {
-          fallback(line);
-        }
-      }
-    }),
-  );
+  for (const line of batch) {
+    void logsApi
+      .write(line.level, line.message.slice(0, MAX_MESSAGE_LENGTH), line.attrs)
+      .catch(() => fallback(line));
+  }
 }
 
 function fallback(line: PendingLine) {
