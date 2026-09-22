@@ -180,6 +180,28 @@ func TestListModsReconcilesFilesAddedOutsideLauncher(t *testing.T) {
 	}
 }
 
+func TestListStoredModsDoesNotReconcileFiles(t *testing.T) {
+	fixture := newTestFixture(t)
+	ctx := context.Background()
+	instance := fixture.createTestInstance(t, "Summary")
+
+	archivePath := filepath.Join(instance.Directory, "Mods", "summary.zip")
+	writeVintageStoryMod(t, archivePath, `{"modid":"summary","name":"Summary","version":"1.0"}`)
+
+	stored, err := fixture.modsService.ListStoredMods(ctx, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) != 0 {
+		t.Fatalf("stored summary reconciled files: %#v", stored)
+	}
+
+	reconciled, err := fixture.modsService.ListMods(ctx, instance.ID)
+	if err != nil || len(reconciled) != 1 {
+		t.Fatalf("mod management did not reconcile files: %#v, %v", reconciled, err)
+	}
+}
+
 func TestListModsKeepsRecordsWhenInstanceDirectoryMissing(t *testing.T) {
 	fixture := newTestFixture(t)
 	ctx := context.Background()

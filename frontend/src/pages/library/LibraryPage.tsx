@@ -143,35 +143,10 @@ export function LibraryPage() {
   const [pinningInstanceIDs, setPinningInstanceIDs] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [modUpdates, setModUpdates] = useState<Record<string, InstanceModUpdateReport>>({});
-  const instancesRef = useRef(instances);
-  const checkedOnceRef = useRef(false);
+  const checkedInstanceIDsRef = useRef(new Set<string>());
+  const checkingInstanceIDsRef = useRef(new Set<string>());
   const sortRevisionRef = useRef(0);
   const sortSaveQueueRef = useRef(Promise.resolve());
-
-  useEffect(() => {
-    instancesRef.current = instances;
-  }, [instances]);
-
-  const checkAllUpdates = useCallback(async () => {
-    const current = instancesRef.current;
-    if (current.length === 0) return;
-
-    const entries = await Promise.all(
-      current.map(async (instance) => {
-        try {
-          const report = await modsApi.checkInstanceUpdates(instance.id);
-          return [instance.id, report] as const;
-        } catch {
-          return undefined;
-        }
-      }),
-    );
-    const collected: Record<string, InstanceModUpdateReport> = {};
-    for (const entry of entries) {
-      if (entry) collected[entry[0]] = entry[1];
-    }
-    setModUpdates(collected);
-  }, []);
 
   const handleModUpdatesChanged = useCallback(
     (instanceID: string, report: InstanceModUpdateReport) =>
@@ -180,10 +155,48 @@ export function LibraryPage() {
   );
 
   useEffect(() => {
-    if (checkedOnceRef.current) return;
-    checkedOnceRef.current = true;
-    void checkAllUpdates();
-  }, [checkAllUpdates]);
+    let active = true;
+    const pending = instances.filter(
+      (instance) =>
+        !checkedInstanceIDsRef.current.has(instance.id) &&
+        !checkingInstanceIDsRef.current.has(instance.id),
+    );
+    if (pending.length === 0) return undefined;
+
+    const timer = window.setTimeout(() => {
+      let next = 0;
+      const checkNext = () => {
+        if (!active) return;
+        const instance = pending[next++];
+        if (!instance) return;
+        checkingInstanceIDsRef.current.add(instance.id);
+        void modsApi
+          .checkInstanceUpdates(instance.id)
+          .then((report) => {
+            checkedInstanceIDsRef.current.add(instance.id);
+            if (active) {
+              setModUpdates((current) => ({ ...current, [instance.id]: report }));
+            }
+            return undefined;
+          })
+          .catch(() => {
+            // Retry after a later instance-query refresh.
+          })
+          .finally(() => {
+            checkingInstanceIDsRef.current.delete(instance.id);
+            checkNext();
+          });
+      };
+      const slots = Math.max(0, 3 - checkingInstanceIDsRef.current.size);
+      for (let index = 0; index < Math.min(slots, pending.length); index += 1) {
+        checkNext();
+      }
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [instances]);
 
   async function startPackageImport() {
     setAddDialogOpen(false);
