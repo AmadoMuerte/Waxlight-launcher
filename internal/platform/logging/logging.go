@@ -125,7 +125,8 @@ func Setup(capacity int) {
 
 // SetEmitter registers a callback invoked for every new entry after it has
 // been stored. A nil callback disables emission. This is the only seam used
-// to push log lines to the UI.
+// to push log lines to the UI. The callback may run concurrently from any
+// goroutine that logs, so it must be safe for concurrent use.
 func SetEmitter(fn func(Entry)) {
 	emitterMu.Lock()
 	defer emitterMu.Unlock()

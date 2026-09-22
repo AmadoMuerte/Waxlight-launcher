@@ -277,14 +277,10 @@ func TestStartupPhaseWarnsWhenSlow(t *testing.T) {
 	slowStartupPhase = time.Nanosecond
 	t.Cleanup(func() { slowStartupPhase = original })
 
-	var captured []logging.Entry
-	logging.SetEmitter(func(entry logging.Entry) { captured = append(captured, entry) })
-	t.Cleanup(func() { logging.SetEmitter(nil) })
-
 	startupPhase("test phase", time.Now().Add(-time.Millisecond))
 
 	found := false
-	for _, entry := range captured {
+	for _, entry := range logging.Snapshot() {
 		if entry.Level == logging.LevelWarn && strings.Contains(entry.Message, "wire: slow startup phase") {
 			found = true
 			break
