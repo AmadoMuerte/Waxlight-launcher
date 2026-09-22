@@ -1,4 +1,4 @@
-package app_test
+package app
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/app"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/operations"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/dataroot"
@@ -91,7 +91,7 @@ func seedInterruptedState(t *testing.T, home string) {
 // API inventory.
 func TestWireConstructsCompleteContainer(t *testing.T) {
 	home := wireHome(t)
-	container, err := app.NewWithHome(home)
+	container, err := NewWithHome(home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestWireRecoveryOrderingProvesInterruptedStateIsRecovered(t *testing.T) {
 	home := wireHome(t)
 	seedInterruptedState(t, home)
 
-	container, err := app.NewWithHome(home)
+	container, err := NewWithHome(home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestWireRecoveryOrderingProvesInterruptedStateIsRecovered(t *testing.T) {
 // registered.
 func TestWireStartupOrderingDerivesLifecycleFromFramework(t *testing.T) {
 	home := wireHome(t)
-	container, err := app.NewWithHome(home)
+	container, err := NewWithHome(home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestWireStartupOrderingDerivesLifecycleFromFramework(t *testing.T) {
 // the shared store.
 func TestWireShutdownJoinsWorkersAndClosesStore(t *testing.T) {
 	home := wireHome(t)
-	container, err := app.NewWithHome(home)
+	container, err := NewWithHome(home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,4 +266,31 @@ func TestWireShutdownJoinsWorkersAndClosesStore(t *testing.T) {
 		t.Fatalf("store is not consistent after shutdown: %v", err)
 	}
 	_ = store.Close()
+}
+
+// TestStartupPhaseWarnsWhenSlow proves a construction phase at or above the
+// slow threshold is reported as a warning.
+func TestStartupPhaseWarnsWhenSlow(t *testing.T) {
+	logging.Setup(logging.DefaultCapacity)
+
+	original := slowStartupPhase
+	slowStartupPhase = time.Nanosecond
+	t.Cleanup(func() { slowStartupPhase = original })
+
+	var captured []logging.Entry
+	logging.SetEmitter(func(entry logging.Entry) { captured = append(captured, entry) })
+	t.Cleanup(func() { logging.SetEmitter(nil) })
+
+	startupPhase("test phase", time.Now().Add(-time.Millisecond))
+
+	found := false
+	for _, entry := range captured {
+		if entry.Level == logging.LevelWarn && strings.Contains(entry.Message, "wire: slow startup phase") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("slow startup phase did not produce a warning entry")
+	}
 }

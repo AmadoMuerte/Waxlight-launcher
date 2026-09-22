@@ -33,11 +33,12 @@ type SessionReader interface {
 }
 
 type RecoveryReader interface {
-	Summary(context.Context, string) (bool, int)
+	Summary(context.Context, string) (bool, int, error)
 }
 
 type LogReader interface {
 	Lines() []string
+	FileLogStatus() FileLogStatus
 }
 
 type Identity interface {
@@ -138,6 +139,7 @@ func (s *Service) collect(ctx context.Context, description, instanceID string) (
 		Launcher:       Launcher{Version: version.Version(), Platform: runtime.GOOS, Arch: runtime.GOARCH},
 		System:         System{OS: runtime.GOOS, Arch: runtime.GOARCH, GoVersion: runtime.Version()},
 		Mods:           []Mod{}, Operations: []Operation{}, Logs: Logs{Launcher: boundedLines(s.logs.Lines())},
+		Diagnostics: Diagnostics{FileLog: s.logs.FileLogStatus()},
 	}
 	if instanceID != "" {
 		s.collectInstance(ctx, &report, instanceID)
@@ -150,11 +152,14 @@ func (s *Service) collect(ctx context.Context, description, instanceID string) (
 func (s *Service) collectInstance(ctx context.Context, report *Report, instanceID string) {
 	instance, err := s.store.GetInstance(ctx, instanceID)
 	if err != nil {
+		report.warn("Could not collect instance diagnostics.")
 		return
 	}
 	item := &Instance{ID: instance.ID, Name: SanitizeText(instance.Name), GameVersion: instance.GameVersionID, Client: string(instance.GameClient), Status: instance.Status, LaunchArguments: sanitizeStrings(instance.LaunchArguments, MaxLaunchArguments), EnvironmentVariables: sanitizeEnvironment(instance.EnvironmentVariables)}
 	installed, err := s.store.ListMods(ctx, instanceID)
-	if err == nil {
+	if err != nil {
+		report.warn("Could not collect installed mod diagnostics.")
+	} else {
 		for _, installedMod := range installed[:min(len(installed), MaxMods)] {
 			modID, source := safeSource(installedMod.Source)
 			report.Mods = append(report.Mods, Mod{ModID: modID, Version: SanitizeText(installedMod.Version), Enabled: installedMod.Enabled, Source: source, UpdatePolicy: string(mods.NormalizeUpdatePolicy(installedMod.UpdatePolicy))})
@@ -166,14 +171,19 @@ func (s *Service) collectInstance(ctx context.Context, report *Report, instanceI
 	}
 	report.Instance = item
 	if s.recovery != nil {
-		exists, count := s.recovery.Summary(ctx, instanceID)
-		report.Recovery = &Recovery{LastKnownGoodExists: exists, SnapshotCount: count}
+		exists, count, recoveryErr := s.recovery.Summary(ctx, instanceID)
+		if recoveryErr != nil {
+			report.warn("Could not collect recovery diagnostics.")
+		} else {
+			report.Recovery = &Recovery{LastKnownGoodExists: exists, SnapshotCount: count}
+		}
 	}
 }
 
 func (s *Service) collectOperations(ctx context.Context, report *Report) {
 	items, err := s.operations.ListLimit(ctx, MaxOperations)
 	if err != nil {
+		report.warn("Could not collect recent operation diagnostics.")
 		return
 	}
 	for _, item := range items {
@@ -190,11 +200,19 @@ func (s *Service) collectOperations(ctx context.Context, report *Report) {
 
 func (s *Service) collectLaunch(ctx context.Context, report *Report, instanceID string) {
 	items, err := s.sessions.ListSessions(ctx, instanceID, 1)
-	if err != nil || len(items) == 0 {
+	if err != nil {
+		report.warn("Could not collect recent launch diagnostics.")
+		return
+	}
+	if len(items) == 0 {
 		return
 	}
 	item := items[0]
 	report.Launch = &Launch{GameVersion: item.VersionID, StartedAt: item.StartedAt, EndedAt: item.EndedAt, DurationSec: item.DurationSec, ExitCode: item.ExitCode, StartupFailed: item.Crashed && item.DurationSec < 30}
+}
+
+func (report *Report) warn(message string) {
+	report.Diagnostics.Warnings = append(report.Diagnostics.Warnings, message)
 }
 
 func sanitizeStrings(values []string, limit int) []string {

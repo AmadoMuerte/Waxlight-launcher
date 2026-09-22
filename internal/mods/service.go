@@ -37,6 +37,13 @@ type Service struct {
 	newID       IDGenerator
 }
 
+// ListStoredMods returns persisted mod records without inspecting instance files.
+// Library summaries use it so polling remains read-only; mod management uses
+// ListMods to reconcile the records with disk.
+func (service *Service) ListStoredMods(ctx context.Context, instanceID string) ([]InstalledMod, error) {
+	return service.repository.ListMods(ctx, instanceID)
+}
+
 // NewService wires the installed-mod service with immutable dependencies.
 func NewService(
 	repository Repository,

@@ -190,7 +190,15 @@ func (allocation *allocation) ownsPath(path string, expected os.FileInfo) (bool,
 }
 
 func HardenLogs(logsDirectory string) error {
-	if err := os.MkdirAll(logsDirectory, 0o700); err != nil {
+	instanceDirectory := filepath.Dir(filepath.Clean(logsDirectory))
+	info, err := os.Lstat(instanceDirectory)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return errors.New("instance root is not a regular directory")
+	}
+	if err := os.Mkdir(logsDirectory, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
 	return filepath.Walk(logsDirectory, func(path string, info os.FileInfo, err error) error {

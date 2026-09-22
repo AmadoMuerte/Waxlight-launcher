@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";
 import type { Settings } from "../../entities/settings/model";
+import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import { LibraryPage } from "./LibraryPage";
 
 const api = vi.hoisted(() => ({
@@ -102,6 +103,13 @@ function instance(id: string, name: string, overrides: Partial<Instance> = {}): 
   return { ...instances[0], id, name, directory: `/instances/${id}`, ...overrides };
 }
 
+const instancesFixture: Instance[] = [
+  instance("one", "One"),
+  instance("two", "Two"),
+  instance("three", "Three"),
+  instance("four", "Four"),
+];
+
 function cardOrder() {
   return screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
 }
@@ -128,6 +136,7 @@ async function renderPage(data = instances, availableVersions = versions) {
   } else {
     await screen.findByRole("heading", { name: "Light your first world" });
   }
+  return queryClient;
 }
 
 describe("library instance creation", () => {
@@ -140,6 +149,7 @@ describe("library instance creation", () => {
     api.remove.mockResolvedValue(undefined);
     api.update.mockResolvedValue({});
     api.setPinned.mockResolvedValue({});
+    modsApi.checkInstanceUpdates.mockResolvedValue({ summary: { updatesAvailable: 0 } });
     settingsApi.get.mockResolvedValue(settings);
     settingsApi.update.mockImplementation(async (value) => value);
     settingsApi.setLibrarySort.mockImplementation(async (librarySort) => ({
@@ -215,6 +225,80 @@ describe("library instance creation", () => {
         allowIncompatible: false,
         skipUnavailable: true,
       });
+    });
+  });
+
+  it("checks mod updates after render with at most three requests in flight", async () => {
+    const resolvers: Array<(value: { summary: { updatesAvailable: number } }) => void> = [];
+    modsApi.checkInstanceUpdates.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    await renderPage([
+      instance("one", "One"),
+      instance("two", "Two"),
+      instance("three", "Three"),
+      instance("four", "Four"),
+    ]);
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(3));
+    resolvers[0]({ summary: { updatesAvailable: 1 } });
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(4));
+    expect(await screen.findByText("1 mod update available")).toBeTruthy();
+  });
+
+  it("keeps the in-flight mod update cap across effect re-runs", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const releases: Array<() => void> = [];
+
+    modsApi.checkInstanceUpdates.mockImplementation(() => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      return new Promise((resolve) => {
+        releases.push(() => {
+          inFlight -= 1;
+          resolve({ summary: { updatesAvailable: 0 }, updates: [] });
+        });
+      });
+    });
+
+    const queryClient = await renderPage(instancesFixture.slice(0, 4));
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      const refreshed = instancesFixture.slice(0, 4);
+      const renamed = { ...refreshed[0] };
+      renamed.name = `${renamed.name} (renamed)`;
+      refreshed[0] = renamed;
+      queryClient.setQueryData(INSTANCES_QUERY_KEY, refreshed);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+
+    const firstBatch = releases.splice(0, releases.length);
+    await act(async () => {
+      for (const release of firstBatch) release();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    await act(async () => {
+      const refreshed = instancesFixture.slice(0, 4);
+      const renamed = { ...refreshed[1] };
+      renamed.name = `${renamed.name} (renamed)`;
+      refreshed[1] = renamed;
+      queryClient.setQueryData(INSTANCES_QUERY_KEY, refreshed);
+    });
+
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(4));
+    await act(async () => {
+      for (const release of releases.splice(0, releases.length)) release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
   });
 

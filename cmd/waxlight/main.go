@@ -27,10 +27,26 @@ import (
 //go:embed appicon.png
 var appIcon []byte
 
+// fatalStartup reports a fatal startup failure to the user, flushes the
+// session log, and terminates the process with a non-zero exit code.
+func fatalStartup(message string, err error) {
+	text := message
+	if err != nil {
+		text = message + ": " + err.Error()
+	}
+	slog.Error(message, "error", err)
+	_ = logging.FlushFileLog()
+	_ = logging.CloseFileLog()
+	showFatalError(text)
+	os.Exit(1)
+}
+
 func main() {
+	processStart := time.Now()
 	// Set up the shared launcher logger before anything else so every log
 	// line, including construction failures, reaches the in-memory console.
 	logging.Setup(logging.DefaultCapacity)
+	slog.Info("waxlight: process entry")
 	if err := deeplink.RegisterHandler(); err != nil {
 		slog.Warn("Failed to register Waxlight links", "error", err)
 	}
@@ -43,8 +59,9 @@ func main() {
 	}
 	container, err := app.New()
 	if err != nil {
-		logging.Fatal("Failed to construct the launcher", err)
+		fatalStartup("Failed to construct the launcher", err)
 	}
+	slog.Info("waxlight: container constructed", "duration", time.Since(processStart).String())
 	container.DeepLinks.ReceiveArgs(os.Args[1:])
 	err = wails.Run(&options.App{
 		Title:            "Waxlight Launcher",
@@ -56,6 +73,7 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 13, G: 13, B: 16, A: 1},
 		OnStartup:        container.Startup,
 		OnDomReady: func(ctx context.Context) {
+			slog.Info("wails: dom ready", "duration", time.Since(processStart).String())
 			mousenavigation.Install(func(direction int) {
 				container.Events.Publish("navigation:mouse", direction)
 			})
@@ -81,6 +99,6 @@ func main() {
 		},
 	})
 	if err != nil {
-		logging.Fatal("The launcher window failed to start", err)
+		fatalStartup("The launcher window failed to start", err)
 	}
 }

@@ -86,13 +86,25 @@ var (
 	emitter   func(Entry)
 	emitterMu sync.RWMutex
 
-	fileMu      sync.Mutex
-	logDir      string
-	logDirSet   bool
-	maxLogFiles int
-	logFile     *os.File
-	fileHeader  string
+	fileMu       sync.Mutex
+	logDir       string
+	logDirSet    bool
+	maxLogFiles  int
+	logFile      *os.File
+	fileHeader   string
+	fileReplayed bool
+	fileHealthy  bool
+	fileFailure  string
 )
+
+// FileSinkStatus describes the current file sink without logging from the
+// logging package itself. LastFailure is redacted before it is retained.
+type FileSinkStatus struct {
+	Configured  bool
+	Open        bool
+	Healthy     bool
+	LastFailure string
+}
 
 // Setup initializes the shared logger with a ring capacity of at least
 // capacity entries and installs its handler as slog's process default. Calling
@@ -103,8 +115,11 @@ func Setup(capacity int) {
 		capacity = DefaultCapacity
 	}
 	setupMu.Lock()
-	defer setupMu.Unlock()
 	buffer = NewRingBuffer(capacity)
+	setupMu.Unlock()
+	fileMu.Lock()
+	fileReplayed = false
+	fileMu.Unlock()
 	slog.SetDefault(slog.New(&handler{}))
 }
 
@@ -118,10 +133,10 @@ func SetEmitter(fn func(Entry)) {
 }
 
 // SetLogDirectory enables writing every new entry to a per-session file inside
-// dir. A fresh file is opened on the first write after the call; only the
-// newest maxFiles session files are kept and older ones are pruned. Passing an
-// empty dir disables file logging. Calling it again re-targets the sink (for
-// example after the data folder is relocated).
+// dir. A fresh file is opened when the directory is configured; only the newest
+// maxFiles session files are kept and older ones are pruned. Passing an empty
+// dir disables file logging. Calling it again re-targets the sink (for example
+// after the data folder is relocated).
 func SetLogDirectory(dir string, maxFiles int) {
 	fileMu.Lock()
 	defer fileMu.Unlock()
@@ -131,9 +146,23 @@ func SetLogDirectory(dir string, maxFiles int) {
 	logDir = dir
 	logDirSet = dir != ""
 	maxLogFiles = maxFiles
+	fileHealthy = logDirSet
+	fileFailure = ""
 	if logFile != nil {
-		_ = logFile.Close()
+		closeLogFile()
 		logFile = nil
+	}
+	if !logDirSet || openLogFile() != nil {
+		return
+	}
+	if fileReplayed {
+		return
+	}
+	fileReplayed = true
+	for _, entry := range Snapshot() {
+		if !writeFileEntry(entry) {
+			return
+		}
 	}
 }
 
@@ -145,6 +174,18 @@ func LogDirectory() string {
 	return logDir
 }
 
+// FileLogStatus returns file-sink health and its latest redacted failure.
+func FileLogStatus() FileSinkStatus {
+	fileMu.Lock()
+	defer fileMu.Unlock()
+	return FileSinkStatus{
+		Configured:  logDirSet,
+		Open:        logFile != nil,
+		Healthy:     fileHealthy,
+		LastFailure: fileFailure,
+	}
+}
+
 // SetFileHeader sets a multi-line preamble (launcher version, platform, and so
 // on) written at the top of every newly opened session log file. It must be
 // called before the first entry is written to affect the current session.
@@ -154,15 +195,27 @@ func SetFileHeader(header string) {
 	fileHeader = header
 }
 
-// CloseFileLog closes the currently open session log file. The next entry
-// opens a new session file.
-func CloseFileLog() {
+// FlushFileLog syncs the current session file, if one is open.
+func FlushFileLog() error {
 	fileMu.Lock()
 	defer fileMu.Unlock()
-	if logFile != nil {
-		_ = logFile.Close()
-		logFile = nil
+	if logFile == nil {
+		return nil
 	}
+	if err := logFile.Sync(); err != nil {
+		recordFileFailure(err)
+		return err
+	}
+	fileHealthy = true
+	return nil
+}
+
+// CloseFileLog closes the current session file. The next entry opens a new
+// session file.
+func CloseFileLog() error {
+	fileMu.Lock()
+	defer fileMu.Unlock()
+	return closeLogFile()
 }
 
 // appendEntry stores an entry, notifies the external emitter, mirrors the line
@@ -186,8 +239,8 @@ func appendEntry(entry Entry) {
 }
 
 // writeToFile appends the entry to the current session log file, opening and
-// pruning one on first use. Failures are silent so logging never breaks the
-// application.
+// pruning one on first use. Failures are retained in FileLogStatus so logging
+// never breaks the application or loses its diagnostic state.
 func writeToFile(entry Entry) {
 	fileMu.Lock()
 	defer fileMu.Unlock()
@@ -196,29 +249,67 @@ func writeToFile(entry Entry) {
 	}
 	if logFile == nil {
 		if err := openLogFile(); err != nil {
-			logDirSet = false
 			return
 		}
 	}
-	_, _ = fmt.Fprintln(logFile, entry.Plain())
+	writeFileEntry(entry)
 }
 
 func openLogFile() error {
 	if err := os.MkdirAll(logDir, 0o700); err != nil {
+		recordFileFailure(err)
 		return err
 	}
 	name := logFilePrefix + time.Now().UTC().Format("20060102-150405") + ".log"
 	file, err := os.OpenFile(filepath.Join(logDir, name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
+		recordFileFailure(err)
 		return err
 	}
 	logFile = file
 	if fileHeader != "" {
-		_, _ = fmt.Fprintln(file, fileHeader)
-		_, _ = fmt.Fprintln(file)
+		if _, err := fmt.Fprintln(file, fileHeader); err != nil {
+			closeLogFile()
+			recordFileFailure(err)
+			return err
+		}
+		if _, err := fmt.Fprintln(file); err != nil {
+			closeLogFile()
+			recordFileFailure(err)
+			return err
+		}
 	}
 	pruneLogFiles(logDir, maxLogFiles)
+	fileHealthy = true
 	return nil
+}
+
+func writeFileEntry(entry Entry) bool {
+	if _, err := fmt.Fprintln(logFile, entry.Plain()); err != nil {
+		recordFileFailure(err)
+		_ = closeLogFile()
+		return false
+	}
+	fileHealthy = true
+	return true
+}
+
+func closeLogFile() error {
+	if logFile == nil {
+		return nil
+	}
+	err := logFile.Close()
+	logFile = nil
+	if err != nil {
+		recordFileFailure(err)
+		return err
+	}
+	return nil
+}
+
+func recordFileFailure(err error) {
+	fileHealthy = false
+	fileFailure = Redact(err.Error())
 }
 
 // pruneLogFiles removes the oldest session log files so at most keep remain.

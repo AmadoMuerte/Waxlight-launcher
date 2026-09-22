@@ -76,6 +76,21 @@ type Container struct {
 	store          *sqlite.SQLiteStore
 	telemetry      *telemetry.Service
 	presence       *presence.Service
+	dataRoot       string
+}
+
+// slowStartupPhase is the threshold above which a construction phase is
+// reported as slow.
+var slowStartupPhase = 2 * time.Second
+
+// startupPhase logs how long a construction phase took and warns when it
+// exceeded slowStartupPhase. It logs only the phase name and duration.
+func startupPhase(name string, started time.Time) {
+	elapsed := time.Since(started)
+	slog.Info("wire: startup phase", "phase", name, "duration", elapsed.String())
+	if elapsed >= slowStartupPhase {
+		slog.Warn("wire: slow startup phase", "phase", name, "duration", elapsed.String())
+	}
 }
 
 // New constructs the container at the OS configuration directory.
@@ -87,6 +102,7 @@ func New() (*Container, error) {
 // empty home falls back to the OS configuration directory. Tests use this
 // entrypoint to isolate the launcher state.
 func NewWithHome(home string) (*Container, error) {
+	started := time.Now()
 	dataRootManager, err := newDataRootManager(home)
 	if err != nil {
 		return nil, err
@@ -102,6 +118,7 @@ func NewWithHome(home string) (*Container, error) {
 	if err := securefs.Apply(dataRoot, 0o700, true); err != nil {
 		return nil, fmt.Errorf("secure data directory: %w", err)
 	}
+	startupPhase("prepare data directory", started)
 	slog.Info("wire: data directory ready", "root", dataRoot)
 	// Mirror every log line to rolling session files in <dataRoot>/logs. The
 	// directory moves together with the data root during relocation. Every
@@ -117,15 +134,14 @@ func NewWithHome(home string) (*Container, error) {
 	logging.SetFileHeader(fileHeader)
 	logging.SetLogDirectory(filepath.Join(dataRoot, "logs"), logging.DefaultMaxLogFiles)
 
-	if err := updates.PurgeStaleUpdateSessions(dataRoot); err != nil {
-		return nil, fmt.Errorf("purge stale launcher update sessions: %w", err)
-	}
-
+	started = time.Now()
 	store, err := sqlite.Open(dataroot.DatabasePath(dataRoot))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	startupPhase("open database", started)
 	slog.Info("wire: database opened")
+	started = time.Now()
 	if err := dataRootManager.FinalizePrevious(func(oldRoot, newRoot string) error {
 		if err := store.RelocatePaths(context.Background(), oldRoot, newRoot); err != nil {
 			return err
@@ -141,31 +157,38 @@ func NewWithHome(home string) (*Container, error) {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("finish data folder relocation: %w", err)
 	}
+	startupPhase("finish data folder relocation", started)
 	if err := applyInstallerTelemetryConsent(context.Background(), store, dataRootManager.Home()); err != nil {
 		// Consent handling fails closed: an unreadable or malformed installer
 		// marker must never enable telemetry or prevent the launcher from starting.
 		slog.Warn("wire: could not apply installer telemetry choice", "error", err)
 	}
 
+	started = time.Now()
 	sessionService := sessions.NewService(store, time.Now)
 	if err := sessionService.RecoverOpen(context.Background()); err != nil {
 		slog.Warn("wire: could not recover interrupted game sessions", "error", err)
 	}
+	startupPhase("recover game sessions", started)
 	statisticsService := statistics.NewService(sessionService)
 	lifecycle := NewLifecycle()
 	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
 	deepLinks := NewDeepLinks(eventPublisher)
 	operationManager := operations.NewManager(store, lifecycle, eventPublisher)
+	started = time.Now()
 	if _, err := operationManager.ReconcileInterrupted(context.Background(), time.Now().UTC()); err != nil {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("reconcile interrupted operations: %w", err)
 	}
+	startupPhase("reconcile interrupted operations", started)
 	settingsReader := settingscore.NewReader(store)
+	started = time.Now()
 	launcherSettings, err := settingsReader.Get(context.Background())
 	if err != nil {
 		closeStoreOnError(store)
 		return nil, fmt.Errorf("load settings: %w", err)
 	}
+	startupPhase("load settings", started)
 	downloadManager := downloader.NewManager(
 		downloader.NewHTTPDownloader(),
 		launcherSettings.DownloadsParallel,
@@ -382,6 +405,7 @@ func NewWithHome(home string) (*Container, error) {
 	// Do not probe with a write here: a temporarily locked native store must not
 	// prevent the launcher from opening. Credential operations report failures
 	// when the user signs in or launches a game.
+	started = time.Now()
 	secretStore := credentials.NewStore(dataRoot)
 	storedAccounts, err := store.ListAccounts(context.Background())
 	if err != nil {
@@ -406,6 +430,7 @@ func NewWithHome(home string) (*Container, error) {
 		}
 		slog.Warn("wire: credential store unavailable; legacy credential migration will retry later", "error", err)
 	}
+	startupPhase("reconcile credentials", started)
 	slog.Info("wire: credential recovery checks finished")
 	settingsService := settingscore.NewService(store, settingsReader, telemetryService, telemetryService, downloadManager)
 	dataRootService := settingscore.NewDataRootService(
@@ -416,10 +441,12 @@ func NewWithHome(home string) (*Container, error) {
 		eventPublisher,
 		wailstransport.QuitAdapter{},
 	)
+	started = time.Now()
 	if err := launchCoordinator.ReconcileInjectedCredentials(context.Background()); err != nil {
 		closeStoreOnError(store)
 		return nil, err
 	}
+	startupPhase("reconcile injected credentials", started)
 	serverService := servers.NewService(store, store, mutationGate, eventPublisher, time.Now, newVersionID)
 	serverCatalogService := servers.NewCatalogService(servercatalog.NewClient(nil))
 	newsService := news.NewService(
@@ -490,7 +517,7 @@ func NewWithHome(home string) (*Container, error) {
 	)
 	dialogs := wailstransport.NewDialogAdapter(lifecycle)
 	supportReportService := supportreports.NewService(
-		store,
+		supportReportStoreAdapter{store: store, mods: modsService},
 		operationManager,
 		sessionService,
 		supportRecoveryAdapter{recovery: recoveryService, snapshots: snapshotService},
@@ -554,6 +581,7 @@ func NewWithHome(home string) (*Container, error) {
 		store:          store,
 		telemetry:      telemetryService,
 		presence:       presenceService,
+		dataRoot:       dataRoot,
 	}, nil
 }
 
@@ -634,6 +662,13 @@ func (container *Container) Startup(ctx context.Context) {
 	// Older cache entries may lack catalog tags; persist them once here so the
 	// read paths stay read-only.
 	container.Lifecycle.Go(func(ctx context.Context) { container.modsCatalog.BackfillDownloadedModTags(ctx) })
+	// Leftover update sessions are stale at startup. Clean them up best-effort
+	// in the background so the pre-window path stays short.
+	container.Lifecycle.Go(func(ctx context.Context) {
+		if err := updates.PurgeStaleUpdateSessions(container.dataRoot); err != nil {
+			slog.Warn("wire: could not purge stale launcher update sessions", "error", err)
+		}
+	})
 	container.presence.Connect(container.Lifecycle.Context())
 	container.telemetryHeartbeat()
 }

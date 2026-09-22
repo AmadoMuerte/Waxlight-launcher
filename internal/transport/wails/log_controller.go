@@ -36,16 +36,20 @@ type instanceLister interface {
 	List(context.Context) ([]instances.Instance, error)
 }
 
+type storedModLister interface {
+	ListStoredMods(context.Context, string) ([]mods.InstalledMod, error)
+}
+
 // LogController exposes the launcher's in-memory log console and lets the user
 // export the recent logs plus a system summary for support.
 type LogController struct {
 	instances instanceLister
-	mods      *mods.Service
+	mods      storedModLister
 	versions  versionLister
 	lifecycle lifecycle
 }
 
-func NewLogController(instances instanceLister, mods *mods.Service, versionService versionLister, lifecycle lifecycle) *LogController {
+func NewLogController(instances instanceLister, mods storedModLister, versionService versionLister, lifecycle lifecycle) *LogController {
 	return &LogController{instances: instances, mods: mods, versions: versionService, lifecycle: lifecycle}
 }
 
@@ -174,6 +178,8 @@ type supportLogData struct {
 	GoVersion   string
 	Versions    []versions.GameVersion
 	Instances   []supportLogInstance
+	Warnings    []string
+	FileLog     logging.FileSinkStatus
 }
 
 func (controller *LogController) gatherSupportLogData(ctx context.Context) (supportLogData, error) {
@@ -183,19 +189,23 @@ func (controller *LogController) gatherSupportLogData(ctx context.Context) (supp
 		Platform:    runtime.GOOS + "/" + runtime.GOARCH,
 		GoVersion:   runtime.Version(),
 	}
-	var err error
-	data.Versions, err = controller.versions.List(ctx)
+	data.FileLog = logging.FileLogStatus()
+	versions, err := controller.versions.List(ctx)
 	if err != nil {
-		return data, err
+		data.Warnings = append(data.Warnings, "Could not collect installed game version diagnostics.")
+	} else {
+		data.Versions = versions
 	}
 	instances, err := controller.instances.List(ctx)
 	if err != nil {
-		return data, err
+		data.Warnings = append(data.Warnings, "Could not collect instance diagnostics.")
+		return data, nil
 	}
 	for _, instance := range instances {
-		installedMods, modsErr := controller.mods.ListMods(ctx, instance.ID)
+		installedMods, modsErr := controller.mods.ListStoredMods(ctx, instance.ID)
 		if modsErr != nil {
-			slog.Warn("could not count mods for the support log", "instance", instance.Name, "error", modsErr)
+			slog.Warn("could not count mods for the support log")
+			data.Warnings = append(data.Warnings, "Could not collect installed mod diagnostics.")
 		}
 		enabled := 0
 		for _, mod := range installedMods {
@@ -230,6 +240,10 @@ func formatSupportLog(data supportLogData, entries []logging.Entry) string {
 	fmt.Fprintf(&builder, "Version: %s\n", data.Version)
 	fmt.Fprintf(&builder, "Platform: %s\n", data.Platform)
 	fmt.Fprintf(&builder, "Go: %s\n", data.GoVersion)
+	fmt.Fprintf(&builder, "File logging: configured=%t open=%t healthy=%t\n", data.FileLog.Configured, data.FileLog.Open, data.FileLog.Healthy)
+	for _, warning := range data.Warnings {
+		fmt.Fprintf(&builder, "Warning: %s\n", warning)
+	}
 
 	builder.WriteString("\nInstalled game versions:\n")
 	if len(data.Versions) == 0 {
