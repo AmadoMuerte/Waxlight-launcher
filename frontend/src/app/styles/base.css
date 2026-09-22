@@ -1312,6 +1312,11 @@
     contain-intrinsic-size: auto 430px;
   }
 
+  .serverCard {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 340px;
+  }
+
   /* Circular selection toggle shown on card artwork (see shared/ui/selection-checkbox) */
   .selectionCheckbox {
     display: grid;
