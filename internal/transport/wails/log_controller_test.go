@@ -1,10 +1,14 @@
 package wails
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/mods"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
@@ -19,6 +23,8 @@ func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {
 		Version:     "0.3.0",
 		Platform:    "linux/amd64",
 		GoVersion:   "go1.23",
+		FileLog:     logging.FileSinkStatus{Configured: true, Open: true, Healthy: true},
+		Warnings:    []string{"Could not collect installed mod diagnostics."},
 		Versions:    []versions.GameVersion{{ID: "1.20", Name: "1.20"}},
 		Instances: []supportLogInstance{
 			{Name: "My world", GameVersionID: "1.20", ModCount: 3, EnabledModCount: 2},
@@ -30,6 +36,8 @@ func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {
 		"Waxlight Launcher support log",
 		"Version: 0.3.0",
 		"Platform: linux/amd64",
+		"File logging: configured=true open=true healthy=true",
+		"Warning: Could not collect installed mod diagnostics.",
 		"Installed game versions:",
 		"- 1.20 (1.20)",
 		"Instances:",
@@ -41,6 +49,47 @@ func TestFormatSupportLogIncludesSummaryAndLog(t *testing.T) {
 			t.Fatalf("support log missing %q:\n%s", want, report)
 		}
 	}
+}
+
+func TestGatherSupportLogDataKeepsOptionalFailuresVisible(t *testing.T) {
+	logging.Setup(16)
+	defer logging.Clear()
+	controller := NewLogController(
+		supportLogInstances{{ID: "i1", Name: "Pack"}},
+		supportLogMods{err: errors.New("/home/alice/private")},
+		supportLogVersions{err: errors.New("/home/alice/private")},
+		nil,
+	)
+	data, err := controller.gatherSupportLogData(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := formatSupportLog(data, logging.Snapshot())
+	for _, want := range []string{
+		"Could not collect installed game version diagnostics.",
+		"Could not collect installed mod diagnostics.",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("support log missing warning %q: %s", want, report)
+		}
+	}
+	if strings.Contains(report, "/home/alice/private") {
+		t.Fatal("collection error leaked into support log")
+	}
+}
+
+type supportLogVersions struct{ err error }
+
+func (f supportLogVersions) List(context.Context) ([]versions.GameVersion, error) { return nil, f.err }
+
+type supportLogInstances []instances.Instance
+
+func (f supportLogInstances) List(context.Context) ([]instances.Instance, error) { return f, nil }
+
+type supportLogMods struct{ err error }
+
+func (f supportLogMods) ListStoredMods(context.Context, string) ([]mods.InstalledMod, error) {
+	return nil, f.err
 }
 
 func TestFormatSupportLogExcludesSensitiveValues(t *testing.T) {

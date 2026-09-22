@@ -55,19 +55,40 @@ func (supportLogAdapter) Lines() []string {
 	return lines
 }
 
+func (supportLogAdapter) FileLogStatus() supportreports.FileLogStatus {
+	status := logging.FileLogStatus()
+	return supportreports.FileLogStatus{Configured: status.Configured, Open: status.Open, Healthy: status.Healthy}
+}
+
+type supportReportStoreAdapter struct {
+	store *sqlite.SQLiteStore
+	mods  *mods.Service
+}
+
+func (adapter supportReportStoreAdapter) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
+	return adapter.store.GetInstance(ctx, id)
+}
+
+func (adapter supportReportStoreAdapter) ListMods(ctx context.Context, instanceID string) ([]mods.InstalledMod, error) {
+	return adapter.mods.ListStoredMods(ctx, instanceID)
+}
+
 type supportRecoveryAdapter struct {
 	recovery  *recovery.Service
 	snapshots *snapshots.Service
 }
 
-func (adapter supportRecoveryAdapter) Summary(ctx context.Context, instanceID string) (bool, int) {
+func (adapter supportRecoveryAdapter) Summary(ctx context.Context, instanceID string) (bool, int, error) {
 	status, err := adapter.recovery.Status(ctx, instanceID)
-	exists := err == nil && !status.RecordedAt.IsZero()
+	if err != nil {
+		return false, 0, err
+	}
+	exists := !status.RecordedAt.IsZero()
 	listed, err := adapter.snapshots.List(ctx, instanceID)
 	if err != nil {
-		return exists, 0
+		return exists, 0, err
 	}
-	return exists, len(listed)
+	return exists, len(listed), nil
 }
 
 type supportSenderAdapter struct{ client *telemetry.Client }

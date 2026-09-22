@@ -66,6 +66,13 @@ const modCatalogApi = vi.hoisted(() => ({
   downloaded: vi.fn().mockResolvedValue([]),
 }));
 
+const logger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
 vi.mock("../shared/api/instances", () => ({
   instancesApi: { list: api.list },
 }));
@@ -105,6 +112,7 @@ vi.mock("../shared/api/news", () => ({
 vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
 vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
 vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi }));
+vi.mock("../shared/lib/logger", () => ({ log: logger }));
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
@@ -151,6 +159,7 @@ afterEach(() => {
     updateNotificationEnabled: false,
   });
   useNotificationStore.setState({ notifications: [] });
+  vi.clearAllMocks();
 });
 
 function renderApp(initialEntries?: string[]) {
@@ -209,6 +218,24 @@ it("prefetches the default mods page during startup", async () => {
     pageSize: 24,
     page: 1,
   });
+});
+
+it("logs shell readiness once", async () => {
+  renderApp();
+
+  expect(logger.info).not.toHaveBeenCalledWith("Frontend shell ready");
+
+  await screen.findByRole("link", { name: /Library|Библиотека/ });
+  await waitFor(() => expect(logger.info).toHaveBeenCalledWith("Frontend shell ready"));
+  expect(logger.info).toHaveBeenCalledTimes(1);
+});
+
+it("renders and logs an initial watcher error", async () => {
+  api.overview.mockRejectedValueOnce(new Error("offline"));
+  renderApp();
+
+  expect(await screen.findByText("offline")).toBeTruthy();
+  await waitFor(() => expect(logger.warn).toHaveBeenCalledWith("offline", { source: "watcher" }));
 });
 
 it("does not replace autosaved settings during background refresh", async () => {

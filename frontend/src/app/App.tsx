@@ -92,6 +92,7 @@ export function App() {
   const updateCheckedOnceRef = useRef(false);
   const previousChannelRef = useRef<Settings["updateChannel"] | undefined>(undefined);
   const updateNotificationIdRef = useRef<string | undefined>(undefined);
+  const shellReadyLoggedRef = useRef(false);
 
   useEffect(() => {
     void Promise.all([
@@ -174,6 +175,14 @@ export function App() {
       log.warn(fatalError, { source: "watcher" });
     }
   }, [fatalError, setFatalError]);
+
+  useEffect(() => {
+    if (loading || shellReadyLoggedRef.current) {
+      return;
+    }
+    shellReadyLoggedRef.current = true;
+    log.info("Frontend shell ready");
+  }, [loading]);
 
   useEffect(() => {
     if (!settings) {
@@ -349,7 +358,7 @@ export function App() {
     };
   }, [addNotification, queryClient, t]);
 
-  if (loading) {
+  if (loading && !fatalError) {
     return <LoadingState className="appLoading">Loading Waxlight…</LoadingState>;
   }
 
