@@ -48,6 +48,7 @@ function renderCard(
     onManage: vi.fn(),
     onSelectedChange: vi.fn(),
     onDelete: vi.fn(),
+    onFavoriteChange: vi.fn(),
   };
   render(<ModCard mod={cardMod} layout="grid" {...handlers} {...overrides} />);
   return handlers;
@@ -81,6 +82,17 @@ describe("ModCard", () => {
     const handlers = renderCard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
     expect(handlers.onInstall).toHaveBeenCalledWith("51");
+  });
+
+  it("toggles favorite without opening or selecting the card", async () => {
+    const handlers = renderCard({ favorite: true, favoriteDisabled: false });
+    const button = screen.getByRole("button", { name: "Remove Player Corpse from favorites" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+
+    await userEvent.setup().click(button);
+    expect(handlers.onFavoriteChange).toHaveBeenCalledWith("51", false);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+    expect(handlers.onSelectedChange).not.toHaveBeenCalled();
   });
 
   it("offers Manage for a downloaded mod and shows its status", async () => {

@@ -1,4 +1,4 @@
-import { Download, MoreHorizontal, Trash2 } from "lucide-react";
+import { Download, MoreHorizontal, Star, Trash2 } from "lucide-react";
 import { memo, useId } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,6 +30,9 @@ interface ModCardProps {
   onSelectedChange?: (modId: string, selected: boolean) => void;
   onDelete?: (downloaded: DownloadedMod) => void;
   installBusy?: boolean;
+  favorite?: boolean;
+  favoriteDisabled?: boolean;
+  onFavoriteChange?: (modId: string, favorite: boolean) => void;
 }
 
 function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
@@ -48,6 +51,9 @@ export const ModCard = memo(function ModCard({
   onSelectedChange,
   onDelete,
   installBusy = false,
+  favorite = false,
+  favoriteDisabled = true,
+  onFavoriteChange,
 }: ModCardProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -161,6 +167,28 @@ export const ModCard = memo(function ModCard({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+                {onFavoriteChange && (
+                  <IconButton
+                    className="relative z-[2] shrink-0"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={
+                      favorite
+                        ? t("remove_mod_favorite", { name: mod.name })
+                        : t("add_mod_favorite", { name: mod.name })
+                    }
+                    aria-pressed={favorite}
+                    disabled={favoriteDisabled}
+                    onClick={(event) =>
+                      stopPropagationAndRun(event, () => onFavoriteChange(mod.id, !favorite))
+                    }
+                  >
+                    <Star
+                      aria-hidden="true"
+                      className={favorite ? "fill-current text-accent" : ""}
+                    />
+                  </IconButton>
                 )}
               </div>
               <p className="text-xs text-text-muted">{t("by_author", { name: mod.authorName })}</p>

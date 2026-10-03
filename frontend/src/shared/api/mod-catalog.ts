@@ -45,4 +45,8 @@ export const modCatalogApi = {
   checkUpdates: (modId: string) =>
     call<DownloadedMod[]>("ModCatalogController", "CheckModUpdates", modId),
   tags: () => call<ModTag[]>("ModCatalogController", "ListModTags"),
+  favoriteIDs: () => call<string[]>("ModCatalogController", "ListFavoriteModIDs"),
+  favorites: () => call<import("./types").ModSummary[]>("ModCatalogController", "ListFavoriteMods"),
+  setFavorite: (modId: string, favorite: boolean) =>
+    call<void>("ModCatalogController", "SetModFavorite", modId, favorite),
 };
