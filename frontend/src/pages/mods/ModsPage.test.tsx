@@ -25,6 +25,9 @@ const api = vi.hoisted(() => ({
   cancelTask: vi.fn(),
   checkUpdates: vi.fn(),
   tags: vi.fn(),
+  favoriteIDs: vi.fn(),
+  favorites: vi.fn(),
+  setFavorite: vi.fn(),
 }));
 
 const settings = vi.hoisted(() => ({
@@ -255,6 +258,9 @@ describe("mods browser", () => {
     api.downloaded.mockResolvedValue([]);
     api.checkUpdates.mockResolvedValue([]);
     api.tags.mockResolvedValue([]);
+    api.favoriteIDs.mockResolvedValue([]);
+    api.favorites.mockResolvedValue([]);
+    api.setFavorite.mockResolvedValue(undefined);
     api.previewUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
     api.removeUnusedDownloaded.mockResolvedValue({ removedCount: 0, freedBytes: 0 });
     installedMods.list.mockResolvedValue([]);
@@ -743,6 +749,21 @@ describe("mods browser", () => {
     );
   });
 
+  it("does not let unresolved favorite IDs suppress the All empty state", async () => {
+    api.search.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 24,
+      totalItems: 0,
+      totalPages: 0,
+      hasNext: false,
+    });
+    api.favoriteIDs.mockResolvedValue(["missing"]);
+    renderPage("/mods");
+
+    expect(await screen.findByText("No mods found")).toBeTruthy();
+  });
+
   it("opens Mod Details from a mod card", async () => {
     renderPageWithDetails("/mods?q=corpse");
     const user = userEvent.setup();
@@ -752,6 +773,124 @@ describe("mods browser", () => {
     expect(await screen.findByRole("heading", { name: "Player Corpse" })).toBeTruthy();
     expect(screen.getByText("Full description")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Download" }).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Add Player Corpse to favorites" }));
+    expect(api.setFavorite).toHaveBeenCalledWith("51", true);
+  });
+
+  it("lists favorites outside loaded catalog pages and removes unavailable IDs", async () => {
+    api.favoriteIDs.mockResolvedValue(["51", "missing"]);
+    api.favorites.mockResolvedValue([summary]);
+    renderPage("/mods?view=favorites");
+
+    expect(await screen.findByText("Player Corpse")).toBeTruthy();
+    expect(screen.getByText("Favorite mod unavailable")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("tab", { name: /Favorites/ })
+        .querySelector("span.inline-flex.items-center.gap-2"),
+    ).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remove from favorites" }));
+    expect(api.setFavorite).toHaveBeenCalledWith("missing", false);
+  });
+
+  it("refreshes membership and favorite count after a successful card mutation", async () => {
+    let favoriteIDs: string[] = [];
+    api.favoriteIDs.mockImplementation(async () => favoriteIDs);
+    api.setFavorite.mockImplementation(async (id: string, favorite: boolean) => {
+      favoriteIDs = favorite ? [id] : [];
+    });
+    renderPage("/mods");
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Add Player Corpse to favorites" }));
+    expect(
+      await screen.findByRole("button", { name: "Remove Player Corpse from favorites" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Favorites.*1/ })).toBeTruthy();
+  });
+
+  it("keeps membership unchanged and notifies when favorite mutation fails", async () => {
+    const notify = vi.fn();
+    api.setFavorite.mockRejectedValue(new Error("write failed"));
+    renderPage("/mods", notify);
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Add Player Corpse to favorites" }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith("write failed", "error"));
+    expect(screen.getByRole("button", { name: "Add Player Corpse to favorites" })).toBeTruthy();
+  });
+
+  it("uses loaded canonical detail ID when route is a slug", async () => {
+    api.favoriteIDs.mockResolvedValue(["51"]);
+    renderPageWithDetails("/mods/player-corpse");
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Remove Player Corpse from favorites" }));
+    expect(api.setFavorite).toHaveBeenCalledWith("51", false);
+  });
+
+  it("keeps missing favorite removable when catalog summaries fail", async () => {
+    api.favoriteIDs.mockResolvedValue(["missing"]);
+    api.favorites.mockRejectedValue(new Error("offline"));
+    renderPage("/mods?view=favorites&q=not-a-match");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("offline");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remove from favorites" }));
+    expect(api.setFavorite).toHaveBeenCalledWith("missing", false);
+  });
+
+  it("waits for initial favorite summaries before showing unavailable placeholders", async () => {
+    let resolveSummaries: (value: (typeof summary)[]) => void;
+    api.favoriteIDs.mockResolvedValue(["missing"]);
+    api.favorites.mockImplementation(
+      () => new Promise<(typeof summary)[]>((resolve) => (resolveSummaries = resolve)),
+    );
+    renderPage("/mods?view=favorites");
+
+    expect(await screen.findByText("Loading mods")).toBeTruthy();
+    expect(screen.queryByText("Favorite mod unavailable")).toBeNull();
+    resolveSummaries!([]);
+    expect(await screen.findByText("Favorite mod unavailable")).toBeTruthy();
+  });
+
+  it("shows membership failure instead of an empty favorites view and retries", async () => {
+    api.favoriteIDs
+      .mockRejectedValueOnce(new Error("membership unavailable"))
+      .mockResolvedValue([]);
+    renderPage("/mods?view=favorites");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("membership unavailable");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(api.favoriteIDs).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("No favorite mods yet")).toBeTruthy();
+  });
+
+  it("keeps URL filters while favorites only applies text search in list layout", async () => {
+    api.favoriteIDs.mockResolvedValue(["51"]);
+    api.favorites.mockResolvedValue([summary]);
+    renderPage("/mods?view=favorites&side=server&q=corpse");
+
+    expect(await screen.findByRole("tabpanel", { name: /Favorites/ })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: /Game version/ })).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "List view" }));
+    expect(await screen.findByText("Player Corpse")).toBeTruthy();
+    expect(screen.getByTestId("location-search").textContent).toContain("side=server");
+  });
+
+  it("clears favorite search without restoring it after the debounce", async () => {
+    api.favoriteIDs.mockResolvedValue(["51"]);
+    api.favorites.mockResolvedValue([summary]);
+    renderPage("/mods?view=favorites&q=not-a-match&side=server");
+
+    await screen.findByText("No mods found");
+    const clearButtons = screen.getAllByRole("button", { name: "Clear search" });
+    await userEvent.setup().click(clearButtons[clearButtons.length - 1]);
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    expect(screen.getByTestId("location-search").textContent).not.toContain("q=");
+    expect(screen.getByTestId("location-search").textContent).toContain("side=server");
   });
 });
 
@@ -789,6 +928,9 @@ describe("confirmDeletion gate", () => {
     api.checkUpdates.mockImplementation(() => api.downloaded());
     api.removeDownloaded.mockResolvedValue(undefined);
     api.tags.mockResolvedValue([]);
+    api.favoriteIDs.mockResolvedValue([]);
+    api.favorites.mockResolvedValue([]);
+    api.setFavorite.mockResolvedValue(undefined);
   });
 
   it("removes a downloaded mod directly when confirmDeletion is false", async () => {

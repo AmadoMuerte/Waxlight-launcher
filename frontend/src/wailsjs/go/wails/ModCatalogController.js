@@ -30,6 +30,14 @@ export function ListDownloadedMods() {
   return window['go']['wails']['ModCatalogController']['ListDownloadedMods']();
 }
 
+export function ListFavoriteModIDs() {
+  return window['go']['wails']['ModCatalogController']['ListFavoriteModIDs']();
+}
+
+export function ListFavoriteMods() {
+  return window['go']['wails']['ModCatalogController']['ListFavoriteMods']();
+}
+
 export function ListModTags() {
   return window['go']['wails']['ModCatalogController']['ListModTags']();
 }
@@ -48,6 +56,10 @@ export function RemoveUnusedDownloadedMods() {
 
 export function SearchMods(arg1) {
   return window['go']['wails']['ModCatalogController']['SearchMods'](arg1);
+}
+
+export function SetModFavorite(arg1, arg2) {
+  return window['go']['wails']['ModCatalogController']['SetModFavorite'](arg1, arg2);
 }
 
 export function UploadMods(arg1) {

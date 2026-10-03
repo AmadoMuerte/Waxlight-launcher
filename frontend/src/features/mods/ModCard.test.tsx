@@ -48,6 +48,7 @@ function renderCard(
     onManage: vi.fn(),
     onSelectedChange: vi.fn(),
     onDelete: vi.fn(),
+    onFavoriteChange: vi.fn(),
   };
   render(<ModCard mod={cardMod} layout="grid" {...handlers} {...overrides} />);
   return handlers;
@@ -81,6 +82,17 @@ describe("ModCard", () => {
     const handlers = renderCard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
     expect(handlers.onInstall).toHaveBeenCalledWith("51");
+  });
+
+  it("toggles favorite without opening or selecting the card", async () => {
+    const handlers = renderCard({ favorite: true, favoriteDisabled: false });
+    const button = screen.getByRole("button", { name: "Remove Player Corpse from favorites" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+
+    await userEvent.setup().click(button);
+    expect(handlers.onFavoriteChange).toHaveBeenCalledWith("51", false);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+    expect(handlers.onSelectedChange).not.toHaveBeenCalled();
   });
 
   it("offers Manage for a downloaded mod and shows its status", async () => {
@@ -123,6 +135,21 @@ describe("ModCard", () => {
     const button = screen.getByRole("button", { name: "Download" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("places favorite and overflow over artwork in order, separate from selection", async () => {
+    const handlers = renderCard({ downloaded, favoriteDisabled: false });
+    const star = screen.getByRole("button", { name: "Add Player Corpse to favorites" });
+    const actions = screen.getByRole("button", { name: "Player Corpse mod actions" });
+    const overlay = star.parentElement;
+
+    expect(overlay?.className).toContain("absolute top-3 right-3 z-[2] flex items-center gap-1.5");
+    expect(star.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overlay?.parentElement?.querySelector("[class*='top-3 left-3']")).toBeTruthy();
+
+    await userEvent.setup().click(star);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+    expect(handlers.onInstall).not.toHaveBeenCalled();
   });
 
   it("exposes destructive removal through an overflow menu", async () => {

@@ -310,6 +310,7 @@ func NewWithHome(home string) (*Container, error) {
 		modsRepository,
 		filesystem.ModFileManager{},
 		modCatalog,
+		store,
 		modDownloads,
 		downloadManager,
 		versionService,

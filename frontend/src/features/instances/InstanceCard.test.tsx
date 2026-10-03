@@ -103,6 +103,20 @@ describe("InstanceCard", () => {
     expect(handlers.onOpen).not.toHaveBeenCalled();
   });
 
+  it("places pin and overflow over cover art in order, separate from status", async () => {
+    const handlers = renderCard();
+    const pin = screen.getByRole("button", { name: "Pin instance: Warm home" });
+    const actions = screen.getByRole("button", { name: "Actions for Warm home" });
+    const overlay = pin.parentElement;
+
+    expect(overlay?.className).toContain("absolute top-3 right-3 z-[2] flex items-center gap-1.5");
+    expect(pin.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overlay?.parentElement?.querySelector("[class*='top-3 left-3']")).toBeTruthy();
+
+    await userEvent.setup().click(actions);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+  });
+
   it("keeps the Play action stable while pinning", () => {
     renderCard({ pinBusy: true });
 

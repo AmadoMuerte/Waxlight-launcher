@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 11
+const currentSchemaVersion = 12
 
 type migration struct {
 	version int
@@ -28,7 +28,10 @@ var baseMigrations = []migration{
 
 func (s *SQLiteStore) migrations() []migration {
 	list := append([]migration{}, baseMigrations...)
-	return append(list, migration{version: 11, apply: s.relativizeDataRootPaths})
+	return append(list,
+		migration{version: 11, apply: s.relativizeDataRootPaths},
+		migration{version: 12, apply: addFavoriteMods},
+	)
 }
 
 // relativizeDataRootPaths migrates stored absolute paths under the current
@@ -169,6 +172,13 @@ func addFavoriteServers(ctx context.Context, tx *sql.Tx) error {
 	 id TEXT PRIMARY KEY, name TEXT NOT NULL, address TEXT NOT NULL, instance_id TEXT,
 	 created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
 	 FOREIGN KEY(instance_id) REFERENCES instances(id) ON DELETE SET NULL
+	)`)
+	return err
+}
+
+func addFavoriteMods(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `CREATE TABLE favorite_mods (
+	 mod_id TEXT PRIMARY KEY NOT NULL
 	)`)
 	return err
 }
