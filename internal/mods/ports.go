@@ -36,6 +36,12 @@ type Catalog interface {
 	ListTags(context.Context) ([]ModTag, error)
 }
 
+// FavoriteStore persists launcher-wide catalog mod favorites.
+type FavoriteStore interface {
+	ListFavoriteModIDs(context.Context) ([]string, error)
+	SetModFavorite(context.Context, string, bool) error
+}
+
 // FileManager owns the instance mod layout on disk.
 type FileManager interface {
 	EnsureLayout(string) error

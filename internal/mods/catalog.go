@@ -23,6 +23,7 @@ type CatalogService struct {
 	repository  Repository
 	files       FileManager
 	catalog     Catalog
+	favorites   FavoriteStore
 	downloads   DownloadedStore
 	downloader  Downloader
 	versions    VersionReader
@@ -42,6 +43,7 @@ func NewCatalogService(
 	repository Repository,
 	files FileManager,
 	catalog Catalog,
+	favorites FavoriteStore,
 	downloads DownloadedStore,
 	downloader Downloader,
 	versions VersionReader,
@@ -59,6 +61,7 @@ func NewCatalogService(
 		repository:  repository,
 		files:       files,
 		catalog:     catalog,
+		favorites:   favorites,
 		downloads:   downloads,
 		downloader:  downloader,
 		versions:    versions,
@@ -81,6 +84,15 @@ func (service *CatalogService) SearchMods(ctx context.Context, query ModSearchQu
 	if err != nil {
 		return result, err
 	}
+	return service.enrichModSearchResult(ctx, result), nil
+}
+
+func (service *CatalogService) enrichModSearchResult(ctx context.Context, result ModSearchResult) ModSearchResult {
+	result.Items = service.enrichModSummaries(ctx, result.Items)
+	return result
+}
+
+func (service *CatalogService) enrichModSummaries(ctx context.Context, items []ModSummary) []ModSummary {
 	downloaded, _ := service.listDownloadedMods(ctx)
 	byID := make(map[string]DownloadedMod, len(downloaded))
 	for _, item := range downloaded {
@@ -89,14 +101,14 @@ func (service *CatalogService) SearchMods(ctx context.Context, query ModSearchQu
 			byID[item.ModID] = item
 		}
 	}
-	for index := range result.Items {
-		if local, ok := byID[result.Items[index].ID]; ok {
-			result.Items[index].IsDownloaded = true
-			result.Items[index].IsInstalled = len(local.InstalledInstances) > 0
-			result.Items[index].UpdateAvailable = local.UpdateAvailable
+	for index := range items {
+		if local, ok := byID[items[index].ID]; ok {
+			items[index].IsDownloaded = true
+			items[index].IsInstalled = len(local.InstalledInstances) > 0
+			items[index].UpdateAvailable = local.UpdateAvailable
 		}
 	}
-	return result, nil
+	return items
 }
 
 // ListModTags lists the catalog tags with their mod counts.
