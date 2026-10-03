@@ -16,6 +16,10 @@ export function InstallDownloadedMod(arg1:wails.InstallDownloadedModRequest):Pro
 
 export function ListDownloadedMods():Promise<Array<wails.DownloadedModDTO>>;
 
+export function ListFavoriteModIDs():Promise<Array<string>>;
+
+export function ListFavoriteMods():Promise<Array<wails.ModSummaryDTO>>;
+
 export function ListModTags():Promise<Array<wails.ModTagDTO>>;
 
 export function PreviewUnusedDownloadedMods():Promise<wails.DownloadedModCleanupResultDTO>;
@@ -25,5 +29,7 @@ export function RemoveDownloadedMod(arg1:string,arg2:string):Promise<void>;
 export function RemoveUnusedDownloadedMods():Promise<wails.DownloadedModCleanupResultDTO>;
 
 export function SearchMods(arg1:wails.ModSearchRequest):Promise<wails.ModSearchResultDTO>;
+
+export function SetModFavorite(arg1:string,arg2:boolean):Promise<void>;
 
 export function UploadMods(arg1:Array<string>):Promise<wails.UploadModsResultDTO>;

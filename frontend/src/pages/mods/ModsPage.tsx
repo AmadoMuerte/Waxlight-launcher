@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { LayoutGrid, List, Trash2, Upload } from "lucide-react";
+import { LayoutGrid, List, Star, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -23,8 +23,11 @@ import type {
 } from "../../entities/mod/model";
 import {
   useDownloadedModsQuery,
+  useFavoriteModIDsQuery,
+  useFavoriteModsQuery,
   useModCatalogQuery,
   useModTagsQuery,
+  useSetModFavoriteMutation,
 } from "../../entities/mod/queries";
 import { settingsApi } from "../../entities/settings/api";
 import { useSettingsQuery } from "../../entities/settings/queries";
@@ -58,6 +61,7 @@ import { Tabs } from "../../shared/ui/tabs";
 import { Toolbar, ToolbarGroup } from "../../shared/ui/toolbar";
 
 const EMPTY_DOWNLOADED_MODS: DownloadedMod[] = [];
+const EMPTY_FAVORITE_MOD_IDS: string[] = [];
 
 export function ModsPage() {
   const { t } = useTranslation();
@@ -101,7 +105,9 @@ export function ModsPage() {
   const [cleanupPreview, setCleanupPreview] = useState<DownloadedModCleanupResult>();
   const [cleaning, setCleaning] = useState(false);
 
-  const view = searchParams.get("view") === "downloaded" ? "downloaded" : "all";
+  const requestedView = searchParams.get("view");
+  const view =
+    requestedView === "downloaded" || requestedView === "favorites" ? requestedView : "all";
   const instanceId = searchParams.get("instanceId") ?? "";
   const installedInInstanceId =
     view === "downloaded" ? (searchParams.get("installedInInstanceId") ?? "") : "";
@@ -132,11 +138,17 @@ export function ModsPage() {
   );
 
   const searchQuery = useModCatalogQuery(query, view === "all");
+  const favoriteIDsQuery = useFavoriteModIDsQuery();
+  const favoriteModsQuery = useFavoriteModsQuery(view === "favorites");
+  const { mutate: setModFavorite, isPending: favoriteMutationPending } =
+    useSetModFavoriteMutation();
+  const favoriteIDs = favoriteIDsQuery.data ?? EMPTY_FAVORITE_MOD_IDS;
+  const favoriteIDSet = useMemo(() => new Set(favoriteIDs), [favoriteIDs]);
 
   const downloadedQuery = useDownloadedModsQuery();
   const downloaded = downloadedQuery.data ?? EMPTY_DOWNLOADED_MODS;
 
-  const tagsQuery = useModTagsQuery(true);
+  const tagsQuery = useModTagsQuery(view !== "favorites");
   const tags = tagsQuery.data ?? [];
 
   const catalog = useMemo(
@@ -149,16 +161,29 @@ export function ModsPage() {
   );
   const total = searchQuery.data?.pages[0]?.totalItems ?? 0;
   const hasNext = searchQuery.hasNextPage;
-  const loading = view === "all" ? searchQuery.isPending : downloadedQuery.isPending;
+  const loading =
+    view === "all"
+      ? searchQuery.isPending
+      : view === "downloaded"
+        ? downloadedQuery.isPending
+        : favoriteIDsQuery.isPending || favoriteModsQuery.isPending;
   const loadingMore = searchQuery.isFetchingNextPage;
   const error =
     view === "all"
       ? searchQuery.error
         ? errorMessage(searchQuery.error)
         : ""
-      : downloadedQuery.error
+      : view === "downloaded" && downloadedQuery.error
         ? errorMessage(downloadedQuery.error)
         : "";
+  const favoriteError =
+    view === "favorites"
+      ? favoriteIDsQuery.error
+        ? errorMessage(favoriteIDsQuery.error)
+        : favoriteModsQuery.error
+          ? errorMessage(favoriteModsQuery.error)
+          : ""
+      : "";
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -207,6 +232,30 @@ export function ModsPage() {
     () => synchronizeDownloadedState(catalog, latestDownloadedByModId),
     [catalog, latestDownloadedByModId],
   );
+  const favoriteMods = useMemo(() => {
+    const byID = new Map((favoriteModsQuery.data ?? []).map((item) => [item.id, item]));
+    const text = query.text.toLowerCase();
+    return favoriteIDs
+      .map((id) => byID.get(id))
+      .filter((item): item is ModSummary => item !== undefined)
+      .filter(
+        (item) =>
+          !text || `${item.name} ${item.authorName} ${item.id}`.toLowerCase().includes(text),
+      )
+      .toSorted((left, right) => {
+        const updated =
+          new Date(right.updatedAt ?? 0).getTime() - new Date(left.updatedAt ?? 0).getTime();
+        return updated || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+      });
+  }, [favoriteIDs, favoriteModsQuery.data, query.text]);
+  const unavailableFavoriteIDs = useMemo(() => {
+    const known = new Set((favoriteModsQuery.data ?? []).map((item) => item.id));
+    const text = query.text.toLowerCase();
+    return favoriteIDs.filter(
+      (id) =>
+        !known.has(id) && (favoriteModsQuery.isError || !text || id.toLowerCase().includes(text)),
+    );
+  }, [favoriteIDs, favoriteModsQuery.data, favoriteModsQuery.isError, query.text]);
 
   const filteredDownloaded = useMemo(() => {
     let result = downloaded.filter((item) => {
@@ -311,10 +360,18 @@ export function ModsPage() {
     if (view === "all") {
       void searchQuery.refetch();
       void queryClient.invalidateQueries({ queryKey: MOD_TAGS_QUERY_KEY });
-    } else {
+    } else if (view === "downloaded") {
       void downloadedQuery.refetch();
+    } else {
+      void favoriteIDsQuery.refetch();
+      void favoriteModsQuery.refetch();
     }
   }
+
+  const handleFavoriteChange = useCallback(
+    (modId: string, favorite: boolean) => setModFavorite({ modId, favorite }),
+    [setModFavorite],
+  );
 
   const toggleSelectedMod = useCallback(
     (modId: string, selected: boolean) => {
@@ -505,10 +562,12 @@ export function ModsPage() {
   const displayed: { mod: ModSummary; downloaded?: DownloadedMod }[] =
     view === "all"
       ? syncedCatalog.map((mod) => ({ mod, downloaded: latestDownloadedByModId.get(mod.id) }))
-      : filteredDownloaded.map((downloadedMod) => ({
-          mod: downloadedAsSummary(downloadedMod, t),
-          downloaded: downloadedMod,
-        }));
+      : view === "downloaded"
+        ? filteredDownloaded.map((downloadedMod) => ({
+            mod: downloadedAsSummary(downloadedMod, t),
+            downloaded: downloadedMod,
+          }))
+        : favoriteMods.map((mod) => ({ mod, downloaded: latestDownloadedByModId.get(mod.id) }));
   const hasActiveFilters =
     Boolean(query.gameVersion) ||
     Boolean(query.side) ||
@@ -579,6 +638,17 @@ export function ModsPage() {
                 </>
               ),
             },
+            {
+              value: "favorites",
+              tabId: "mods-favorites-tab",
+              panelId: "mods-results-panel",
+              label: (
+                <span className="inline-flex items-center gap-2">
+                  <Star className="shrink-0" size={15} aria-hidden="true" />
+                  {t("favorites")} <b>{favoriteIDs.length || ""}</b>
+                </span>
+              ),
+            },
           ]}
           onValueChange={(value) => updateParams({ view: value })}
         />
@@ -587,7 +657,13 @@ export function ModsPage() {
           id="mods-results-panel"
           className="flex flex-col gap-5"
           role="tabpanel"
-          aria-labelledby={view === "all" ? "mods-all-tab" : "mods-downloaded-tab"}
+          aria-labelledby={
+            view === "all"
+              ? "mods-all-tab"
+              : view === "downloaded"
+                ? "mods-downloaded-tab"
+                : "mods-favorites-tab"
+          }
         >
           <section className="rounded-lg border border-border-subtle bg-surface-1">
             <Toolbar className="flex-wrap gap-3 p-3">
@@ -613,20 +689,22 @@ export function ModsPage() {
                 </ToolbarGroup>
               )}
             </Toolbar>
-            <div className="border-t border-border-subtle p-3">
-              <ModsFilters
-                query={query}
-                series={versionSeries}
-                tags={tags}
-                instances={view === "downloaded" ? instances : undefined}
-                installedInInstanceId={installedInInstanceId}
-                onChange={patchFilters}
-                onInstalledInInstanceChange={
-                  view === "downloaded" ? changeInstalledInInstance : undefined
-                }
-                onClear={clearFilters}
-              />
-            </div>
+            {view !== "favorites" && (
+              <div className="border-t border-border-subtle p-3">
+                <ModsFilters
+                  query={query}
+                  series={versionSeries}
+                  tags={tags}
+                  instances={view === "downloaded" ? instances : undefined}
+                  installedInInstanceId={installedInInstanceId}
+                  onChange={patchFilters}
+                  onInstalledInInstanceChange={
+                    view === "downloaded" ? changeInstalledInInstance : undefined
+                  }
+                  onClear={clearFilters}
+                />
+              </div>
+            )}
           </section>
 
           <Toolbar>
@@ -634,7 +712,9 @@ export function ModsPage() {
               <span className="text-xs text-text-muted">
                 {view === "downloaded"
                   ? t("downloaded_count", { count: filteredDownloaded.length })
-                  : t("mods_count", { count: total })}
+                  : view === "favorites"
+                    ? t("mods_count", { count: displayed.length + unavailableFavoriteIDs.length })
+                    : t("mods_count", { count: total })}
               </span>
             </ToolbarGroup>
             <ToolbarGroup align="end">
@@ -669,13 +749,28 @@ export function ModsPage() {
               description={error}
               action={<Button onClick={retry}>{t("retry")}</Button>}
             />
-          ) : displayed.length === 0 ? (
+          ) : favoriteError && favoriteIDsQuery.error ? (
+            <ErrorState
+              title={t("could_not_load_mods")}
+              description={favoriteError}
+              action={<Button onClick={retry}>{t("retry")}</Button>}
+            />
+          ) : displayed.length === 0 &&
+            (view !== "favorites" || unavailableFavoriteIDs.length === 0) ? (
             <EmptyState
-              title={view === "downloaded" ? t("no_downloaded_mods") : t("no_mods_found")}
+              title={
+                view === "downloaded"
+                  ? t("no_downloaded_mods")
+                  : view === "favorites" && favoriteIDs.length === 0
+                    ? t("no_favorite_mods")
+                    : t("no_mods_found")
+              }
               description={
                 view === "downloaded"
                   ? t("downloaded_mods_empty_description")
-                  : t("try_changing_mod_filters")
+                  : view === "favorites" && favoriteIDs.length === 0
+                    ? t("favorite_mods_empty_description")
+                    : t("try_changing_mod_filters")
               }
               action={
                 view === "downloaded" ? (
@@ -688,39 +783,77 @@ export function ModsPage() {
                       {t("upload_mods")}
                     </Button>
                   </div>
+                ) : view === "favorites" && favoriteIDs.length === 0 ? (
+                  <Button onClick={() => updateParams({ view: "all" })}>{t("browse_mods")}</Button>
                 ) : (
-                  hasActiveFilters && (
-                    <Button onClick={resetSearchAndFilters}>{t("clear_filters")}</Button>
+                  (view === "favorites" ? Boolean(query.text) : hasActiveFilters) && (
+                    <Button
+                      onClick={
+                        view === "favorites"
+                          ? () => {
+                              setSearchText("");
+                              updateParams({ q: undefined });
+                            }
+                          : resetSearchAndFilters
+                      }
+                    >
+                      {view === "favorites" ? t("clear_search") : t("clear_filters")}
+                    </Button>
                   )
                 )
               }
             />
           ) : (
-            <div
-              className={
-                layout === "grid"
-                  ? "grid grid-cols-[repeat(auto-fill,minmax(min(calc(280px*var(--ui-scale)),100%),1fr))] gap-4"
-                  : "grid grid-cols-1 gap-4"
-              }
-            >
-              {displayed.map(({ mod, downloaded: local }) => {
-                return (
-                  <ModCard
-                    key={`${mod.id}:${local?.versionId ?? "catalog"}`}
-                    mod={mod}
-                    downloaded={local}
-                    layout={layout}
-                    onOpen={handleOpen}
-                    onInstall={handleInstall}
-                    onManage={view === "downloaded" ? setManaging : undefined}
-                    selected={selectedModIds.includes(mod.id)}
-                    onSelectedChange={toggleSelectedMod}
-                    installBusy={openingModId === (downloadedIdentity(local) ?? mod.id)}
-                    onDelete={view === "downloaded" && local ? handleDelete : undefined}
-                  />
-                );
-              })}
-            </div>
+            <>
+              {favoriteError && (
+                <ErrorState
+                  title={t("could_not_load_mods")}
+                  description={favoriteError}
+                  action={<Button onClick={retry}>{t("retry")}</Button>}
+                />
+              )}
+              <div
+                className={
+                  layout === "grid"
+                    ? "grid grid-cols-[repeat(auto-fill,minmax(min(calc(280px*var(--ui-scale)),100%),1fr))] gap-4"
+                    : "grid grid-cols-1 gap-4"
+                }
+              >
+                {displayed.map(({ mod, downloaded: local }) => {
+                  return (
+                    <ModCard
+                      key={`${mod.id}:${local?.versionId ?? "catalog"}`}
+                      mod={mod}
+                      downloaded={local}
+                      layout={layout}
+                      onOpen={handleOpen}
+                      onInstall={handleInstall}
+                      onManage={view === "downloaded" ? setManaging : undefined}
+                      selected={selectedModIds.includes(mod.id)}
+                      onSelectedChange={toggleSelectedMod}
+                      installBusy={openingModId === (downloadedIdentity(local) ?? mod.id)}
+                      onDelete={view === "downloaded" && local ? handleDelete : undefined}
+                      favorite={favoriteIDSet.has(mod.id)}
+                      favoriteDisabled={
+                        favoriteIDsQuery.isPending ||
+                        favoriteIDsQuery.isError ||
+                        favoriteMutationPending
+                      }
+                      onFavoriteChange={handleFavoriteChange}
+                    />
+                  );
+                })}
+                {view === "favorites" &&
+                  unavailableFavoriteIDs.map((id) => (
+                    <UnavailableFavorite
+                      key={id}
+                      id={id}
+                      disabled={favoriteMutationPending}
+                      onRemove={handleFavoriteChange}
+                    />
+                  ))}
+              </div>
+            </>
           )}
 
           {view === "all" && hasNext && !loading && (
@@ -875,6 +1008,33 @@ function downloadedAsSummary(mod: DownloadedMod, t: TFunction): ModSummary {
     isInstalled: mod.installedInstances.length > 0,
     updateAvailable: mod.updateAvailable,
   };
+}
+
+function UnavailableFavorite({
+  id,
+  disabled,
+  onRemove,
+}: {
+  id: string;
+  disabled: boolean;
+  onRemove: (modId: string, favorite: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <article className="rounded-lg border border-border-subtle p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-display text-lg font-semibold">{t("favorite_mod_unavailable")}</h3>
+          <p className="mt-1 text-sm text-text-muted">
+            {t("favorite_mod_unavailable_description", { id })}
+          </p>
+        </div>
+        <Button variant="secondary" disabled={disabled} onClick={() => onRemove(id, false)}>
+          {t("remove_from_favorites")}
+        </Button>
+      </div>
+    </article>
+  );
 }
 
 function downloadedIdentity(mod?: DownloadedMod) {

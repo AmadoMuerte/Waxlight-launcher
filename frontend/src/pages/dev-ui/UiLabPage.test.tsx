@@ -18,6 +18,13 @@ it("shows the design system and exercises the shared dialog", async () => {
   );
 
   expect(screen.getByRole("heading", { level: 1, name: "Waxlight UI Lab" })).toBeTruthy();
+  const favoriteButtons = screen.getAllByRole("button", {
+    name: "Remove Player Corpse from favorites",
+  });
+  expect(favoriteButtons.some((button) => !button.hasAttribute("disabled"))).toBe(true);
+  const actionButtons = screen.getAllByRole("button", { name: "Player Corpse mod actions" });
+  expect(actionButtons.length).toBeGreaterThan(0);
+  expect(screen.getByRole("checkbox", { name: "Select Player Corpse" })).toBeTruthy();
   for (const section of [
     "Colors",
     "Typography",

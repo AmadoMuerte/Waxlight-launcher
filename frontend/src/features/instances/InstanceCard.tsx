@@ -83,7 +83,7 @@ export const InstanceCard = memo(function InstanceCard({
             src={instance.coverUrl}
             seed={instance.name}
           />
-          <div className="absolute top-3 right-3 max-w-[calc(100%-24px)]">
+          <div className="absolute top-3 left-3 max-w-[calc(100%-24px)]">
             <StatusPill status={instance.status} />
           </div>
           {updateCount > 0 && (
@@ -94,73 +94,68 @@ export const InstanceCard = memo(function InstanceCard({
               {t("mod_updates_available", { count: updateCount })}
             </span>
           )}
+          <div className="absolute top-3 right-3 z-[2] flex items-center gap-1.5">
+            <IconButton
+              className={instance.isPinned ? "text-warning" : undefined}
+              size="sm"
+              aria-label={`${t(instance.isPinned ? "unpin_instance" : "pin_instance")}: ${instance.name}`}
+              aria-pressed={instance.isPinned}
+              title={t(instance.isPinned ? "unpin_instance" : "pin_instance")}
+              disabled={busy || pinBusy}
+              onClick={() => onTogglePin(instance)}
+            >
+              <Star fill={instance.isPinned ? "currentColor" : "none"} aria-hidden="true" />
+            </IconButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton
+                  size="sm"
+                  aria-label={t("instance_actions", { name: instance.name })}
+                  disabled={busy}
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => onOpen(instance)}>
+                  <Eye aria-hidden="true" />
+                  {t("overview")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onEdit(instance)}>
+                  <Pencil aria-hidden="true" />
+                  {t("settings")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onOpenDirectory(instance)}>
+                  <FolderOpen aria-hidden="true" />
+                  {t("open_directory")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onClone(instance)}>
+                  <Copy aria-hidden="true" />
+                  {t("clone_instance")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExport(instance)}>
+                  <PackageOpen aria-hidden="true" />
+                  {t("export_instance")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => onDelete(instance)}>
+                  <Trash2 aria-hidden="true" />
+                  {t("delete_instance")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <CardHeader className="relative pb-0">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <h3
-              id={titleId}
-              className="min-w-0 truncate font-display text-xl font-semibold"
-              title={instance.name}
-            >
-              {instance.name}
-            </h3>
-            <div className="relative z-[2] flex shrink-0 items-center gap-1">
-              <IconButton
-                className={instance.isPinned ? "text-warning" : undefined}
-                variant="ghost"
-                size="sm"
-                aria-label={`${t(instance.isPinned ? "unpin_instance" : "pin_instance")}: ${instance.name}`}
-                aria-pressed={instance.isPinned}
-                title={t(instance.isPinned ? "unpin_instance" : "pin_instance")}
-                disabled={busy || pinBusy}
-                onClick={() => onTogglePin(instance)}
-              >
-                <Star fill={instance.isPinned ? "currentColor" : "none"} aria-hidden="true" />
-              </IconButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <IconButton
-                    className="shrink-0"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={t("instance_actions", { name: instance.name })}
-                    disabled={busy}
-                  >
-                    <MoreHorizontal aria-hidden="true" />
-                  </IconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => onOpen(instance)}>
-                    <Eye aria-hidden="true" />
-                    {t("overview")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onEdit(instance)}>
-                    <Pencil aria-hidden="true" />
-                    {t("settings")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onOpenDirectory(instance)}>
-                    <FolderOpen aria-hidden="true" />
-                    {t("open_directory")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => onClone(instance)}>
-                    <Copy aria-hidden="true" />
-                    {t("clone_instance")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onExport(instance)}>
-                    <PackageOpen aria-hidden="true" />
-                    {t("export_instance")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => onDelete(instance)}>
-                    <Trash2 aria-hidden="true" />
-                    {t("delete_instance")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+          <h3
+            id={titleId}
+            className="min-w-0 truncate font-display text-xl font-semibold"
+            title={instance.name}
+          >
+            {instance.name}
+          </h3>
           <p className="line-clamp-2 min-h-10 text-sm leading-5 text-text-muted">
             {instance.description || t("instance_default_description")}
           </p>

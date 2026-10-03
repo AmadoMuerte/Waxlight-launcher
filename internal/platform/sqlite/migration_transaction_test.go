@@ -46,3 +46,15 @@ func TestFailedMigrationRollsBackSchemaAndVersion(t *testing.T) {
 		t.Fatal("failed migration version was recorded")
 	}
 }
+
+func TestFavoriteModsMigrationFollowsDynamicMigration11(t *testing.T) {
+	store := &SQLiteStore{}
+	migrations := store.migrations()
+	if len(migrations) < 2 {
+		t.Fatalf("migration count = %d", len(migrations))
+	}
+	last := migrations[len(migrations)-2:]
+	if last[0].version != 11 || last[1].version != 12 {
+		t.Fatalf("last migration versions = %d, %d", last[0].version, last[1].version)
+	}
+}

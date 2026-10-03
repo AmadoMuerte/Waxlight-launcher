@@ -1,4 +1,4 @@
-import { Download, MoreHorizontal, Trash2 } from "lucide-react";
+import { Download, MoreHorizontal, Star, Trash2 } from "lucide-react";
 import { memo, useId } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,6 +30,9 @@ interface ModCardProps {
   onSelectedChange?: (modId: string, selected: boolean) => void;
   onDelete?: (downloaded: DownloadedMod) => void;
   installBusy?: boolean;
+  favorite?: boolean;
+  favoriteDisabled?: boolean;
+  onFavoriteChange?: (modId: string, favorite: boolean) => void;
 }
 
 function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
@@ -48,6 +51,9 @@ export const ModCard = memo(function ModCard({
   onSelectedChange,
   onDelete,
   installBusy = false,
+  favorite = false,
+  favoriteDisabled = true,
+  onFavoriteChange,
 }: ModCardProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -124,45 +130,57 @@ export const ModCard = memo(function ModCard({
             />
             {onSelectedChange && (
               <SelectionCheckbox
-                className="absolute top-3 right-3 z-[2]"
+                className="absolute top-3 left-3 z-[2]"
                 label={t("select_mod", { name: mod.name })}
                 checked={selected}
                 onCheckedChange={(next) => onSelectedChange(mod.id, next)}
               />
             )}
+            <div className="absolute top-3 right-3 z-[2] flex items-center gap-1.5">
+              {onFavoriteChange && (
+                <IconButton
+                  size="sm"
+                  aria-label={
+                    favorite
+                      ? t("remove_mod_favorite", { name: mod.name })
+                      : t("add_mod_favorite", { name: mod.name })
+                  }
+                  aria-pressed={favorite}
+                  disabled={favoriteDisabled}
+                  onClick={(event) =>
+                    stopPropagationAndRun(event, () => onFavoriteChange(mod.id, !favorite))
+                  }
+                >
+                  <Star aria-hidden="true" className={favorite ? "fill-current text-accent" : ""} />
+                </IconButton>
+              )}
+              {downloaded && onDelete && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton size="sm" aria-label={t("mod_actions", { name: mod.name })}>
+                      <MoreHorizontal aria-hidden="true" />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem variant="destructive" onSelect={() => onDelete(downloaded)}>
+                      <Trash2 aria-hidden="true" />
+                      {t("delete")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           <div className="flex min-w-0 flex-col">
             <CardHeader className="relative pb-0">
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <h3
-                  id={titleId}
-                  className="min-w-0 truncate font-display text-xl font-semibold"
-                  title={mod.name}
-                >
-                  {mod.name}
-                </h3>
-                {downloaded && onDelete && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <IconButton
-                        className="relative z-[2] shrink-0"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t("mod_actions", { name: mod.name })}
-                      >
-                        <MoreHorizontal aria-hidden="true" />
-                      </IconButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem variant="destructive" onSelect={() => onDelete(downloaded)}>
-                        <Trash2 aria-hidden="true" />
-                        {t("delete")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              <h3
+                id={titleId}
+                className="min-w-0 truncate font-display text-xl font-semibold"
+                title={mod.name}
+              >
+                {mod.name}
+              </h3>
               <p className="text-xs text-text-muted">{t("by_author", { name: mod.authorName })}</p>
             </CardHeader>
 

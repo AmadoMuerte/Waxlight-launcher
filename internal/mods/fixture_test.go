@@ -310,8 +310,38 @@ type testFixture struct {
 	events         *recordingEventPublisher
 	snapshots      *recordingSnapshotter
 	lock           testInstanceLock
+	gate           *mutations.Gate
 	root           string
 	version        versions.GameVersion
+	favorites      *testFavoriteStore
+}
+
+type testFavoriteStore struct {
+	ids []string
+	err error
+}
+
+func (store *testFavoriteStore) ListFavoriteModIDs(context.Context) ([]string, error) {
+	return append([]string{}, store.ids...), store.err
+}
+
+func (store *testFavoriteStore) SetModFavorite(_ context.Context, id string, favorite bool) error {
+	if store.err != nil {
+		return store.err
+	}
+	for index, current := range store.ids {
+		if current != id {
+			continue
+		}
+		if !favorite {
+			store.ids = append(store.ids[:index], store.ids[index+1:]...)
+		}
+		return nil
+	}
+	if favorite {
+		store.ids = append(store.ids, id)
+	}
+	return nil
 }
 
 func newTestFixture(t *testing.T) testFixture {
@@ -331,6 +361,7 @@ func newTestFixtureWithDeps(
 	slot := mutations.NewSlot()
 	lock := testInstanceLock{slot: slot}
 	gate := &mutations.Gate{}
+	favorites := &testFavoriteStore{}
 	downloadedStore := modstorage.New(root)
 	downloadSwitch := &switchingDownloader{current: downloader}
 	version := versions.GameVersion{ID: "1.20", Name: "1.20", Status: "installed"}
@@ -353,6 +384,7 @@ func newTestFixtureWithDeps(
 		repository,
 		filesystem.ModFileManager{},
 		catalog,
+		favorites,
 		downloadedStore,
 		downloadSwitch,
 		staticVersionReader{version: version},
@@ -375,8 +407,10 @@ func newTestFixtureWithDeps(
 		events:         events,
 		snapshots:      snapshots,
 		lock:           lock,
+		gate:           gate,
 		root:           root,
 		version:        version,
+		favorites:      favorites,
 	}
 }
 

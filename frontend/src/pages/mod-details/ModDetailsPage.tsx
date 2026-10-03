@@ -1,5 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, Link } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  Link,
+  Star,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -7,7 +15,12 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useToastStore } from "../../app/stores/toast";
 import { useGameVersionsQuery } from "../../entities/game-version/queries";
 import { useInstancesQuery } from "../../entities/instance/queries";
-import { useDownloadedModsQuery, useModDetailsQuery } from "../../entities/mod/queries";
+import {
+  useDownloadedModsQuery,
+  useFavoriteModIDsQuery,
+  useModDetailsQuery,
+  useSetModFavoriteMutation,
+} from "../../entities/mod/queries";
 import { InstancePickerDialog } from "../../features/mods/InstancePickerDialog";
 import {
   formatBytes,
@@ -45,6 +58,8 @@ export function ModDetailsPage() {
   const { data: versions = [] } = useGameVersionsQuery();
   const modQuery = useModDetailsQuery(modId);
   const downloadedQuery = useDownloadedModsQuery();
+  const favoriteIDsQuery = useFavoriteModIDsQuery();
+  const setFavorite = useSetModFavoriteMutation();
   const [installVersion, setInstallVersion] = useState<string>();
   const [lightbox, setLightbox] = useState<number>();
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string>();
@@ -72,14 +87,14 @@ export function ModDetailsPage() {
   }, [lightbox, mod]);
 
   const local = useMemo(() => {
-    const sorted = [...(downloadedQuery.data ?? [])].filter((item) => item.modId === modId);
+    const sorted = [...(downloadedQuery.data ?? [])].filter((item) => item.modId === mod?.id);
     Array.prototype.sort.call(
       sorted,
       (left, right) =>
         new Date(right.downloadedAt).getTime() - new Date(left.downloadedAt).getTime(),
     );
     return sorted[0];
-  }, [downloadedQuery.data, modId]);
+  }, [downloadedQuery.data, mod?.id]);
 
   if (loading) {
     return (
@@ -149,6 +164,9 @@ export function ModDetailsPage() {
         ? t("installed_in_count", { count: local.installedInstances.length })
         : t("downloaded_not_installed")
       : null;
+  const favorite = (favoriteIDsQuery.data ?? []).includes(mod.id);
+  const favoriteDisabled =
+    favoriteIDsQuery.isPending || favoriteIDsQuery.isError || setFavorite.isPending;
 
   return (
     <Page>
@@ -223,6 +241,19 @@ export function ModDetailsPage() {
               onClick={() => void copyWaxlightLink()}
             >
               <Link size={16} aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              aria-label={
+                favorite
+                  ? t("remove_mod_favorite", { name: mod.name })
+                  : t("add_mod_favorite", { name: mod.name })
+              }
+              aria-pressed={favorite}
+              disabled={favoriteDisabled}
+              onClick={() => setFavorite.mutate({ modId: mod.id, favorite: !favorite })}
+            >
+              <Star aria-hidden="true" className={favorite ? "fill-current text-accent" : ""} />
             </IconButton>
           </div>
         </div>

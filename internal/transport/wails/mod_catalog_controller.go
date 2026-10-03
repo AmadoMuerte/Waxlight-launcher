@@ -68,6 +68,27 @@ func (controller *ModCatalogController) GetMod(modID string) (ModDetailsDTO, err
 	return modDetailsDTO(mod), err
 }
 
+// ListFavoriteModIDs returns locally stored favorite catalog IDs.
+func (controller *ModCatalogController) ListFavoriteModIDs() ([]string, error) {
+	ids, err := controller.svc.ListFavoriteModIDs(controller.lifecycle.Context())
+	return nonNilStrings(ids), err
+}
+
+// ListFavoriteMods returns current catalog summaries for saved favorites.
+func (controller *ModCatalogController) ListFavoriteMods() ([]ModSummaryDTO, error) {
+	mods, err := controller.svc.ListFavoriteMods(controller.lifecycle.Context())
+	dto := make([]ModSummaryDTO, 0, len(mods))
+	for _, mod := range mods {
+		dto = append(dto, modSummaryDTO(mod))
+	}
+	return dto, err
+}
+
+// SetModFavorite explicitly adds or removes a catalog mod favorite.
+func (controller *ModCatalogController) SetModFavorite(modID string, favorite bool) error {
+	return controller.svc.SetModFavorite(controller.lifecycle.Context(), modID, favorite)
+}
+
 // ListModTags returns catalog tags with their current result counts.
 func (controller *ModCatalogController) ListModTags() ([]ModTagDTO, error) {
 	tags, err := controller.svc.ListModTags(controller.lifecycle.Context())

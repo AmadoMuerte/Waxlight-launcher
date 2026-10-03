@@ -76,11 +76,14 @@
       "GetMod",
       "InstallDownloadedMod",
       "ListDownloadedMods",
+      "ListFavoriteModIDs",
+      "ListFavoriteMods",
       "ListModTags",
       "PreviewUnusedDownloadedMods",
       "RemoveDownloadedMod",
       "RemoveUnusedDownloadedMods",
       "SearchMods",
+      "SetModFavorite",
       "UploadMods"
     ],
     "ModManagerController": [

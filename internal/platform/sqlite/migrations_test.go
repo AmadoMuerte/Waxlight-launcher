@@ -63,7 +63,7 @@ func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {
 	assertIndex(t, path, "accounts_uid_lookup")
 	assertColumns(t, path, "instances", "game_client", "environment_variables", "is_pinned")
 	assertColumns(t, path, "installed_mods", "update_policy")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 }
 
 func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
@@ -97,7 +97,7 @@ func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
 	assertColumns(t, path, "operations", "id", "type", "resource_id", "title", "status", "progress",
 		"current_bytes", "total_bytes", "bytes_per_second", "error_code", "error_message", "created_at",
 		"started_at", "finished_at", "title_key", "title_params")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 
 	store, err = sqlite.Open(path)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 
 	db = openRawDatabase(t, path)
 	defer db.Close()
@@ -193,6 +193,50 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 	if count != 1 {
 		t.Fatal("versioned migration did not preserve account data")
 	}
+}
+
+func TestMigration12UpgradesV11AndPreservesData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v11.db")
+	store, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db := openRawDatabase(t, path)
+	if _, err := db.Exec(`
+		DROP TABLE favorite_mods;
+		DELETE FROM schema_migrations WHERE version = 12;
+		INSERT INTO app_settings(key, value) VALUES ('v11-data', 'preserved');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	for range 2 {
+		store, err = sqlite.Open(path)
+		if err != nil {
+			t.Fatalf("open upgraded database: %v", err)
+		}
+		if err := store.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	db = openRawDatabase(t, path)
+	defer db.Close()
+	var value string
+	if err := db.QueryRow(`SELECT value FROM app_settings WHERE key = 'v11-data'`).Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if value != "preserved" {
+		t.Fatalf("existing value = %q", value)
+	}
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 }
 
 func TestGameClientMigrationBackfillsVanilla(t *testing.T) {
