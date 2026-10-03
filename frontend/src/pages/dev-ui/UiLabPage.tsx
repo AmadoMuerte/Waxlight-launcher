@@ -196,6 +196,8 @@ const modCardHandlers = {
   onOpen: () => {},
   onInstall: () => {},
   onDelete: () => {},
+  onFavoriteChange: () => {},
+  favoriteDisabled: false,
 };
 
 const mockPublicServer: PublicServer = {
@@ -515,7 +517,7 @@ export function UiLabPage() {
         <Section title="Domain patterns">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(300px*var(--ui-scale)),100%),1fr))] gap-4">
             <InstanceCard
-              instance={mockInstance}
+              instance={{ ...mockInstance, isPinned: true }}
               version={mockVersion}
               updateCount={2}
               {...instanceCardHandlers}
@@ -551,7 +553,7 @@ export function UiLabPage() {
 
         <Section title="Mod cards">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(calc(300px*var(--ui-scale)),100%),1fr))] gap-4">
-            <ModCard mod={mockMod} layout="grid" {...modCardHandlers} />
+            <ModCard mod={mockMod} layout="grid" favorite {...modCardHandlers} />
             <ModCard
               mod={{
                 ...mockMod,
@@ -576,6 +578,9 @@ export function UiLabPage() {
               mod={{ ...mockMod, id: "ui-lab-mod-downloaded", isDownloaded: true }}
               downloaded={mockDownloaded}
               layout="grid"
+              selected
+              onSelectedChange={() => {}}
+              favorite
               {...modCardHandlers}
             />
             <ModCard
@@ -614,6 +619,7 @@ export function UiLabPage() {
               mod={{ ...mockMod, id: "ui-lab-mod-busy" }}
               layout="grid"
               installBusy
+              favorite
               {...modCardHandlers}
             />
             <ModCard
@@ -624,6 +630,7 @@ export function UiLabPage() {
             <ModCard
               mod={{ ...mockMod, id: "ui-lab-mod-list" }}
               layout="list"
+              favorite
               {...modCardHandlers}
             />
           </div>

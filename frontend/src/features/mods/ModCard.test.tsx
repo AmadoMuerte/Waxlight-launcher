@@ -137,6 +137,21 @@ describe("ModCard", () => {
     expect(button.getAttribute("aria-busy")).toBe("true");
   });
 
+  it("places favorite and overflow over artwork in order, separate from selection", async () => {
+    const handlers = renderCard({ downloaded, favoriteDisabled: false });
+    const star = screen.getByRole("button", { name: "Add Player Corpse to favorites" });
+    const actions = screen.getByRole("button", { name: "Player Corpse mod actions" });
+    const overlay = star.parentElement;
+
+    expect(overlay?.className).toContain("absolute top-3 right-3 z-[2] flex items-center gap-1.5");
+    expect(star.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overlay?.parentElement?.querySelector("[class*='top-3 left-3']")).toBeTruthy();
+
+    await userEvent.setup().click(star);
+    expect(handlers.onOpen).not.toHaveBeenCalled();
+    expect(handlers.onInstall).not.toHaveBeenCalled();
+  });
+
   it("exposes destructive removal through an overflow menu", async () => {
     const handlers = renderCard({ downloaded });
     const user = userEvent.setup();
