@@ -10,9 +10,9 @@
 [![CI](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/AmadoMuerte/Waxlight-launcher/actions/workflows/ci.yml)
 [![Последний релиз](https://img.shields.io/github/v/release/AmadoMuerte/Waxlight-launcher)](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest)
 [![Лицензия: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../LICENSE)
-[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://hipolink.net/amadomuerte)
+[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2)](https://boosty.to/amadomuerte)
 
-[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://hipolink.net/amadomuerte)
+[Скачать](https://github.com/AmadoMuerte/Waxlight-launcher/releases/latest) · [Discord](https://discord.gg/CrRHvg9UVw) · [Политика конфиденциальности](PRIVACY.md) · [Code Signing Policy](CODE_SIGNING_POLICY.md) · [Issues](https://github.com/AmadoMuerte/Waxlight-launcher/issues) · [Поддержать](https://boosty.to/amadomuerte)
 </div>
 
 Waxlight — независимый open-source лаунчер, который объединяет аккаунты Vintage Story, версии игры, изолированные сборки, моды, обновления и игровую статистику в одном приложении для **Windows и Linux**.
@@ -129,7 +129,7 @@ make release-check
 
 Waxlight бесплатный и open source. Если проект вам полезен и вы хотите поддержать дальнейшую разработку:
 
-[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2?style=for-the-badge)](https://hipolink.net/amadomuerte)
+[![Поддержать разработку](https://img.shields.io/badge/Поддержать-разработку-8A2BE2?style=for-the-badge)](https://boosty.to/amadomuerte)
 
 ## Лицензия
 
