@@ -14,6 +14,12 @@ export const NEWS_QUERY_KEY = ["news"] as const;
 export const DOWNLOADED_MODS_QUERY_KEY = ["mods", "downloaded"] as const;
 export const MOD_TAGS_QUERY_KEY = ["mods", "tags"] as const;
 export const MOD_DETAILS_QUERY_KEY = (modId: string) => ["mods", "details", modId] as const;
+export const MOD_UPGRADE_VERSIONS_QUERY_KEY = ["mods", "upgrade-versions"] as const;
+export const modUpgradeVersionsQueryKey = (
+  instanceId: string,
+  modId: string,
+  installedVersion: string,
+) => [...MOD_UPGRADE_VERSIONS_QUERY_KEY, instanceId, modId, installedVersion] as const;
 export const FAVORITE_MOD_IDS_QUERY_KEY = ["mods", "favorites", "ids"] as const;
 export const FAVORITE_MODS_QUERY_KEY = ["mods", "favorites"] as const;
 

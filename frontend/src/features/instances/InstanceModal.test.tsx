@@ -25,7 +25,7 @@ const modsApi = vi.hoisted(() => ({
   previewDelete: vi.fn(),
   installMany: vi.fn(),
   toggle: vi.fn(),
-  updateInstance: vi.fn(),
+  changeInstanceVersion: vi.fn(),
 }));
 
 const modCatalogApi = vi.hoisted(() => ({
@@ -172,9 +172,17 @@ describe("confirmDeletion gate", () => {
     modsApi.linkLocal.mockResolvedValue({ linked: [], notMatched: [] });
     modsApi.remove.mockResolvedValue(undefined);
     modsApi.previewDelete.mockResolvedValue({ dependencies: [] });
-    modsApi.updateInstance.mockResolvedValue({ updated: 1 });
+    modsApi.changeInstanceVersion.mockResolvedValue({ updated: 1 });
     modCatalogApi.get.mockResolvedValue({
       versions: [
+        {
+          id: "6",
+          version: "1.0.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "playercorpse.zip",
+          fileSize: 1,
+        },
         {
           id: "7",
           version: "2.0.0",
@@ -255,9 +263,25 @@ describe("confirmDeletion gate", () => {
     await user.click(await screen.findByText("Version 2.1.0"));
 
     await waitFor(() =>
-      expect(modsApi.updateInstance).toHaveBeenCalledWith({
+      expect(modsApi.changeInstanceVersion).toHaveBeenCalledWith({
         instanceId: "instance-1",
-        mods: [{ modId: "playercorpse", versionId: "8" }],
+        mod: { modId: "playercorpse", versionId: "8" },
+        allowIncompatible: false,
+      }),
+    );
+  });
+
+  it("uses explicit version replacement for a manual downgrade", async () => {
+    renderModal();
+    const user = await openModsTab();
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
+    await user.click(await screen.findByText("Version 1.0.0"));
+
+    await waitFor(() =>
+      expect(modsApi.changeInstanceVersion).toHaveBeenCalledWith({
+        instanceId: "instance-1",
+        mod: { modId: "playercorpse", versionId: "6" },
         allowIncompatible: false,
       }),
     );
@@ -283,7 +307,7 @@ describe("confirmDeletion gate", () => {
   });
 
   it("shows version installation errors beside the mod selector", async () => {
-    modsApi.updateInstance.mockRejectedValue(new Error("Selected version is incompatible"));
+    modsApi.changeInstanceVersion.mockRejectedValue(new Error("Selected version is incompatible"));
     renderModal();
     const user = await openModsTab();
 

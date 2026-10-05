@@ -87,7 +87,9 @@
       "UploadMods"
     ],
     "ModManagerController": [
+      "ChangeInstanceModVersion",
       "CheckInstanceModUpdates",
+      "GetInstanceModUpgradeVersions",
       "GetModDeletePreview",
       "InstallModFile",
       "InstallModFiles",

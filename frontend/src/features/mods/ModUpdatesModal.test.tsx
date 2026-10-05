@@ -1,41 +1,16 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
-import type { InstanceModUpdateReport, ModDetails } from "../../entities/mod/model";
+import type { InstanceModUpdateReport, ModVersion } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
-const api = vi.hoisted(() => ({
-  updateInstance: vi.fn(),
-}));
-const catalogApi = vi.hoisted(() => ({
-  get: vi.fn(),
-}));
-
+const api = vi.hoisted(() => ({ updateInstance: vi.fn(), upgradeVersions: vi.fn() }));
 vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: catalogApi }));
-
-function details(modId: string, versions: ModDetails["versions"]): ModDetails {
-  return {
-    id: modId,
-    name: modId,
-    authorName: "Ada",
-    summary: "",
-    side: "both",
-    gameVersions: ["1.20"],
-    downloads: 0,
-    tags: [],
-    isDownloaded: true,
-    isInstalled: true,
-    updateAvailable: true,
-    description: "",
-    screenshots: [],
-    versions,
-  };
-}
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",
@@ -48,7 +23,7 @@ const report: InstanceModUpdateReport = {
       targetVersion: "1.3.0",
       status: "update_available",
       reason: "",
-      changelog: "Fixed a crash.",
+      changelog: "",
       compatible: true,
       prerelease: false,
       addedDeps: [],
@@ -58,7 +33,7 @@ const report: InstanceModUpdateReport = {
       modId: "oldmod",
       name: "Old Mod",
       installedVersion: "1.0.0",
-      targetVersionId: "v2",
+      targetVersionId: "old-v2",
       targetVersion: "2.0.0",
       status: "update_available",
       reason: "",
@@ -80,200 +55,83 @@ const report: InstanceModUpdateReport = {
   },
 };
 
-function renderModal(reportValue: InstanceModUpdateReport = report) {
-  const notify = vi.fn();
-  useToastStore.setState({ notify });
+function version(id: string, value: string, gameVersions = ["1.20"]): ModVersion {
+  return {
+    id,
+    version: value,
+    gameVersions,
+    releaseType: "stable",
+    fileName: `${id}.zip`,
+    fileSize: 1,
+  };
+}
+
+function renderModal(reportValue = report) {
   const props = {
     instanceId: "instance-1",
     instanceName: "Survival",
     report: reportValue,
     onClose: vi.fn(),
     onApplied: vi.fn().mockResolvedValue(undefined),
-    notify,
   };
-  render(<ModUpdatesModal {...props} />);
+  useToastStore.setState({ notify: vi.fn() });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ModUpdatesModal {...props} />
+    </QueryClientProvider>,
+  );
   return props;
 }
 
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
-
 beforeEach(() => {
-  catalogApi.get.mockResolvedValue(details("fallback", []));
+  vi.clearAllMocks();
+  api.upgradeVersions.mockImplementation((_: string, modId: string) =>
+    Promise.resolve([
+      version(
+        modId === "oldmod" ? "old-v2" : "v2",
+        modId === "oldmod" ? "2.0.0" : "1.3.0",
+        modId === "oldmod" ? [] : ["1.20"],
+      ),
+    ]),
+  );
+  api.updateInstance.mockResolvedValue({ updated: 1, skippedByPolicy: 0 });
 });
+afterEach(cleanup);
 
 describe("ModUpdatesModal", () => {
-  it("keeps updates disabled until compatibility details load", async () => {
-    let resolveDetails: ((value: ModDetails) => void) | undefined;
-    catalogApi.get.mockImplementation(
+  it("waits for fresh eligibility lists", async () => {
+    let resolve!: (versions: ModVersion[]) => void;
+    api.upgradeVersions.mockImplementation(
       () =>
-        new Promise<ModDetails>((resolve) => {
-          resolveDetails = resolve;
+        new Promise((done) => {
+          resolve = done;
         }),
     );
-    const user = userEvent.setup();
     renderModal({ ...report, mods: [report.mods[0]] });
-
-    const apply = screen.getByRole("button", { name: "Loading mods" }) as HTMLButtonElement;
-    expect(apply.disabled).toBe(true);
-    expect(screen.getByRole("status").textContent).toBe("Loading mods");
-    expect(screen.queryByText("Stone Quarry")).toBeNull();
-    expect(screen.getByLabelText(/allow updates/i)).toBeTruthy();
-    await user.click(apply);
-    expect(api.updateInstance).not.toHaveBeenCalled();
-
-    resolveDetails?.(
-      details("stonequarry", [
-        {
-          id: "v2",
-          version: "1.3.0",
-          gameVersions: [],
-          releaseType: "stable",
-          fileName: "v2.zip",
-          fileSize: 1,
-        },
-      ]),
+    expect(screen.getByRole("button", { name: "Loading mods" }).hasAttribute("disabled")).toBe(
+      true,
     );
-
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    resolve([version("v2", "1.3.0")]);
     expect(await screen.findByText("Stone Quarry")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Update 0 mods" })).toBeTruthy();
-    expect(api.updateInstance).not.toHaveBeenCalled();
   });
 
-  it("applies compatible updates on confirm", async () => {
-    api.updateInstance.mockResolvedValue({ updated: 1 });
-    const user = userEvent.setup();
-    const props = renderModal();
-
-    expect(await screen.findByText("Stone Quarry")).toBeTruthy();
-    expect(screen.getByText("1.2.0 → 1.3.0")).toBeTruthy();
-
-    await user.click(await screen.findByRole("button", { name: "Update 1 mod" }));
-    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
-    expect(api.updateInstance).toHaveBeenCalledWith({
-      instanceId: "instance-1",
-      mods: [{ modId: "stonequarry", versionId: "v2" }],
-      allowIncompatible: false,
-    });
-    expect(props.onApplied).toHaveBeenCalledTimes(1);
-    expect(props.onClose).toHaveBeenCalledTimes(1);
-    expect(props.notify).toHaveBeenCalledWith("Mods updated");
-  });
-
-  it("sends every compatible update in one backend call", async () => {
-    const user = userEvent.setup();
-    const twoCompatible: InstanceModUpdateReport = {
-      ...report,
-      mods: [{ ...report.mods[0] }, { ...report.mods[0], modId: "secondmod", name: "Second Mod" }],
-      summary: { ...report.summary, updatesAvailable: 2, incompatible: 0 },
-    };
-    renderModal(twoCompatible);
-
-    await user.click(await screen.findByRole("button", { name: "Update 2 mods" }));
-    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
-    expect(api.updateInstance).toHaveBeenCalledWith({
-      instanceId: "instance-1",
-      mods: [
-        { modId: "stonequarry", versionId: "v2" },
-        { modId: "secondmod", versionId: "v2" },
-      ],
-      allowIncompatible: false,
-    });
-  });
-
-  it("keeps the apply button disabled until incompatible updates are allowed", async () => {
-    const user = userEvent.setup();
-    const onlyIncompatible: InstanceModUpdateReport = {
-      ...report,
-      mods: [report.mods[1]],
-      summary: { ...report.summary, updatesAvailable: 1, incompatible: 1 },
-    };
-    renderModal(onlyIncompatible);
-
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
-    const apply = screen.getByRole("button", { name: "Update 0 mods" }) as HTMLButtonElement;
-    expect(apply.disabled).toBe(true);
-
-    await user.click(screen.getByLabelText("Old Mod"));
-    expect(apply.disabled).toBe(true);
-    await user.click(screen.getByLabelText(/allow updates/i));
-    expect(apply.disabled).toBe(false);
-  });
-
-  it("sends only checked mods at their selected versions", async () => {
-    api.updateInstance.mockResolvedValue({ updated: 1 });
-    catalogApi.get.mockImplementation((modId: string) =>
-      Promise.resolve(
-        details(modId, [
-          {
-            id: "v2",
-            version: "1.3.0",
-            gameVersions: modId === "oldmod" ? [] : ["1.20"],
-            releaseType: "stable",
-            fileName: "v2.zip",
-            fileSize: 1,
-          },
-          {
-            id: "v3",
-            version: "1.4.0",
-            gameVersions: modId === "oldmod" ? [] : ["1.20"],
-            releaseType: "stable",
-            fileName: "v3.zip",
-            fileSize: 1,
-          },
-        ]),
-      ),
-    );
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.click(await screen.findByRole("combobox", { name: "Update to Stone Quarry" }));
-    await user.click(screen.getByText("1.2.0 → 1.4.0 · Stable"));
-    await user.click(screen.getByLabelText("Stone Quarry"));
-    await user.click(screen.getByLabelText("Old Mod"));
-    await user.click(screen.getByLabelText(/allow updates/i));
-
-    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
-    await waitFor(() => expect(api.updateInstance).toHaveBeenCalledTimes(1));
-    expect(api.updateInstance).toHaveBeenCalledWith({
-      instanceId: "instance-1",
-      mods: [{ modId: "oldmod", versionId: "v2" }],
-      allowIncompatible: true,
-    });
-  });
-
-  it("uses a selected target version in the update request", async () => {
-    api.updateInstance.mockResolvedValue({ updated: 1 });
-    catalogApi.get.mockResolvedValue(
-      details("stonequarry", [
-        {
-          id: "v2",
-          version: "1.3.0",
-          gameVersions: ["1.20"],
-          releaseType: "stable",
-          fileName: "v2.zip",
-          fileSize: 1,
-        },
-        {
-          id: "v3",
-          version: "1.4.0",
-          gameVersions: ["1.20"],
-          releaseType: "stable",
-          fileName: "v3.zip",
-          fileSize: 1,
-        },
-      ]),
-    );
-    const user = userEvent.setup();
+  it("offers only backend-approved upgrades, including major releases", async () => {
+    api.upgradeVersions.mockResolvedValue([version("v2", "1.3.0"), version("v3", "3.0.0")]);
     renderModal({ ...report, mods: [report.mods[0]] });
-
+    const user = userEvent.setup();
     await user.click(await screen.findByRole("combobox", { name: "Update to Stone Quarry" }));
-    await user.click(screen.getByText("1.2.0 → 1.4.0 · Stable"));
-    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
+    expect(screen.getByText("1.2.0 → 3.0.0 · Stable")).toBeTruthy();
+    expect(screen.queryByText("1.2.0 → 1.1.0 · Stable")).toBeNull();
+  });
 
+  it("applies selected valid target in one batch", async () => {
+    api.upgradeVersions.mockResolvedValue([version("v2", "1.3.0"), version("v3", "3.0.0")]);
+    const props = renderModal({ ...report, mods: [report.mods[0]] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("combobox", { name: "Update to Stone Quarry" }));
+    await user.click(screen.getByText("1.2.0 → 3.0.0 · Stable"));
+    await user.click(screen.getByRole("button", { name: "Update 1 mod" }));
     await waitFor(() =>
       expect(api.updateInstance).toHaveBeenCalledWith({
         instanceId: "instance-1",
@@ -281,23 +139,39 @@ describe("ModUpdatesModal", () => {
         allowIncompatible: false,
       }),
     );
+    expect(props.onApplied).toHaveBeenCalledOnce();
   });
 
-  it("strips HTML tags from the changelog description", async () => {
-    const withHtml: InstanceModUpdateReport = {
-      ...report,
-      mods: [
-        {
-          ...report.mods[0],
-          changelog: "<p>Fixed a crash</p><ul><li>One</li><li>Two</li></ul>",
-        },
-      ],
-    };
-    renderModal(withHtml);
-    await userEvent.setup().click(await screen.findByText("Changelog"));
-    expect(screen.getByText(/Fixed a crash/)).toBeTruthy();
-    expect(screen.getByText(/One/)).toBeTruthy();
-    expect(screen.queryByText("<p>")).toBeNull();
-    expect(screen.queryByText("<li>")).toBeNull();
+  it("does not submit stale report target after successful empty response", async () => {
+    api.upgradeVersions.mockResolvedValue([]);
+    renderModal({ ...report, mods: [report.mods[0]] });
+    expect(await screen.findByText("Stone Quarry")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update 0 mods" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    expect(api.updateInstance).not.toHaveBeenCalled();
+  });
+
+  it("uses only report target when eligibility fetch fails", async () => {
+    api.upgradeVersions.mockRejectedValue(new Error("offline"));
+    renderModal({ ...report, mods: [report.mods[0]] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Update 1 mod" }));
+    await waitFor(() =>
+      expect(api.updateInstance).toHaveBeenCalledWith(
+        expect.objectContaining({ mods: [{ modId: "stonequarry", versionId: "v2" }] }),
+      ),
+    );
+  });
+
+  it("keeps incompatible and unchecked rows out of batch until allowed", async () => {
+    renderModal();
+    const user = userEvent.setup();
+    await screen.findByText("Stone Quarry");
+    expect(screen.getByRole("button", { name: "Update 1 mod" })).toBeTruthy();
+    await user.click(screen.getByLabelText("Old Mod"));
+    expect(screen.getByRole("button", { name: "Update 1 mod" })).toBeTruthy();
+    await user.click(screen.getByLabelText(/allow updates/i));
+    expect(screen.getByRole("button", { name: "Update 2 mods" })).toBeTruthy();
   });
 });

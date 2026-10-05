@@ -299,9 +299,9 @@ export function InstanceModal({
     setUpdatingModID(mod.id);
     setVersionChangeError(undefined);
     try {
-      await modsApi.updateInstance({
+      await modsApi.changeInstanceVersion({
         instanceId: instance.id,
-        mods: [{ modId: modID, versionId: targetVersionID }],
+        mod: { modId: modID, versionId: targetVersionID },
         allowIncompatible: false,
       });
       await loadMods();
