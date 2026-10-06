@@ -123,7 +123,7 @@ pkgs.buildGoModule {
   ];
 
   # Go modules are fetched and vendored from the prefetched store directory.
-  vendorHash = "sha256-0NxwFtDnCGpf49k0xNRv8WvIQlgxvtILnGl4UKHTcM4=";
+  vendorHash = "sha256-SGc6SzakxB8YI9JRg6ajac8fK++RNw4AxjJNjSdCjxI=";
 
   buildPhase = ''
     runHook preBuild
