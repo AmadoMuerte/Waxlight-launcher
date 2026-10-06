@@ -76,6 +76,17 @@ func (controller *ModManagerController) CheckInstanceModUpdates(
 	return instanceModUpdateReportDTO(report), err
 }
 
+// GetInstanceModUpgradeVersions returns catalog releases strictly newer than
+// the currently installed release. Compatibility filtering is left to the UI.
+func (controller *ModManagerController) GetInstanceModUpgradeVersions(instanceID, modID string) ([]ModVersionDTO, error) {
+	versions, err := controller.catalog.GetInstanceModUpgradeVersions(controller.lifecycle.Context(), instanceID, modID)
+	result := make([]ModVersionDTO, 0, len(versions))
+	for _, version := range versions {
+		result = append(result, modVersionDTO(version))
+	}
+	return result, err
+}
+
 // UpdateInstanceModsRequest selects catalog versions to apply to an instance.
 type UpdateInstanceModsRequest struct {
 	// InstanceID is the instance whose mods are updated.
@@ -84,6 +95,13 @@ type UpdateInstanceModsRequest struct {
 	Mods []ModUpdateTargetDTO `json:"mods"`
 	// AllowIncompatible permits updates despite compatibility warnings.
 	AllowIncompatible bool `json:"allowIncompatible"`
+}
+
+// ChangeInstanceModVersionRequest selects one explicit catalog release.
+type ChangeInstanceModVersionRequest struct {
+	InstanceID        string             `json:"instanceId"`
+	Mod               ModUpdateTargetDTO `json:"mod"`
+	AllowIncompatible bool               `json:"allowIncompatible"`
 }
 
 // ModUpdateTargetDTO selects one catalog release for an update.
@@ -131,6 +149,24 @@ func (controller *ModManagerController) UpdateInstanceMods(
 	)
 	if err != nil {
 		slog.Warn("instance mod update failed", "instanceId", request.InstanceID, "error", err)
+		return ModUpdateResultDTO{}, err
+	}
+	return ModUpdateResultDTO{Updated: result.Updated, SkippedByPolicy: result.SkippedByPolicy}, nil
+}
+
+// ChangeInstanceModVersion explicitly replaces one installed mod version,
+// including with an older catalog release.
+func (controller *ModManagerController) ChangeInstanceModVersion(
+	request ChangeInstanceModVersionRequest,
+) (ModUpdateResultDTO, error) {
+	result, err := controller.catalog.ChangeInstanceModVersion(
+		controller.lifecycle.Context(),
+		request.InstanceID,
+		mods.ModUpdateTarget{ModID: request.Mod.ModID, VersionID: request.Mod.VersionID},
+		request.AllowIncompatible,
+	)
+	if err != nil {
+		slog.Warn("instance mod version change failed", "instanceId", request.InstanceID, "error", err)
 		return ModUpdateResultDTO{}, err
 	}
 	return ModUpdateResultDTO{Updated: result.Updated, SkippedByPolicy: result.SkippedByPolicy}, nil

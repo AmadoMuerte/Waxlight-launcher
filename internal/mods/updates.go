@@ -2,11 +2,12 @@ package mods
 
 import (
 	"context"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"log/slog"
 	"strconv"
 	"strings"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
 )
 
@@ -136,6 +137,38 @@ func (service *CatalogService) UpdateInstanceMods(
 	targets []ModUpdateTarget,
 	allowIncompatible bool,
 ) (ModUpdateResult, error) {
+	return service.applyInstanceModTargets(ctx, instanceID, targets, allowIncompatible, automaticUpdate)
+}
+
+// ChangeInstanceModVersion explicitly replaces one installed catalog mod.
+// Unlike automatic updates, an older or semantically equal release is allowed;
+// pinned mods and requests for the already-installed release remain no-ops.
+func (service *CatalogService) ChangeInstanceModVersion(
+	ctx context.Context,
+	instanceID string,
+	target ModUpdateTarget,
+	allowIncompatible bool,
+) (ModUpdateResult, error) {
+	return service.applyInstanceModTargets(ctx, instanceID, []ModUpdateTarget{target}, allowIncompatible, manualReplacement)
+}
+
+type modTargetPolicy bool
+
+const (
+	manualReplacement modTargetPolicy = false
+	automaticUpdate   modTargetPolicy = true
+)
+
+// applyInstanceModTargets is shared only for lock, snapshot, and download
+// orchestration. Automatic updates require strict version growth; explicit
+// manual replacements intentionally do not.
+func (service *CatalogService) applyInstanceModTargets(
+	ctx context.Context,
+	instanceID string,
+	targets []ModUpdateTarget,
+	allowIncompatible bool,
+	policy modTargetPolicy,
+) (ModUpdateResult, error) {
 	result := ModUpdateResult{}
 	if err := service.gate.Begin(); err != nil {
 		return result, err
@@ -148,10 +181,6 @@ func (service *CatalogService) UpdateInstanceMods(
 	if err != nil {
 		return result, err
 	}
-	installed, err := service.repository.ListMods(ctx, instanceID)
-	if err != nil {
-		return result, err
-	}
 	instanceVersion, err := service.versions.Get(ctx, instance.GameVersionID)
 	if err != nil {
 		return result, err
@@ -160,28 +189,44 @@ func (service *CatalogService) UpdateInstanceMods(
 	if gameVersion == "" {
 		gameVersion = instanceVersion.ID
 	}
-	pending, skipped, err := service.pendingModUpdates(ctx, installed, targets, gameVersion)
-	if err != nil {
-		return result, err
-	}
-	result.SkippedByPolicy = skipped
-	if len(pending) == 0 {
-		return result, nil
-	}
-
 	instanceRelease, err := service.lockInstanceMutations(instanceID)
 	if err != nil {
 		return result, err
 	}
 	defer instanceRelease()
 
-	if err := service.snapshotter.Create(ctx, instanceID, snapshots.ReasonBeforeModUpdate, map[string]string{
-		"affectedMods": strconv.Itoa(len(pending)),
-	}); err != nil {
+	installed, err := service.lister.ListMods(ctx, instanceID)
+	if err != nil {
 		return result, err
 	}
+	pending, skipped, err := service.pendingModChanges(ctx, installed, targets, gameVersion, policy)
+	if err != nil {
+		return result, err
+	}
+	result.SkippedByPolicy = skipped
 
+	snapshotted := false
 	for _, target := range pending {
+		installed, err = service.lister.ListMods(ctx, instanceID)
+		if err != nil {
+			return result, err
+		}
+		fresh, _, eligibilityErr := service.pendingModChanges(ctx, installed, []ModUpdateTarget{target}, gameVersion, policy)
+		if eligibilityErr != nil {
+			return result, eligibilityErr
+		}
+		if len(fresh) == 0 {
+			continue
+		}
+		target = fresh[0]
+		if !snapshotted {
+			if err := service.snapshotter.Create(ctx, instanceID, snapshots.ReasonBeforeModUpdate, map[string]string{
+				"affectedMods": strconv.Itoa(len(pending)),
+			}); err != nil {
+				return result, err
+			}
+			snapshotted = true
+		}
 		downloadResult, err := service.downloadCatalogMod(ctx, DownloadModRequest{
 			ModID:             target.ModID,
 			VersionID:         target.VersionID,
@@ -199,48 +244,61 @@ func (service *CatalogService) UpdateInstanceMods(
 	return result, nil
 }
 
-// pendingModUpdates filters the requested targets to the ones that would
-// actually change the instance: releases that are not installed yet or whose
-// installed record points at another release. Duplicate targets are collapsed.
+// pendingModUpdates validates targets under automatic-update policy.
 func (service *CatalogService) pendingModUpdates(ctx context.Context, installed []InstalledMod, targets []ModUpdateTarget, gameVersion string) ([]ModUpdateTarget, int, error) {
-	installedSource := make(map[string]string, len(installed))
+	return service.pendingModChanges(ctx, installed, targets, gameVersion, automaticUpdate)
+}
+
+func (service *CatalogService) pendingModChanges(ctx context.Context, installed []InstalledMod, targets []ModUpdateTarget, gameVersion string, targetPolicy modTargetPolicy) ([]ModUpdateTarget, int, error) {
+	installedByMod := make(map[string][]InstalledMod, len(installed))
 	policies := make(map[string]UpdatePolicy, len(installed))
 	for _, mod := range installed {
 		if modID, _, ok := ParseModDBSource(mod.Source); ok {
-			installedSource[modID] = mod.Source
-			policies[modID] = NormalizeUpdatePolicy(mod.UpdatePolicy)
+			modID = normalizeUpdateID(modID)
+			installedByMod[modID] = append(installedByMod[modID], mod)
+			if _, exists := policies[modID]; !exists || NormalizeUpdatePolicy(mod.UpdatePolicy) == UpdatePolicyPinned {
+				policies[modID] = NormalizeUpdatePolicy(mod.UpdatePolicy)
+			}
 		}
 	}
 	pending := make([]ModUpdateTarget, 0, len(targets))
 	seen := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
-		modID := strings.TrimSpace(target.ModID)
+		modID := normalizeUpdateID(target.ModID)
 		versionID := strings.TrimSpace(target.VersionID)
 		if modID == "" || versionID == "" {
 			continue
 		}
-		key := modID + ":" + versionID
+		key := modID + ":" + normalizeUpdateID(versionID)
 		if _, duplicate := seen[key]; duplicate {
 			continue
 		}
 		seen[key] = struct{}{}
+		matching := installedByMod[modID]
+		if len(matching) == 0 {
+			continue
+		}
 		if policies[modID] == UpdatePolicyPinned {
 			continue
 		}
-		if policies[modID] == UpdatePolicyCompatibleOnly {
-			details, err := service.catalog.Get(ctx, modID)
-			if err != nil {
-				return nil, 0, err
-			}
-			version, ok := FindModVersion(details.Versions, versionID)
-			if !ok || !ModSupportsVersion(version.GameVersions, gameVersion) {
-				continue
-			}
-		}
-		if installedSource[modID] == ModDBSource(modID, versionID) {
+		if installedRelease(matching, versionID) {
 			continue
 		}
-		pending = append(pending, ModUpdateTarget{ModID: modID, VersionID: versionID})
+		details, err := service.catalog.Get(ctx, modID)
+		if err != nil {
+			return nil, 0, err
+		}
+		version, ok := findUpdateVersion(details.Versions, versionID)
+		if !ok {
+			return nil, 0, errs.NewError(ErrModVersionNotFound, "Mod version not found")
+		}
+		if targetPolicy == automaticUpdate && !isUpgradeTarget(highestInstalledVersion(matching), version) {
+			continue
+		}
+		if policies[modID] == UpdatePolicyCompatibleOnly && !ModSupportsVersion(version.GameVersions, gameVersion) {
+			continue
+		}
+		pending = append(pending, ModUpdateTarget{ModID: modID, VersionID: version.ID})
 	}
 	skipped := 0
 	for modID, policy := range policies {
@@ -248,7 +306,7 @@ func (service *CatalogService) pendingModUpdates(ctx context.Context, installed 
 			continue
 		}
 		for _, target := range targets {
-			if strings.TrimSpace(target.ModID) == modID && installedSource[modID] != ModDBSource(modID, strings.TrimSpace(target.VersionID)) {
+			if normalizeUpdateID(target.ModID) == modID && !installedRelease(installedByMod[modID], strings.TrimSpace(target.VersionID)) {
 				skipped++
 				break
 			}
@@ -257,16 +315,88 @@ func (service *CatalogService) pendingModUpdates(ctx context.Context, installed 
 	return pending, skipped, nil
 }
 
+func normalizeUpdateID(id string) string { return strings.ToLower(strings.TrimSpace(id)) }
+
+func installedRelease(installed []InstalledMod, versionID string) bool {
+	versionID = normalizeUpdateID(versionID)
+	for _, mod := range installed {
+		_, currentVersionID, ok := ParseModDBSource(mod.Source)
+		if ok && normalizeUpdateID(currentVersionID) == versionID {
+			return true
+		}
+	}
+	return false
+}
+
+func findUpdateVersion(versions []ModVersion, versionID string) (ModVersion, bool) {
+	versionID = normalizeUpdateID(versionID)
+	for _, version := range versions {
+		if normalizeUpdateID(version.ID) == versionID {
+			return version, true
+		}
+	}
+	return ModVersion{}, false
+}
+
+func highestInstalledVersion(installed []InstalledMod) string {
+	best := ""
+	for _, mod := range installed {
+		if best == "" || vsmodpack.CompareVersions(mod.Version, best) > 0 {
+			best = mod.Version
+		}
+	}
+	return best
+}
+
+func isUpgradeTarget(installed string, version ModVersion) bool {
+	return vsmodpack.IsUpgradeTarget(installed, vsmodpack.ModVersion{
+		Version:     version.Version,
+		ReleaseType: version.ReleaseType,
+	})
+}
+
+// GetInstanceModUpgradeVersions returns every catalog release strictly newer
+// than the highest installed release of the requested managed mod.
+func (service *CatalogService) GetInstanceModUpgradeVersions(ctx context.Context, instanceID, modID string) ([]ModVersion, error) {
+	installed, err := service.lister.ListMods(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	modID = normalizeUpdateID(modID)
+	matching := make([]InstalledMod, 0, 1)
+	for _, mod := range installed {
+		installedModID, _, managed := ParseModDBSource(mod.Source)
+		if managed && normalizeUpdateID(installedModID) == modID {
+			matching = append(matching, mod)
+		}
+	}
+	if len(matching) == 0 {
+		return []ModVersion{}, nil
+	}
+	details, err := service.catalog.Get(ctx, modID)
+	if err != nil {
+		return nil, err
+	}
+	baseline := highestInstalledVersion(matching)
+	versions := make([]ModVersion, 0, len(details.Versions))
+	for _, version := range details.Versions {
+		if isUpgradeTarget(baseline, version) {
+			versions = append(versions, version)
+		}
+	}
+	return versions, nil
+}
+
 func applyUpdatePolicies(ctx context.Context, report *ModUpdateReport, installed []InstalledMod, gameVersion string, catalog Catalog) {
 	policies := make(map[string]UpdatePolicy, len(installed))
 	for _, mod := range installed {
 		if modID, _, ok := ParseModDBSource(mod.Source); ok {
-			policies[modID] = NormalizeUpdatePolicy(mod.UpdatePolicy)
+			policies[normalizeUpdateID(modID)] = NormalizeUpdatePolicy(mod.UpdatePolicy)
 		}
 	}
 	for index := range report.Mods {
 		update := &report.Mods[index]
-		switch policies[update.ModID] {
+		switch policies[normalizeUpdateID(update.ModID)] {
 		case UpdatePolicyPinned:
 			if update.Status == vsmodpack.StatusUpdateAvailable {
 				report.Summary.UpdatesAvailable--
@@ -287,12 +417,20 @@ func applyUpdatePolicies(ctx context.Context, report *ModUpdateReport, installed
 				update.TargetVersion = ""
 				continue
 			}
-			version, found := bestSatisfyingVersion(details.Versions, "*", []string{gameVersion}, false)
-			if found && version.Version != update.InstalledVersion {
+			candidates := make([]ModVersion, 0, len(details.Versions))
+			for _, version := range details.Versions {
+				if vsmodpack.CompareVersions(version.Version, update.InstalledVersion) > 0 {
+					candidates = append(candidates, version)
+				}
+			}
+			version, found := bestSatisfyingVersion(candidates, "*", []string{gameVersion}, false)
+			if found {
 				update.TargetVersionID = version.ID
 				update.TargetVersion = version.Version
 				update.Compatible = true
 				update.Changelog = version.Changelog
+				releaseType := strings.TrimSpace(version.ReleaseType)
+				update.Prerelease = releaseType != "" && !strings.EqualFold(releaseType, "stable")
 			}
 			if !update.Compatible {
 				report.Summary.UpdatesAvailable--

@@ -3,7 +3,7 @@ module github.com/AmadoMuerte/Waxlight-launcher
 go 1.25.13
 
 require (
-	github.com/AmadoMuerte/vintagestory-go v0.5.0
+	github.com/AmadoMuerte/vintagestory-go v0.5.2
 	github.com/AmadoMuerte/wailsdoc v0.3.0
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/godbus/dbus/v5 v5.2.2

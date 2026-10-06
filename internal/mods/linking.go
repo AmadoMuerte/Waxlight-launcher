@@ -231,6 +231,12 @@ func (service *CatalogService) linkLocalModFile(
 		link.Reason = "Could not read the mod file"
 		return DownloadedMod{}, link, err
 	}
+	latestVersion := details.LatestVersion
+	updateAvailable := false
+	if target, ok := newestStrictUpgrade(details, version.Version); ok {
+		latestVersion = target.Version
+		updateAvailable = true
+	}
 	downloaded := DownloadedMod{
 		SchemaVersion:     1,
 		ModID:             details.ID,
@@ -249,8 +255,8 @@ func (service *CatalogService) linkLocalModFile(
 		Checksum:          version.Checksum,
 		DownloadURL:       version.DownloadURL,
 		DownloadedAt:      service.now().UTC(),
-		LatestVersion:     details.LatestVersion,
-		UpdateAvailable:   details.LatestVersion != "" && details.LatestVersion != version.Version,
+		LatestVersion:     latestVersion,
+		UpdateAvailable:   updateAvailable,
 	}
 	if err := service.downloads.Save(ctx, downloaded); err != nil {
 		link.Reason = "Could not save the mod metadata"

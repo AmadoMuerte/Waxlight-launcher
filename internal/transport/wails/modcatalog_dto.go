@@ -90,17 +90,21 @@ func modDetailsDTO(mod mods.ModDetails) ModDetailsDTO {
 		})
 	}
 	for _, version := range mod.Versions {
-		item := ModVersionDTO{
-			ID: version.ID, Version: version.Version,
-			GameVersions: nonNilStrings(version.GameVersions),
-			ReleaseType:  version.ReleaseType, FileName: version.FileName,
-			FileSize: version.FileSize, Changelog: version.Changelog,
-		}
-		if version.PublishedAt != nil {
-			value := iso(*version.PublishedAt)
-			item.PublishedAt = &value
-		}
-		dto.Versions = append(dto.Versions, item)
+		dto.Versions = append(dto.Versions, modVersionDTO(version))
+	}
+	return dto
+}
+
+func modVersionDTO(version mods.ModVersion) ModVersionDTO {
+	dto := ModVersionDTO{
+		ID: version.ID, Version: version.Version,
+		GameVersions: nonNilStrings(version.GameVersions),
+		ReleaseType:  version.ReleaseType, FileName: version.FileName,
+		FileSize: version.FileSize, Changelog: version.Changelog,
+	}
+	if version.PublishedAt != nil {
+		value := iso(*version.PublishedAt)
+		dto.PublishedAt = &value
 	}
 	return dto
 }

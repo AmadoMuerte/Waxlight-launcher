@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useToastStore } from "../../app/stores/toast";
-import { modCatalogApi, modsApi } from "../../entities/mod/api";
+import { modsApi } from "../../entities/mod/api";
 import type { InstanceModUpdateReport, ModUpdate, ModVersion } from "../../entities/mod/model";
+import { useModUpgradeVersionsQueries } from "../../entities/mod/queries";
 import { errorMessage } from "../../shared/api/bridge";
+import { MOD_UPGRADE_VERSIONS_QUERY_KEY } from "../../shared/api/keys";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { DialogFooter } from "../../shared/ui/dialog";
@@ -35,6 +38,7 @@ export function ModUpdatesModal({
   onApplied,
 }: ModUpdatesModalProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const [allowIncompatible, setAllowIncompatible] = useState(false);
   const updates = report.mods.filter((mod) => mod.status === "update_available");
@@ -44,47 +48,53 @@ export function ModUpdatesModal({
   const [versionIds, setVersionIds] = useState<Record<string, string>>(() =>
     Object.fromEntries(updates.map((mod) => [mod.modId, mod.targetVersionId])),
   );
-  const [versionsByModId, setVersionsByModId] = useState<Record<string, ModVersion[]>>({});
-  const [versionsLoading, setVersionsLoading] = useState(updates.length > 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const applyingRef = useRef(false);
 
-  useEffect(() => {
-    let active = true;
-    const updateable = report.mods.filter((mod) => mod.status === "update_available");
-    setVersionsLoading(updateable.length > 0);
-    void (async () => {
-      const entries = await Promise.all(
-        updateable.map(async (mod) => {
-          try {
-            const details = await modCatalogApi.get(mod.modId);
-            return [mod.modId, details.versions] as const;
-          } catch {
-            return [mod.modId, []] as const;
-          }
+  const upgradeQueries = useModUpgradeVersionsQueries(instanceId, updates);
+  const versionsLoading = upgradeQueries.some((query) => query.isPending || query.isFetching);
+  const versionsByModId = useMemo(
+    () =>
+      Object.fromEntries(
+        updates.map((mod, index) => {
+          const query = upgradeQueries[index];
+          const fallback: ModVersion[] = query.isError
+            ? [
+                {
+                  id: mod.targetVersionId,
+                  version: mod.targetVersion,
+                  gameVersions: mod.compatible ? [report.gameVersion] : [],
+                  releaseType: "unknown",
+                  fileName: "",
+                  fileSize: 0,
+                },
+              ]
+            : [];
+          return [mod.modId, query.data ?? fallback];
         }),
-      );
-      if (active) {
-        setVersionsByModId(Object.fromEntries(entries));
-        setVersionsLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [report]);
+      ),
+    [report.gameVersion, updates, upgradeQueries],
+  );
+
+  function selectedVersion(mod: ModUpdate) {
+    const versions = versionsByModId[mod.modId] ?? [];
+    return (
+      versions.find((item) => item.id === (versionIds[mod.modId] ?? mod.targetVersionId)) ??
+      versions[0]
+    );
+  }
 
   function selectedVersionIsCompatible(mod: ModUpdate) {
-    const version = versionsByModId[mod.modId]?.find(
-      (item) => item.id === (versionIds[mod.modId] ?? mod.targetVersionId),
-    );
+    const version = selectedVersion(mod);
     return version ? version.gameVersions.includes(report.gameVersion) : mod.compatible;
   }
 
   const pending = updates.filter(
     (mod) =>
-      selectedModIds.has(mod.modId) && (selectedVersionIsCompatible(mod) || allowIncompatible),
+      selectedModIds.has(mod.modId) &&
+      selectedVersion(mod) !== undefined &&
+      (selectedVersionIsCompatible(mod) || allowIncompatible),
   );
   const skipped = updates.filter(
     (mod) =>
@@ -104,10 +114,11 @@ export function ModUpdatesModal({
         instanceId,
         mods: pending.map((mod) => ({
           modId: mod.modId,
-          versionId: versionIds[mod.modId] ?? mod.targetVersionId,
+          versionId: selectedVersion(mod)?.id ?? "",
         })),
         allowIncompatible,
       });
+      await queryClient.invalidateQueries({ queryKey: MOD_UPGRADE_VERSIONS_QUERY_KEY });
       await onApplied();
       notify(
         (result.skippedByPolicy ?? 0) > 0
@@ -140,10 +151,8 @@ export function ModUpdatesModal({
             ) : (
               <ul className="divide-y divide-border-subtle">
                 {updates.map((mod) => {
-                  const selectedVersionId = versionIds[mod.modId] ?? mod.targetVersionId;
-                  const versions = (versionsByModId[mod.modId] ?? []).filter(
-                    (version) => version.version !== mod.installedVersion,
-                  );
+                  const selectedVersionId = selectedVersion(mod)?.id ?? "";
+                  const versions = versionsByModId[mod.modId] ?? [];
                   return (
                     <ModUpdateRow
                       key={mod.modId}

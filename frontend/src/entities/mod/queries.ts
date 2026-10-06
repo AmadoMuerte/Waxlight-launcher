@@ -5,6 +5,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  useQueries,
 } from "@tanstack/react-query";
 
 import { useToastStore } from "../../app/stores/toast";
@@ -14,10 +15,11 @@ import {
   FAVORITE_MOD_IDS_QUERY_KEY,
   FAVORITE_MODS_QUERY_KEY,
   MOD_DETAILS_QUERY_KEY,
+  modUpgradeVersionsQueryKey,
   MOD_TAGS_QUERY_KEY,
 } from "../../shared/api/keys";
-import { modCatalogApi } from "./api";
-import type { ModSearchQuery, ModTag, ModSummary } from "./model";
+import { modCatalogApi, modsApi } from "./api";
+import type { ModSearchQuery, ModTag, ModSummary, ModUpdate } from "./model";
 
 const CATALOG_STALE_TIME = 5 * 60_000;
 
@@ -72,6 +74,15 @@ export function useModDetailsQuery(modId: string, enabled = true) {
     queryFn: () => modCatalogApi.get(modId),
     enabled,
     staleTime: CATALOG_STALE_TIME,
+  });
+}
+
+export function useModUpgradeVersionsQueries(instanceId: string, updates: ModUpdate[]) {
+  return useQueries({
+    queries: updates.map((mod) => ({
+      queryKey: modUpgradeVersionsQueryKey(instanceId, mod.modId, mod.installedVersion),
+      queryFn: () => modsApi.upgradeVersions(instanceId, mod.modId),
+    })),
   });
 }
 
