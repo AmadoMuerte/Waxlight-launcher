@@ -103,7 +103,11 @@ in
 # buildGoModule provides the Go module cache through vendorHash (a fixed-output
 # derivation), so the build is fully reproducible inside the Nix sandbox. The
 # build and install phases are replaced with Waxlight's own production build.
-pkgs.buildGoModule {
+# `override { inherit go; }` is required: buildGoModule pins its own Go (the
+# nixpkgs default, older than the go.mod directive) internally, so passing `go`
+# as a build argument would be ignored and the sandboxed module fetch would try
+# to download the newer toolchain without network access.
+(pkgs.buildGoModule.override { inherit go; }) {
   pname = "waxlight";
   inherit version src;
 
@@ -123,7 +127,7 @@ pkgs.buildGoModule {
   ];
 
   # Go modules are fetched and vendored from the prefetched store directory.
-  vendorHash = "sha256-SGc6SzakxB8YI9JRg6ajac8fK++RNw4AxjJNjSdCjxI=";
+  vendorHash = "sha256-HZbMYcu/i3W7uFz55XpkVbiPMHfi0tn2bngGKiyOFdw=";
 
   buildPhase = ''
     runHook preBuild

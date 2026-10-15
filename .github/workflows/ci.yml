@@ -191,7 +191,7 @@ jobs:
             libwebkit2gtk-4.1-dev
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
       - name: Install and build frontend
         shell: bash
@@ -386,7 +386,7 @@ jobs:
       - name: Install Wails CLI
         shell: powershell
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
           (go env GOPATH) + "\bin" |
             Out-File `

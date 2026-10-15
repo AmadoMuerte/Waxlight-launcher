@@ -5,7 +5,7 @@ support, and focused feature proposals are welcome.
 
 ## Development setup
 
-You need Go 1.24 or newer, Node.js 22 or newer, npm, a C compiler, and the Wails
+You need Go 1.27 or newer, Node.js 22 or newer, npm, a C compiler, and the Wails
 v2 platform dependencies for your operating system. Linux development also
 requires GTK3 and WebKitGTK 4.1 development packages.
 
@@ -26,7 +26,7 @@ For live Wails development, install the matching CLI and run it from the command
 directory:
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 cd cmd/waxlight
 wails dev -browser -devserver localhost:34116
 ```

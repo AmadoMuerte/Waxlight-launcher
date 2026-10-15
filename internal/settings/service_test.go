@@ -104,6 +104,24 @@ func TestServiceUpdatesOnlyLibrarySort(t *testing.T) {
 	}
 }
 
+func TestServiceRoundTripsCloseToTray(t *testing.T) {
+	if !Defaults().CloseToTray {
+		t.Fatal("CloseToTray does not default to true")
+	}
+	repository := &memoryRepository{value: Defaults()}
+	service := NewService(repository, NewReader(repository), nil, nil, nil)
+
+	value := Defaults()
+	value.CloseToTray = false
+	saved, err := service.Update(context.Background(), value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.CloseToTray {
+		t.Fatalf("CloseToTray was not persisted: %+v", saved)
+	}
+}
+
 func TestServiceRejectsInvalidAutomaticSnapshotRetention(t *testing.T) {
 	repository := &memoryRepository{value: Defaults()}
 	service := NewService(repository, NewReader(repository), nil, nil, nil)

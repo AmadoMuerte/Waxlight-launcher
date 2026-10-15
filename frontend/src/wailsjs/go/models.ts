@@ -1991,6 +1991,7 @@ export namespace wails {
 	    automaticSnapshotRetention: number;
 	    librarySort: string;
 	    uiScale: number;
+	    closeToTray: boolean;
 
 	    static createFrom(source: any = {}) {
 	        return new SettingsDTO(source);
@@ -2012,6 +2013,7 @@ export namespace wails {
 	        this.automaticSnapshotRetention = source["automaticSnapshotRetention"];
 	        this.librarySort = source["librarySort"];
 	        this.uiScale = source["uiScale"];
+	        this.closeToTray = source["closeToTray"];
 	    }
 	}
 	export class StatisticsDTO {

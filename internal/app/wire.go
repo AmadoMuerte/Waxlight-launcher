@@ -41,6 +41,7 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/servercatalog"
 	platformsnapshots "github.com/AmadoMuerte/Waxlight-launcher/internal/platform/snapshots"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/tray"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/updater"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/versionfs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/vintagestory"
@@ -77,6 +78,8 @@ type Container struct {
 	telemetry      *telemetry.Service
 	presence       *presence.Service
 	dataRoot       string
+	windows        *wailstransport.WindowAdapter
+	trayLanguage   string
 }
 
 // slowStartupPhase is the threshold above which a construction phase is
@@ -182,6 +185,9 @@ func NewWithHome(home string) (*Container, error) {
 	}
 	startupPhase("reconcile interrupted operations", started)
 	settingsReader := settingscore.NewReader(store)
+	// The window adapter decides close-to-tray and owns the quitting flag that
+	// every quit path (tray, update restart, relocation restart) must set.
+	windows := wailstransport.NewWindowAdapter(lifecycle, settingsReader)
 	started = time.Now()
 	launcherSettings, err := settingsReader.Get(context.Background())
 	if err != nil {
@@ -440,7 +446,7 @@ func NewWithHome(home string) (*Container, error) {
 		launchCoordinator,
 		lifecycle,
 		eventPublisher,
-		wailstransport.QuitAdapter{},
+		windows,
 	)
 	started = time.Now()
 	if err := launchCoordinator.ReconcileInjectedCredentials(context.Background()); err != nil {
@@ -565,7 +571,7 @@ func NewWithHome(home string) (*Container, error) {
 			dialogs,
 			nativefs.Opener{},
 		),
-		wailstransport.NewLauncherUpdateController(updateService, lifecycle, eventPublisher),
+		wailstransport.NewLauncherUpdateController(updateService, lifecycle, eventPublisher, windows),
 		wailstransport.NewPresenceController(presenceService, lifecycle),
 	}
 
@@ -583,6 +589,8 @@ func NewWithHome(home string) (*Container, error) {
 		telemetry:      telemetryService,
 		presence:       presenceService,
 		dataRoot:       dataRoot,
+		windows:        windows,
+		trayLanguage:   launcherSettings.Language,
 	}, nil
 }
 
@@ -651,6 +659,14 @@ func (adapter packageCatalogModInstaller) SetModEnabled(ctx context.Context, id 
 // application context is available.
 func (container *Container) Startup(ctx context.Context) {
 	container.Lifecycle.Startup(ctx)
+	// The tray is started after the lifecycle so its menu callbacks can safely
+	// restore or quit the running application.
+	tray.Run(tray.Config{
+		Labels: tray.LabelsFor(container.trayLanguage),
+		OnOpen: container.windows.Show,
+		OnQuit: container.windows.QuitFromTray,
+	})
+	slog.Info("wire: tray started")
 	// Push every new log line to the UI console as it is produced. The logging
 	// package stays framework-free; the Wails binding lives here.
 	logging.SetEmitter(func(entry logging.Entry) {
@@ -685,6 +701,9 @@ func (container *Container) telemetryHeartbeat() {
 // Shutdown stops the lifecycle workers, records the established launches, and
 // closes the shared store deterministically.
 func (container *Container) Shutdown(context.Context) {
+	// Remove the tray icon first so it never outlives the workers it controls;
+	// this is safe even if tray.Run failed or the platform is unsupported.
+	tray.Stop()
 	logging.SetEmitter(nil)
 	container.presence.Close()
 	container.Lifecycle.Shutdown()
@@ -696,6 +715,12 @@ func (container *Container) Shutdown(context.Context) {
 	if err := container.store.Close(); err != nil {
 		slog.Warn("wire: could not close the database cleanly", "error", err)
 	}
+}
+
+// BeforeWindowClose implements the Wails OnBeforeClose hook: with the
+// close-to-tray setting active it hides the window instead of closing.
+func (container *Container) BeforeWindowClose(ctx context.Context) bool {
+	return container.windows.CloseRequested(ctx)
 }
 
 // closeStoreOnError best-effort closes the database after a construction

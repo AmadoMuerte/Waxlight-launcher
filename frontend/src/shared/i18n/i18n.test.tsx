@@ -39,6 +39,7 @@ const settings: Settings = {
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
   uiScale: 1,
+  closeToTray: true,
 };
 
 async function renderPage() {

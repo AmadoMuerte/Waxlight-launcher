@@ -1,7 +1,6 @@
 package wails
 
 import (
-	"context"
 	"runtime"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -59,10 +58,4 @@ func (adapter *DialogAdapter) SelectInstanceCover() (string, error) {
 		Title:   "Select an instance cover",
 		Filters: []wruntime.FileFilter{{DisplayName: "Images (*.png, *.jpg, *.jpeg, *.gif)", Pattern: "*.png;*.jpg;*.jpeg;*.gif"}},
 	})
-}
-
-type QuitAdapter struct{}
-
-func (QuitAdapter) Quit(ctx context.Context) {
-	wruntime.Quit(ctx)
 }

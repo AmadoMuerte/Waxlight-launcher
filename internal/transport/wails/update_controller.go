@@ -26,20 +26,28 @@ type LauncherUpdateDTO struct {
 	InstallationMode string `json:"installationMode"`
 }
 
+// appQuitter requests an application quit. *WindowAdapter implements it so the
+// post-update restart goes through the same quitting flag as the tray quit.
+type appQuitter interface {
+	Quit(context.Context)
+}
+
 // LauncherUpdateController exposes launcher update checks and installation to
 // the frontend. It stays limited to DTO conversion and feature invocation.
 type LauncherUpdateController struct {
 	service   *updates.Service
 	lifecycle lifecycle
 	events    events.Publisher
+	quitter   appQuitter
 }
 
 func NewLauncherUpdateController(
 	service *updates.Service,
 	lifecycle lifecycle,
 	eventPublisher events.Publisher,
+	quitter appQuitter,
 ) *LauncherUpdateController {
-	return &LauncherUpdateController{service: service, lifecycle: lifecycle, events: eventPublisher}
+	return &LauncherUpdateController{service: service, lifecycle: lifecycle, events: eventPublisher, quitter: quitter}
 }
 
 // CurrentVersion returns the running launcher version for display and update comparison.
@@ -65,7 +73,7 @@ func (controller *LauncherUpdateController) InstallUpdate(channel string) error 
 	controller.lifecycle.Go(func(workerCtx context.Context) {
 		select {
 		case <-time.After(250 * time.Millisecond):
-			wruntime.Quit(workerCtx)
+			controller.quitter.Quit(workerCtx)
 		case <-workerCtx.Done():
 		}
 	})
