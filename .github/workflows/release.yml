@@ -19,6 +19,7 @@ jobs:
   prepare:
     name: Prepare release metadata
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
 
     outputs:
       release-tag: ${{ steps.release.outputs.release-tag }}
@@ -53,6 +54,7 @@ jobs:
   verify:
     name: Verify release source
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     needs: prepare
     if: needs.prepare.outputs.should-release == 'true'
 
@@ -74,7 +76,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Verify release notes file
         if: github.event_name == 'push'
@@ -126,6 +128,12 @@ jobs:
       - name: Check prohibited security patterns
         run: ./scripts/check-security-patterns.sh
 
+      - name: Cache Go tool binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-ubuntu-govulncheck-v1.6.0
+
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
 
@@ -135,6 +143,7 @@ jobs:
   linux:
     name: Package Linux
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     needs:
       - verify
 
@@ -167,6 +176,12 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             rpm
+
+      - name: Cache Go tool binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-ubuntu-wails-v2.15.0
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
@@ -271,6 +286,7 @@ jobs:
   windows:
     name: Package Windows
     runs-on: windows-latest
+    timeout-minutes: 60
     needs:
       - verify
 
@@ -364,6 +380,12 @@ jobs:
           g++ --version
           makensis /VERSION
           resedit --version
+
+      - name: Cache Go tool binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-windows-wails-v2.15.0
 
       - name: Install Wails CLI
         shell: powershell
@@ -496,6 +518,7 @@ jobs:
   publish:
     name: Assemble release artifacts
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     needs:
       - verify

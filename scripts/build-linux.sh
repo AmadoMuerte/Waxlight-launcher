@@ -124,19 +124,6 @@ npm ci \
     --prefix "$frontend_directory"
 
 echo
-echo "Building frontend assets..."
-echo "---------------------------"
-
-npm \
-    --prefix "$frontend_directory" \
-    run build
-
-if [[ ! -s "$frontend_entry" ]]; then
-    echo "error: frontend build did not create: $frontend_entry" >&2
-    exit 1
-fi
-
-echo
 echo "Building Linux application..."
 echo "-----------------------------"
 
