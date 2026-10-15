@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 GO ?= go
 GOFMT ?= gofmt
-NPM ?= npm
+BUN ?= bun
 GIT ?= git
 
 VERSION ?=
@@ -21,7 +21,7 @@ ifeq ($(shell $(GO) env GOOS),linux)
 WAILS_TAGS := $(WAILS_TAGS),webkit2_41
 endif
 
-CURRENT_VERSION := $(shell node -p "require('./wails.json').info.productVersion" 2>/dev/null || echo unknown)
+CURRENT_VERSION := $(shell $(BUN) -e 'console.log(require("./wails.json").info.productVersion)' 2>/dev/null || echo unknown)
 RELEASE_TAG = v$(VERSION)
 RELEASE_BRANCH = release/$(RELEASE_TAG)
 
@@ -151,7 +151,7 @@ check-version-argument:
 	fi
 
 check-tools:
-	@for command in "$(GO)" "$(NPM)" "$(GIT)" node gh; do \
+	@for command in "$(GO)" "$(BUN)" "$(GIT)" gh; do \
 		if ! command -v "$$command" >/dev/null 2>&1; then \
 			echo "error: required command is unavailable: $$command"; \
 			exit 1; \
@@ -204,12 +204,12 @@ check-synced:
 	fi
 
 frontend-install:
-	$(NPM) ci --include=dev --prefix frontend
+	$(BUN) --cwd=frontend install --frozen-lockfile
 
 install: frontend-install
 
 frontend:
-	$(NPM) --prefix frontend run build
+	$(BUN) --cwd=frontend run build
 
 build: frontend
 	mkdir -p build
@@ -252,7 +252,7 @@ test-backend:
 	$(GO) test ./...
 
 test-frontend:
-	$(NPM) --prefix frontend test
+	$(BUN) --cwd=frontend run test
 
 test: frontend test-backend test-frontend
 
@@ -266,11 +266,11 @@ api-docs-build: api-docs
 	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc build
 
 api-docs-preview: api-docs-build
-	$(NPM) --prefix docs/site run preview
+	$(BUN) --cwd=docs/site run preview
 
 format:
 	$(GOFMT) -w $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done)
-	$(NPM) --prefix frontend run format
+	$(BUN) --cwd=frontend run format
 
 format-check:
 	@unformatted="$$($(GOFMT) -l $$($(GIT) ls-files --cached --others --exclude-standard '*.go' | while IFS= read -r file; do [[ -f "$$file" ]] && printf '%s\n' "$$file"; done))"; \
@@ -279,12 +279,12 @@ format-check:
 		printf '%s\n' "$$unformatted"; \
 		exit 1; \
 	fi
-	$(NPM) --prefix frontend run format:check
+	$(BUN) --cwd=frontend run format:check
 
 # CI validates Linux build-tagged source; use same target for cross-platform hooks.
 lint:
 	GOOS=linux $(GO) vet ./...
-	$(NPM) --prefix frontend run lint
+	$(BUN) --cwd=frontend run lint
 
 race:
 	$(GO) test -race ./...
@@ -320,7 +320,7 @@ release-check: check-version-argument frontend-install
 	$(MAKE) security
 
 set-version: check-version-argument
-	@VERSION="$(VERSION)" node -e 'const fs = require("fs"); const version = process.env.VERSION; const files = ["wails.json", "cmd/waxlight/wails.json", "internal/version/wails.json"]; for (const file of files) { const value = JSON.parse(fs.readFileSync(file, "utf8")); value.info = value.info || {}; value.info.productVersion = version; fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); console.log("Updated " + file + " to " + version); }'
+	@VERSION="$(VERSION)" $(BUN) -e 'const fs = require("fs"); const version = process.env.VERSION; const files = ["wails.json", "cmd/waxlight/wails.json", "internal/version/wails.json"]; for (const file of files) { const value = JSON.parse(fs.readFileSync(file, "utf8")); value.info = value.info || {}; value.info.productVersion = version; fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); console.log("Updated " + file + " to " + version); }'
 	@./scripts/check-version.sh "$(VERSION)"
 
 release-notes: check-version-argument

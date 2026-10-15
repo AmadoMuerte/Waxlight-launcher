@@ -1,15 +1,14 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Account, LoginResult } from "../../shared/api";
 import { AccountsPage, authErrorMessages, isValidEmail } from "./AccountsPage";
 
-const api = vi.hoisted(() => ({
+const api = {
   list: vi.fn(),
   login: vi.fn(),
   completeTOTP: vi.fn(),
@@ -18,13 +17,13 @@ const api = vi.hoisted(() => ({
   validate: vi.fn(),
   setDefault: vi.fn(),
   remove: vi.fn(),
-}));
+};
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = { useSettingsQuery: vi.fn() };
 
-vi.mock("../../entities/settings/queries", () => settingsQuery);
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
 
-vi.mock("../../shared/api/accounts", () => ({ accountsApi: api }));
+void vi.mock("../../shared/api/accounts", () => ({ accountsApi: api }));
 
 const validAccount: Account = {
   id: "first",

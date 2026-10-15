@@ -1,14 +1,4 @@
-import {
-  Camera,
-  Download,
-  ListTodo,
-  Package,
-  RefreshCw,
-  Trash2,
-  Upload,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { Camera, Download, ListTodo, Package, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
@@ -40,12 +30,10 @@ export function OperationItem({
   const finished = isFinishedOperation(operation);
   const percent = Math.round(operation.progress * 100);
 
-  const Icon = operationIcon(operation.type);
-
   return (
     <Card variant="subtle" className="flex items-start gap-3 p-4">
       <div className={cn("operationItemIcon", active && "active")}>
-        <Icon size={18} aria-hidden="true" />
+        <OperationGlyph type={operation.type} />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -114,15 +102,16 @@ export function isFinishedOperation(operation: Operation): boolean {
   );
 }
 
-// operationIcon picks a Lucide icon from the operation type, keeping the
+// OperationGlyph picks a Lucide icon from the operation type, keeping the
 // icon family small so state stays the dominant signal.
-function operationIcon(type: string): LucideIcon {
-  if (type.includes("restore") || type.includes("update")) return RefreshCw;
-  if (type.includes("snapshot")) return Camera;
-  if (type.includes("download")) return Download;
-  if (type.includes("install")) return Package;
-  if (type.includes("import")) return Upload;
-  return ListTodo;
+function OperationGlyph({ type }: { type: string }) {
+  const props = { size: 18, "aria-hidden": true } as const;
+  if (type.includes("restore") || type.includes("update")) return <RefreshCw {...props} />;
+  if (type.includes("snapshot")) return <Camera {...props} />;
+  if (type.includes("download")) return <Download {...props} />;
+  if (type.includes("install")) return <Package {...props} />;
+  if (type.includes("import")) return <Upload {...props} />;
+  return <ListTodo {...props} />;
 }
 
 // operationTitle renders an operation title through the i18n system when the

@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameVersion } from "../../entities/game-version/model";
 import type { InstalledMod } from "../../entities/mod/model";
 import { LibraryPage } from "./LibraryPage";
 
-const modsApi = vi.hoisted(() => ({
+const modsApi = {
   list: vi.fn(),
   previewDelete: vi.fn(),
   remove: vi.fn(),
@@ -19,25 +18,25 @@ const modsApi = vi.hoisted(() => ({
   install: vi.fn(),
   installMany: vi.fn(),
   toggle: vi.fn(),
-}));
+};
 
-const instancesApi = vi.hoisted(() => ({
+const instancesApi = {
   create: vi.fn(),
   clone: vi.fn(),
   list: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
-}));
-const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
-const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
+};
+const versionsApi = { list: vi.fn() };
+const accountsApi = { list: vi.fn() };
 
-vi.mock("../../shared/api/instances", () => ({ instancesApi }));
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
-vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
-vi.mock("../../shared/api/launcher", () => ({ launcherApi: {} }));
-vi.mock("../../shared/api/mods", () => ({ modsApi }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi: {} }));
-vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: {} }));
+void vi.mock("../../shared/api/instances", () => ({ instancesApi }));
+void vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
+void vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
+void vi.mock("../../shared/api/launcher", () => ({ launcherApi: {} }));
+void vi.mock("../../shared/api/mods", () => ({ modsApi }));
+void vi.mock("../../shared/api/settings", () => ({ settingsApi: {} }));
+void vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi: {} }));
 
 const versions: GameVersion[] = [
   {

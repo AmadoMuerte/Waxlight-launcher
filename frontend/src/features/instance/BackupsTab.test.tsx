@@ -1,27 +1,26 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { InstanceSnapshot } from "../../entities/snapshot/model";
 import { BackupsTab } from "./BackupsTab";
 
-const api = vi.hoisted(() => ({
+const api = {
   create: vi.fn(),
   list: vi.fn(),
   restore: vi.fn(),
   remove: vi.fn(),
-}));
+};
 
-const lastKnownGoodApi = vi.hoisted(() => ({
+const lastKnownGoodApi = {
   get: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/snapshots", () => ({ snapshotsApi: api }));
-vi.mock("../../shared/api/last-known-good", () => ({ lastKnownGoodApi }));
+void vi.mock("../../shared/api/snapshots", () => ({ snapshotsApi: api }));
+void vi.mock("../../shared/api/last-known-good", () => ({ lastKnownGoodApi }));
 
 const snapshot: InstanceSnapshot = {
   id: "snap-1",

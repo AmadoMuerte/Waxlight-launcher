@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
+import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import i18n from "../../shared/i18n";
 import { ModScreenshotCarousel } from "./ModScreenshotCarousel";

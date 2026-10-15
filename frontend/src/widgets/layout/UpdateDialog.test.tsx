@@ -1,15 +1,14 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useAppShellStore } from "../../app/stores/app-shell";
 import { SETTINGS_QUERY_KEY } from "../../shared/api/keys";
 import type { LauncherUpdate } from "../../shared/api/types";
 import { UpdateDialog } from "./UpdateDialog";
 
-const api = vi.hoisted(() => ({
+const api = {
   settings: {
     language: "en",
     downloadsParallel: 3,
@@ -25,7 +24,7 @@ const api = vi.hoisted(() => ({
   install: vi.fn(),
   openReleasePage: vi.fn(),
   openUrl: vi.fn(),
-}));
+};
 
 const update: LauncherUpdate = {
   installedVersion: "0.2.1",
@@ -41,21 +40,21 @@ const update: LauncherUpdate = {
   installationMode: "installed",
 };
 
-vi.mock("../../entities/settings/api", () => ({
+void vi.mock("../../entities/settings/api", () => ({
   settingsApi: {
     get: vi.fn().mockResolvedValue(api.settings),
     update: api.update,
   },
 }));
 
-vi.mock("../../shared/api/settings", () => ({
+void vi.mock("../../shared/api/settings", () => ({
   settingsApi: {
     get: vi.fn().mockResolvedValue(api.settings),
     update: api.update,
   },
 }));
 
-vi.mock("../../shared/api/updates", () => ({
+void vi.mock("../../shared/api/updates", () => ({
   updatesApi: {
     currentVersion: api.currentVersion,
     check: api.check,

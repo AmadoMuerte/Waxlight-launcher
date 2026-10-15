@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from "bun:test";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
 
 import { useNotificationStore } from "../../app/stores/notifications";
 import { NotificationCenter } from "./NotificationCenter";
@@ -33,7 +32,7 @@ it("runs notification actions and tracks unread notifications", async () => {
   await user.click(screen.getByRole("button", { name: "Notifications" }));
   await user.click(await screen.findByRole("menuitem", { name: /Important warning/ }));
 
-  expect(run).toHaveBeenCalledOnce();
+  expect(run).toHaveBeenCalledTimes(1);
   expect(
     useNotificationStore.getState().notifications.find(({ id }) => id === "warning:1")?.read,
   ).toBe(true);

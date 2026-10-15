@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
+import { beforeAll, expect, it } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { beforeAll, expect, it } from "vitest";
 
 import i18n from "../../shared/i18n";
 import { UiLabPage } from "./UiLabPage";

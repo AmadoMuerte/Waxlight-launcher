@@ -1,19 +1,18 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useRecoveryStore } from "../../app/stores/recovery";
 import { useToastStore } from "../../app/stores/toast";
 import type { RecoverySuggestion } from "../../entities/last-known-good/model";
 import { RecoveryDialog } from "./RecoveryDialog";
 
-const api = vi.hoisted(() => ({
+const api = {
   restore: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/snapshots", () => ({ snapshotsApi: api }));
+void vi.mock("../../shared/api/snapshots", () => ({ snapshotsApi: api }));
 
 const suggestion: RecoverySuggestion = {
   instanceId: "instance-1",

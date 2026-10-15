@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { FavoriteServer, Instance, PublicServer } from "../../shared/api";
 import i18n from "../../shared/i18n";

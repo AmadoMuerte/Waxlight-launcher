@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
+import { afterEach, expect, it } from "bun:test";
 
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
 
 import { SettingRow } from "./setting-row";
 

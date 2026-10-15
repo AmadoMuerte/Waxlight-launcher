@@ -1,17 +1,16 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useNotificationStore } from "../../app/stores/notifications";
 import type { NewsFeed, NewsItem } from "../../shared/api/types";
 import i18n from "../../shared/i18n";
 import { NewsSync } from "./NewsSync";
 
-const newsApi = vi.hoisted(() => ({ sync: vi.fn() }));
-vi.mock("../../shared/api/news", () => ({ newsApi }));
+const newsApi = { sync: vi.fn() };
+void vi.mock("../../shared/api/news", () => ({ newsApi }));
 
 function item(id: string): NewsItem {
   return {

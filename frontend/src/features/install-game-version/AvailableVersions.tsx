@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -39,8 +39,14 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
   const [visibleCount, setVisibleCount] = useState(20);
   const [startingVersionID, setStartingVersionID] = useState("");
   const installedKey = installedVersionIDs.join("|");
+  const loadedInstalledKeyRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    // Reload the catalog whenever the installed set changes so the API-provided
+    // installed flags stay in sync; skip duplicate loads for an unchanged set.
+    if (loadedInstalledKeyRef.current === installedKey) {
+      return undefined;
+    }
     let active = true;
     async function loadVersions() {
       setLoading(true);
@@ -49,6 +55,7 @@ export function AvailableVersions({ installedVersionIDs }: AvailableVersionsProp
         if (active) {
           setVersions(items ?? []);
           setError("");
+          loadedInstalledKeyRef.current = installedKey;
         }
       } catch (loadError) {
         if (active) {

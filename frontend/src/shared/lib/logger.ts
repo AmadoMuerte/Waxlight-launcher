@@ -126,32 +126,34 @@ export const log = {
   error: (message: string, attrs?: Record<string, string>) => write("error", message, attrs),
 };
 
+function onGlobalError(event: ErrorEvent) {
+  log.error(event.message || "Uncaught window error", {
+    source: truncate(event.filename ?? ""),
+    line: String(event.lineno),
+    column: String(event.colno),
+  });
+}
+
+function onUnhandledRejection(event: PromiseRejectionEvent) {
+  const reason = event.reason;
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : typeof reason === "string"
+        ? reason
+        : "Unhandled promise rejection";
+  const attrs: Record<string, string> | undefined =
+    reason instanceof Error && reason.stack ? { stack: truncate(reason.stack) } : undefined;
+  log.error(message, attrs);
+}
+
 // installGlobalErrorLogging forwards uncaught browser errors and unhandled
 // promise rejections to the launcher log. Returns a cleanup function.
 export function installGlobalErrorLogging(): () => void {
-  const onError = (event: ErrorEvent) => {
-    log.error(event.message || "Uncaught window error", {
-      source: truncate(event.filename ?? ""),
-      line: String(event.lineno),
-      column: String(event.colno),
-    });
-  };
-  const onRejection = (event: PromiseRejectionEvent) => {
-    const reason = event.reason;
-    const message =
-      reason instanceof Error
-        ? reason.message
-        : typeof reason === "string"
-          ? reason
-          : "Unhandled promise rejection";
-    const attrs: Record<string, string> | undefined =
-      reason instanceof Error && reason.stack ? { stack: truncate(reason.stack) } : undefined;
-    log.error(message, attrs);
-  };
-  window.addEventListener("error", onError);
-  window.addEventListener("unhandledrejection", onRejection);
+  window.addEventListener("error", onGlobalError);
+  window.addEventListener("unhandledrejection", onUnhandledRejection);
   return () => {
-    window.removeEventListener("error", onError);
-    window.removeEventListener("unhandledrejection", onRejection);
+    window.removeEventListener("error", onGlobalError);
+    window.removeEventListener("unhandledrejection", onUnhandledRejection);
   };
 }

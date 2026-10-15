@@ -5,14 +5,14 @@ support, and focused feature proposals are welcome.
 
 ## Development setup
 
-You need Go 1.27 or newer, Node.js 22 or newer, npm, a C compiler, and the Wails
+You need Go 1.27 or newer, Bun 1.4.4 or newer, a C compiler, and the Wails
 v2 platform dependencies for your operating system. Linux development also
 requires GTK3 and WebKitGTK 4.1 development packages.
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
-npm ci --prefix frontend
+bun install --cwd frontend --frozen-lockfile
 make test
 make build
 ```
@@ -39,9 +39,9 @@ Run all required checks:
 
 ```bash
 go test ./...
-npm ci --prefix frontend
-npm --prefix frontend test
-npm --prefix frontend run build
+bun install --cwd frontend --frozen-lockfile
+bun --cwd frontend run test
+bun --cwd frontend run build
 go test -race ./...
 go vet ./...
 go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
@@ -86,14 +86,14 @@ When editing a locale:
 After adding or updating a locale, build the frontend:
 
 ```bash
-npm --prefix frontend run build
+bun --cwd frontend run build
 ```
 
 Then run the localization validation and tests:
 
 ```bash
-npm run check:i18n --prefix frontend
-npm test --prefix frontend
+bun --cwd frontend run check:i18n
+bun --cwd frontend run test
 go test ./...
 ```
 

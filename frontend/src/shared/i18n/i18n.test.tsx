@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
 
 import i18n, { changeAppLanguage } from ".";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
 import type { Settings } from "../api";
 import { normalizeLanguage } from "./languages";
 
-const api = vi.hoisted(() => ({
+const api = {
   get: vi.fn(),
   update: vi.fn(),
   getDataFolder: vi.fn().mockResolvedValue({ currentPath: "", defaultPath: "", lastError: "" }),
@@ -21,8 +20,8 @@ const api = vi.hoisted(() => ({
     ready: false,
     message: "",
   }),
-}));
-vi.mock("../api/settings", () => ({ settingsApi: api }));
+};
+void vi.mock("../api/settings", () => ({ settingsApi: api }));
 
 const settings: Settings = {
   language: "en",

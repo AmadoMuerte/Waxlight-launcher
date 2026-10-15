@@ -1,15 +1,14 @@
-// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
-import { afterEach, expect, it, vi } from "vitest";
 
 import { useOperationsQuery } from "./queries";
 
-const list = vi.hoisted(() => vi.fn());
+const list = vi.fn();
 
-vi.mock("../../shared/api/operations", () => ({
+void vi.mock("../../shared/api/operations", () => ({
   operationsApi: { list },
 }));
 
@@ -30,7 +29,7 @@ it("stops polling after an operation query error", async () => {
   await act(async () => {});
   expect(list).toHaveBeenCalledTimes(1);
 
-  await act(() => vi.advanceTimersByTimeAsync(5_000));
+  await act(() => vi.advanceTimersByTime(5_000));
   expect(list).toHaveBeenCalledTimes(1);
   queryClient.clear();
 });

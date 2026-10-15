@@ -1,15 +1,17 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { Operation } from "../../entities/operation/model";
 import { OperationsPage } from "./OperationsPage";
 
-const api = vi.hoisted(() => ({
+const originalResizeObserver = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+const originalRuntime = (globalThis as { runtime?: unknown }).runtime;
+
+const api = {
   list: vi.fn(),
   cancel: vi.fn(),
   remove: vi.fn(),
@@ -17,13 +19,13 @@ const api = vi.hoisted(() => ({
   logsList: vi.fn(),
   logsExport: vi.fn(),
   logsOpenDirectory: vi.fn(),
-}));
+};
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = { useSettingsQuery: vi.fn() };
 
-vi.mock("../../entities/settings/queries", () => settingsQuery);
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
 
-vi.mock("../../shared/api/operations", () => ({
+void vi.mock("../../shared/api/operations", () => ({
   operationsApi: {
     list: api.list,
     cancel: api.cancel,
@@ -31,7 +33,7 @@ vi.mock("../../shared/api/operations", () => ({
     clearHistory: api.clearHistory,
   },
 }));
-vi.mock("../../shared/api/logs", () => ({
+void vi.mock("../../shared/api/logs", () => ({
   logsApi: {
     list: api.logsList,
     exportLogs: api.logsExport,
@@ -39,7 +41,7 @@ vi.mock("../../shared/api/logs", () => ({
   },
 }));
 
-vi.mock("@xterm/xterm", () => ({
+void vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     write = vi.fn();
     clear = vi.fn();
@@ -52,7 +54,7 @@ vi.mock("@xterm/xterm", () => ({
   },
 }));
 
-vi.mock("@xterm/addon-fit", () => ({
+void vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
     fit = vi.fn();
   },
@@ -107,19 +109,16 @@ describe("operation title localization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("runtime", {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    (globalThis as { runtime?: unknown }).runtime = {
       EventsOn: () => () => undefined,
       EventsOnMultiple: () => () => undefined,
       EventsEmit: () => undefined,
-    });
+    };
     api.cancel.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
     api.clearHistory.mockResolvedValue(3);
@@ -129,7 +128,8 @@ describe("operation title localization", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    (globalThis as { runtime?: unknown }).runtime = originalRuntime;
   });
 
   it("translates operation titles through the i18n system when a key is present", async () => {
@@ -167,19 +167,16 @@ describe("operations history controls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("runtime", {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    (globalThis as { runtime?: unknown }).runtime = {
       EventsOn: () => () => undefined,
       EventsOnMultiple: () => () => undefined,
       EventsEmit: () => undefined,
-    });
+    };
     api.cancel.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
     api.clearHistory.mockResolvedValue(3);
@@ -189,7 +186,8 @@ describe("operations history controls", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    (globalThis as { runtime?: unknown }).runtime = originalRuntime;
   });
 
   it("offers cancel only for active operations and delete only for finished ones", async () => {
@@ -273,23 +271,21 @@ describe("confirmDeletion gate", () => {
     api.logsList.mockResolvedValue([]);
     api.logsExport.mockResolvedValue("");
     api.logsOpenDirectory.mockResolvedValue(undefined);
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("runtime", {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    (globalThis as { runtime?: unknown }).runtime = {
       EventsOn: () => () => undefined,
       EventsOnMultiple: () => () => undefined,
       EventsEmit: () => undefined,
-    });
+    };
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    (globalThis as { runtime?: unknown }).runtime = originalRuntime;
   });
 
   it("removes a finished operation directly when confirmDeletion is false", async () => {
@@ -367,19 +363,16 @@ describe("operations page states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("runtime", {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    (globalThis as { runtime?: unknown }).runtime = {
       EventsOn: () => () => undefined,
       EventsOnMultiple: () => () => undefined,
       EventsEmit: () => undefined,
-    });
+    };
     api.cancel.mockResolvedValue(undefined);
     api.remove.mockResolvedValue(undefined);
     api.clearHistory.mockResolvedValue(3);
@@ -389,7 +382,8 @@ describe("operations page states", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    (globalThis as { runtime?: unknown }).runtime = originalRuntime;
   });
 
   it("shows the empty state when there are no operations", async () => {
