@@ -129,7 +129,7 @@ See [SECURITY.md](docs/SECURITY.md) and [authentication notes](docs/authenticati
 
 ## Build from source
 
-Requirements: **Go 1.25+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
+Requirements: **Go 1.27+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git

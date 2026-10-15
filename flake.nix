@@ -13,12 +13,46 @@
       ];
 
       forAllSystems = nixpkgs.lib.genAttrs systems;
+
+      # ── Go 1.27.2 ───────────────────────────────────────
+      goToolchain = pkgs: pkgs.stdenvNoCC.mkDerivation {
+        pname = "go";
+        version = "1.27.2";
+
+        # buildGoModule reads GOOS/GOARCH/CGO_ENABLED and meta from the Go
+        # derivation; nixpkgs' go exposes them and this hand-rolled toolchain must
+        # too. Values mirror the host platform (this flake is x86_64-linux only).
+        GOOS = pkgs.stdenv.hostPlatform.go.GOOS;
+        GOARCH = pkgs.stdenv.hostPlatform.go.GOARCH;
+        # cgo is required for mattn/go-sqlite3.
+        CGO_ENABLED = "1";
+
+        src = pkgs.fetchurl {
+          url = "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz";
+          hash = "sha256-7LrbmQkaP0bjH1+TSwaLGGTq+nmVIRs56t33aZYEX+U=";
+        };
+
+        sourceRoot = ".";
+
+        installPhase = ''
+          runHook preInstall
+
+          mkdir -p $out
+          cp -r go/* $out/
+
+          runHook postInstall
+        '';
+
+        meta.platforms = pkgs.lib.platforms.linux;
+      };
     in
     {
       packages = forAllSystems (
         system: {
           default =
-            nixpkgs.legacyPackages.${system}.callPackage ./nix/waxlight.nix { };
+            nixpkgs.legacyPackages.${system}.callPackage ./nix/waxlight.nix {
+              go = goToolchain nixpkgs.legacyPackages.${system};
+            };
         }
       );
 
@@ -42,27 +76,7 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
 
-          # ── Go 1.25.13 ───────────────────────────────────────
-          go_1_25_13 = pkgs.stdenvNoCC.mkDerivation {
-            pname = "go";
-            version = "1.25.13";
-
-            src = pkgs.fetchurl {
-              url = "https://go.dev/dl/go1.25.13.linux-amd64.tar.gz";
-              hash = "sha256-OQQqB46pzuvj7NpKcYjw9bluFKBx0nkjun9AtFboWuM=";
-            };
-
-            sourceRoot = ".";
-
-            installPhase = ''
-              runHook preInstall
-
-              mkdir -p $out
-              cp -r go/* $out/
-
-              runHook postInstall
-            '';
-          };
+          go = goToolchain pkgs;
 
           # ── Wails 2.12.0 ─────────────────────────────────────
           wails_2_12_0 = pkgs.buildGoModule rec {
@@ -90,7 +104,7 @@
             name = "waxlight-dev";
 
             packages = [
-              go_1_25_13
+              go
               pkgs.nodejs_22
               pkgs.pkg-config
               pkgs.gtk3

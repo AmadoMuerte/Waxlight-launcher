@@ -5,7 +5,7 @@ support, and focused feature proposals are welcome.
 
 ## Development setup
 
-You need Go 1.24 or newer, Node.js 22 or newer, npm, a C compiler, and the Wails
+You need Go 1.27 or newer, Node.js 22 or newer, npm, a C compiler, and the Wails
 v2 platform dependencies for your operating system. Linux development also
 requires GTK3 and WebKitGTK 4.1 development packages.
 
