@@ -259,15 +259,11 @@ test: frontend test-backend test-frontend
 api-inventory api-docs:
 	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc generate
 
-# wailsdoc@v0.3.0 hardcodes `npm run <cmd>` in its VitePress integration and its
-# build/serve commands do nothing beyond that call; Generate already runs
-# vitepress.Prepare, which copies docs/generated/wails-api into docs/site/api.
-# Run the site commands through bun directly instead. Upstream fix optional later.
 api-docs-dev: api-docs
-	$(BUN) --cwd=docs/site run dev
+	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc serve
 
 api-docs-build: api-docs
-	$(BUN) --cwd=docs/site run build
+	$(GO) run github.com/AmadoMuerte/wailsdoc/cmd/wailsdoc build
 
 api-docs-preview: api-docs-build
 	$(BUN) --cwd=docs/site run preview

@@ -5,7 +5,7 @@ go 1.27.2
 require (
 	fyne.io/systray v1.12.2
 	github.com/AmadoMuerte/vintagestory-go v0.5.2
-	github.com/AmadoMuerte/wailsdoc v0.3.0
+	github.com/AmadoMuerte/wailsdoc v0.4.0
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
