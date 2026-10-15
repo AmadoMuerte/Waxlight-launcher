@@ -43,14 +43,6 @@ export function LogConsole() {
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  function pushLines(lines: string[]) {
-    if (!lines.length) {
-      return;
-    }
-    linesRef.current.push(...lines);
-    terminalRef.current?.write(lines.join("\r\n") + "\r\n");
-  }
-
   const copyText = useEffectEvent(async (text: string) => {
     if (!text) {
       return;
@@ -69,6 +61,15 @@ export function LogConsole() {
     if (!container) {
       return () => undefined;
     }
+
+    function pushLines(lines: string[]) {
+      if (!lines.length) {
+        return;
+      }
+      linesRef.current.push(...lines);
+      terminalRef.current?.write(lines.join("\r\n") + "\r\n");
+    }
+
     const terminal = new Terminal({
       convertEol: true,
       disableStdin: true,

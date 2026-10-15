@@ -109,11 +109,11 @@ domain component, add a showcase to the UI Lab.
 
 ## Validation
 
-- `npm run build` runs i18n check, lint, format check, `tsc`, and the Vite
+- `bun run build` runs i18n check, lint, format check, `tsc`, and the Vite
   production build.
-- `npm test` runs the vitest suite.
+- `bun run test` runs the `bun:test` suite.
 - `make test` from the repository root runs the full stack (frontend build +
   tests, Go tests).
 
-Run `npm run build` and `npm test` before committing. The pre-commit hook runs
+Run `bun run build` and `bun run test` before committing. The pre-commit hook runs
 `make format-check lint`.

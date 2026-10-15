@@ -1,19 +1,18 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DownloadedMod, GameVersion, Instance, ModDetails } from "../../shared/api";
 import { InstancePickerDialog } from "./InstancePickerDialog";
 
-const api = vi.hoisted(() => ({
+const api = {
   installDownloaded: vi.fn(),
   download: vi.fn(),
   cancelTask: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
+void vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 
 const instance = (id: string, name: string): Instance => ({
   id,

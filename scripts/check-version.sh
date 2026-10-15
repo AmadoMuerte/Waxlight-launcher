@@ -13,9 +13,9 @@ if [[ ! "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; the
 fi
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-root_version="$(node -p "require('${project_root}/wails.json').info.productVersion")"
-command_version="$(node -p "require('${project_root}/cmd/waxlight/wails.json').info.productVersion")"
-embedded_version="$(node -p "require('${project_root}/internal/version/wails.json').info.productVersion")"
+root_version="$(bun -e "console.log(require('${project_root}/wails.json').info.productVersion)")"
+command_version="$(bun -e "console.log(require('${project_root}/cmd/waxlight/wails.json').info.productVersion)")"
+embedded_version="$(bun -e "console.log(require('${project_root}/internal/version/wails.json').info.productVersion)")"
 
 if [[ "$root_version" != "$release_version" || "$command_version" != "$release_version" || "$embedded_version" != "$release_version" ]]; then
 	echo "release version ${release_version} does not match all wails.json files (${root_version}, ${command_version}, ${embedded_version})" >&2

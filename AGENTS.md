@@ -2,12 +2,12 @@
 
 ## Workflow
 
-- Frontend lives in `frontend/`; install its locked dependencies with `npm ci --include=dev --prefix frontend`. This also registers the Husky pre-commit hook from `frontend/.husky`.
+- Frontend lives in `frontend/`; install its locked dependencies with `bun install --cwd frontend --frozen-lockfile`. This also registers the Husky pre-commit hook from `frontend/.husky`.
 - When implementation depends on an external library API, use Context7 to verify the current documentation before coding.
 - `make test` first runs the frontend production build (including i18n and TypeScript checks), then Go and frontend tests.
 - Run focused Go tests with `go test ./path/to/package -run TestName`.
 - Run `make format` to format Go and frontend sources. Use `make format-check` to validate `gofmt` and `oxfmt --check` without changing files.
-- Run `make lint` for Linux-targeted Go static analysis and frontend `oxlint`; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
+- Run `make lint` for Linux-targeted Go static analysis and frontend linting via Bun's built-in linter; run `make vet` for Go static analysis on the current platform. Run `make security` for prohibited-pattern and vulnerability checks.
 - Pre-commit runs `make format-check lint` and blocks commits on failure. Use `git commit --no-verify` only for an emergency bypass.
 - Full release validation requires a version: `make release-check VERSION=X.Y.Z`.
 - `make release VERSION=X.Y.Z` must be run from a clean `dev` branch based on the latest `origin/dev`. It creates and pushes `release/vX.Y.Z`, then opens a pull request into `dev`. When `go.mod`/`go.sum` changed since the last release it first refreshes the Nix `vendorHash` in `nix/waxlight.nix` via `make nix-update-hash`, which requires `nix` on a `x86_64-linux` host; otherwise the Nix refresh is skipped.
@@ -212,18 +212,18 @@ Before promoting `dev` to `main`:
 
 ### Localization
 
-- `frontend/src/shared/i18n/locales/en.json` is canonical. Translate values only; preserve keys, `{{interpolation}}`, and plural suffixes. Run `npm run check:i18n --prefix frontend`.
+- `frontend/src/shared/i18n/locales/en.json` is canonical. Translate values only; preserve keys, `{{interpolation}}`, and plural suffixes. Run `bun --cwd frontend run check:i18n`.
 - Adding a language also requires registration in `frontend/src/shared/i18n/languages.ts`, `frontend/src/shared/i18n/index.ts`, and backend language validation.
 
 ### Commands
 
-- Install: `npm ci --prefix frontend`. After any dependency change, regenerate `frontend/package.json.md5` with `md5sum frontend/package.json > frontend/package.json.md5`.
-- Build (full validation: i18n check, lint, format check, tsc, vite): `npm run build --prefix frontend`. Tests: `npm test --prefix frontend`. Format: `npm run format --prefix frontend`; dev server: `npm run dev --prefix frontend`.
-- Run `npm run build` and `npm test` before committing; the pre-commit hook runs `make format-check lint` and blocks on failure.
+- Install: `bun install --cwd frontend --frozen-lockfile`. After any dependency change, regenerate `frontend/package.json.md5` with `md5sum frontend/package.json | cut -d' ' -f1 > frontend/package.json.md5` (Wails stores and compares the bare md5 hash, without a filename).
+- Build (full validation: i18n check, lint, format check, tsc, vite): `bun --cwd frontend run build`. Tests: `bun --cwd frontend run test`. Format: `bun --cwd frontend run format`; dev server: `bun --cwd frontend run dev`.
+- Run `bun --cwd frontend run build` and `bun --cwd frontend run test` before committing; the pre-commit hook runs `make format-check lint` and blocks on failure.
 
 ### Testing
 
-- vitest + Testing Library; tests start with `// @vitest-environment jsdom`.
+- `bun:test` + Testing Library; the jsdom DOM is provided by the preload in `frontend/scripts/test-preload.ts` (configured in `frontend/bunfig.toml`), so tests do not need a per-file environment pragma.
 - Components using queries must be wrapped in a fresh `QueryClientProvider` per test (defaults: `retry: false`).
 - Toast assertions: `useToastStore.setState({ notify: vi.fn() })` before render, then assert on the mock.
 - Backend mocks target the domain module (see above). App tests use fake timers to advance the 8s watcher interval.

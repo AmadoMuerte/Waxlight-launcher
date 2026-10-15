@@ -197,17 +197,18 @@ export function ModsPage() {
     return () => window.clearTimeout(timer);
   }, [searchParams, searchText, setSearchParams]);
 
-  const checkedModIDs = useRef(new Set<string>());
+  const checkedModIDs = useRef<{ view: string; ids: Set<string> }>({ view: "", ids: new Set() });
 
   useEffect(() => {
-    checkedModIDs.current.clear();
+    checkedModIDs.current = { view, ids: new Set() };
   }, [view]);
 
   useEffect(() => {
     if (view !== "downloaded") return;
+    const checked = checkedModIDs.current.ids;
     for (const item of downloadedQuery.data ?? []) {
-      if (checkedModIDs.current.has(item.modId)) continue;
-      checkedModIDs.current.add(item.modId);
+      if (checked.has(item.modId)) continue;
+      checked.add(item.modId);
       void modCatalogApi
         .checkUpdates(item.modId)
         .then((updated) => {

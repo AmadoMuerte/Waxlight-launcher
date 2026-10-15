@@ -38,6 +38,9 @@ if ($null -eq $ResEdit) {
     $ResEdit = Get-Command "resedit.cmd" -ErrorAction SilentlyContinue
 }
 if ($null -eq $ResEdit) {
+    $ResEdit = Get-Command "resedit.exe" -ErrorAction SilentlyContinue
+}
+if ($null -eq $ResEdit) {
     throw "resedit-cli is not installed or is not available in PATH"
 }
 

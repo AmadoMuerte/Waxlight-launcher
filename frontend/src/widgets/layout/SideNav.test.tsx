@@ -1,14 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { afterEach, expect, it, vi } from "vitest";
 
 import i18n from "../../shared/i18n";
 import { SideNav } from "./SideNav";
 
-vi.mock("../../entities/operation/queries", () => ({ useOperationsQuery: () => ({ data: [] }) }));
-vi.mock("../../entities/news/queries", () => ({
+void vi.mock("../../entities/operation/queries", () => ({
+  useOperationsQuery: () => ({ data: [] }),
+}));
+void vi.mock("../../entities/news/queries", () => ({
   useNewsQuery: () => ({ data: { unreadCount: 3 } }),
 }));
 

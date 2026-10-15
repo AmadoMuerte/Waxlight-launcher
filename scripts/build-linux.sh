@@ -119,9 +119,10 @@ echo
 echo "Installing frontend dependencies..."
 echo "-----------------------------------"
 
-npm ci \
-    --include=dev \
-    --prefix "$frontend_directory"
+(
+    cd "$frontend_directory"
+    bun install --frozen-lockfile
+)
 
 echo
 echo "Building Linux application..."

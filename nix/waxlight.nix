@@ -2,7 +2,7 @@
   lib,
   pkgs,
   go,
-  nodejs_22,
+  bun,
   pkg-config,
   gtk3,
   webkitgtk_4_1,
@@ -43,10 +43,10 @@ let
       inherit filter;
     };
 
-  # npm dependencies are rebuilt from package-lock.json into an offline,
-  # store-based node_modules. The check:i18n step and the production bundle
-  # run against the repository layout inside the same build. Local install
-  # leftovers are filtered out like in the main source.
+  # Frontend sources; only local install/build leftovers are filtered out, so
+  # bun.lock and bunfig.toml stay in the derivation input. The check:i18n step
+  # and the production bundle run against the repository layout inside the same
+  # build.
   frontendSrc = lib.cleanSourceWith {
     src = ../frontend;
     filter = path: type:
@@ -55,9 +55,54 @@ let
       in
       !(lib.elem base [ "node_modules" "dist" ".vite" ]);
   };
-  nodeModules = pkgs.importNpmLock.buildNodeModules {
-    npmRoot = frontendSrc;
-    nodejs = nodejs_22;
+
+  # Bun dependencies are vendored into an offline, store-based cache by a
+  # fixed-output derivation. This nixpkgs revision has no `bunDeps` helper, so
+  # it follows the same pattern nixpkgs uses for bun.lock projects: `bun
+  # install` runs with network access against the frozen lockfile, and the
+  # populated BUN_INSTALL_CACHE_DIR is exported. The app build then installs
+  # from that cache with --offline, so no network is touched in the sandbox.
+  # All dependencies are pinned by bun.lock, and `dontFixup` keeps store paths
+  # out of the output so its hash stays stable.
+  bunDeps = pkgs.stdenvNoCC.mkDerivation {
+    pname = "waxlight-frontend-bun-deps";
+    inherit version;
+
+    src = frontendSrc;
+
+    nativeBuildInputs = [
+      bun
+      pkgs.writableTmpDirAsHomeHook
+    ];
+
+    # Fetching the locked packages is the only networked step; allow the usual
+    # proxy environment through the fixed-output build.
+    impureEnvVars = lib.fetchers.proxyImpureEnvVars;
+
+    dontConfigure = true;
+
+    buildPhase = ''
+      runHook preBuild
+
+      export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
+      bun install --frozen-lockfile --ignore-scripts --no-progress
+
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+      cp -a "$BUN_INSTALL_CACHE_DIR"/. $out/
+
+      runHook postInstall
+    '';
+
+    dontFixup = true;
+    outputHash = "sha256-kqJmpUlJHB56Qot2UPuenlzdKC6WZtSpJ/6m72QU6AM=";
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
   };
 
   # Vintage Story on Linux is a .NET application. The launcher detects a
@@ -115,7 +160,7 @@ in
     wrapGAppsHook3
     pkg-config
     go
-    nodejs_22
+    bun
   ];
 
   buildInputs = [
@@ -127,7 +172,7 @@ in
   ];
 
   # Go modules are fetched and vendored from the prefetched store directory.
-  vendorHash = "sha256-HZbMYcu/i3W7uFz55XpkVbiPMHfi0tn2bngGKiyOFdw=";
+  vendorHash = "sha256-jiH9ufogsFlTXLGEENzmga72kmWFnRxxrYsL/SU7VjI=";
 
   buildPhase = ''
     runHook preBuild
@@ -135,8 +180,33 @@ in
     # copy merges into the existing read-only store layout; keep it writable
     # so the frontend build can emit dist/ and default tooling caches.
     chmod -R u+w frontend
-    ln -s ${nodeModules}/node_modules frontend/node_modules
-    npm run build --prefix frontend
+    # Install from the vendored cache with no network, then run the production
+    # frontend build (check:i18n, lint, format:check, tsc, vite build).
+    # Bun stages installations through a .tmp directory created inside
+    # BUN_INSTALL_CACHE_DIR and aborts when that directory is read-only, so the
+    # vendored store cache is staged into a writable directory first. The
+    # --no-preserve modes keep the copied tree writable.
+    export HOME=$TMPDIR
+    export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
+    mkdir -p "$BUN_INSTALL_CACHE_DIR"
+    cp -r --no-preserve=mode,ownership ${bunDeps}/. "$BUN_INSTALL_CACHE_DIR"/
+    (cd frontend && bun install --offline --frozen-lockfile --ignore-scripts --no-progress)
+    # --ignore-scripts also skips the postinstall steps that mark native
+    # binaries executable (e.g. TypeScript 7's @typescript/typescript-linux-x64
+    # tsc), so restore exec bits before the tools run.
+    chmod -R u+x frontend/node_modules
+    # The installed .bin shims still carry the upstream `#!/usr/bin/env node`
+    # shebang, but the sandbox has no /usr/bin/env (and no separate nodejs).
+    # Bun is the Node.js-compatible runtime here, so rewrite those shebangs to
+    # the sandboxed bun binary (oxfmt, tsc and vite are all node-shebang bins).
+    # --follow-symlinks edits the real target so relative imports still resolve.
+    for bin in frontend/node_modules/.bin/*; do
+      [ -f "$bin" ] || continue
+      if [ "$(head -n1 "$bin")" = "#!/usr/bin/env node" ]; then
+        sed -i --follow-symlinks "1c #!${bun}/bin/bun" "$bin"
+      fi
+    done
+    (cd frontend && bun run build)
     go build \
       -buildvcs=false \
       -tags "desktop,production,webkit2_41" \

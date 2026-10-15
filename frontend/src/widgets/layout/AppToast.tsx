@@ -11,7 +11,7 @@ export function AppToast() {
     <ToastProvider swipeDirection="right">
       {message && (
         <Toast
-          key={`toast-${Date.now()}`}
+          key={message}
           variant={type ?? "ok"}
           open={!!message}
           onOpenChange={(open) => {

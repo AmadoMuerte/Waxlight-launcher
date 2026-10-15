@@ -1,18 +1,17 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LastKnownGood } from "../../entities/last-known-good/model";
 import { LastKnownGoodSection } from "./LastKnownGoodSection";
 
-const api = vi.hoisted(() => ({
+const api = {
   get: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/last-known-good", () => ({ lastKnownGoodApi: api }));
+void vi.mock("../../shared/api/last-known-good", () => ({ lastKnownGoodApi: api }));
 
 const matching: LastKnownGood = {
   recordedAt: "2026-08-08T15:42:00Z",
