@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "docs/**"
+      - "deploy/**"
+      - "wailsdoc.yaml"
+      - "internal/transport/wails/**"
+      - ".github/workflows/docs-deploy.yml"
   workflow_dispatch:
 
 permissions:

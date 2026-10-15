@@ -442,22 +442,6 @@ try {
                 --prefix $FrontendDirectory
         }
 
-    Invoke-CheckedCommand `
-        -Description "Building frontend assets..." `
-        -Command {
-            npm `
-                --prefix $FrontendDirectory `
-                run build
-        }
-
-    if (-not (Test-Path -LiteralPath $FrontendEntry)) {
-        throw "Frontend build did not create: $FrontendEntry"
-    }
-
-    if ((Get-Item -LiteralPath $FrontendEntry).Length -le 0) {
-        throw "Frontend entry file is empty: $FrontendEntry"
-    }
-
     Push-Location $WailsProjectDirectory
 
     try {
