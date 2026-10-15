@@ -26,7 +26,7 @@ For live Wails development, install the matching CLI and run it from the command
 directory:
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 cd cmd/waxlight
 wails dev -browser -devserver localhost:34116
 ```

@@ -77,27 +77,6 @@
           pkgs = nixpkgs.legacyPackages.${system};
 
           go = goToolchain pkgs;
-
-          # ── Wails 2.12.0 ─────────────────────────────────────
-          wails_2_12_0 = pkgs.buildGoModule rec {
-            pname = "wails";
-            version = "2.12.0";
-
-            src = pkgs.fetchFromGitHub {
-              owner = "wailsapp";
-              repo = "wails";
-              rev = "v${version}";
-              hash = "sha256-XngfbEbXhPRRKbNp/aaVCleISABTs90d5JjmwIq7nsk=";
-            };
-
-            modRoot = "v2";
-
-            vendorHash = "sha256-zQZ6bHiJhRSDaaZjgD31wcD+6vN1cOKt9LD42c6zbes=";
-
-            subPackages = [
-              "cmd/wails"
-            ];
-          };
         in
         {
           default = pkgs.mkShell {
@@ -110,7 +89,7 @@
               pkgs.gtk3
               pkgs.webkitgtk_4_1
 
-              wails_2_12_0
+              pkgs.wails
             ];
 
             shellHook = ''

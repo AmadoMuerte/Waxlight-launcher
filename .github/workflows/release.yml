@@ -169,7 +169,7 @@ jobs:
             rpm
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
       - name: Build Linux packages
         shell: bash
@@ -368,7 +368,7 @@ jobs:
       - name: Install Wails CLI
         shell: powershell
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
           (go env GOPATH) + "\bin" |
             Out-File `

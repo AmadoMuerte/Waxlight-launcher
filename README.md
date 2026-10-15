@@ -129,13 +129,13 @@ See [SECURITY.md](docs/SECURITY.md) and [authentication notes](docs/authenticati
 
 ## Build from source
 
-Requirements: **Go 1.27+**, **Node.js 22+**, **Wails 2.11**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
+Requirements: **Go 1.27+**, **Node.js 22+**, **Wails 2.15**, a C compiler, and the required [Wails platform dependencies](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
 npm ci --include=dev --prefix frontend
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 cd cmd/waxlight
 wails dev -browser -devserver localhost:34116
 ```
