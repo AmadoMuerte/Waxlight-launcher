@@ -12,7 +12,7 @@ BRANCH ?= dev
 REMOTE ?= origin
 AUTO ?=
 
-WAILS_VERSION ?= v2.11.0
+WAILS_VERSION ?= v2.15.0
 GOVULNCHECK_VERSION ?= v1.6.0
 
 WAILS_TAGS := desktop,production

@@ -181,7 +181,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/go/bin
-          key: go-tools-ubuntu-wails-v2.11.0
+          key: go-tools-ubuntu-wails-v2.15.0
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
@@ -385,7 +385,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/go/bin
-          key: go-tools-windows-wails-v2.11.0
+          key: go-tools-windows-wails-v2.15.0
 
       - name: Install Wails CLI
         shell: powershell
