@@ -485,6 +485,7 @@ export interface Settings {
   automaticSnapshotRetention: number;
   librarySort: LibrarySort;
   uiScale: number;
+  closeToTray: boolean;
 }
 
 export interface DataFolder {

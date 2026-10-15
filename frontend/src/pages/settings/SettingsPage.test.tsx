@@ -23,6 +23,7 @@ const settings: Settings = {
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
   uiScale: 1,
+  closeToTray: true,
 };
 
 const settingsQuery = vi.hoisted(() => ({
@@ -143,6 +144,20 @@ it("persists the automatic safety backups switch", async () => {
   await waitFor(() =>
     expect(settingsApi.update).toHaveBeenCalledWith(
       expect.objectContaining({ automaticSafetySnapshots: false }),
+    ),
+  );
+});
+
+it("persists the close to system tray switch", async () => {
+  renderPage();
+
+  const toggle = await screen.findByRole("switch", { name: "Close to system tray" });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+
+  await waitFor(() =>
+    expect(settingsApi.update).toHaveBeenCalledWith(
+      expect.objectContaining({ closeToTray: false }),
     ),
   );
 });

@@ -8,6 +8,7 @@ import {
   Palette,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -57,6 +58,7 @@ const autosaveDelayMs = 400;
 
 const SETTINGS_SECTIONS = [
   { id: "appearance", icon: Palette, labelKey: "appearance" },
+  { id: "behavior", icon: SlidersHorizontal, labelKey: "behavior" },
   { id: "downloads", icon: Download, labelKey: "downloads_and_game" },
   { id: "backups", icon: Archive, labelKey: "backups" },
   { id: "updates", icon: RefreshCw, labelKey: "launcher_updates" },
@@ -81,6 +83,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
     left.librarySort === right.librarySort &&
     left.uiScale === right.uiScale &&
+    left.closeToTray === right.closeToTray &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -462,6 +465,23 @@ export function SettingsPage() {
                       { value: "1.5", label: "1.5×" },
                     ]}
                     onValueChange={(v) => setValue({ ...value, uiScale: Number(v) })}
+                  />
+                </SettingRow>
+              </Card>
+            </PageSection>
+
+            <PageSection id="settings-behavior">
+              <SectionHeader
+                variant="compact"
+                title={t("behavior")}
+                description={t("behavior_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow title={t("close_to_tray")} description={t("close_to_tray_description")}>
+                  <Switch
+                    label={t("close_to_tray")}
+                    checked={value.closeToTray}
+                    onCheckedChange={(closeToTray) => setValue({ ...value, closeToTray })}
                   />
                 </SettingRow>
               </Card>
