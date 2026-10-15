@@ -3,6 +3,7 @@ module github.com/AmadoMuerte/Waxlight-launcher
 go 1.25.13
 
 require (
+	fyne.io/systray v1.12.2
 	github.com/AmadoMuerte/vintagestory-go v0.5.2
 	github.com/AmadoMuerte/wailsdoc v0.3.0
 	github.com/Microsoft/go-winio v0.6.2

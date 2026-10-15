@@ -97,6 +97,7 @@ const settings: Settings = {
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
   uiScale: 1,
+  closeToTray: true,
 };
 
 function instance(id: string, name: string, overrides: Partial<Instance> = {}): Instance {
