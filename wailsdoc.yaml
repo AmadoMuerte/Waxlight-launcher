@@ -12,6 +12,7 @@ output:
 ui:
   provider: vitepress
   directory: docs/site
+  packageManager: bun
 wails:
   bindings: frontend/src/wailsjs/go/wails
 validation:

@@ -120,18 +120,24 @@ export function SettingsPage() {
   const translateRef = useRef(t);
   const optimumRevisionRef = useRef(0);
 
-  notifyRef.current = notify;
-  translateRef.current = t;
-
   useEffect(() => {
-    if (!settings) {
-      return;
-    }
-    persistedRef.current = settings;
+    notifyRef.current = notify;
+    translateRef.current = t;
+  }, [notify, t]);
+
+  const [syncedSettings, setSyncedSettings] = useState<Settings>();
+  if (settings && settings !== syncedSettings) {
+    setSyncedSettings(settings);
     setValue((current) =>
       current ? { ...current, skippedUpdateVersion: settings.skippedUpdateVersion } : settings,
     );
     setLaunchArgumentsText((current) => current || settings.globalLaunchArguments.join(" "));
+  }
+
+  useEffect(() => {
+    if (settings) {
+      persistedRef.current = settings;
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -147,42 +153,43 @@ export function SettingsPage() {
     };
     const persistedPresenceEnabled = persisted.richPresenceEnabled;
     const revision = ++revisionRef.current;
-    const timer = window.setTimeout(() => {
-      async function persist() {
+
+    async function persist() {
+      if (revision !== revisionRef.current) {
+        return;
+      }
+
+      try {
+        const presenceChanged = next.richPresenceEnabled !== persistedPresenceEnabled;
+        const saved = await settingsApi.update(next);
+        persistedRef.current = saved;
+        if (presenceChanged) {
+          void presenceSetEnabled(saved.richPresenceEnabled).catch(() => undefined);
+        }
         if (revision !== revisionRef.current) {
           return;
         }
-
-        try {
-          const presenceChanged = next.richPresenceEnabled !== persistedPresenceEnabled;
-          const saved = await settingsApi.update(next);
-          persistedRef.current = saved;
-          if (presenceChanged) {
-            void presenceSetEnabled(saved.richPresenceEnabled).catch(() => undefined);
-          }
-          if (revision !== revisionRef.current) {
-            return;
-          }
-          setValue(saved);
-          queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
-          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
-          await changeAppLanguage(saved.language);
-          notifyRef.current(translateRef.current("settings_saved"));
-        } catch (error) {
-          if (revision !== revisionRef.current) {
-            return;
-          }
-          const previous = persistedRef.current;
-          if (previous) {
-            setValue(previous);
-            setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
-            await changeAppLanguage(previous.language);
-          }
-          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
-          notifyRef.current(errorMessage(error), "error");
+        setValue(saved);
+        queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
+        await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+        await changeAppLanguage(saved.language);
+        notifyRef.current(translateRef.current("settings_saved"));
+      } catch (error) {
+        if (revision !== revisionRef.current) {
+          return;
         }
+        const previous = persistedRef.current;
+        if (previous) {
+          setValue(previous);
+          setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
+          await changeAppLanguage(previous.language);
+        }
+        await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+        notifyRef.current(errorMessage(error), "error");
       }
+    }
 
+    const timer = window.setTimeout(() => {
       saveQueueRef.current = saveQueueRef.current.then(persist, persist);
     }, autosaveDelayMs);
 

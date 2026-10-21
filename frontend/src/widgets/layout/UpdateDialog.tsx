@@ -1,7 +1,7 @@
 import { Clock, Download, Rocket } from "lucide-react";
 import type { Root } from "mdast";
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -183,11 +183,11 @@ export function UpdateDialog() {
   const updateDialogOpen = useAppShellStore((state) => state.updateDialogOpen);
   const dismissUpdate = useAppShellStore((state) => state.dismissUpdate);
 
-  const lastUpdateRef = useRef<LauncherUpdate | undefined>(undefined);
-  if (update) {
-    lastUpdateRef.current = update;
+  const [lastUpdate, setLastUpdate] = useState<LauncherUpdate>();
+  if (update && update !== lastUpdate) {
+    setLastUpdate(update);
   }
-  const currentUpdate = update ?? lastUpdateRef.current;
+  const currentUpdate = update ?? lastUpdate;
 
   const settingsQuery = useSettingsQuery();
   const channel = settingsQuery.data?.updateChannel ?? "stable";

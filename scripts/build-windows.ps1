@@ -437,9 +437,7 @@ try {
     Invoke-CheckedCommand `
         -Description "Installing frontend dependencies..." `
         -Command {
-            npm ci `
-                --include=dev `
-                --prefix $FrontendDirectory
+            bun install --frozen-lockfile --cwd $FrontendDirectory
         }
 
     Push-Location $WailsProjectDirectory

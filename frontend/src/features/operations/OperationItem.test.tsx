@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Operation } from "../../entities/operation/model";
 import { OperationItem } from "./OperationItem";

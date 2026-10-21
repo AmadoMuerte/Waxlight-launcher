@@ -1,17 +1,16 @@
-// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, expect, it, vi } from "vitest";
 
 import i18n, { changeAppLanguage } from "../shared/i18n";
 import { App } from "./App";
 import { useAppShellStore } from "./stores/app-shell";
 import { useNotificationStore } from "./stores/notifications";
 
-const api = vi.hoisted(() => ({
+const api = {
   list: vi.fn().mockResolvedValue([]),
   overview: vi.fn().mockResolvedValue({
     totalPlaytimeSeconds: 0,
@@ -51,9 +50,9 @@ const api = vi.hoisted(() => ({
     unreadCount: 0,
     refreshFailed: false,
   }),
-}));
+};
 
-const modCatalogApi = vi.hoisted(() => ({
+const modCatalogApi = {
   search: vi.fn().mockResolvedValue({
     items: [],
     page: 1,
@@ -64,34 +63,37 @@ const modCatalogApi = vi.hoisted(() => ({
   }),
   tags: vi.fn().mockResolvedValue([]),
   downloaded: vi.fn().mockResolvedValue([]),
-}));
+};
 
-const logger = vi.hoisted(() => ({
+const logger = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-}));
+};
 
-vi.mock("../shared/api/instances", () => ({
+const originalRuntime = (globalThis as { runtime?: unknown }).runtime;
+const originalResizeObserver = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+
+void vi.mock("../shared/api/instances", () => ({
   instancesApi: { list: api.list },
 }));
-vi.mock("../shared/api/game-versions", () => ({
+void vi.mock("../shared/api/game-versions", () => ({
   versionsApi: { list: api.list },
 }));
-vi.mock("../shared/api/accounts", () => ({
+void vi.mock("../shared/api/accounts", () => ({
   accountsApi: { list: api.list },
 }));
-vi.mock("../shared/api/operations", () => ({
+void vi.mock("../shared/api/operations", () => ({
   operationsApi: { list: api.list },
 }));
-vi.mock("../shared/api/statistics", () => ({
+void vi.mock("../shared/api/statistics", () => ({
   statisticsApi: { overview: api.overview },
 }));
-vi.mock("../shared/api/settings", () => ({
+void vi.mock("../shared/api/settings", () => ({
   settingsApi: { get: api.get, update: api.update, getDataFolder: api.getDataFolder },
 }));
-vi.mock("../shared/api/updates", () => ({
+void vi.mock("../shared/api/updates", () => ({
   updatesApi: {
     currentVersion: vi.fn().mockResolvedValue("0.1.4"),
     check: api.checkUpdate,
@@ -99,22 +101,22 @@ vi.mock("../shared/api/updates", () => ({
     openReleasePage: vi.fn(),
   },
 }));
-vi.mock("../shared/api/deep-links", () => ({
+void vi.mock("../shared/api/deep-links", () => ({
   deepLinksApi: { consumePending: vi.fn().mockResolvedValue([]) },
 }));
-vi.mock("../shared/api/news", () => ({
+void vi.mock("../shared/api/news", () => ({
   newsApi: {
     sync: api.newsSync,
     markSeen: vi.fn().mockResolvedValue(undefined),
     openArticle: vi.fn().mockResolvedValue(undefined),
   },
 }));
-vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
-vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
-vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi }));
-vi.mock("../shared/lib/logger", () => ({ log: logger }));
+void vi.mock("../shared/api/launcher", () => ({ launcherApi: {} }));
+void vi.mock("../shared/api/mods", () => ({ modsApi: {} }));
+void vi.mock("../shared/api/mod-catalog", () => ({ modCatalogApi }));
+void vi.mock("../shared/lib/logger", () => ({ log: logger }));
 
-vi.mock("@xterm/xterm", () => ({
+void vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     write = vi.fn();
     clear = vi.fn();
@@ -127,7 +129,7 @@ vi.mock("@xterm/xterm", () => ({
   },
 }));
 
-vi.mock("@xterm/addon-fit", () => ({
+void vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
     fit = vi.fn();
   },
@@ -159,6 +161,8 @@ afterEach(() => {
     updateNotificationEnabled: false,
   });
   useNotificationStore.setState({ notifications: [] });
+  (globalThis as { runtime?: unknown }).runtime = originalRuntime;
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
   vi.clearAllMocks();
 });
 
@@ -181,13 +185,14 @@ function renderApp(initialEntries?: string[]) {
 it("applies persisted language before rendering and navigation reacts to changes", async () => {
   api.get.mockClear();
   api.update.mockClear();
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers();
   renderApp();
   expect(await screen.findByRole("link", { name: /Библиотека/ })).toBeTruthy();
   expect(document.documentElement.lang).toBe("ru");
   expect(api.get).toHaveBeenCalledTimes(1);
 
-  await vi.advanceTimersByTimeAsync(16_000);
+  vi.advanceTimersByTime(16_000);
+  await Promise.resolve();
   expect(api.get).toHaveBeenCalledTimes(1);
 
   await changeAppLanguage("en");
@@ -241,14 +246,15 @@ it("renders and logs an initial watcher error", async () => {
 it("does not replace autosaved settings during background refresh", async () => {
   api.get.mockClear();
   api.update.mockClear();
-  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.useFakeTimers();
   renderApp(["/settings"]);
 
   const parallelDownloads = (await screen.findAllByRole("spinbutton"))[0] as HTMLInputElement;
   fireEvent.change(parallelDownloads, { target: { value: "7" } });
   expect(parallelDownloads.value).toBe("7");
 
-  await vi.advanceTimersByTimeAsync(16_000);
+  vi.advanceTimersByTime(16_000);
+  await Promise.resolve();
   expect(parallelDownloads.value).toBe("7");
   expect(api.get).toHaveBeenCalledTimes(1);
   expect(api.update).toHaveBeenCalledWith(expect.objectContaining({ downloadsParallel: 7 }));
@@ -306,12 +312,12 @@ it("keeps core startup usable when News is unavailable", async () => {
 
 it("navigates when the native window reports a side mouse button", async () => {
   const listeners = new Map<string, (payload: unknown) => void>();
-  vi.stubGlobal("runtime", {
+  (globalThis as { runtime?: unknown }).runtime = {
     EventsOnMultiple: (name: string, callback: (payload: unknown) => void) => {
       listeners.set(name, callback);
       return () => listeners.delete(name);
     },
-  });
+  };
   renderApp();
 
   const libraryLink = await screen.findByRole("link", { name: /Library|Библиотека/ });
@@ -321,7 +327,6 @@ it("navigates when the native window reports a side mouse button", async () => {
 
   act(() => listeners.get("navigation:mouse")?.(-1));
   await waitFor(() => expect(libraryLink.className).toContain("active"));
-  vi.unstubAllGlobals();
 });
 
 it("publishes a startup update notification and opens the dialog only on selection", async () => {
@@ -390,22 +395,19 @@ it("opens manual update checks directly without publishing a notification", asyn
 
 it("updates the operations list live from backend events", async () => {
   const listeners = new Map<string, (payload: unknown) => void>();
-  vi.stubGlobal("runtime", {
+  (globalThis as { runtime?: unknown }).runtime = {
     EventsOnMultiple: (name: string, callback: (payload: unknown) => void) => {
       listeners.set(name, callback);
       return () => {
         listeners.delete(name);
       };
     },
-  });
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
+  };
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
 
   renderApp(["/operations"]);
   await screen.findByText("Операций пока нет");
@@ -446,5 +448,4 @@ it("updates the operations list live from backend events", async () => {
   expect(removed).toBeTruthy();
   act(() => removed!({ id: "op-1" }));
   await waitFor(() => expect(screen.queryByText("Создание снимка")).toBeNull());
-  vi.unstubAllGlobals();
 });

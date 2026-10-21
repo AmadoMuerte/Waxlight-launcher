@@ -56,7 +56,7 @@ export function ExistingDataImportModal({
   onOpenInstance,
   onOpenVersions,
 }: ExistingDataImportModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { data: operations = [] } = useOperationsQuery({ refetchInterval: 1_000 });
   const [step, setStep] = useState<Step>("detect");
@@ -126,14 +126,21 @@ export function ExistingDataImportModal({
     })();
   }, [queryClient, trackedOperation]);
 
-  useEffect(() => {
+  const trackedOperationKey = trackedOperation
+    ? `${trackedOperation.id}|${trackedOperation.status}`
+    : "";
+  const [syncedTrackedOperationKey, setSyncedTrackedOperationKey] = useState<string>();
+  const [syncedLanguage, setSyncedLanguage] = useState(i18n.language);
+  if (trackedOperationKey !== syncedTrackedOperationKey || i18n.language !== syncedLanguage) {
+    setSyncedTrackedOperationKey(trackedOperationKey);
+    setSyncedLanguage(i18n.language);
     if (trackedOperation?.status === "failed") {
       setError(trackedOperation.errorMessage || t("existing_data_import_failed"));
       setStep("failed");
     } else if (trackedOperation?.status === "cancelled") {
       setStep("cancelled");
     }
-  }, [t, trackedOperation]);
+  }
 
   async function inspect(path: string) {
     setBusy(true);

@@ -233,13 +233,10 @@ export function ServersPage() {
     t,
   ]);
 
-  useEffect(() => {
-    setVisibleServerCount(SERVER_PAGE_SIZE);
-  }, [deferredSearch, showWhitelistServers]);
-
   function resetFilters() {
     setSearch("");
     setShowWhitelistServers(false);
+    setVisibleServerCount(SERVER_PAGE_SIZE);
   }
 
   const copyWaxlightLink = useCallback(
@@ -333,14 +330,20 @@ export function ServersPage() {
                   aria-label={t("search_servers")}
                   placeholder={t("search_servers_placeholder")}
                   value={search}
-                  onValueChange={setSearch}
+                  onValueChange={(value) => {
+                    setSearch(value);
+                    setVisibleServerCount(SERVER_PAGE_SIZE);
+                  }}
                 />
               </ToolbarGroup>
               <ToolbarGroup align="end">
                 <Checkbox
                   label={t("show_whitelist_servers")}
                   checked={showWhitelistServers}
-                  onChange={(event) => setShowWhitelistServers(event.target.checked)}
+                  onChange={(event) => {
+                    setShowWhitelistServers(event.target.checked);
+                    setVisibleServerCount(SERVER_PAGE_SIZE);
+                  }}
                 />
                 <IconButton
                   aria-label={t("refresh")}

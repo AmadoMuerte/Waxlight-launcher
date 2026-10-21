@@ -1,19 +1,18 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import { AvailableVersions } from "./AvailableVersions";
 
-const api = vi.hoisted(() => ({
+const api = {
   available: vi.fn(),
   installAvailable: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi: api }));
+void vi.mock("../../shared/api/game-versions", () => ({ versionsApi: api }));
 
 const releases = [
   {

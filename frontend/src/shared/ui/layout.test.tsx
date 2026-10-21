@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
+import { expect, it, vi } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { expect, it, vi } from "vitest";
 
 import { Button } from "./button";
 import { EmptyState } from "./empty";
@@ -64,7 +63,7 @@ it("renders page header actions and shared states semantically", async () => {
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(screen.getByText("Loading instances…")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-  expect(retry).toHaveBeenCalledOnce();
+  expect(retry).toHaveBeenCalledTimes(1);
 });
 
 it("supports keyboard tab navigation and skips disabled tabs", async () => {

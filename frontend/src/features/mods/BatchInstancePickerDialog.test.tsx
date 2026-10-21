@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DownloadedMod,
@@ -13,11 +12,11 @@ import type {
 } from "../../shared/api";
 import { BatchInstancePickerDialog } from "./BatchInstancePickerDialog";
 
-const api = vi.hoisted(() => ({
+const api = {
   downloadBatch: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
+void vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
 
 const instance = (id: string, name: string): Instance => ({
   id,

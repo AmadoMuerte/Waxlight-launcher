@@ -45,14 +45,61 @@
 
         meta.platforms = pkgs.lib.platforms.linux;
       };
+
+      # ── Bun 1.4.4 ───────────────────────────────────────
+      # Waxlight's frontend linter is pinned to Bun 1.4.4, which is only
+      # published on the canary release channel today. Once 1.4.4 ships as a
+      # stable release, point `url` at
+      #   https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64.zip
+      # and re-pin `hash` for that artifact.
+      #
+      # Bun is a dynamically linked binary with the generic
+      # /lib64/ld-linux-x86-64.so.2 interpreter, which does not exist inside the
+      # Nix sandbox; autoPatchelfHook rewrites it to the stdenv loader so the
+      # same derivation works for the devShell and for the sandboxed app build.
+      bunToolchain = pkgs: pkgs.stdenvNoCC.mkDerivation {
+        pname = "bun";
+        version = "1.4.4";
+
+        src = pkgs.fetchurl {
+          url = "https://github.com/oven-sh/bun/releases/download/canary/bun-linux-x64.zip";
+          hash = "sha256-+mF39r5y9kqG+qasQIFF7bVyMILUPWGxiTJ6nUkchtA=";
+        };
+
+        # The release zip unpacks to a single bun-linux-x64/ directory.
+        sourceRoot = "bun-linux-x64";
+
+        nativeBuildInputs = [
+          pkgs.unzip
+          pkgs.autoPatchelfHook
+        ];
+
+        dontConfigure = true;
+        dontBuild = true;
+
+        installPhase = ''
+          runHook preInstall
+
+          install -Dm755 bun $out/bin/bun
+          ln -s $out/bin/bun $out/bin/bunx
+
+          runHook postInstall
+        '';
+
+        meta.platforms = pkgs.lib.platforms.linux;
+      };
     in
     {
       packages = forAllSystems (
-        system: {
-          default =
-            nixpkgs.legacyPackages.${system}.callPackage ./nix/waxlight.nix {
-              go = goToolchain nixpkgs.legacyPackages.${system};
-            };
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          default = pkgs.callPackage ./nix/waxlight.nix {
+            go = goToolchain pkgs;
+            bun = bunToolchain pkgs;
+          };
         }
       );
 
@@ -77,6 +124,7 @@
           pkgs = nixpkgs.legacyPackages.${system};
 
           go = goToolchain pkgs;
+          bun = bunToolchain pkgs;
         in
         {
           default = pkgs.mkShell {
@@ -84,7 +132,7 @@
 
             packages = [
               go
-              pkgs.nodejs_22
+              bun
               pkgs.pkg-config
               pkgs.gtk3
               pkgs.webkitgtk_4_1
@@ -97,8 +145,7 @@
               echo "Waxlight development environment"
               echo "────────────────────────────────"
               echo "Go:    $(go version)"
-              echo "Node:  $(node --version)"
-              echo "npm:   $(npm --version)"
+              echo "Bun:   $(bun --version)"
               echo "Wails: $(wails version 2>/dev/null | head -n1)"
               echo
             '';

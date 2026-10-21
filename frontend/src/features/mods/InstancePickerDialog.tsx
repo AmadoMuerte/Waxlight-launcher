@@ -124,9 +124,11 @@ export function InstancePickerDialog({
 
   // Instances that already have this mod installed are shown as installed and
   // cannot be selected again.
-  useEffect(() => {
+  const [syncedInstalledById, setSyncedInstalledById] = useState<typeof installedById>();
+  if (installedById !== syncedInstalledById) {
+    setSyncedInstalledById(installedById);
     setSelected((items) => items.filter((id) => !installedById.has(id)));
-  }, [installedById]);
+  }
 
   useEffect(() => {
     let unsubscribeProgress = () => {};

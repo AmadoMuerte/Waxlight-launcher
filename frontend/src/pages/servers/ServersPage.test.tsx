@@ -1,29 +1,28 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "../../shared/ui/tooltip";
 import { ServersPage } from "./ServersPage";
 
-const serversApi = vi.hoisted(() => ({
+const serversApi = {
   listPublic: vi.fn(),
   getPublic: vi.fn(),
   listFavorites: vi.fn(),
   saveFavorite: vi.fn(),
   removeFavorite: vi.fn(),
-}));
-const instancesApi = vi.hoisted(() => ({ list: vi.fn() }));
-const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
-const launcherApi = vi.hoisted(() => ({ launch: vi.fn(), launchServer: vi.fn() }));
+};
+const instancesApi = { list: vi.fn() };
+const versionsApi = { list: vi.fn() };
+const launcherApi = { launch: vi.fn(), launchServer: vi.fn() };
 
-vi.mock("../../shared/api/servers", () => ({ serversApi }));
-vi.mock("../../shared/api/instances", () => ({ instancesApi }));
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
-vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
+void vi.mock("../../shared/api/servers", () => ({ serversApi }));
+void vi.mock("../../shared/api/instances", () => ({ instancesApi }));
+void vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
+void vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
 
 function publicServer(name: string, requiresWhitelist: boolean) {
   return {

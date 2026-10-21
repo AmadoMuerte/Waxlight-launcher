@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { expect, it, vi } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
 
 import { Field } from "@/shared/ui/field";
 import { Modal } from "@/shared/ui/modal";
@@ -36,5 +35,5 @@ it("closes an open select before closing its modal", async () => {
   expect(onClose).not.toHaveBeenCalled();
 
   await user.keyboard("{Escape}");
-  expect(onClose).toHaveBeenCalledOnce();
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

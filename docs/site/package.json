@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vitepress build . && npm test",
+    "build": "vitepress build . && bun run test",
     "dev": "vitepress dev .",
     "preview": "vitepress preview .",
-    "test": "node scripts/test.mjs"
+    "test": "bun scripts/test.mjs"
   },
   "devDependencies": {
     "vitepress": "1.6.4"

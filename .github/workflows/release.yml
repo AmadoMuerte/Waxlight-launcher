@@ -29,13 +29,27 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
+
       - name: Read release metadata
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          version="$(node -p "require('./wails.json').info.productVersion")"
+          version="$(bun -e 'console.log(require("./wails.json").info.productVersion)')"
           tag="v${version}"
           echo "release-tag=$tag" >> "$GITHUB_OUTPUT"
 
@@ -95,15 +109,22 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install frontend dependencies
-        run: npm ci --include=dev --prefix frontend
+        run: bun install --cwd frontend --frozen-lockfile
 
       - name: Confirm tag and application version
         shell: bash
@@ -111,7 +132,7 @@ jobs:
           ./scripts/check-version.sh "${RELEASE_TAG#v}"
 
       - name: Build frontend assets
-        run: npm --prefix frontend run build
+        run: bun --cwd=frontend run build
 
       - name: Test backend
         run: go test ./...
@@ -123,7 +144,7 @@ jobs:
         run: go vet ./...
 
       - name: Test frontend
-        run: npm --prefix frontend test
+        run: bun --cwd=frontend run test
 
       - name: Check prohibited security patterns
         run: ./scripts/check-security-patterns.sh
@@ -160,12 +181,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install Linux build and packaging dependencies
         run: |
@@ -303,18 +331,25 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install Windows build tools
         shell: powershell
         run: |
           choco install mingw nsis --no-progress -y
-          npm install --global resedit-cli@3.1.0
+          bun install --global resedit-cli@3.1.0
 
           $CandidateDirectories = @(
             "C:\ProgramData\mingw64\mingw64\bin",
@@ -346,13 +381,13 @@ jobs:
           }
 
           $NsisDirectory = "${env:ProgramFiles(x86)}\NSIS"
-          $NpmGlobalPrefix = (npm prefix --global).Trim()
+          $BunGlobalBin = (bun pm bin -g).Trim()
 
           if (-not (Test-Path (Join-Path $NsisDirectory "makensis.exe"))) {
             throw "Chocolatey did not install makensis.exe in $NsisDirectory"
           }
 
-          $env:Path = "$MingwBin;$NsisDirectory;$NpmGlobalPrefix;$env:Path"
+          $env:Path = "$MingwBin;$NsisDirectory;$BunGlobalBin;$env:Path"
 
           $MingwBin |
             Out-File `
@@ -366,7 +401,7 @@ jobs:
               -Encoding utf8 `
               -Append
 
-          $NpmGlobalPrefix |
+          $BunGlobalBin |
             Out-File `
               -FilePath $env:GITHUB_PATH `
               -Encoding utf8 `
@@ -374,7 +409,7 @@ jobs:
 
           Write-Host "MinGW path: $MingwBin"
           Write-Host "NSIS path: $NsisDirectory"
-          Write-Host "npm global path: $NpmGlobalPrefix"
+          Write-Host "Bun global bin path: $BunGlobalBin"
 
           gcc --version
           g++ --version

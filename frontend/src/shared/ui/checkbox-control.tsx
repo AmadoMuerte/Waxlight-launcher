@@ -17,9 +17,9 @@ export function Checkbox({
         checked={checked}
         onCheckedChange={(radixChecked) => {
           // Adapt Radix boolean callback to the native checkbox onChange API expected by consumers.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- intentional adapter between Radix and native checkbox APIs
           onChange?.({
             target: { checked: radixChecked === true },
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- intentional adapter between Radix and native checkbox APIs
           } as React.ChangeEvent<HTMLInputElement>);
         }}
       />

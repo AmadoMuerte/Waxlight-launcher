@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { InstanceModUpdateReport, ModVersion } from "../../entities/mod/model";
 import { ModUpdatesModal } from "./ModUpdatesModal";
 
-const api = vi.hoisted(() => ({ updateInstance: vi.fn(), upgradeVersions: vi.fn() }));
-vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
+const api = { updateInstance: vi.fn(), upgradeVersions: vi.fn() };
+void vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
 
 const report: InstanceModUpdateReport = {
   gameVersion: "1.20",
@@ -139,7 +138,7 @@ describe("ModUpdatesModal", () => {
         allowIncompatible: false,
       }),
     );
-    expect(props.onApplied).toHaveBeenCalledOnce();
+    expect(props.onApplied).toHaveBeenCalledTimes(1);
   });
 
   it("does not submit stale report target after successful empty response", async () => {
