@@ -14,10 +14,10 @@
 
       forAllSystems = nixpkgs.lib.genAttrs systems;
 
-      # ── Go 1.27.2 ───────────────────────────────────────
+      # ── Go 1.27.3 ───────────────────────────────────────
       goToolchain = pkgs: pkgs.stdenvNoCC.mkDerivation {
         pname = "go";
-        version = "1.27.2";
+        version = "1.27.3";
 
         # buildGoModule reads GOOS/GOARCH/CGO_ENABLED and meta from the Go
         # derivation; nixpkgs' go exposes them and this hand-rolled toolchain must
@@ -28,8 +28,8 @@
         CGO_ENABLED = "1";
 
         src = pkgs.fetchurl {
-          url = "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz";
-          hash = "sha256-7LrbmQkaP0bjH1+TSwaLGGTq+nmVIRs56t33aZYEX+U=";
+          url = "https://go.dev/dl/go1.27.3.linux-amd64.tar.gz";
+          hash = "sha256-Ze+8gP3B+izSYxytW0gXd6aOhyXzTon1D8ascU43m0A=";
         };
 
         sourceRoot = ".";
@@ -63,7 +63,7 @@
 
         src = pkgs.fetchurl {
           url = "https://github.com/oven-sh/bun/releases/download/canary/bun-linux-x64.zip";
-          hash = "sha256-+mF39r5y9kqG+qasQIFF7bVyMILUPWGxiTJ6nUkchtA=";
+          hash = "sha256-qs71A29VUWMQBtIN6xEzhFIGTcMqsl+M66jzeNf69Fs=";
         };
 
         # The release zip unpacks to a single bun-linux-x64/ directory.
