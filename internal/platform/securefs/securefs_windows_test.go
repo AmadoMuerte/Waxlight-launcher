@@ -11,6 +11,20 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// requireDaclMatches asserts that path carries the intended hardened DACL,
+// dumping both ACE lists on failure so CI logs show the exact difference.
+func requireDaclMatches(t *testing.T, path string, directory bool) {
+	t.Helper()
+	desired, err := buildDACL(directory)
+	if err != nil {
+		t.Fatalf("buildDACL: %v", err)
+	}
+	if !daclMatches(path, desired) {
+		t.Errorf("DACL does not match\ncurrent: %s\ndesired: %s",
+			describeDACL(path), describeACL(desired))
+	}
+}
+
 func TestApplyDirectorySkipsIdenticalDACL(t *testing.T) {
 	dir := t.TempDir()
 	desired, err := buildDACL(true)
@@ -26,18 +40,14 @@ func TestApplyDirectorySkipsIdenticalDACL(t *testing.T) {
 	if err := Apply(dir, 0o700, true); err != nil {
 		t.Fatalf("first Apply: %v", err)
 	}
-	if !daclMatches(dir, desired) {
-		t.Fatal("DACL does not match after Apply")
-	}
+	requireDaclMatches(t, dir, true)
 
 	// A second Apply must succeed and leave the DACL matching (this time via
 	// the skip path).
 	if err := Apply(dir, 0o700, true); err != nil {
 		t.Fatalf("second Apply: %v", err)
 	}
-	if !daclMatches(dir, desired) {
-		t.Fatal("DACL does not match after second Apply")
-	}
+	requireDaclMatches(t, dir, true)
 }
 
 func TestApplyFileSkipsIdenticalDACL(t *testing.T) {
@@ -56,9 +66,7 @@ func TestApplyFileSkipsIdenticalDACL(t *testing.T) {
 	if err := Apply(file, 0o600, false); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if !daclMatches(file, desired) {
-		t.Fatal("DACL does not match after Apply")
-	}
+	requireDaclMatches(t, file, false)
 }
 
 func TestDaclMatchesDetectsExternalChanges(t *testing.T) {
@@ -101,8 +109,33 @@ func TestDaclMatchesDetectsExternalChanges(t *testing.T) {
 	if err := Apply(dir, 0o700, true); err != nil {
 		t.Fatalf("re-Apply: %v", err)
 	}
-	if !daclMatches(dir, desired) {
-		t.Fatal("DACL does not match after re-Apply")
+	requireDaclMatches(t, dir, true)
+}
+
+func TestFileSpecificMaskExpandsGenericBits(t *testing.T) {
+	tests := []struct {
+		name string
+		in   uint32
+		want uint32
+	}{
+		{name: "generic all maps to file all access", in: windows.GENERIC_ALL, want: fileAllAccess},
+		{name: "generic read", in: windows.GENERIC_READ, want: windows.FILE_GENERIC_READ},
+		{name: "generic write", in: windows.GENERIC_WRITE, want: windows.FILE_GENERIC_WRITE},
+		{name: "generic execute", in: windows.GENERIC_EXECUTE, want: windows.FILE_GENERIC_EXECUTE},
+		{name: "all generic bits combine", in: windows.GENERIC_READ | windows.GENERIC_WRITE | windows.GENERIC_EXECUTE,
+			want: windows.FILE_GENERIC_READ | windows.FILE_GENERIC_WRITE | windows.FILE_GENERIC_EXECUTE},
+		{name: "already specific stays unchanged", in: fileAllAccess, want: fileAllAccess},
+		{name: "zero stays zero", in: 0, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fileSpecificMask(tt.in); got != tt.want {
+				t.Errorf("fileSpecificMask(%#08x) = %#08x, want %#08x", tt.in, got, tt.want)
+			}
+		})
+	}
+	if fileAllAccess != 0x001F01FF {
+		t.Errorf("fileAllAccess = %#08x, want 0x001F01FF", fileAllAccess)
 	}
 }
 

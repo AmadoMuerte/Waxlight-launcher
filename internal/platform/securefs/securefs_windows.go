@@ -5,8 +5,10 @@ package securefs
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -102,7 +104,87 @@ func daclMatches(path string, desired *windows.ACL) bool {
 	if err != nil {
 		return false
 	}
+	// Windows maps the GENERIC_* bits to file-specific rights when the DACL
+	// is stored on an SE_FILE_OBJECT and GetNamedSecurityInfo returns the
+	// mapped form, while the ACL built by ACLFromEntries keeps the generic
+	// bits. Both sides must therefore be compared in specific form.
+	normalizeGenericMasks(currentACEs)
+	normalizeGenericMasks(desiredACEs)
 	return sameACLs(currentACEs, desiredACEs)
+}
+
+// fileAllAccess is the file-specific expansion of GENERIC_ALL, equivalent to
+// FILE_ALL_ACCESS from winnt.h: STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF.
+const fileAllAccess uint32 = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0x1FF
+
+// normalizeGenericMasks expands the generic access bits in every ACE mask to
+// the file-specific rights they stand for on file-system objects.
+func normalizeGenericMasks(aces []aclACE) {
+	for i := range aces {
+		aces[i].mask = fileSpecificMask(aces[i].mask)
+	}
+}
+
+// fileSpecificMask expands the GENERIC_* access bits into the file-specific
+// rights (the file object's generic mapping), mirroring MapGenericMask.
+func fileSpecificMask(mask uint32) uint32 {
+	specific := mask &^ (windows.GENERIC_READ | windows.GENERIC_WRITE | windows.GENERIC_EXECUTE | windows.GENERIC_ALL)
+	if mask&windows.GENERIC_READ != 0 {
+		specific |= windows.FILE_GENERIC_READ
+	}
+	if mask&windows.GENERIC_WRITE != 0 {
+		specific |= windows.FILE_GENERIC_WRITE
+	}
+	if mask&windows.GENERIC_EXECUTE != 0 {
+		specific |= windows.FILE_GENERIC_EXECUTE
+	}
+	if mask&windows.GENERIC_ALL != 0 {
+		specific |= fileAllAccess
+	}
+	return specific
+}
+
+// describeDACL returns a human-readable dump of the DACL currently stored on
+// path, for test diagnostics.
+func describeDACL(path string) string {
+	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		return fmt.Sprintf("read error: %v", err)
+	}
+	control, _, err := sd.Control()
+	if err != nil {
+		return fmt.Sprintf("control error: %v", err)
+	}
+	dacl, _, err := sd.DACL()
+	if err != nil {
+		return fmt.Sprintf("dacl error: %v", err)
+	}
+	if dacl == nil {
+		return fmt.Sprintf("control=%#04x no DACL", control)
+	}
+	aces, err := parseACL(dacl)
+	if err != nil {
+		return fmt.Sprintf("control=%#04x parse error: %v", control, err)
+	}
+	return fmt.Sprintf("control=%#04x %s", control, describeACEs(aces))
+}
+
+// describeACL returns a human-readable dump of the parsed ACEs of acl.
+func describeACL(acl *windows.ACL) string {
+	aces, err := parseACL(acl)
+	if err != nil {
+		return fmt.Sprintf("parse error: %v", err)
+	}
+	return describeACEs(aces)
+}
+
+func describeACEs(aces []aclACE) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d ACEs", len(aces))
+	for i, ace := range aces {
+		fmt.Fprintf(&b, "; [%d] type=%#02x flags=%#02x mask=%#08x sid=%x", i, ace.aceType, ace.aceFlags, ace.mask, ace.sid)
+	}
+	return b.String()
 }
 
 var errMalformedACL = errors.New("securefs: malformed ACL")
