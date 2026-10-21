@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -110,6 +109,18 @@ func daclMatches(path string, desired *windows.ACL) bool {
 	// bits. Both sides must therefore be compared in specific form.
 	normalizeGenericMasks(currentACEs)
 	normalizeGenericMasks(desiredACEs)
+	// Storing an inheritable ACE on a directory splits it into an explicit
+	// ACE for the object and an inherit-only ACE for the children, so both
+	// sides are canonicalized into one logical ACE per trustee before the
+	// comparison.
+	currentACEs, ok := canonicalizeACEs(currentACEs)
+	if !ok {
+		return false
+	}
+	desiredACEs, ok = canonicalizeACEs(desiredACEs)
+	if !ok {
+		return false
+	}
 	return sameACLs(currentACEs, desiredACEs)
 }
 
@@ -176,15 +187,6 @@ func describeACL(acl *windows.ACL) string {
 		return fmt.Sprintf("parse error: %v", err)
 	}
 	return describeACEs(aces)
-}
-
-func describeACEs(aces []aclACE) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%d ACEs", len(aces))
-	for i, ace := range aces {
-		fmt.Fprintf(&b, "; [%d] type=%#02x flags=%#02x mask=%#08x sid=%x", i, ace.aceType, ace.aceFlags, ace.mask, ace.sid)
-	}
-	return b.String()
 }
 
 var errMalformedACL = errors.New("securefs: malformed ACL")
