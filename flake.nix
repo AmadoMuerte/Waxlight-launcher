@@ -63,7 +63,7 @@
 
         src = pkgs.fetchurl {
           url = "https://github.com/oven-sh/bun/releases/download/canary/bun-linux-x64.zip";
-          hash = "sha256-+mF39r5y9kqG+qasQIFF7bVyMILUPWGxiTJ6nUkchtA=";
+          hash = "sha256-qs71A29VUWMQBtIN6xEzhFIGTcMqsl+M66jzeNf69Fs=";
         };
 
         # The release zip unpacks to a single bun-linux-x64/ directory.
