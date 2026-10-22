@@ -217,6 +217,25 @@ jobs:
             ./internal/platform/credentials `
             -run TestNativeCredentialStoreRoundTrip
 
+  windows-fs-hardening:
+    name: Windows filesystem hardening
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test securefs package
+        shell: powershell
+        run: go test ./internal/platform/securefs/ -v -count=1
+
   linux-build:
     name: Linux production build
     runs-on: ubuntu-24.04
