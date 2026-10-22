@@ -1,19 +1,17 @@
-// @vitest-environment jsdom
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { logsApi } from "../api/logs";
 import { flushLogs, installGlobalErrorLogging, log, resetDedupState, setMinLevel } from "./logger";
 
-vi.mock("../api/logs", () => ({
+void vi.mock("../api/logs", () => ({
   logsApi: { write: vi.fn() },
 }));
 
-const write = vi.mocked(logsApi.write);
+const write = logsApi.write as unknown as ReturnType<typeof vi.fn>;
 
 async function flushAndSettle() {
   flushLogs();
-  await vi.advanceTimersByTimeAsync(0);
+  vi.advanceTimersByTime(0);
   await Promise.resolve();
 }
 
@@ -37,7 +35,7 @@ describe("log", () => {
     log.error("boom", { where: "page" });
     expect(write).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(500);
+    vi.advanceTimersByTime(500);
 
     expect(write).toHaveBeenCalledTimes(2);
     expect(write).toHaveBeenNthCalledWith(1, "info", "hello", undefined);
@@ -108,7 +106,7 @@ describe("log", () => {
     await flushAndSettle();
     expect(write).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(30_001);
+    vi.advanceTimersByTime(30_001);
     log.error("boom");
     await flushAndSettle();
 
@@ -138,7 +136,7 @@ describe("installGlobalErrorLogging", () => {
       new ErrorEvent("error", { message: "oops", filename: "page.ts", lineno: 4, colno: 2 }),
     );
 
-    await vi.advanceTimersByTimeAsync(500);
+    vi.advanceTimersByTime(500);
 
     expect(write).toHaveBeenCalledTimes(1);
     expect(write.mock.calls[0][0]).toBe("error");
@@ -153,7 +151,7 @@ describe("installGlobalErrorLogging", () => {
     Object.assign(rejection, { reason: new Error("rejected") });
     window.dispatchEvent(rejection);
 
-    await vi.advanceTimersByTimeAsync(500);
+    vi.advanceTimersByTime(500);
 
     expect(write).toHaveBeenCalledTimes(1);
     const [level, message, attrs] = write.mock.calls[0];
@@ -168,7 +166,7 @@ describe("installGlobalErrorLogging", () => {
     cleanup();
     window.dispatchEvent(new ErrorEvent("error", { message: "oops" }));
 
-    await vi.advanceTimersByTimeAsync(500);
+    vi.advanceTimersByTime(500);
 
     expect(write).not.toHaveBeenCalled();
   });

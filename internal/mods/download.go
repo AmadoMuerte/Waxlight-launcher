@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -242,13 +243,24 @@ func (service *CatalogService) downloadCatalogVersion(
 	close(progress)
 	<-progressDone
 	if err != nil {
-		if removeErr := os.Remove(destination + ".partial"); removeErr != nil {
+		// The downloader removes the partial file itself on some failure
+		// paths and never creates it on others, so a missing file here is
+		// expected and not worth a log line.
+		if removeErr := os.Remove(destination + ".partial"); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
 			slog.Debug("could not remove the partial download", "path", destination, "error", removeErr)
 		}
 		message := "Could not download the mod"
 		if errors.Is(err, context.Canceled) {
 			message = "Download cancelled"
 		} else {
+			// The exact cause (transport error, HTTP status, checksum
+			// mismatch) is otherwise invisible: the frontend only shows a
+			// generic message and telemetry records a category.
+			slog.Warn("mod download failed",
+				"mod", details.Name,
+				"version", selected.Version,
+				"error", err,
+			)
 			service.reportModDownloadError(err)
 		}
 		return DownloadedMod{}, false, &errs.AppError{

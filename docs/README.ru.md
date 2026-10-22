@@ -74,13 +74,13 @@ Waxlight — независимый open-source лаунчер, который �
 
 ## Сборка из исходного кода
 
-Требования: **Go 1.25+**, **Node.js 22+**, **Wails 2.11**, C-компилятор и необходимые [системные зависимости Wails](https://wails.io/docs/gettingstarted/installation/).
+Требования: **Go 1.27+**, **Bun 1.4.4+**, **Wails 2.15**, C-компилятор и необходимые [системные зависимости Wails](https://wails.io/docs/gettingstarted/installation/).
 
 ```bash
 git clone https://github.com/AmadoMuerte/Waxlight-launcher.git
 cd Waxlight-launcher
-npm ci --include=dev --prefix frontend
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+bun install --cwd frontend --frozen-lockfile
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 cd cmd/waxlight
 wails dev -browser -devserver localhost:34116
 ```

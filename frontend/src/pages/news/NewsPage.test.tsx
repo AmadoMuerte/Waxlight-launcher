@@ -1,21 +1,20 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { NEWS_QUERY_KEY } from "../../shared/api/keys";
 import type { NewsFeed, NewsItem } from "../../shared/api/types";
 import { NewsPage } from "./NewsPage";
 
-const newsApi = vi.hoisted(() => ({
+const newsApi = {
   sync: vi.fn(),
   markSeen: vi.fn(),
   openArticle: vi.fn(),
-}));
-vi.mock("../../shared/api/news", () => ({ newsApi }));
+};
+void vi.mock("../../shared/api/news", () => ({ newsApi }));
 
 function item(id: string, title: string, publishedAt: string): NewsItem {
   return {

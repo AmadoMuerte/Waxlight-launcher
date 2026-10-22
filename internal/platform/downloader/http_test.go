@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 )
@@ -210,5 +211,128 @@ func TestContentLengthWithSpacesInURL(t *testing.T) {
 	// Verify the space was encoded (server received %20 or +)
 	if !strings.Contains(receivedURL, "%20") && !strings.Contains(receivedURL, "+") {
 		t.Fatalf("URL was not encoded, got: %s", receivedURL)
+	}
+}
+
+func TestDownloaderRetriesTransportFailureAndSetsUserAgent(t *testing.T) {
+	content := []byte("resilient download")
+	var requests int
+	var seenUserAgent string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		requests++
+		seenUserAgent = request.Header.Get("User-Agent")
+		if requests == 1 {
+			// Drop the connection before answering: the client sees a
+			// transport error, not an HTTP status.
+			conn, _, hijackErr := writer.(http.Hijacker).Hijack()
+			if hijackErr != nil {
+				t.Errorf("hijack failed: %v", hijackErr)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		writer.Header().Set("Content-Length", fmt.Sprint(len(content)))
+		_, _ = writer.Write(content)
+	}))
+	defer server.Close()
+
+	downloader := &HTTPDownloader{Client: server.Client()}
+	destination := filepath.Join(t.TempDir(), "mod.zip")
+	err := downloader.Download(context.Background(), downloads.Request{
+		URL:             server.URL,
+		DestinationPath: destination,
+	}, nil)
+	if err != nil {
+		t.Fatalf("expected the retry to succeed, got %v", err)
+	}
+	if requests != 2 {
+		t.Fatalf("expected 2 requests (1 failed + 1 retry), got %d", requests)
+	}
+	if seenUserAgent != userAgent {
+		t.Fatalf("expected User-Agent %q, got %q", userAgent, seenUserAgent)
+	}
+	written, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(content) {
+		t.Fatalf("unexpected downloaded content %q", written)
+	}
+}
+
+func TestDownloaderGivesUpAfterRepeatedTransportFailures(t *testing.T) {
+	var requests int
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		requests++
+		conn, _, hijackErr := writer.(http.Hijacker).Hijack()
+		if hijackErr != nil {
+			t.Errorf("hijack failed: %v", hijackErr)
+			return
+		}
+		_ = conn.Close()
+	}))
+	defer server.Close()
+
+	// Keep the retry pause from slowing the test run down.
+	previous := downloadRetryDelay
+	downloadRetryDelay = 0
+	defer func() { downloadRetryDelay = previous }()
+
+	downloader := &HTTPDownloader{Client: server.Client()}
+	err := downloader.Download(context.Background(), downloads.Request{
+		URL:             server.URL,
+		DestinationPath: filepath.Join(t.TempDir(), "mod.zip"),
+	}, nil)
+	if err == nil {
+		t.Fatal("expected the download to fail after exhausting the retries")
+	}
+	if requests != maxDownloadAttempts {
+		t.Fatalf("expected %d attempts, got %d", maxDownloadAttempts, requests)
+	}
+	if _, statErr := os.Stat(filepath.Join(t.TempDir(), "mod.zip.partial")); statErr == nil {
+		t.Fatal("expected no partial file to be left behind")
+	}
+}
+
+func TestDownloaderDoesNotRetryCancelledDownload(t *testing.T) {
+	var requests int
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		requests++
+		conn, _, hijackErr := writer.(http.Hijacker).Hijack()
+		if hijackErr != nil {
+			t.Errorf("hijack failed: %v", hijackErr)
+			return
+		}
+		_ = conn.Close()
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	previous := downloadRetryDelay
+	downloadRetryDelay = time.Minute
+	defer func() { downloadRetryDelay = previous }()
+
+	downloader := &HTTPDownloader{Client: server.Client()}
+	err := downloader.Download(ctx, downloads.Request{
+		URL:             server.URL,
+		DestinationPath: filepath.Join(t.TempDir(), "mod.zip"),
+	}, nil)
+	if err == nil {
+		t.Fatal("expected the cancelled download to fail")
+	}
+	if requests > 1 {
+		t.Fatalf("expected no retry for a cancelled download, got %d requests", requests)
 	}
 }

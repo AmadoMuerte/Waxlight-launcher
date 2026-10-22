@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { beforeAll, expect, it, vi } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, expect, it, vi } from "vitest";
 
 import i18n from "../i18n";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./dialog";

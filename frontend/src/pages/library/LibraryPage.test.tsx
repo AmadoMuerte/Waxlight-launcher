@@ -1,10 +1,9 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";
@@ -12,7 +11,7 @@ import type { Settings } from "../../entities/settings/model";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import { LibraryPage } from "./LibraryPage";
 
-const api = vi.hoisted(() => ({
+const api = {
   create: vi.fn(),
   clone: vi.fn(),
   get: vi.fn(),
@@ -23,30 +22,30 @@ const api = vi.hoisted(() => ({
   update: vi.fn(),
   setPinned: vi.fn(),
   remove: vi.fn(),
-}));
+};
 
-const versionsApi = vi.hoisted(() => ({ list: vi.fn() }));
-const accountsApi = vi.hoisted(() => ({ list: vi.fn() }));
-const instancePackageApi = vi.hoisted(() => ({ import: vi.fn(), selectPackageFile: vi.fn() }));
-const launcherApi = vi.hoisted(() => ({ validate: vi.fn(), launch: vi.fn(), stop: vi.fn() }));
-const modsApi = vi.hoisted(() => ({ checkInstanceUpdates: vi.fn(), list: vi.fn() }));
-const operationsApi = vi.hoisted(() => ({ list: vi.fn(), cancel: vi.fn() }));
-const settingsApi = vi.hoisted(() => ({
+const versionsApi = { list: vi.fn() };
+const accountsApi = { list: vi.fn() };
+const instancePackageApi = { import: vi.fn(), selectPackageFile: vi.fn() };
+const launcherApi = { validate: vi.fn(), launch: vi.fn(), stop: vi.fn() };
+const modsApi = { checkInstanceUpdates: vi.fn(), list: vi.fn() };
+const operationsApi = { list: vi.fn(), cancel: vi.fn() };
+const settingsApi = {
   get: vi.fn(),
   update: vi.fn(),
   setLibrarySort: vi.fn(),
   openDirectory: vi.fn(),
   selectGameDirectory: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
-vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
-vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
-vi.mock("../../shared/api/mods", () => ({ modsApi }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi }));
-vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi }));
-vi.mock("../../shared/api/operations", () => ({ operationsApi }));
+void vi.mock("../../shared/api/instances", () => ({ instancesApi: api }));
+void vi.mock("../../shared/api/game-versions", () => ({ versionsApi }));
+void vi.mock("../../shared/api/accounts", () => ({ accountsApi }));
+void vi.mock("../../shared/api/launcher", () => ({ launcherApi }));
+void vi.mock("../../shared/api/mods", () => ({ modsApi }));
+void vi.mock("../../shared/api/settings", () => ({ settingsApi }));
+void vi.mock("../../shared/api/instance-package", () => ({ instancePackageApi }));
+void vi.mock("../../shared/api/operations", () => ({ operationsApi }));
 
 const versions: GameVersion[] = [
   {
@@ -97,6 +96,7 @@ const settings: Settings = {
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
   uiScale: 1,
+  closeToTray: true,
 };
 
 function instance(id: string, name: string, overrides: Partial<Instance> = {}): Instance {

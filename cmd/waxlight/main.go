@@ -78,8 +78,9 @@ func main() {
 				container.Events.Publish("navigation:mouse", direction)
 			})
 		},
-		OnShutdown: container.Shutdown,
-		Bind:       container.Controllers,
+		OnShutdown:    container.Shutdown,
+		OnBeforeClose: container.BeforeWindowClose,
+		Bind:          container.Controllers,
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "1b6bb7a2-2ecb-4a76-85b1-09b1b4c6c0fd",
 			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {

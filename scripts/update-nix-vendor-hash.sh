@@ -83,7 +83,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
 echo "updating vendorHash to $new_hash in $nix_file"
-sed -i "s/vendorHash = \"sha256-[A-Za-z0-9+/=]*\"/vendorHash = \"$new_hash\"/" "$nix_file"
+sed -i "s|vendorHash = \"sha256-[A-Za-z0-9+/=]*\"|vendorHash = \"$new_hash\"|" "$nix_file"
 
 if build_output="$(build_derivation)"; then
     rm -f "$backup_file"

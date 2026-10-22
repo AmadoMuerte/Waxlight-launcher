@@ -425,6 +425,93 @@ func TestDownloadCatalogModAppliesEverySharedDependencyRequirementToMixedTargets
 	}
 }
 
+func seedDownloadedMod(t *testing.T, fixture testFixture, downloadedVersion string) {
+	t.Helper()
+	if err := fixture.downloads.Save(context.Background(), mods.DownloadedMod{
+		SchemaVersion:     1,
+		ModID:             "51",
+		VersionID:         "old",
+		Name:              "Player Corpse",
+		DownloadedVersion: downloadedVersion,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func checkModUpdate(t *testing.T, fixture testFixture) mods.DownloadedMod {
+	t.Helper()
+	items, err := fixture.catalogService.CheckModUpdates(context.Background(), "51")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.ModID == "51" {
+			return item
+		}
+	}
+	t.Fatalf("downloaded mod not returned: %#v", items)
+	return mods.DownloadedMod{}
+}
+
+func TestCheckModUpdatesDoesNotOfferDowngrade(t *testing.T) {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse", LatestVersion: "1.14.3"},
+		Versions:   []mods.ModVersion{{ID: "a", Version: "1.14.3"}},
+	}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, recordingDownloader{})
+	seedDownloadedMod(t, fixture, "2.0.0-pre.8")
+
+	item := checkModUpdate(t, fixture)
+	if item.UpdateAvailable {
+		t.Fatalf("downgrade offered for installed 2.0.0-pre.8: %#v", item)
+	}
+}
+
+func TestCheckModUpdatesSelectsStrictUpgrade(t *testing.T) {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse", LatestVersion: "1.14.3"},
+		Versions: []mods.ModVersion{
+			{ID: "a", Version: "1.14.3"},
+			{ID: "b", Version: "2.1.0"},
+		},
+	}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, recordingDownloader{})
+	seedDownloadedMod(t, fixture, "2.0.0-pre.8")
+
+	item := checkModUpdate(t, fixture)
+	if !item.UpdateAvailable || item.LatestVersion != "2.1.0" {
+		t.Fatalf("strict upgrade not selected: %#v", item)
+	}
+}
+
+func TestCheckModUpdatesEqualVersionIsNotUpdate(t *testing.T) {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse", LatestVersion: "2.0.0"},
+		Versions:   []mods.ModVersion{{ID: "a", Version: "2.0.0"}},
+	}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, recordingDownloader{})
+	seedDownloadedMod(t, fixture, "2.0.0")
+
+	item := checkModUpdate(t, fixture)
+	if item.UpdateAvailable {
+		t.Fatalf("equal version offered as update: %#v", item)
+	}
+}
+
+func TestCheckModUpdatesSemanticEqualIsNotUpdate(t *testing.T) {
+	details := mods.ModDetails{
+		ModSummary: mods.ModSummary{ID: "51", Name: "Player Corpse", LatestVersion: "2.0.0"},
+		Versions:   []mods.ModVersion{{ID: "a", Version: "2.0.0"}},
+	}
+	fixture := newTestFixtureWithDeps(t, staticModCatalog{details: details}, recordingDownloader{})
+	seedDownloadedMod(t, fixture, "v2.0")
+
+	item := checkModUpdate(t, fixture)
+	if item.UpdateAvailable {
+		t.Fatalf("semantically equal version offered as update: %#v", item)
+	}
+}
+
 func twoVersionCorpseCatalog() staticModCatalog {
 	details := mods.ModDetails{
 		ModSummary: mods.ModSummary{

@@ -1,23 +1,22 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { Instance } from "../../entities/instance/model";
 import { InstanceModal } from "./InstanceModal";
 
-const instancesApi = vi.hoisted(() => ({
+const instancesApi = {
   list: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
   selectCover: vi.fn(),
-}));
+};
 
-const modsApi = vi.hoisted(() => ({
+const modsApi = {
   list: vi.fn(),
   checkInstanceUpdates: vi.fn(),
   linkLocal: vi.fn(),
@@ -25,28 +24,31 @@ const modsApi = vi.hoisted(() => ({
   previewDelete: vi.fn(),
   installMany: vi.fn(),
   toggle: vi.fn(),
-  updateInstance: vi.fn(),
-}));
+  changeInstanceVersion: vi.fn(),
+};
 
-const modCatalogApi = vi.hoisted(() => ({
+const modCatalogApi = {
   get: vi.fn(),
-}));
+};
 
-const settingsApi = vi.hoisted(() => ({
+const settingsApi = {
   selectModFiles: vi.fn(),
   openDirectory: vi.fn(),
-}));
+};
 
-const settingsQuery = vi.hoisted(() => ({
+const settingsQuery = {
   useSettingsQuery: vi.fn(),
   useOptimumStatusQuery: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/instances", () => ({ instancesApi }));
-vi.mock("../../shared/api/mods", () => ({ modsApi }));
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi }));
-vi.mock("../../entities/settings/queries", () => settingsQuery);
+const originalRuntime = (globalThis as { runtime?: unknown }).runtime;
+const originalResizeObserver = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+
+void vi.mock("../../shared/api/instances", () => ({ instancesApi }));
+void vi.mock("../../shared/api/mods", () => ({ modsApi }));
+void vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi }));
+void vi.mock("../../shared/api/settings", () => ({ settingsApi }));
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
 
 const instance: Instance = {
   id: "instance-1",
@@ -147,19 +149,16 @@ describe("confirmDeletion gate", () => {
     vi.clearAllMocks();
     settingsQuery.useSettingsQuery.mockReturnValue({ data: undefined });
     settingsQuery.useOptimumStatusQuery.mockReturnValue({ data: undefined });
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("runtime", {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    (globalThis as { runtime?: unknown }).runtime = {
       EventsOn: () => () => undefined,
       EventsOnMultiple: () => () => undefined,
       EventsEmit: () => undefined,
-    });
+    };
     instancesApi.remove.mockResolvedValue(undefined);
     instancesApi.update.mockResolvedValue(instance);
     instancesApi.selectCover.mockResolvedValue("/pictures/cover.png");
@@ -172,9 +171,17 @@ describe("confirmDeletion gate", () => {
     modsApi.linkLocal.mockResolvedValue({ linked: [], notMatched: [] });
     modsApi.remove.mockResolvedValue(undefined);
     modsApi.previewDelete.mockResolvedValue({ dependencies: [] });
-    modsApi.updateInstance.mockResolvedValue({ updated: 1 });
+    modsApi.changeInstanceVersion.mockResolvedValue({ updated: 1 });
     modCatalogApi.get.mockResolvedValue({
       versions: [
+        {
+          id: "6",
+          version: "1.0.0",
+          gameVersions: ["1.20"],
+          releaseType: "stable",
+          fileName: "playercorpse.zip",
+          fileSize: 1,
+        },
         {
           id: "7",
           version: "2.0.0",
@@ -198,7 +205,8 @@ describe("confirmDeletion gate", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { runtime?: unknown }).runtime = originalRuntime;
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
   });
 
   it("deletes an instance directly when confirmDeletion is false", async () => {
@@ -255,9 +263,25 @@ describe("confirmDeletion gate", () => {
     await user.click(await screen.findByText("Version 2.1.0"));
 
     await waitFor(() =>
-      expect(modsApi.updateInstance).toHaveBeenCalledWith({
+      expect(modsApi.changeInstanceVersion).toHaveBeenCalledWith({
         instanceId: "instance-1",
-        mods: [{ modId: "playercorpse", versionId: "8" }],
+        mod: { modId: "playercorpse", versionId: "8" },
+        allowIncompatible: false,
+      }),
+    );
+  });
+
+  it("uses explicit version replacement for a manual downgrade", async () => {
+    renderModal();
+    const user = await openModsTab();
+
+    await user.click(await screen.findByRole("combobox", { name: "Update to Player Corpse" }));
+    await user.click(await screen.findByText("Version 1.0.0"));
+
+    await waitFor(() =>
+      expect(modsApi.changeInstanceVersion).toHaveBeenCalledWith({
+        instanceId: "instance-1",
+        mod: { modId: "playercorpse", versionId: "6" },
         allowIncompatible: false,
       }),
     );
@@ -266,8 +290,8 @@ describe("confirmDeletion gate", () => {
   it("does not recheck updates after no-op local linking", async () => {
     const { onModUpdatesChanged } = renderModal();
 
-    await waitFor(() => expect(modsApi.linkLocal).toHaveBeenCalledOnce());
-    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledOnce());
+    await waitFor(() => expect(modsApi.linkLocal).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(modsApi.checkInstanceUpdates).toHaveBeenCalledTimes(1));
     expect(onModUpdatesChanged).not.toHaveBeenCalled();
   });
 
@@ -283,7 +307,7 @@ describe("confirmDeletion gate", () => {
   });
 
   it("shows version installation errors beside the mod selector", async () => {
-    modsApi.updateInstance.mockRejectedValue(new Error("Selected version is incompatible"));
+    modsApi.changeInstanceVersion.mockRejectedValue(new Error("Selected version is incompatible"));
     renderModal();
     const user = await openModsTab();
 
@@ -382,7 +406,7 @@ describe("confirmDeletion gate", () => {
     expect(instancesApi.selectCover).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Select" }));
-    expect(instancesApi.selectCover).toHaveBeenCalledOnce();
+    expect(instancesApi.selectCover).toHaveBeenCalledTimes(1);
     expect(instancesApi.update).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));

@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";

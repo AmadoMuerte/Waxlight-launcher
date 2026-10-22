@@ -7,6 +7,7 @@ import type {
   ModDeletePreview,
   ModUpdateResult,
   ModUpdateTarget,
+  ModVersion,
   Operation,
 } from "./types";
 
@@ -19,11 +20,18 @@ export const modsApi = {
       "CheckInstanceModUpdates",
       instanceId,
     ),
+  upgradeVersions: (instanceId: string, modId: string) =>
+    call<ModVersion[]>("ModManagerController", "GetInstanceModUpgradeVersions", instanceId, modId),
   updateInstance: (request: {
     instanceId: string;
     mods: ModUpdateTarget[];
     allowIncompatible: boolean;
   }) => call<ModUpdateResult>("ModManagerController", "UpdateInstanceMods", request),
+  changeInstanceVersion: (request: {
+    instanceId: string;
+    mod: ModUpdateTarget;
+    allowIncompatible: boolean;
+  }) => call<ModUpdateResult>("ModManagerController", "ChangeInstanceModVersion", request),
   install: (request: { instanceId: string; sourcePath: string; name: string; version: string }) =>
     call<Operation>("ModManagerController", "InstallModFile", request),
   installMany: (request: { instanceId: string; sourcePaths: string[] }) =>

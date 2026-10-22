@@ -8,6 +8,7 @@ import {
   Palette,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -57,6 +58,7 @@ const autosaveDelayMs = 400;
 
 const SETTINGS_SECTIONS = [
   { id: "appearance", icon: Palette, labelKey: "appearance" },
+  { id: "behavior", icon: SlidersHorizontal, labelKey: "behavior" },
   { id: "downloads", icon: Download, labelKey: "downloads_and_game" },
   { id: "backups", icon: Archive, labelKey: "backups" },
   { id: "updates", icon: RefreshCw, labelKey: "launcher_updates" },
@@ -81,6 +83,7 @@ function settingsEqual(left: Settings, right: Settings) {
     left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
     left.librarySort === right.librarySort &&
     left.uiScale === right.uiScale &&
+    left.closeToTray === right.closeToTray &&
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
@@ -117,18 +120,24 @@ export function SettingsPage() {
   const translateRef = useRef(t);
   const optimumRevisionRef = useRef(0);
 
-  notifyRef.current = notify;
-  translateRef.current = t;
-
   useEffect(() => {
-    if (!settings) {
-      return;
-    }
-    persistedRef.current = settings;
+    notifyRef.current = notify;
+    translateRef.current = t;
+  }, [notify, t]);
+
+  const [syncedSettings, setSyncedSettings] = useState<Settings>();
+  if (settings && settings !== syncedSettings) {
+    setSyncedSettings(settings);
     setValue((current) =>
       current ? { ...current, skippedUpdateVersion: settings.skippedUpdateVersion } : settings,
     );
     setLaunchArgumentsText((current) => current || settings.globalLaunchArguments.join(" "));
+  }
+
+  useEffect(() => {
+    if (settings) {
+      persistedRef.current = settings;
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -144,42 +153,43 @@ export function SettingsPage() {
     };
     const persistedPresenceEnabled = persisted.richPresenceEnabled;
     const revision = ++revisionRef.current;
-    const timer = window.setTimeout(() => {
-      async function persist() {
+
+    async function persist() {
+      if (revision !== revisionRef.current) {
+        return;
+      }
+
+      try {
+        const presenceChanged = next.richPresenceEnabled !== persistedPresenceEnabled;
+        const saved = await settingsApi.update(next);
+        persistedRef.current = saved;
+        if (presenceChanged) {
+          void presenceSetEnabled(saved.richPresenceEnabled).catch(() => undefined);
+        }
         if (revision !== revisionRef.current) {
           return;
         }
-
-        try {
-          const presenceChanged = next.richPresenceEnabled !== persistedPresenceEnabled;
-          const saved = await settingsApi.update(next);
-          persistedRef.current = saved;
-          if (presenceChanged) {
-            void presenceSetEnabled(saved.richPresenceEnabled).catch(() => undefined);
-          }
-          if (revision !== revisionRef.current) {
-            return;
-          }
-          setValue(saved);
-          queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
-          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
-          await changeAppLanguage(saved.language);
-          notifyRef.current(translateRef.current("settings_saved"));
-        } catch (error) {
-          if (revision !== revisionRef.current) {
-            return;
-          }
-          const previous = persistedRef.current;
-          if (previous) {
-            setValue(previous);
-            setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
-            await changeAppLanguage(previous.language);
-          }
-          await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
-          notifyRef.current(errorMessage(error), "error");
+        setValue(saved);
+        queryClient.setQueryData(SETTINGS_QUERY_KEY, saved);
+        await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+        await changeAppLanguage(saved.language);
+        notifyRef.current(translateRef.current("settings_saved"));
+      } catch (error) {
+        if (revision !== revisionRef.current) {
+          return;
         }
+        const previous = persistedRef.current;
+        if (previous) {
+          setValue(previous);
+          setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
+          await changeAppLanguage(previous.language);
+        }
+        await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
+        notifyRef.current(errorMessage(error), "error");
       }
+    }
 
+    const timer = window.setTimeout(() => {
       saveQueueRef.current = saveQueueRef.current.then(persist, persist);
     }, autosaveDelayMs);
 
@@ -462,6 +472,23 @@ export function SettingsPage() {
                       { value: "1.5", label: "1.5×" },
                     ]}
                     onValueChange={(v) => setValue({ ...value, uiScale: Number(v) })}
+                  />
+                </SettingRow>
+              </Card>
+            </PageSection>
+
+            <PageSection id="settings-behavior">
+              <SectionHeader
+                variant="compact"
+                title={t("behavior")}
+                description={t("behavior_description")}
+              />
+              <Card variant="subtle" className="divide-y divide-border-subtle">
+                <SettingRow title={t("close_to_tray")} description={t("close_to_tray_description")}>
+                  <Switch
+                    label={t("close_to_tray")}
+                    checked={value.closeToTray}
+                    onCheckedChange={(closeToTray) => setValue({ ...value, closeToTray })}
                   />
                 </SettingRow>
               </Card>

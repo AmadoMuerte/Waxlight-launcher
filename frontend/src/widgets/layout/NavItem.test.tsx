@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
+import { expect, it } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
 import { Library } from "lucide-react";
 import { MemoryRouter } from "react-router";
-import { expect, it } from "vitest";
 
 import { NavItem } from "./NavItem";
 

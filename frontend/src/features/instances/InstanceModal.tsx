@@ -237,7 +237,7 @@ export function InstanceModal({
       notify(errorMessage(error), "error");
       return undefined;
     }
-  }, [instance.id, notify]);
+  }, [instance.id, notify, setUpdateReport]);
 
   const linkLocalMods = useCallback(async () => {
     try {
@@ -260,12 +260,18 @@ export function InstanceModal({
   }, [instance.id, loadMods, loadUpdates, notify, onModUpdatesChanged, queryClient, t]);
 
   useEffect(() => {
-    void loadMods();
-    void loadUpdates();
-    if (!autoLinkedRef.current) {
+    let active = true;
+    void (async () => {
+      await Promise.all([loadMods(), loadUpdates()]);
+      if (!active || autoLinkedRef.current) {
+        return;
+      }
       autoLinkedRef.current = true;
       void linkLocalMods();
-    }
+    })();
+    return () => {
+      active = false;
+    };
   }, [loadMods, loadUpdates, linkLocalMods]);
 
   async function loadModVersions(mod: InstalledMod) {
@@ -299,9 +305,9 @@ export function InstanceModal({
     setUpdatingModID(mod.id);
     setVersionChangeError(undefined);
     try {
-      await modsApi.updateInstance({
+      await modsApi.changeInstanceVersion({
         instanceId: instance.id,
-        mods: [{ modId: modID, versionId: targetVersionID }],
+        mod: { modId: modID, versionId: targetVersionID },
         allowIncompatible: false,
       });
       await loadMods();

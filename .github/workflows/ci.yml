@@ -21,9 +21,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    outputs:
+      nix: ${{ steps.filter.outputs.nix }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Filter changed paths
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          nix=true
+          changed=""
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if git fetch --depth=1 origin "$BASE_SHA"; then
+              changed="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
+              if grep -Eq '^(nix/|flake\.nix$|flake\.lock$|scripts/|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+                nix=true
+              else
+                nix=false
+              fi
+            else
+              echo "Failed to fetch $BASE_SHA; running the Nix job to be safe" >&2
+              nix=true
+            fi
+          fi
+
+          echo "nix=$nix" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "Nix job will run: $nix (event: $EVENT_NAME)"
+            if [[ "$nix" == "true" && -n "$changed" ]]; then
+              echo "Matched files:"
+              grep -E '^(nix/|flake\.nix$|flake\.lock$|scripts/|\.github/workflows/ci\.yml$)' <<<"$changed" || true
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   quality:
     name: Tests and static checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -35,35 +82,39 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install frontend dependencies
-        run: npm ci --include=dev --prefix frontend
+        run: bun install --cwd frontend --frozen-lockfile
 
       - name: Build frontend assets
-        run: npm --prefix frontend run build
+        run: bun --cwd=frontend run build
 
       - name: Test backend
-        run: go test ./...
-
-      - name: Race-test backend
         run: go test -race ./...
 
       - name: Vet backend
         run: go vet ./...
 
       - name: Test frontend
-        run: npm --prefix frontend test
+        run: bun --cwd=frontend run test
 
       - name: Validate release metadata
         shell: bash
         run: |
-          version="$(node -p "require('./wails.json').info.productVersion")"
+          version="$(bun -e 'console.log(require("./wails.json").info.productVersion)')"
           ./scripts/check-version.sh "$version"
 
       - name: Check prohibited security patterns
@@ -75,13 +126,14 @@ jobs:
       - name: Build API documentation
         shell: bash
         run: |
-          npm ci --include=dev --prefix docs/site
+          bun install --cwd docs/site --frozen-lockfile
           make api-docs-build
           git diff --exit-code -- docs/wails-api-inventory.json
 
   security:
     name: Vulnerability and secret scanning
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - name: Check out full history
@@ -94,6 +146,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Cache Go tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-ubuntu-govulncheck-v1.6.0-gitleaks-v8.30.1
 
       - name: Run govulncheck
         run: |
@@ -109,6 +167,7 @@ jobs:
   native-credential-store:
     name: Native credential store (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
 
     strategy:
       fail-fast: false
@@ -158,11 +217,10 @@ jobs:
             ./internal/platform/credentials `
             -run TestNativeCredentialStoreRoundTrip
 
-  linux-build:
-    name: Linux production build
-    runs-on: ubuntu-24.04
-    needs:
-      - quality
+  windows-fs-hardening:
+    name: Windows filesystem hardening
+    runs-on: windows-latest
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -174,12 +232,38 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Test securefs package
+        shell: powershell
+        run: go test ./internal/platform/securefs/ -v -count=1
+
+  linux-build:
+    name: Linux production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install Linux build dependencies
         run: |
@@ -190,15 +274,18 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev
 
+      - name: Cache Go tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-${{ runner.os }}-wails-v2.15.0
+
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
       - name: Install and build frontend
         shell: bash
-        run: |
-          npm ci --include=dev --prefix frontend
-          npm --prefix frontend run build
-          test -f frontend/dist/index.html
+        run: bun install --cwd frontend --frozen-lockfile
 
       - name: Build Linux application
         shell: bash
@@ -228,7 +315,9 @@ jobs:
     name: Nix package (${{ matrix.system }})
     runs-on: ubuntu-24.04
     needs:
-      - quality
+      - changes
+    if: needs.changes.outputs.nix == 'true'
+    timeout-minutes: 45
 
     strategy:
       fail-fast: false
@@ -317,8 +406,7 @@ jobs:
   windows-build:
     name: Windows production build
     runs-on: windows-latest
-    needs:
-      - quality
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
@@ -330,12 +418,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
+          # `bun-version: canary` is required today because the built-in linter
+          # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
+          bun-version: canary
+
+      - name: Verify Bun
+        shell: bash
+        run: |
+          bun --version
+          bun lint --rules >/dev/null
 
       - name: Install MinGW
         shell: powershell
@@ -383,10 +478,16 @@ jobs:
           gcc --version
           g++ --version
 
+      - name: Cache Go tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: go-tools-${{ runner.os }}-wails-v2.15.0
+
       - name: Install Wails CLI
         shell: powershell
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
           (go env GOPATH) + "\bin" |
             Out-File `
@@ -396,13 +497,7 @@ jobs:
 
       - name: Install and build frontend
         shell: powershell
-        run: |
-          npm ci --include=dev --prefix frontend
-          npm --prefix frontend run build
-
-          if (-not (Test-Path "frontend/dist/index.html")) {
-            throw "Frontend build did not produce frontend/dist/index.html"
-          }
+        run: bun install --cwd frontend --frozen-lockfile
 
       - name: Build Windows application with CGO
         shell: powershell

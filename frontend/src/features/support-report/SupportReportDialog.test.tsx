@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useSupportReportStore } from "../../app/stores/support-report";
 import { SupportReportDialog } from "./SupportReportDialog";
 
-const api = vi.hoisted(() => ({ preview: vi.fn(), submit: vi.fn() }));
-const clipboard = vi.hoisted(() => vi.fn());
+const api = { preview: vi.fn(), submit: vi.fn() };
+const clipboard = vi.fn();
 
-vi.mock("../../shared/api/support-reports", () => ({ supportReportsApi: api }));
-vi.mock("../../wailsjs/runtime/runtime", () => ({ ClipboardSetText: clipboard }));
+void vi.mock("../../shared/api/support-reports", () => ({ supportReportsApi: api }));
+void vi.mock("../../wailsjs/runtime/runtime", () => ({ ClipboardSetText: clipboard }));
 
 afterEach(cleanup);
 beforeEach(() => {

@@ -1,19 +1,18 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DownloadedMod, GameVersion, Instance, InstalledMod } from "../../shared/api/types";
 import { ModInstancesDialog } from "./ModInstancesDialog";
 
-const api = vi.hoisted(() => ({
+const api = {
   list: vi.fn(),
   toggle: vi.fn(),
   previewDelete: vi.fn(),
   remove: vi.fn(),
-}));
-vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
+};
+void vi.mock("../../shared/api/mods", () => ({ modsApi: api }));
 
 const versions: GameVersion[] = [
   {
@@ -133,7 +132,7 @@ describe("ModInstancesDialog", () => {
     await waitFor(() => expect(screen.getAllByText("Installed 2.0.0")).toHaveLength(2));
     await userEvent.setup().click(screen.getAllByRole("checkbox")[0]);
     await waitFor(() => expect(api.toggle).toHaveBeenCalledWith("installed-1", false));
-    expect(onMutated).toHaveBeenCalledOnce();
+    expect(onMutated).toHaveBeenCalledTimes(1);
   });
 
   it("serializes rapid row actions while a toggle is pending", async () => {
@@ -153,7 +152,7 @@ describe("ModInstancesDialog", () => {
     expect(api.previewDelete).not.toHaveBeenCalled();
     expect(api.remove).not.toHaveBeenCalled();
     finishToggle({ ...installed, enabled: false });
-    await waitFor(() => expect(onMutated).toHaveBeenCalledOnce());
+    await waitFor(() => expect(onMutated).toHaveBeenCalledTimes(1));
   });
 
   it("removes without confirmation only when no dependencies and disabled preference", async () => {
@@ -168,7 +167,7 @@ describe("ModInstancesDialog", () => {
     await waitFor(() => expect(screen.getAllByText("Installed 2.0.0")).toHaveLength(2));
     await userEvent.setup().click(screen.getByRole("button", { name: "Remove Survival" }));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith("installed-1", false));
-    expect(onMutated).toHaveBeenCalledOnce();
+    expect(onMutated).toHaveBeenCalledTimes(1);
   });
 
   it("passes current installed instances when adding after removal", async () => {

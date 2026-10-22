@@ -69,6 +69,7 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		AutomaticSnapshotRetention: request.AutomaticSnapshotRetention,
 		LibrarySort:                request.LibrarySort,
 		UIScale:                    request.UIScale,
+		CloseToTray:                request.CloseToTray,
 	})
 	return settingsDTO(value), err
 }

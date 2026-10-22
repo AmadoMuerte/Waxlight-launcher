@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import { ModDetailsPage } from "../mod-details/ModDetailsPage";
 import { ModsPage } from "./ModsPage";
 
-const api = vi.hoisted(() => ({
+const api = {
   search: vi.fn(),
   get: vi.fn(),
   downloaded: vi.fn(),
@@ -28,32 +27,32 @@ const api = vi.hoisted(() => ({
   favoriteIDs: vi.fn(),
   favorites: vi.fn(),
   setFavorite: vi.fn(),
-}));
+};
 
-const settings = vi.hoisted(() => ({
+const settings = {
   selectModFiles: vi.fn(),
-}));
+};
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = { useSettingsQuery: vi.fn() };
 
-const instancesList = vi.hoisted(() => vi.fn());
-const versionsList = vi.hoisted(() => vi.fn());
-const availableVersionsList = vi.hoisted(() => vi.fn());
-const installedMods = vi.hoisted(() => ({
+const instancesList = vi.fn();
+const versionsList = vi.fn();
+const availableVersionsList = vi.fn();
+const installedMods = {
   list: vi.fn(),
   toggle: vi.fn(),
   previewDelete: vi.fn(),
   remove: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
-vi.mock("../../entities/settings/queries", () => settingsQuery);
-vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesList } }));
-vi.mock("../../shared/api/game-versions", () => ({
+void vi.mock("../../shared/api/mod-catalog", () => ({ modCatalogApi: api }));
+void vi.mock("../../shared/api/settings", () => ({ settingsApi: settings }));
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
+void vi.mock("../../shared/api/instances", () => ({ instancesApi: { list: instancesList } }));
+void vi.mock("../../shared/api/game-versions", () => ({
   versionsApi: { list: versionsList, available: availableVersionsList },
 }));
-vi.mock("../../shared/api/mods", () => ({ modsApi: installedMods }));
+void vi.mock("../../shared/api/mods", () => ({ modsApi: installedMods }));
 
 const summary = {
   id: "51",

@@ -1,16 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StatisticsPage } from "./StatisticsPage";
 
-const statisticsQuery = vi.hoisted(() => ({ useStatisticsQuery: vi.fn() }));
-const instancesQuery = vi.hoisted(() => ({ useInstancesQuery: vi.fn() }));
+const statisticsQuery = { useStatisticsQuery: vi.fn() };
+const instancesQuery = { useInstancesQuery: vi.fn() };
 
-vi.mock("../../entities/statistics/queries", () => statisticsQuery);
-vi.mock("../../entities/instance/queries", () => instancesQuery);
+void vi.mock("../../entities/statistics/queries", () => statisticsQuery);
+void vi.mock("../../entities/instance/queries", () => instancesQuery);
 
 const baseStatistics = {
   totalPlaytimeSeconds: 0,

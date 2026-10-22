@@ -1,24 +1,23 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import { VersionsPage } from "./VersionsPage";
 
-const api = vi.hoisted(() => ({
+const api = {
   list: vi.fn(),
   available: vi.fn(),
   installAvailable: vi.fn(),
   remove: vi.fn(),
-}));
+};
 
-const settingsQuery = vi.hoisted(() => ({ useSettingsQuery: vi.fn() }));
+const settingsQuery = { useSettingsQuery: vi.fn() };
 
-vi.mock("../../shared/api/game-versions", () => ({ versionsApi: api }));
-vi.mock("../../entities/settings/queries", () => settingsQuery);
+void vi.mock("../../shared/api/game-versions", () => ({ versionsApi: api }));
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
 
 const installedVersion = {
   id: "1.20",

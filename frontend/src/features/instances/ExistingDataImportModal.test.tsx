@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameVersion } from "../../entities/game-version/model";
 import type { Instance } from "../../entities/instance/model";
@@ -11,20 +10,20 @@ import { OPERATIONS_QUERY_KEY } from "../../shared/api/keys";
 import type { InstalledMod, MigrationCandidate, Operation } from "../../shared/api/types";
 import { ExistingDataImportModal } from "./ExistingDataImportModal";
 
-const instancesApi = vi.hoisted(() => ({
+const instancesApi = {
   detectExistingData: vi.fn(),
   inspectExistingData: vi.fn(),
   importExistingData: vi.fn(),
   get: vi.fn(),
-}));
-const modsApi = vi.hoisted(() => ({ list: vi.fn() }));
-const operationsApi = vi.hoisted(() => ({ list: vi.fn(), cancel: vi.fn() }));
-const settingsApi = vi.hoisted(() => ({ selectGameDirectory: vi.fn() }));
+};
+const modsApi = { list: vi.fn() };
+const operationsApi = { list: vi.fn(), cancel: vi.fn() };
+const settingsApi = { selectGameDirectory: vi.fn() };
 
-vi.mock("../../shared/api/instances", () => ({ instancesApi }));
-vi.mock("../../shared/api/mods", () => ({ modsApi }));
-vi.mock("../../shared/api/operations", () => ({ operationsApi }));
-vi.mock("../../shared/api/settings", () => ({ settingsApi }));
+void vi.mock("../../shared/api/instances", () => ({ instancesApi }));
+void vi.mock("../../shared/api/mods", () => ({ modsApi }));
+void vi.mock("../../shared/api/operations", () => ({ operationsApi }));
+void vi.mock("../../shared/api/settings", () => ({ settingsApi }));
 
 const versions: GameVersion[] = [
   {
@@ -146,7 +145,7 @@ describe("ExistingDataImportModal", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Choose data folder" }));
 
     await screen.findByText("/manual/data");
-    expect(settingsApi.selectGameDirectory).toHaveBeenCalledOnce();
+    expect(settingsApi.selectGameDirectory).toHaveBeenCalledTimes(1);
     expect(instancesApi.inspectExistingData).toHaveBeenCalledWith("/manual/data");
   });
 

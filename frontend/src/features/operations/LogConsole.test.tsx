@@ -1,13 +1,15 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import { LogConsole } from "./LogConsole";
 
-const api = vi.hoisted(() => ({
+const originalResizeObserver = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+
+const api = {
   list: vi.fn(),
   exportLogs: vi.fn(),
   openDirectory: vi.fn(),
@@ -16,9 +18,9 @@ const api = vi.hoisted(() => ({
   hasSelection: false,
   selection: "",
   clipboardWrite: vi.fn(),
-}));
+};
 
-vi.mock("../../shared/api/logs", () => ({
+void vi.mock("../../shared/api/logs", () => ({
   logsApi: {
     list: api.list,
     exportLogs: api.exportLogs,
@@ -26,7 +28,7 @@ vi.mock("../../shared/api/logs", () => ({
   },
 }));
 
-vi.mock("@xterm/xterm", () => ({
+void vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     write = vi.fn();
     clear = vi.fn();
@@ -41,13 +43,13 @@ vi.mock("@xterm/xterm", () => ({
   },
 }));
 
-vi.mock("@xterm/addon-fit", () => ({
+void vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
     fit = vi.fn();
   },
 }));
 
-vi.mock("../../wailsjs/runtime/runtime", () => ({
+void vi.mock("../../wailsjs/runtime/runtime", () => ({
   EventsOn: (...args: unknown[]) => {
     api.eventsOn(...args);
     return () => undefined;
@@ -69,14 +71,11 @@ describe("LogConsole", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
     api.list.mockResolvedValue([]);
     api.exportLogs.mockResolvedValue("");
     api.openDirectory.mockResolvedValue(undefined);
@@ -84,11 +83,14 @@ describe("LogConsole", () => {
     api.hasSelection = false;
     api.selection = "";
     api.clipboardWrite.mockReset();
-    vi.stubGlobal("navigator", { clipboard: { writeText: api.clipboardWrite } });
+    (globalThis as { navigator?: unknown }).navigator = {
+      clipboard: { writeText: api.clipboardWrite },
+    };
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    (globalThis as { navigator?: unknown }).navigator = originalNavigator;
   });
 
   it("renders the console header and its actions", () => {

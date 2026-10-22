@@ -10,6 +10,7 @@ import (
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
+	vsmodpack "github.com/AmadoMuerte/vintagestory-go/modpack"
 )
 
 const (
@@ -234,13 +235,66 @@ func (service *CatalogService) CheckModUpdates(ctx context.Context, modID string
 			continue
 		}
 		items[index].LatestVersion = details.LatestVersion
-		items[index].UpdateAvailable = details.LatestVersion != "" &&
-			details.LatestVersion != items[index].DownloadedVersion
+		items[index].UpdateAvailable = false
+		if target, ok := newestStrictUpgrade(details, items[index].DownloadedVersion); ok {
+			items[index].LatestVersion = target.Version
+			items[index].UpdateAvailable = true
+		}
 		if err := service.downloads.Save(ctx, items[index]); err != nil {
 			return nil, err
 		}
 	}
 	return service.listDownloadedMods(ctx)
+}
+
+// newestStrictUpgrade returns the best release strictly newer than installed,
+// mirroring the vintagestory-go modpack preference: the catalog latest release
+// only when strictly newer, otherwise the newest strictly newer stable release,
+// otherwise the newest strictly newer release of any type.
+func newestStrictUpgrade(details ModDetails, installed string) (ModVersion, bool) {
+	if details.LatestVersion != "" && isUpgradeTarget(installed, ModVersion{Version: details.LatestVersion}) {
+		if version, ok := findModVersionForUpgrade(details.Versions, details.LatestVersion); ok {
+			if isUpgradeTarget(installed, version) {
+				return version, true
+			}
+		} else {
+			return ModVersion{Version: details.LatestVersion}, true
+		}
+	}
+	if version, ok := newestStrict(details.Versions, installed, true); ok {
+		return version, true
+	}
+	return newestStrict(details.Versions, installed, false)
+}
+
+func newestStrict(versions []ModVersion, installed string, stableOnly bool) (ModVersion, bool) {
+	var best ModVersion
+	found := false
+	for _, version := range versions {
+		if !isUpgradeTarget(installed, version) {
+			continue
+		}
+		if stableOnly && !isStableReleaseType(version.ReleaseType) {
+			continue
+		}
+		if !found || vsmodpack.CompareVersions(version.Version, best.Version) > 0 {
+			best, found = version, true
+		}
+	}
+	return best, found
+}
+
+func findModVersionForUpgrade(versions []ModVersion, value string) (ModVersion, bool) {
+	for _, version := range versions {
+		if vsmodpack.CompareVersions(version.Version, value) == 0 {
+			return version, true
+		}
+	}
+	return ModVersion{}, false
+}
+
+func isStableReleaseType(releaseType string) bool {
+	return releaseType == "" || strings.EqualFold(releaseType, "stable")
 }
 
 // GetDownloadedMod reads a cached catalog download.

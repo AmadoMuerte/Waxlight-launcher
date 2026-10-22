@@ -1,6 +1,4 @@
-// @vitest-environment jsdom
-
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { formatGameVersions } from "./lib";
 

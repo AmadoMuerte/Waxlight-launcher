@@ -1,13 +1,12 @@
-// @vitest-environment jsdom
+import { expect, it, vi } from "bun:test";
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
 
 import { SidebarFooter } from "./SidebarFooter";
 
-const runtime = vi.hoisted(() => ({ BrowserOpenURL: vi.fn() }));
+const runtime = { BrowserOpenURL: vi.fn() };
 
-vi.mock("../../wailsjs/runtime/runtime", () => runtime);
+void vi.mock("../../wailsjs/runtime/runtime", () => runtime);
 
 it("opens the launcher Discord invite in the system browser", () => {
   render(<SidebarFooter />);

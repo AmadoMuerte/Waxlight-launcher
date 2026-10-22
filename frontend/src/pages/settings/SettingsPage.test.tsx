@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useToastStore } from "../../app/stores/toast";
 import type { Settings } from "../../entities/settings/model";
@@ -23,14 +22,15 @@ const settings: Settings = {
   automaticSnapshotRetention: 10,
   librarySort: "lastPlayed",
   uiScale: 1,
+  closeToTray: true,
 };
 
-const settingsQuery = vi.hoisted(() => ({
+const settingsQuery = {
   useSettingsQuery: vi.fn(),
   useOptimumStatusQuery: vi.fn(),
-}));
+};
 
-const settingsApi = vi.hoisted(() => ({
+const settingsApi = {
   get: vi.fn(),
   update: vi.fn(),
   getDataFolder: vi.fn(),
@@ -41,9 +41,9 @@ const settingsApi = vi.hoisted(() => ({
   selectDataFolder: vi.fn(),
   validateDataFolderTarget: vi.fn(),
   moveDataFolder: vi.fn(),
-}));
+};
 
-const presenceSetEnabled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const presenceSetEnabled = vi.fn().mockResolvedValue(undefined);
 
 interface AppShellState {
   launcherVersion: string;
@@ -51,7 +51,7 @@ interface AppShellState {
   checkForUpdate: ReturnType<typeof vi.fn>;
 }
 
-const appShell = vi.hoisted(() => {
+const appShell = (() => {
   const state: AppShellState = {
     launcherVersion: "0.2.1",
     launcherUpdate: undefined,
@@ -60,25 +60,25 @@ const appShell = vi.hoisted(() => {
   const useAppShellStore = vi.fn((selector: (state: AppShellState) => unknown) => selector(state));
   (useAppShellStore as unknown as { getState: () => AppShellState }).getState = vi.fn(() => state);
   return { useAppShellStore, state };
-});
+})();
 
-vi.mock("../../entities/settings/queries", () => settingsQuery);
+void vi.mock("../../entities/settings/queries", () => settingsQuery);
 
-vi.mock("../../entities/settings/api", () => ({
+void vi.mock("../../entities/settings/api", () => ({
   settingsApi,
 }));
 
-vi.mock("../../app/stores/app-shell", () => appShell);
+void vi.mock("../../app/stores/app-shell", () => appShell);
 
-vi.mock("../../wailsjs/runtime/runtime", () => ({
+void vi.mock("../../wailsjs/runtime/runtime", () => ({
   EventsOn: () => () => undefined,
 }));
 
-vi.mock("../../wailsjs/go/wails/PresenceController", () => ({
+void vi.mock("../../wailsjs/go/wails/PresenceController", () => ({
   SetEnabled: presenceSetEnabled,
 }));
 
-vi.mock("../../shared/i18n", () => ({
+void vi.mock("../../shared/i18n", () => ({
   changeAppLanguage: vi.fn().mockResolvedValue("en"),
   normalizeLanguage: (language: string) => language,
   supportedLanguages: [{ code: "en", nativeName: "English" }],
@@ -147,6 +147,20 @@ it("persists the automatic safety backups switch", async () => {
   );
 });
 
+it("persists the close to system tray switch", async () => {
+  renderPage();
+
+  const toggle = await screen.findByRole("switch", { name: "Close to system tray" });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+
+  await waitFor(() =>
+    expect(settingsApi.update).toHaveBeenCalledWith(
+      expect.objectContaining({ closeToTray: false }),
+    ),
+  );
+});
+
 it("updates Rich Presence only after the setting is persisted", async () => {
   let finishSave: ((saved: Settings) => void) | undefined;
   settingsApi.update.mockImplementationOnce(
@@ -156,7 +170,7 @@ it("updates Rich Presence only after the setting is persisted", async () => {
 
   fireEvent.click(await screen.findByRole("switch", { name: "Discord Rich Presence" }));
 
-  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledOnce());
+  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledTimes(1));
   expect(presenceSetEnabled).not.toHaveBeenCalled();
   finishSave?.({ ...settings, richPresenceEnabled: false });
   await waitFor(() => expect(presenceSetEnabled).toHaveBeenCalledWith(false));
@@ -168,7 +182,7 @@ it("does not update Rich Presence when persistence fails", async () => {
 
   fireEvent.click(await screen.findByRole("switch", { name: "Discord Rich Presence" }));
 
-  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledOnce());
+  await waitFor(() => expect(settingsApi.update).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(useToastStore.getState().notify).toHaveBeenCalled());
   expect(presenceSetEnabled).not.toHaveBeenCalled();
 });
@@ -199,7 +213,7 @@ it("opens the official Optimum installation guide", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Installation guide" }));
 
-  expect(settingsApi.openOptimumInstallationGuide).toHaveBeenCalledOnce();
+  expect(settingsApi.openOptimumInstallationGuide).toHaveBeenCalledTimes(1);
 });
 
 it("blocks the move and explains when the target is not writable", async () => {
