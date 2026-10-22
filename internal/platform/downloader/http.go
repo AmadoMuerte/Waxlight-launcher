@@ -21,6 +21,21 @@ import (
 
 type HTTPDownloader struct{ Client *http.Client }
 
+// userAgent identifies the launcher to download servers; the default Go
+// user agent is increasingly rate-limited or blocked by CDNs.
+const userAgent = "Waxlight-Launcher"
+
+// maxDownloadAttempts bounds how often a failed request is retried. A
+// transport failure before any byte arrived (TLS handshake timeout, reset
+// connection) is usually transient, and a short retry already rescues flaky
+// links; failures after bytes have arrived are never retried here because
+// the byte stream cannot simply be replayed.
+const maxDownloadAttempts = 3
+
+// downloadRetryDelay is the pause before the first retry and before every
+// further one after that.
+var downloadRetryDelay = time.Second
+
 func NewHTTPDownloader() *HTTPDownloader {
 	return &HTTPDownloader{Client: &http.Client{Timeout: 30 * time.Minute}}
 }
@@ -51,14 +66,7 @@ func (d *HTTPDownloader) Download(ctx context.Context, in downloads.Request, pro
 			flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, in.URL, nil)
-	if err != nil {
-		return err
-	}
-	if offset > 0 {
-		req.Header.Set("Range", "bytes="+strconv.FormatInt(offset, 10)+"-")
-	}
-	resp, err := d.Client.Do(req)
+	resp, err := d.doDownloadRequest(ctx, in.URL, offset, fileName)
 	if err != nil {
 		return err
 	}
@@ -163,6 +171,49 @@ func (d *HTTPDownloader) ContentLength(ctx context.Context, rawURL string) (int6
 		return 0, fmt.Errorf("HEAD returned HTTP %d", resp.StatusCode)
 	}
 	return resp.ContentLength, nil
+}
+
+// doDownloadRequest performs the GET, retrying transport failures (never
+// HTTP status failures) up to maxDownloadAttempts-1 times with a short
+// pause in between. Retrying is safe here: no download byte has been
+// written when this returns an error, and context cancellation aborts the
+// wait immediately.
+func (d *HTTPDownloader) doDownloadRequest(
+	ctx context.Context,
+	rawURL string,
+	offset int64,
+	fileName string,
+) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+	for attempt := 1; ; attempt++ {
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+		if reqErr != nil {
+			return nil, reqErr
+		}
+		req.Header.Set("User-Agent", userAgent)
+		if offset > 0 {
+			req.Header.Set("Range", "bytes="+strconv.FormatInt(offset, 10)+"-")
+		}
+		resp, err = d.Client.Do(req)
+		if err == nil {
+			return resp, nil
+		}
+		if ctx.Err() != nil || attempt >= maxDownloadAttempts {
+			return nil, err
+		}
+		slog.Warn(
+			"download request failed, retrying",
+			"file", fileName,
+			"attempt", attempt,
+			"error", err,
+		)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(downloadRetryDelay):
+		}
+	}
 }
 
 func normalizeDownloadURL(raw string) (string, error) {
