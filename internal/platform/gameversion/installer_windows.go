@@ -45,17 +45,32 @@ func (installer Installer) installPlatform(
 		"/MERGETASKS=!desktopicon",
 		"/DIR="+targetPath,
 	)
-	output, err := runWindowsInstaller(ctx, command)
-	if err != nil {
+	// The silent run records targetPath as Inno's previous install directory
+	// and leaves an Uninstall entry behind, which would later prefill the path
+	// page when the user runs the installer manually. Put the pre-run state
+	// back once the run finishes, regardless of its outcome.
+	state := snapshotInnoState(targetPath)
+	output, runErr := runWindowsInstaller(ctx, command)
+	// Restore even after a failed run: the installer may have written its
+	// registry state before exiting.
+	restoreErr := state.Restore()
+	if runErr != nil {
 		_ = os.RemoveAll(targetPath)
 		if ctx.Err() != nil {
 			return "", 0, ctx.Err()
 		}
+		if restoreErr != nil {
+			runErr = fmt.Errorf("%w (registry state restore failed: %v)", runErr, restoreErr)
+		}
 		return "", 0, fmt.Errorf(
 			"Windows game installer failed: %w (%s)",
-			err,
+			runErr,
 			strings.TrimSpace(string(output)),
 		)
+	}
+	if restoreErr != nil {
+		_ = os.RemoveAll(targetPath)
+		return "", 0, fmt.Errorf("restore installer registry state: %w", restoreErr)
 	}
 
 	executablePath, err := installer.archives.FindExecutable(targetPath, "")
