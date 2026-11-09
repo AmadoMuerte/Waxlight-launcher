@@ -89,9 +89,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install frontend dependencies
         run: bun install --cwd frontend --frozen-lockfile
@@ -255,9 +253,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install Linux build dependencies
         run: |
@@ -419,9 +415,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install MinGW
         shell: powershell

@@ -44,9 +44,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install documentation dependencies
         run: bun install --cwd docs/site --frozen-lockfile

@@ -39,9 +39,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Read release metadata
         id: release
@@ -119,9 +117,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install frontend dependencies
         run: bun install --cwd frontend --frozen-lockfile
@@ -191,9 +187,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install Linux build and packaging dependencies
         run: |
@@ -341,9 +335,7 @@ jobs:
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install Windows build tools
         shell: powershell
