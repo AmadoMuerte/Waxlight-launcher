@@ -2,7 +2,12 @@
   description = "Waxlight Launcher — a modern, lightweight launcher for Vintage Story";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Pinned to the exact nixpkgs revision the release is built and tested
+    # against. GL libraries (mesa) are injected at runtime by the host system
+    # via /run/opengl-driver, so the closure's glibc must match the system's:
+    # mesa 26.x requires GLIBC_2.43+, and an older-glibc closure fails to load
+    # the EGL vendor library, which leaves the WebKit window blank.
+    nixpkgs.url = "github:NixOS/nixpkgs/1d060086d60cb76a40cf37109f979d88a5bd6396";
   };
 
   outputs =
@@ -47,11 +52,9 @@
       };
 
       # ── Bun 1.4.4 ───────────────────────────────────────
-      # Waxlight's frontend linter is pinned to Bun 1.4.4, which is only
-      # published on the canary release channel today. Once 1.4.4 ships as a
-      # stable release, point `url` at
-      #   https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64.zip
-      # and re-pin `hash` for that artifact.
+      # Pinned to the stable bun-v1.4.4 release to match the frontend
+      # toolchain pin; the canary channel re-publishes its zip on every
+      # build, which breaks the fetchurl hash each time.
       #
       # Bun is a dynamically linked binary with the generic
       # /lib64/ld-linux-x86-64.so.2 interpreter, which does not exist inside the
@@ -62,8 +65,8 @@
         version = "1.4.4";
 
         src = pkgs.fetchurl {
-          url = "https://github.com/oven-sh/bun/releases/download/canary/bun-linux-x64.zip";
-          hash = "sha256-qs71A29VUWMQBtIN6xEzhFIGTcMqsl+M66jzeNf69Fs=";
+          url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64.zip";
+          hash = "sha256-v4zL+ysLgBWeD5ptFcVTF63YB3U028YTCj7bUvzLOVw=";
         };
 
         # The release zip unpacks to a single bun-linux-x64/ directory.
