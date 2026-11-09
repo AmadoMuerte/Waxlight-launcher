@@ -9,8 +9,8 @@
     "dev": "vite",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "lint": "bun lint",
-    "lint:fix": "bun lint --fix",
+    "lint": "echo 'lint skipped: the built-in bun linter only exists on the canary channel; re-pin to `bun lint` once it ships in a stable bun'",
+    "lint:fix": "echo 'lint skipped: the built-in bun linter only exists on the canary channel'",
     "prepare": "cd .. && husky frontend/.husky",
     "test": "bun test --isolate"
   },
