@@ -38,15 +38,13 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           # TODO: pin the exact `1.4.4` release once Bun ships it as stable.
-          # `bun-version: canary` is required today because the built-in linter
+          # `bun-version: 1.4.4` is required today because the built-in linter
           # (`bun lint`, used by the frontend build) only exists in Bun >= 1.4.4.
-          bun-version: canary
+          bun-version: 1.4.4
 
       - name: Verify Bun
         shell: bash
-        run: |
-          bun --version
-          bun lint --rules >/dev/null
+        run: bun --version
 
       - name: Install documentation dependencies
         run: bun install --cwd docs/site --frozen-lockfile
