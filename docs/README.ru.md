@@ -105,7 +105,7 @@ make api-docs-build # сгенерировать и собрать production-с
 
 Сгенерированные схема, Markdown и сборка VitePress намеренно не хранятся в Git. Чистый checkout воспроизводит их из `internal/transport/wails` и `wailsdoc.yaml`, а `docs/wails-api-inventory.json` остаётся проверяемым контрактом публичного API.
 
-Контрибьюторы могут посмотреть актуальную документацию backend API на <https://docs.waxlight.by>.
+Контрибьюторы могут посмотреть актуальную документацию backend API на <https://amadomuerte.github.io/Waxlight-launcher/>.
 
 ## Участие в разработке
 
