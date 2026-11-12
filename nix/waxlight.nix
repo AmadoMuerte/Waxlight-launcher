@@ -172,7 +172,7 @@ in
   ];
 
   # Go modules are fetched and vendored from the prefetched store directory.
-  vendorHash = "sha256-pIFIOm+1/JokQDV7xrM1fQu1Ii1hs8Ds37fdt/uJeRg=";
+  vendorHash = "sha256-0ReVlOn4vHhWgg4kE1uwZa77qwz1rWez6NUAjUXtcIg=";
 
   buildPhase = ''
     runHook preBuild
