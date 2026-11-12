@@ -29,9 +29,14 @@ const sidebar: DefaultTheme.SidebarItem[] = [
   { text: "Types", collapsed: true, items: types },
 ];
 
+// GitHub Pages serves the site from a repository subpath, so every asset
+// and link URL must carry the base prefix.
+const base = "/Waxlight-launcher/";
+
 export default defineConfig({
   title,
   description: "Generated documentation for Waxlight's public Wails backend API.",
+  base,
   cleanUrls: true,
   head: [["meta", { name: "theme-color", content: "#6d55d7" }]],
   transformPageData(pageData) {
