@@ -29,6 +29,9 @@ func (reader *Reader) Get(ctx context.Context) (Settings, error) {
 	if value.GlobalLaunchArguments == nil {
 		value.GlobalLaunchArguments = []string{}
 	}
+	if value.GlobalEnvironmentVariables == nil {
+		value.GlobalEnvironmentVariables = map[string]string{}
+	}
 	if value.AutomaticSnapshotRetention < AutomaticSnapshotRetentionMin || value.AutomaticSnapshotRetention > AutomaticSnapshotRetentionMax {
 		value.AutomaticSnapshotRetention = AutomaticSnapshotRetentionDefault
 	}

@@ -18,6 +18,7 @@ type Settings struct {
 	DownloadsParallel          int
 	ConfirmDeletion            bool
 	GlobalLaunchArguments      []string
+	GlobalEnvironmentVariables map[string]string
 	OptimumPath                string
 	CheckForUpdates            bool
 	UpdateChannel              string
@@ -36,6 +37,7 @@ func Defaults() Settings {
 		DownloadsParallel:          3,
 		ConfirmDeletion:            true,
 		GlobalLaunchArguments:      []string{},
+		GlobalEnvironmentVariables: map[string]string{},
 		CheckForUpdates:            true,
 		UpdateChannel:              "stable",
 		RichPresenceEnabled:        true,

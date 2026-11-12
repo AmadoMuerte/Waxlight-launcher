@@ -29,6 +29,10 @@ import { errorMessage } from "../../shared/api/bridge";
 import { INSTANCES_QUERY_KEY } from "../../shared/api/keys";
 import type { ModUpdatePolicy } from "../../shared/api/types";
 import { formatDuration } from "../../shared/lib";
+import {
+  formatEnvironmentVariables,
+  parseEnvironmentVariables,
+} from "../../shared/lib/environment-variables";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
@@ -57,31 +61,6 @@ interface InstanceModalProps {
   onExport: () => void;
   onClone: () => void;
   onModUpdatesChanged?: (instanceID: string, report: InstanceModUpdateReport) => void;
-}
-
-function formatEnvironmentVariables(values: Record<string, string> | undefined): string {
-  return Object.entries(values ?? {})
-    .toSorted(([left], [right]) => left.localeCompare(right))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-}
-
-function parseEnvironmentVariables(text: string): {
-  values: Record<string, string>;
-  invalidLine?: number;
-} {
-  const values: Record<string, string> = {};
-  const lines = text.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const rawLine = lines[index];
-    if (rawLine.trim() === "") continue;
-    const separator = rawLine.indexOf("=");
-    if (separator <= 0) return { values: {}, invalidLine: index + 1 };
-    const key = rawLine.slice(0, separator).trim();
-    if (!key) return { values: {}, invalidLine: index + 1 };
-    values[key] = rawLine.slice(separator + 1);
-  }
-  return { values };
 }
 
 function isModUpdatePolicy(value: string): value is ModUpdatePolicy {
@@ -123,6 +102,7 @@ export function InstanceModal({
   const [environmentText, setEnvironmentText] = useState(
     formatEnvironmentVariables(instance.environmentVariables),
   );
+  const [environmentInvalidLine, setEnvironmentInvalidLine] = useState<number>();
   const [coverUrl, setCoverUrl] = useState(instance.coverUrl);
   const [coverSourcePath, setCoverSourcePath] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -353,10 +333,7 @@ export function InstanceModal({
     try {
       const parsedEnvironment = parseEnvironmentVariables(environmentText);
       if (parsedEnvironment.invalidLine !== undefined) {
-        notify(
-          t("environment_variables_invalid_line", { line: parsedEnvironment.invalidLine }),
-          "error",
-        );
+        setEnvironmentInvalidLine(parsedEnvironment.invalidLine);
         return;
       }
       const updated = await instancesApi.update({
@@ -444,6 +421,7 @@ export function InstanceModal({
     setAccountID(instance.defaultAccountId ?? "");
     setArgumentsText(instance.launchArguments.join(" "));
     setEnvironmentText(formatEnvironmentVariables(instance.environmentVariables));
+    setEnvironmentInvalidLine(undefined);
     setCoverSourcePath(undefined);
   }
 
@@ -963,11 +941,25 @@ export function InstanceModal({
                   placeholder="--tracelog"
                 />
               </Field>
-              <Field label={t("environment_variables")} hint={t("environment_variables_hint")}>
+              <Field
+                label={t("environment_variables")}
+                hint={t("environment_variables_hint")}
+                error={
+                  environmentInvalidLine !== undefined
+                    ? t("environment_variables_invalid_line", { line: environmentInvalidLine })
+                    : undefined
+                }
+              >
                 <textarea
                   className="codeInput"
+                  aria-invalid={environmentInvalidLine !== undefined}
                   value={environmentText}
-                  onChange={(event) => setEnvironmentText(event.target.value)}
+                  onChange={(event) => {
+                    const nextText = event.target.value;
+                    setEnvironmentText(nextText);
+                    const parsed = parseEnvironmentVariables(nextText);
+                    setEnvironmentInvalidLine(parsed.invalidLine);
+                  }}
                   placeholder={"KEY=value"}
                   rows={4}
                   spellCheck={false}

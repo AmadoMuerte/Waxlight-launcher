@@ -33,6 +33,9 @@ func (s *SQLiteStore) GetSettings(ctx context.Context) (settings.Settings, error
 	if value.GlobalLaunchArguments == nil {
 		value.GlobalLaunchArguments = []string{}
 	}
+	if value.GlobalEnvironmentVariables == nil {
+		value.GlobalEnvironmentVariables = map[string]string{}
+	}
 	return value, rows.Err()
 }
 

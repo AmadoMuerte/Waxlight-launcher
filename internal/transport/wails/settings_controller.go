@@ -61,8 +61,9 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 	value, err := controller.service.Update(controller.lifecycle.Context(), settings.Settings{
 		Language: request.Language, DownloadsParallel: request.DownloadsParallel,
 		ConfirmDeletion: request.ConfirmDeletion, GlobalLaunchArguments: request.GlobalLaunchArguments,
-		OptimumPath:     request.OptimumPath,
-		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
+		GlobalEnvironmentVariables: request.GlobalEnvironmentVariables,
+		OptimumPath:                request.OptimumPath,
+		CheckForUpdates:            request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
 		SkippedUpdateVersion:       request.SkippedUpdateVersion,
 		RichPresenceEnabled:        request.RichPresenceEnabled,
 		AutomaticSafetySnapshots:   request.AutomaticSafetySnapshots,

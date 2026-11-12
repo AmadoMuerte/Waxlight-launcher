@@ -14,6 +14,7 @@ const api = {
     downloadsParallel: 3,
     confirmDeletion: true,
     globalLaunchArguments: [],
+    globalEnvironmentVariables: {},
     checkForUpdates: true,
     updateChannel: "stable",
     skippedUpdateVersion: "",

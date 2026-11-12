@@ -42,7 +42,7 @@ func TestReaderNormalizesAndRepairsSettings(t *testing.T) {
 	if value.Language != "ru" || value.UpdateChannel != "stable" || value.LibrarySort != LibrarySortLastPlayed || value.AutomaticSnapshotRetention != AutomaticSnapshotRetentionDefault {
 		t.Fatalf("settings were not normalized: %+v", value)
 	}
-	if value.GlobalLaunchArguments == nil || repository.saves != 1 {
+	if value.GlobalLaunchArguments == nil || value.GlobalEnvironmentVariables == nil || repository.saves != 1 {
 		t.Fatalf("repair was not persisted: %+v, saves=%d", value, repository.saves)
 	}
 }
@@ -67,6 +67,42 @@ func TestServiceNormalizesAndAppliesDownloadLimit(t *testing.T) {
 	}
 	if limit.value != 7 {
 		t.Fatalf("download limit: %d", limit.value)
+	}
+}
+
+func TestServiceCleansGlobalEnvironmentVariables(t *testing.T) {
+	repository := &memoryRepository{value: Defaults()}
+	service := NewService(repository, NewReader(repository), nil)
+
+	value := Defaults()
+	value.GlobalEnvironmentVariables = map[string]string{" MESA_GLTHREAD ": "true"}
+	saved, err := service.Update(context.Background(), value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.GlobalEnvironmentVariables["MESA_GLTHREAD"] != "true" {
+		t.Fatalf("environment variables were not cleaned: %+v", saved.GlobalEnvironmentVariables)
+	}
+}
+
+func TestServiceRejectsInvalidGlobalEnvironmentVariables(t *testing.T) {
+	repository := &memoryRepository{value: Defaults()}
+	service := NewService(repository, NewReader(repository), nil)
+
+	for _, values := range []map[string]string{
+		{"WAXLIGHT_INSTANCE_DIR": "/tmp/nope"},
+		{"INVALID-NAME": "value"},
+		{"1INVALID": "value"},
+		{"VALID_NAME": "bad\x00value"},
+	} {
+		value := Defaults()
+		value.GlobalEnvironmentVariables = values
+		if _, err := service.Update(context.Background(), value); err == nil {
+			t.Fatalf("invalid environment variables were accepted: %#v", values)
+		}
+	}
+	if repository.saves != 0 {
+		t.Fatalf("invalid environment variables were persisted %d times", repository.saves)
 	}
 }
 

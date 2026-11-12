@@ -12,6 +12,7 @@ const settings: Settings = {
   downloadsParallel: 3,
   confirmDeletion: true,
   globalLaunchArguments: [],
+  globalEnvironmentVariables: {},
   optimumPath: "",
   checkForUpdates: true,
   updateChannel: "stable",
@@ -158,6 +159,35 @@ it("persists the close to system tray switch", async () => {
       expect.objectContaining({ closeToTray: false }),
     ),
   );
+});
+
+it("persists global environment variables", async () => {
+  renderPage();
+
+  const field = await screen.findByRole("textbox", { name: "Global environment variables" });
+  fireEvent.change(field, { target: { value: "MESA_GLTHREAD=true" } });
+
+  await waitFor(() =>
+    expect(settingsApi.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalEnvironmentVariables: { MESA_GLTHREAD: "true" },
+      }),
+    ),
+  );
+});
+
+it("rejects malformed global environment variables without saving", async () => {
+  renderPage();
+
+  const field = await screen.findByRole("textbox", { name: "Global environment variables" });
+  fireEvent.change(field, { target: { value: "VALID=true\nBROKEN" } });
+
+  expect(
+    (await screen.findByText("Invalid environment variable on line 2. Use KEY=VALUE.")).textContent,
+  ).toBeTruthy();
+  expect(field.getAttribute("aria-invalid")).toBe("true");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  expect(settingsApi.update).not.toHaveBeenCalled();
 });
 
 it("updates Rich Presence only after the setting is persisted", async () => {
