@@ -1,11 +1,11 @@
-package instances
+package envvars
 
 import "testing"
 
-func TestCleanEnvironmentVariables(t *testing.T) {
+func TestClean(t *testing.T) {
 	t.Parallel()
 
-	values, err := cleanEnvironmentVariables(map[string]string{
+	values, err := Clean(map[string]string{
 		"__NV_PRIME_RENDER_OFFLOAD":      "1",
 		"__GLX_VENDOR_LIBRARY_NAME":      "nvidia",
 		"mesa_glthread":                  "true",
@@ -22,20 +22,28 @@ func TestCleanEnvironmentVariables(t *testing.T) {
 	}
 }
 
-func TestCleanEnvironmentVariablesRejectsInvalidNames(t *testing.T) {
+func TestCleanRejectsInvalidNames(t *testing.T) {
 	t.Parallel()
 
 	for _, name := range []string{"", "1INVALID", "INVALID-NAME", "INVALID=NAME"} {
-		if _, err := cleanEnvironmentVariables(map[string]string{name: "value"}); err == nil {
+		if _, err := Clean(map[string]string{name: "value"}); err == nil {
 			t.Fatalf("expected %q to be rejected", name)
 		}
 	}
 }
 
-func TestCleanEnvironmentVariablesRejectsReservedVariable(t *testing.T) {
+func TestCleanRejectsReservedVariable(t *testing.T) {
 	t.Parallel()
 
-	if _, err := cleanEnvironmentVariables(map[string]string{"WAXLIGHT_INSTANCE_DIR": "/tmp/nope"}); err == nil {
+	if _, err := Clean(map[string]string{InstanceDirectory: "/tmp/nope"}); err == nil {
 		t.Fatal("expected Waxlight-owned environment variable to be rejected")
+	}
+}
+
+func TestCleanRejectsNULValue(t *testing.T) {
+	t.Parallel()
+
+	if _, err := Clean(map[string]string{"VALID_NAME": "bad\x00value"}); err == nil {
+		t.Fatal("expected NUL value to be rejected")
 	}
 }

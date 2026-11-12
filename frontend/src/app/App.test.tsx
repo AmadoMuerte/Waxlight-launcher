@@ -23,6 +23,7 @@ const api = {
     downloadsParallel: 3,
     confirmDeletion: true,
     globalLaunchArguments: [],
+    globalEnvironmentVariables: {},
     checkForUpdates: true,
     updateChannel: "stable",
     skippedUpdateVersion: "",
@@ -100,9 +101,6 @@ void vi.mock("../shared/api/updates", () => ({
     install: vi.fn(),
     openReleasePage: vi.fn(),
   },
-}));
-void vi.mock("../shared/api/deep-links", () => ({
-  deepLinksApi: { consumePending: vi.fn().mockResolvedValue([]) },
 }));
 void vi.mock("../shared/api/news", () => ({
   newsApi: {
@@ -370,6 +368,7 @@ it("opens manual update checks directly without publishing a notification", asyn
     downloadsParallel: 3,
     confirmDeletion: true,
     globalLaunchArguments: [],
+    globalEnvironmentVariables: {},
     checkForUpdates: false,
     updateChannel: "stable",
     skippedUpdateVersion: "0.1.5",

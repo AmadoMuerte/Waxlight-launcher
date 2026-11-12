@@ -30,13 +30,11 @@ import { SettingsPage } from "../pages/settings/SettingsPage";
 import { StatisticsPage } from "../pages/statistics/StatisticsPage";
 import { VersionsPage } from "../pages/versions/VersionsPage";
 import { errorMessage } from "../shared/api/bridge";
-import { deepLinksApi, type DeepLinkTarget } from "../shared/api/deep-links";
 import { OPERATIONS_QUERY_KEY } from "../shared/api/keys";
 import type { LauncherUpdateProgress, Operation, Settings } from "../shared/api/types";
 import { updatesApi } from "../shared/api/updates";
 import { changeAppLanguage } from "../shared/i18n";
 import { log } from "../shared/lib/logger";
-import { deepLinkPath, normalizeServerAddress } from "../shared/lib/waxlight-links";
 import { LoadingState } from "../shared/ui/loading-state";
 import { Environment, EventsOn } from "../wailsjs/runtime/runtime";
 import { AppShell } from "../widgets/layout/AppShell";
@@ -101,29 +99,6 @@ export function App() {
       queryClient.prefetchQuery(downloadedModsQueryOptions()),
     ]);
   }, [queryClient]);
-
-  useEffect(() => {
-    const open = (target: unknown) => {
-      const path = deepLinkPath(target);
-      const address =
-        target && typeof target === "object" && Reflect.get(target, "type") === "server"
-          ? normalizeServerAddress(Reflect.get(target, "address"))
-          : undefined;
-      if (path) void navigate(path, { state: address ? { deepLinkAddress: address } : undefined });
-    };
-
-    let unsubscribe: (() => void) | undefined;
-    try {
-      unsubscribe = EventsOn("deeplink:open", open);
-      void deepLinksApi
-        .consumePending()
-        .then((targets: DeepLinkTarget[]) => targets.forEach(open))
-        .catch((error) => log.warn(errorMessage(error), { source: "deep-link" }));
-    } catch (error) {
-      log.warn(errorMessage(error), { source: "deep-link" });
-    }
-    return () => unsubscribe?.();
-  }, [navigate]);
 
   useEffect(() => {
     const navigateWithMouseButton = (event: MouseEvent) => {

@@ -100,7 +100,7 @@ let
     '';
 
     dontFixup = true;
-    outputHash = "sha256-D/7eCN0CxIAB1QIu/N58OUV1jPHz7z2VCPzelpdL80Q=";
+    outputHash = "sha256-HXs6EwIErDdrXc7aqr7XNXEshhkWi/o8MpkS3AK4seA=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
@@ -172,7 +172,7 @@ in
   ];
 
   # Go modules are fetched and vendored from the prefetched store directory.
-  vendorHash = "sha256-pIFIOm+1/JokQDV7xrM1fQu1Ii1hs8Ds37fdt/uJeRg=";
+  vendorHash = "sha256-0ReVlOn4vHhWgg4kE1uwZa77qwz1rWez6NUAjUXtcIg=";
 
   buildPhase = ''
     runHook preBuild

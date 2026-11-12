@@ -30,6 +30,11 @@ import type { DownloadedModCleanupResult } from "../../shared/api/types";
 import { changeAppLanguage } from "../../shared/i18n";
 import { normalizeLanguage, supportedLanguages } from "../../shared/i18n/languages";
 import { formatBytes } from "../../shared/lib";
+import {
+  environmentVariablesEqual,
+  formatEnvironmentVariables,
+  parseEnvironmentVariables,
+} from "../../shared/lib/environment-variables";
 import { Button } from "../../shared/ui/button";
 import { Card } from "../../shared/ui/card";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
@@ -86,7 +91,8 @@ function settingsEqual(left: Settings, right: Settings) {
     left.globalLaunchArguments.length === right.globalLaunchArguments.length &&
     left.globalLaunchArguments.every(
       (argument, index) => argument === right.globalLaunchArguments[index],
-    )
+    ) &&
+    environmentVariablesEqual(left.globalEnvironmentVariables, right.globalEnvironmentVariables)
   );
 }
 
@@ -100,6 +106,8 @@ export function SettingsPage() {
   const checkForUpdate = useAppShellStore((state) => state.checkForUpdate);
   const [value, setValue] = useState<Settings>();
   const [launchArgumentsText, setLaunchArgumentsText] = useState("");
+  const [environmentText, setEnvironmentText] = useState("");
+  const [environmentInvalidLine, setEnvironmentInvalidLine] = useState<number>();
   const [dataFolder, setDataFolder] = useState<DataFolder>();
   const [dataFolderProgress, setDataFolderProgress] = useState<DataFolderProgress>();
   const [moveTarget, setMoveTarget] = useState("");
@@ -131,6 +139,9 @@ export function SettingsPage() {
       current ? { ...current, skippedUpdateVersion: settings.skippedUpdateVersion } : settings,
     );
     setLaunchArgumentsText((current) => current || settings.globalLaunchArguments.join(" "));
+    setEnvironmentText(
+      (current) => current || formatEnvironmentVariables(settings.globalEnvironmentVariables),
+    );
   }
 
   useEffect(() => {
@@ -181,6 +192,7 @@ export function SettingsPage() {
         if (previous) {
           setValue(previous);
           setLaunchArgumentsText(previous.globalLaunchArguments.join(" "));
+          setEnvironmentText(formatEnvironmentVariables(previous.globalEnvironmentVariables));
           await changeAppLanguage(previous.language);
         }
         await queryClient.invalidateQueries({ queryKey: OPTIMUM_STATUS_QUERY_KEY });
@@ -559,6 +571,40 @@ export function SettingsPage() {
                     }}
                     placeholder="--debug"
                   />
+                </SettingRow>
+
+                <SettingRow
+                  column
+                  title={t("global_environment_variables")}
+                  description={t("global_environment_variables_description")}
+                >
+                  <div className="flex w-full min-w-0 flex-col gap-1">
+                    <textarea
+                      className="input codeInput"
+                      aria-label={t("global_environment_variables")}
+                      aria-invalid={environmentInvalidLine !== undefined}
+                      value={environmentText}
+                      onChange={(event) => {
+                        const nextText = event.target.value;
+                        setEnvironmentText(nextText);
+                        const parsed = parseEnvironmentVariables(nextText);
+                        if (parsed.invalidLine !== undefined) {
+                          setEnvironmentInvalidLine(parsed.invalidLine);
+                          return;
+                        }
+                        setEnvironmentInvalidLine(undefined);
+                        setValue({ ...value, globalEnvironmentVariables: parsed.values });
+                      }}
+                      placeholder={"KEY=value"}
+                      rows={4}
+                      spellCheck={false}
+                    />
+                    {environmentInvalidLine !== undefined && (
+                      <small className="fieldError">
+                        {t("environment_variables_invalid_line", { line: environmentInvalidLine })}
+                      </small>
+                    )}
+                  </div>
                 </SettingRow>
 
                 <SettingRow

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/envvars"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/gamelog"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/instances"
@@ -363,11 +364,7 @@ func (coordinator *Coordinator) launch(
 		}
 	}
 
-	environment := make(map[string]string, len(instance.EnvironmentVariables)+1)
-	for key, value := range instance.EnvironmentVariables {
-		environment[key] = value
-	}
-	environment["WAXLIGHT_INSTANCE_DIR"] = instance.Directory
+	environment := buildEnvironment(settings.GlobalEnvironmentVariables, instance.EnvironmentVariables, instance.Directory)
 	dotnetFound := false
 	if runtime.GOOS == "linux" && instance.GameClient != instances.GameClientOptimum && coordinator.dotnet != nil {
 		found, compatible := coordinator.dotnet.Detect(dotnet.RequiredMajor)
@@ -526,6 +523,18 @@ func buildLaunchArguments(global, instance []string, dataPath, serverAddress str
 		arguments = append(arguments, "--connect", serverAddress)
 	}
 	return arguments
+}
+
+func buildEnvironment(global, instance map[string]string, directory string) map[string]string {
+	environment := make(map[string]string, len(global)+len(instance)+1)
+	for key, value := range global {
+		environment[key] = value
+	}
+	for key, value := range instance {
+		environment[key] = value
+	}
+	environment[envvars.InstanceDirectory] = directory
+	return environment
 }
 
 func pathContains(path, entry string) bool {

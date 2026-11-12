@@ -70,7 +70,6 @@ type Container struct {
 	Events         events.Publisher
 	Controllers    []any
 	CoverHandler   *wailstransport.InstanceCoverHandler
-	DeepLinks      *DeepLinks
 	modsCatalog    *mods.CatalogService
 	store          *sqlite.SQLiteStore
 	presence       *presence.Service
@@ -168,7 +167,6 @@ func NewWithHome(home string) (*Container, error) {
 	statisticsService := statistics.NewService(sessionService)
 	lifecycle := NewLifecycle()
 	eventPublisher := wailstransport.NewEventAdapter(lifecycle)
-	deepLinks := NewDeepLinks(eventPublisher)
 	operationManager := operations.NewManager(store, lifecycle, eventPublisher)
 	started = time.Now()
 	if _, err := operationManager.ReconcileInterrupted(context.Background(), time.Now().UTC()); err != nil {
@@ -506,7 +504,6 @@ func NewWithHome(home string) (*Container, error) {
 	)
 	controllers := []any{
 		wailstransport.NewAppController(),
-		wailstransport.NewDeepLinkController(deepLinks),
 		wailstransport.NewAccountController(accountService, lifecycle),
 		wailstransport.NewGameVersionController(versionService, lifecycle),
 		instanceController,
@@ -542,7 +539,6 @@ func NewWithHome(home string) (*Container, error) {
 		Events:         eventPublisher,
 		Controllers:    controllers,
 		CoverHandler:   wailstransport.NewInstanceCoverHandler(instanceQueries),
-		DeepLinks:      deepLinks,
 		modsCatalog:    modsCatalogService,
 		store:          store,
 		presence:       presenceService,

@@ -36,8 +36,9 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 		GameClient: instances.GameClientOptimum,
 		Directory:  "/instances/primary", CoverPath: &coverPath,
 		Status: instances.StatusReady, LaunchArguments: []string{"--foo", "bar baz"},
-		IsPinned:     true,
-		LastPlayedAt: &lastPlayedAt, CreatedAt: now, UpdatedAt: now.Add(time.Hour),
+		EnvironmentVariables: map[string]string{"MESA_GLTHREAD": "true"},
+		IsPinned:             true,
+		LastPlayedAt:         &lastPlayedAt, CreatedAt: now, UpdatedAt: now.Add(time.Hour),
 	}
 	if err := store.SaveInstance(ctx, primary); err != nil {
 		t.Fatal(err)
@@ -54,7 +55,7 @@ func TestInstancesPersistListAndDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored.Name != primary.Name || stored.GameClient != instances.GameClientOptimum || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || !stored.IsPinned || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" {
+	if stored.Name != primary.Name || stored.GameClient != instances.GameClientOptimum || stored.DefaultAccountID != nil || stored.CoverPath == nil || *stored.CoverPath != coverPath || !stored.IsPinned || stored.LastPlayedAt == nil || !stored.LastPlayedAt.Equal(lastPlayedAt) || len(stored.LaunchArguments) != 2 || stored.LaunchArguments[1] != "bar baz" || stored.EnvironmentVariables["MESA_GLTHREAD"] != "true" {
 		t.Fatalf("unexpected stored instance: %+v", stored)
 	}
 	stored, err = store.SetInstancePinned(ctx, primary.ID, false)

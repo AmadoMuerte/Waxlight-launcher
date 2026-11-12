@@ -475,6 +475,7 @@ export interface Settings {
   downloadsParallel: number;
   confirmDeletion: boolean;
   globalLaunchArguments: string[];
+  globalEnvironmentVariables: Record<string, string>;
   optimumPath: string;
   checkForUpdates: boolean;
   updateChannel: "stable" | "prerelease";

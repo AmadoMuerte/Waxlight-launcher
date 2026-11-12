@@ -28,6 +28,7 @@ const settings: Settings = {
   downloadsParallel: 3,
   confirmDeletion: true,
   globalLaunchArguments: [],
+  globalEnvironmentVariables: {},
   optimumPath: "",
   checkForUpdates: true,
   updateChannel: "stable",
@@ -127,6 +128,7 @@ describe("i18n", () => {
         language: "en",
         downloadsParallel: 7,
         globalLaunchArguments: ["--debug", "--safe"],
+        globalEnvironmentVariables: {},
         confirmDeletion: false,
       }),
     );

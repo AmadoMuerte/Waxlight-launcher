@@ -53,7 +53,6 @@ function renderCard(
     onToggleFavorite: vi.fn(),
     onDetails: vi.fn(),
     onCopyAddress: vi.fn(),
-    onCopyLink: vi.fn(),
   };
   render(
     <TooltipProvider>
@@ -130,12 +129,6 @@ describe("ServerCard", () => {
     );
     await user.click(screen.getByRole("menuitem", { name: "Copy server address" }));
     expect(handlers.onCopyAddress).toHaveBeenCalledWith(server.address);
-
-    await user.click(
-      screen.getByRole("button", { name: "The Lighthouse Community server actions" }),
-    );
-    await user.click(screen.getByRole("menuitem", { name: "Copy Waxlight link" }));
-    expect(handlers.onCopyLink).toHaveBeenCalledWith(server.address);
 
     await user.click(
       screen.getByRole("button", { name: "The Lighthouse Community server actions" }),

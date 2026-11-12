@@ -1,13 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  Link,
-  Star,
-} from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -36,7 +28,6 @@ import { ModDescription } from "../../features/mods/ModDescription";
 import { ModScreenshotCarousel } from "../../features/mods/ModScreenshotCarousel";
 import { errorMessage } from "../../shared/api/bridge";
 import { DOWNLOADED_MODS_QUERY_KEY } from "../../shared/api/keys";
-import { modShareURL } from "../../shared/lib/waxlight-links";
 import { Button } from "../../shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../shared/ui/card";
 import { ConfirmDialog } from "../../shared/ui/confirm-dialog";
@@ -45,7 +36,7 @@ import { ErrorState } from "../../shared/ui/error-state";
 import { IconButton } from "../../shared/ui/icon-button";
 import { LoadingState } from "../../shared/ui/loading-state";
 import { Page, PageContent } from "../../shared/ui/page";
-import { BrowserOpenURL, ClipboardSetText } from "../../wailsjs/runtime/runtime";
+import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 
 export function ModDetailsPage() {
   const { t, i18n } = useTranslation();
@@ -135,20 +126,6 @@ export function ModDetailsPage() {
     setPendingExternalUrl(undefined);
   }
 
-  async function copyWaxlightLink() {
-    const url = modShareURL(modId);
-    if (!url) {
-      notify(t("invalid_waxlight_link"), "error");
-      return;
-    }
-    try {
-      if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
-      notify(t("waxlight_link_copied"));
-    } catch {
-      notify(t("waxlight_link_copy_failed"), "error");
-    }
-  }
-
   const primaryLabel = local?.updateAvailable
     ? t("update_to_version", { version: local.latestVersion })
     : local
@@ -235,13 +212,6 @@ export function ModDetailsPage() {
               <Download size={16} aria-hidden="true" />
               {primaryLabel}
             </Button>
-            <IconButton
-              variant="ghost"
-              aria-label={t("copy_waxlight_link")}
-              onClick={() => void copyWaxlightLink()}
-            >
-              <Link size={16} aria-hidden="true" />
-            </IconButton>
             <IconButton
               variant="ghost"
               aria-label={

@@ -17,14 +17,8 @@
   "info": {
     "companyName": "AmadoMuerte",
     "productName": "Waxlight Launcher",
-    "productVersion": "0.5.3",
+    "productVersion": "0.5.5",
     "copyright": "Copyright © 2026 AmadoMuerte",
-    "comments": "Free software licensed under the GNU General Public License v3.0.",
-    "protocols": [
-      {
-        "scheme": "waxlight",
-        "description": "Waxlight Launcher"
-      }
-    ]
+    "comments": "Free software licensed under the GNU General Public License v3.0."
   }
 }
