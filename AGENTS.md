@@ -120,7 +120,7 @@ Before promoting `dev` to `main`:
   call outside `wire.go`.
 - Features (`internal/accounts`, `instances`, `versions`, `launching`,
   `sessions`, `mods`, `snapshots`, `recovery`, `servers`, `settings`,
-  `operations`, `updates`, `telemetry`, `statistics`, `gamelog`, `downloads`,
+  `operations`, `updates`, `statistics`, `gamelog`, `downloads`,
   `events`, `mutations`, `errs`, ...) own their models, ports, use cases, and
   tests. Features never import `internal/app`, `internal/transport/wails`, or
   `internal/platform/*`; they consume other features only through narrow ports

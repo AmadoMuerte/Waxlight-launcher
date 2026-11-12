@@ -115,7 +115,3 @@ type MutationGate interface {
 	Begin() error
 	End()
 }
-
-// AuthFailureReporter receives only the fixed, privacy-safe authentication
-// server-unavailable category. It never receives credentials or raw errors.
-type AuthFailureReporter func(context.Context)

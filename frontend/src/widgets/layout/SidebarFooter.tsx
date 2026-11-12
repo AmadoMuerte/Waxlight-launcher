@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { DISCORD_URL } from "../../shared/lib/links";
 import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
-
-const DISCORD_URL = "https://discord.gg/CrRHvg9UVw";
 
 export function SidebarFooter() {
   const { t } = useTranslation();

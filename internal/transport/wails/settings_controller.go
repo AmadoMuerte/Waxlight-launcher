@@ -63,7 +63,7 @@ func (controller *SettingsController) UpdateSettings(request SettingsDTO) (Setti
 		ConfirmDeletion: request.ConfirmDeletion, GlobalLaunchArguments: request.GlobalLaunchArguments,
 		OptimumPath:     request.OptimumPath,
 		CheckForUpdates: request.CheckForUpdates, UpdateChannel: request.UpdateChannel,
-		SkippedUpdateVersion: request.SkippedUpdateVersion, TelemetryEnabled: request.TelemetryEnabled,
+		SkippedUpdateVersion:       request.SkippedUpdateVersion,
 		RichPresenceEnabled:        request.RichPresenceEnabled,
 		AutomaticSafetySnapshots:   request.AutomaticSafetySnapshots,
 		AutomaticSnapshotRetention: request.AutomaticSnapshotRetention,

@@ -14,8 +14,6 @@ import (
 type Service struct {
 	repository Repository
 	reader     *Reader
-	consent    ConsentSynchronizer
-	heartbeat  Heartbeat
 	downloads  DownloadLimiter
 	mu         sync.Mutex
 }
@@ -23,11 +21,9 @@ type Service struct {
 func NewService(
 	repository Repository,
 	reader *Reader,
-	consent ConsentSynchronizer,
-	heartbeat Heartbeat,
 	downloads DownloadLimiter,
 ) *Service {
-	return &Service{repository: repository, reader: reader, consent: consent, heartbeat: heartbeat, downloads: downloads}
+	return &Service{repository: repository, reader: reader, downloads: downloads}
 }
 
 func (service *Service) Update(ctx context.Context, value Settings) (Settings, error) {
@@ -56,26 +52,13 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 		return value, errs.NewError(errs.ErrValidation, "Skipped update version is too long")
 	}
 
-	previous, getErr := service.reader.Get(ctx)
-	if getErr != nil {
-		previous = Settings{}
-	}
-	save := func() error { return service.repository.SaveSettings(ctx, value) }
-	if service.consent != nil {
-		err = service.consent.SynchronizeConsent(save)
-	} else {
-		err = save()
-	}
-	if err != nil {
+	if err := service.repository.SaveSettings(ctx, value); err != nil {
 		return value, err
 	}
 	if service.downloads != nil {
 		service.downloads.SetLimit(value.DownloadsParallel)
 	}
 	slog.Info("settings saved", "language", value.Language, "updateChannel", value.UpdateChannel)
-	if value.TelemetryEnabled && !previous.TelemetryEnabled && service.heartbeat != nil {
-		service.heartbeat.MaybeSendHeartbeat()
-	}
 	return value, nil
 }
 

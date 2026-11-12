@@ -85,13 +85,6 @@ func (publish PublishFunc) Publish(name string, payload any) {
 	publish(name, payload)
 }
 
-// Telemetry reports allowlisted events and error categories. Both are
-// best-effort and must never affect operation outcomes.
-type Telemetry interface {
-	Event(ctx context.Context, name string)
-	Error(ctx context.Context, code, component, operation string)
-}
-
 // InstalledModLister lists the reconciled installed mods of an instance. The
 // concrete implementation lives in the installed-mod service so the catalog
 // service never duplicates discovery or reconciliation.

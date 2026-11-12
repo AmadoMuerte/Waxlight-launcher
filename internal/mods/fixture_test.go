@@ -376,7 +376,6 @@ func newTestFixtureWithDeps(
 		lock,
 		snapshots,
 		events,
-		nil,
 		time.Now,
 		newTestID,
 	)
@@ -393,7 +392,6 @@ func newTestFixtureWithDeps(
 		lock,
 		snapshots,
 		events,
-		nil,
 		mods.NewModTaskManager(events),
 		time.Now,
 		newTestID,

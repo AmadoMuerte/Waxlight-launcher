@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
@@ -33,7 +32,6 @@ type CatalogService struct {
 	lock        InstanceLock
 	snapshotter snapshots.SafetySnapshotter
 	events      Publisher
-	telemetry   Telemetry
 	tasks       *ModTaskManager
 	now         Clock
 	newID       IDGenerator
@@ -53,7 +51,6 @@ func NewCatalogService(
 	lock InstanceLock,
 	snapshotter snapshots.SafetySnapshotter,
 	events Publisher,
-	telemetry Telemetry,
 	tasks *ModTaskManager,
 	now Clock,
 	newID IDGenerator,
@@ -71,7 +68,6 @@ func NewCatalogService(
 		lock:        lock,
 		snapshotter: snapshotter,
 		events:      events,
-		telemetry:   telemetry,
 		tasks:       tasks,
 		now:         now,
 		newID:       newID,
@@ -591,7 +587,6 @@ func (service *CatalogService) RemoveDownloadedMod(ctx context.Context, modID, v
 	if err := service.downloads.Delete(ctx, modID, versionID); err != nil {
 		return err
 	}
-	service.reportEvent(ctx, EventModRemoved)
 	return nil
 }
 
@@ -632,7 +627,6 @@ func (service *CatalogService) RemoveDownloadedModsIfUnusedLocked(ctx context.Co
 		if err := service.downloads.Delete(ctx, candidate.ModID, candidate.VersionID); err != nil {
 			return err
 		}
-		service.reportEvent(ctx, EventModRemoved)
 	}
 	return nil
 }
@@ -662,7 +656,6 @@ func (service *CatalogService) RemoveUnusedDownloadedMods(ctx context.Context) (
 		if err := service.downloads.Delete(ctx, item.ModID, item.VersionID); err != nil {
 			return DownloadedModCleanupResult{}, err
 		}
-		service.reportEvent(ctx, EventModRemoved)
 	}
 	return downloadedModCleanupResult(items), nil
 }
@@ -716,38 +709,4 @@ func downloadedModCleanupResult(items []DownloadedMod) DownloadedModCleanupResul
 // release function must be called exactly once when the operation finishes.
 func (service *CatalogService) lockInstanceMutations(instanceID string) (func(), error) {
 	return service.lock.Lock(instanceID, MutationLockMarker)
-}
-
-func (service *CatalogService) reportEvent(ctx context.Context, name string) {
-	if service.telemetry != nil {
-		service.telemetry.Event(ctx, name)
-	}
-}
-
-func (service *CatalogService) reportError(ctx context.Context, code, component, operation string) {
-	if service.telemetry != nil {
-		service.telemetry.Error(ctx, code, component, operation)
-	}
-}
-
-// reportModDownloadError classifies a mod download failure into a structured
-// telemetry error. The downloader reports HTTP statuses as
-// "download returned HTTP <code>"; only the category is transmitted.
-func (service *CatalogService) reportModDownloadError(err error) {
-	code := ErrorModDownloadFailed
-	if status := downloadHTTPStatus(err); status == 404 {
-		code = ErrorModDownloadHTTP404
-	}
-	service.reportError(context.Background(), code, ComponentModDownloader, OperationDownloadMod)
-}
-
-func downloadHTTPStatus(err error) int {
-	message := err.Error()
-	marker := "HTTP "
-	if index := strings.LastIndex(message, marker); index >= 0 {
-		if status, parseErr := strconv.Atoi(strings.TrimSpace(message[index+len(marker):])); parseErr == nil {
-			return status
-		}
-	}
-	return 0
 }

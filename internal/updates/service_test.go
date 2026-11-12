@@ -6,14 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/mutations"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 type updateSourceStub struct {
@@ -75,7 +72,7 @@ func TestLauncherUpdateDownloadsVerifiedOfficialAsset(t *testing.T) {
 		AssetName:        "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL:      "https://github.com/AmadoMuerte/Waxlight-launcher/releases/download/v0.1.5/Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		SHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	var phases []string
 	err := service.Install(context.Background(), "stable", func(progress Progress) {
@@ -107,7 +104,7 @@ func TestLauncherUpdatePreservesInstallationOnVerificationFailure(t *testing.T) 
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	if err := service.Install(context.Background(), "stable", nil); err == nil {
 		t.Fatal("expected verification failure")
@@ -126,7 +123,7 @@ func TestLauncherUpdateRejectsUnsafeFilename(t *testing.T) {
 		AssetName:   "../../etc/passwd",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -146,7 +143,7 @@ func TestLauncherUpdateRejectsInvalidChecksumLength(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "tooshort",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -166,7 +163,7 @@ func TestLauncherUpdateRejectsSignatureFailure(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -186,7 +183,7 @@ func TestLauncherUpdateRejectsInstallerFailure(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -203,7 +200,7 @@ func TestLauncherUpdateRejectsConcurrentInstall(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	service.mu.Lock()
 	service.installing = true
@@ -219,7 +216,7 @@ func TestLauncherUpdateRejectsInvalidChannel(t *testing.T) {
 	downloader := &updateDownloaderStub{}
 	installer := &updateInstallerStub{}
 	signatureVerifier := &signatureVerifierStub{}
-	service := NewService(updateSourceStub{}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	service := NewService(updateSourceStub{}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "invalid", nil)
 	if err == nil {
@@ -233,7 +230,7 @@ func TestLauncherUpdateRejectsNoUpdateAvailable(t *testing.T) {
 	signatureVerifier := &signatureVerifierStub{}
 	service := NewService(updateSourceStub{update: Update{
 		Available: false,
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	err := service.Install(context.Background(), "stable", nil)
 	if err == nil {
@@ -266,7 +263,6 @@ func TestLauncherUpdateAllowsPortableModeOnLinux(t *testing.T) {
 		&mutations.Gate{},
 		t.TempDir(),
 		"0.1.4",
-		nil,
 	)
 
 	err := service.Install(context.Background(), "stable", nil)
@@ -316,7 +312,6 @@ func TestLauncherUpdateRejectsPortableModeOnWindows(t *testing.T) {
 		&mutations.Gate{},
 		t.TempDir(),
 		"0.1.4",
-		nil,
 	)
 
 	err := service.Install(context.Background(), "stable", nil)
@@ -355,7 +350,7 @@ func TestLauncherUpdatePublishesProgressPhases(t *testing.T) {
 		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
 		DownloadURL: "https://github.com/example",
 		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", nil)
+	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4")
 
 	var phases []string
 	err := service.Install(context.Background(), "stable", func(progress Progress) {
@@ -374,107 +369,6 @@ func TestLauncherUpdatePublishesProgressPhases(t *testing.T) {
 			t.Fatalf("phase %d: expected %q, got %q", i, expected, phases[i])
 		}
 	}
-}
-
-// updateTelemetryRecorder records allowlisted update events and errors through
-// the immutable telemetry port.
-type updateTelemetryRecorder struct {
-	mu     sync.Mutex
-	events []string
-	errors []telemetry.ErrorEvent
-}
-
-func (recorder *updateTelemetryRecorder) Event(_ context.Context, name string) {
-	recorder.mu.Lock()
-	defer recorder.mu.Unlock()
-	recorder.events = append(recorder.events, name)
-}
-
-func (recorder *updateTelemetryRecorder) Error(_ context.Context, code, _, _ string) {
-	recorder.mu.Lock()
-	defer recorder.mu.Unlock()
-	recorder.errors = append(recorder.errors, telemetry.ErrorEvent{ErrorCode: code})
-}
-
-func (recorder *updateTelemetryRecorder) waitForEvent(t *testing.T, name string) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		recorder.mu.Lock()
-		found := false
-		for _, event := range recorder.events {
-			if event == name {
-				found = true
-				break
-			}
-		}
-		recorder.mu.Unlock()
-		if found {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("event %q was not recorded at its update boundary", name)
-}
-
-func (recorder *updateTelemetryRecorder) waitForError(t *testing.T, code string) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		recorder.mu.Lock()
-		found := false
-		for _, report := range recorder.errors {
-			if report.ErrorCode == code {
-				found = true
-				break
-			}
-		}
-		recorder.mu.Unlock()
-		if found {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("structured error %q was not recorded", code)
-}
-
-func TestLauncherUpdateReportsStartAndFailureEvents(t *testing.T) {
-	recorder := &updateTelemetryRecorder{}
-	downloader := &updateDownloaderStub{err: errors.New("network down")}
-	installer := &updateInstallerStub{}
-	signatureVerifier := &signatureVerifierStub{}
-	service := NewService(updateSourceStub{update: Update{
-		Available:   true,
-		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
-		DownloadURL: "https://github.com/example",
-		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", recorder)
-
-	err := service.Install(context.Background(), "stable", nil)
-	if err == nil {
-		t.Fatal("expected download failure")
-	}
-	recorder.waitForEvent(t, telemetry.EventUpdateStarted)
-	recorder.waitForEvent(t, telemetry.EventUpdateFailed)
-	recorder.waitForError(t, telemetry.ErrorUpdateDownloadFailed)
-}
-
-func TestLauncherUpdateSilentlyIgnoresDisabledTelemetry(t *testing.T) {
-	recorder := &updateTelemetryRecorder{}
-	downloader := &updateDownloaderStub{}
-	installer := &updateInstallerStub{}
-	signatureVerifier := &signatureVerifierStub{}
-	service := NewService(updateSourceStub{update: Update{
-		Available:   true,
-		AssetName:   "Waxlight-Launcher-v0.1.5-linux-amd64.tar.gz",
-		DownloadURL: "https://github.com/example",
-		SHA256:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}}, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "0.1.4", recorder)
-
-	if err := service.Install(context.Background(), "stable", nil); err != nil {
-		t.Fatal(err)
-	}
-	recorder.waitForEvent(t, telemetry.EventUpdateStarted)
 }
 
 func TestPurgeStaleUpdateSessionsRemovesLeftovers(t *testing.T) {
@@ -542,7 +436,7 @@ func TestManagedUpdatesSkipCheckAndInstall(t *testing.T) {
 	installer := &updateInstallerStub{}
 	signatureVerifier := &signatureVerifierStub{}
 	source := updateSourceStub{err: errors.New("update source must not be queried")}
-	service := NewService(source, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "v0.1.4", nil)
+	service := NewService(source, downloader, installer, signatureVerifier, &mutations.Gate{}, t.TempDir(), "v0.1.4")
 
 	if !ManagedExternally() {
 		t.Fatal("ManagedExternally should report true for externally managed builds")

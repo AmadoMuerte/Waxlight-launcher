@@ -64,9 +64,6 @@ const (
 	ErrServerNotFound           = "SERVER_NOT_FOUND"
 	ErrServerCatalogUnavailable = "SERVER_CATALOG_UNAVAILABLE"
 	ErrNewsUnavailable          = "NEWS_UNAVAILABLE"
-	ErrSupportReportFailed      = "SUPPORT_REPORT_FAILED"
-	ErrSupportReportTooLarge    = "SUPPORT_REPORT_TOO_LARGE"
-	ErrSupportReportRateLimited = "SUPPORT_REPORT_RATE_LIMITED"
 
 	ErrUpdateChecksumMismatch  = "UPDATE_CHECKSUM_MISMATCH"
 	ErrUpdateSignatureMissing  = "UPDATE_SIGNATURE_MISSING"

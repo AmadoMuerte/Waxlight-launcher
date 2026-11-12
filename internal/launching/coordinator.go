@@ -23,7 +23,6 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/process"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/sessions"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/versions"
 )
 
@@ -85,7 +84,6 @@ type Coordinator struct {
 	dotnet         dotnet.RuntimeDetector
 	logs           LaunchLogs
 	events         Publisher
-	telemetry      TelemetryReporter
 	recovery       LaunchRecovery
 	workers        WorkerGroup
 	operations     OperationLister
@@ -110,7 +108,6 @@ func NewCoordinator(
 	dotnetDetector dotnet.RuntimeDetector,
 	logs LaunchLogs,
 	events Publisher,
-	telemetry TelemetryReporter,
 	recovery LaunchRecovery,
 	workers WorkerGroup,
 	operations OperationLister,
@@ -134,7 +131,6 @@ func NewCoordinator(
 		dotnet:         dotnetDetector,
 		logs:           logs,
 		events:         events,
-		telemetry:      telemetry,
 		recovery:       recovery,
 		workers:        workers,
 		operations:     operations,
@@ -418,8 +414,6 @@ func (coordinator *Coordinator) launch(
 	if err != nil {
 		closeLaunchLog(logFile, instance.Name)
 		coordinator.clearInjectedCredentials(cleanupCredentials, instance)
-		coordinator.reportEvent(ctx, telemetry.EventGameLaunchFailed)
-		coordinator.reportError(ctx, telemetry.ErrorGameLaunchFailed, telemetry.ComponentGameLauncher, telemetry.OperationLaunchGame)
 		return sessions.PlaySession{}, &errs.AppError{
 			Code:    errs.ErrProcessStart,
 			Message: processStartMessage(instance.GameClient),
@@ -466,7 +460,6 @@ func (coordinator *Coordinator) launch(
 	if coordinator.presence != nil {
 		coordinator.presence.GameStarted()
 	}
-	coordinator.reportEvent(ctx, telemetry.EventGameLaunchSucceeded)
 	slog.Info("game started", "instance", instance.Name)
 	// Snapshot the startup window once on the caller goroutine; the launch
 	// goroutines below read only this captured value (the package variable is
@@ -842,18 +835,6 @@ func (coordinator *Coordinator) ClearAccountFromInstances(ctx context.Context, a
 func (coordinator *Coordinator) publish(name string, payload any) {
 	if coordinator.events != nil {
 		coordinator.events.Publish(name, payload)
-	}
-}
-
-func (coordinator *Coordinator) reportEvent(ctx context.Context, name string) {
-	if coordinator.telemetry != nil {
-		coordinator.telemetry.Event(ctx, name)
-	}
-}
-
-func (coordinator *Coordinator) reportError(ctx context.Context, code, component, operation string) {
-	if coordinator.telemetry != nil {
-		coordinator.telemetry.Error(ctx, code, component, operation)
 	}
 }
 
