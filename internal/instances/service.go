@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/envvars"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
@@ -102,7 +103,7 @@ func (service *CreateService) CreatePrepared(
 	if !valid {
 		return Instance{}, errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
 	}
-	environmentVariables, err := cleanEnvironmentVariables(input.EnvironmentVariables)
+	environmentVariables, err := envvars.Clean(input.EnvironmentVariables)
 	if err != nil {
 		return Instance{}, err
 	}
@@ -250,7 +251,7 @@ func (service *UpdateService) Update(ctx context.Context, updated Instance) (Ins
 		return updated, errs.NewError(errs.ErrValidation, "Game client must be Vanilla or Optimum")
 	}
 	updated.GameClient = gameClient
-	updated.EnvironmentVariables, err = cleanEnvironmentVariables(updated.EnvironmentVariables)
+	updated.EnvironmentVariables, err = envvars.Clean(updated.EnvironmentVariables)
 	if err != nil {
 		return updated, err
 	}
@@ -405,44 +406,6 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	}
 	slog.Info("instance deleted", "id", id)
 	return nil
-}
-
-func cleanEnvironmentVariables(values map[string]string) (map[string]string, error) {
-	if len(values) == 0 {
-		return map[string]string{}, nil
-	}
-
-	cleaned := make(map[string]string, len(values))
-	for rawKey, value := range values {
-		key := strings.TrimSpace(rawKey)
-		if !validEnvironmentVariableName(key) {
-			return nil, errs.NewError(errs.ErrValidation, "Environment variable names must use letters, numbers, and underscores and cannot start with a number")
-		}
-		if key == "WAXLIGHT_INSTANCE_DIR" {
-			return nil, errs.NewError(errs.ErrValidation, "WAXLIGHT_INSTANCE_DIR is reserved by Waxlight")
-		}
-		if strings.ContainsRune(value, '\x00') {
-			return nil, errs.NewError(errs.ErrValidation, "Environment variable values cannot contain NUL characters")
-		}
-		cleaned[key] = value
-	}
-	return cleaned, nil
-}
-
-func validEnvironmentVariableName(value string) bool {
-	if value == "" {
-		return false
-	}
-	for index, char := range value {
-		if char == '_' || char >= 'A' && char <= 'Z' || char >= 'a' && char <= 'z' {
-			continue
-		}
-		if index > 0 && char >= '0' && char <= '9' {
-			continue
-		}
-		return false
-	}
-	return true
 }
 
 func sameOptionalString(left, right *string) bool {

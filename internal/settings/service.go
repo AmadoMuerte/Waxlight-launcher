@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/AmadoMuerte/Waxlight-launcher/internal/envvars"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/language"
 )
@@ -48,6 +49,11 @@ func (service *Service) Update(ctx context.Context, value Settings) (Settings, e
 	value.LibrarySort = normalizeLibrarySort(value.LibrarySort)
 	value.SkippedUpdateVersion = strings.TrimSpace(value.SkippedUpdateVersion)
 	value.OptimumPath = strings.TrimSpace(value.OptimumPath)
+	environmentVariables, err := envvars.Clean(value.GlobalEnvironmentVariables)
+	if err != nil {
+		return value, err
+	}
+	value.GlobalEnvironmentVariables = environmentVariables
 	if len(value.SkippedUpdateVersion) > 64 {
 		return value, errs.NewError(errs.ErrValidation, "Skipped update version is too long")
 	}

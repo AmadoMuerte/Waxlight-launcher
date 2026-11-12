@@ -417,6 +417,52 @@ describe("confirmDeletion gate", () => {
     );
   });
 
+  it("saves instance environment variables", async () => {
+    renderModal();
+    const user = await openSettingsTab();
+
+    const field = await screen.findByRole("textbox", { name: /Environment variables/ });
+    await user.clear(field);
+    await user.type(field, "MESA_GLTHREAD=true{enter}LOCAL_ONLY=yes");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(instancesApi.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "instance-1",
+          environmentVariables: { MESA_GLTHREAD: "true", LOCAL_ONLY: "yes" },
+        }),
+      ),
+    );
+  });
+
+  it("shows an inline error for malformed instance environment variables", async () => {
+    renderModal();
+    const user = await openSettingsTab();
+
+    const field = await screen.findByRole("textbox", { name: /Environment variables/ });
+    await user.clear(field);
+    await user.type(field, "BROKEN");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(
+      await screen.findByText("Invalid environment variable on line 1. Use KEY=VALUE."),
+    ).toBeTruthy();
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(instancesApi.update).not.toHaveBeenCalled();
+
+    await user.clear(field);
+    await user.type(field, "VALID=1");
+    expect(screen.queryByText("Invalid environment variable on line 1. Use KEY=VALUE.")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(instancesApi.update).toHaveBeenCalledWith(
+        expect.objectContaining({ environmentVariables: { VALID: "1" } }),
+      ),
+    );
+  });
+
   it("warns when Optimum targets a different game version", async () => {
     settingsQuery.useOptimumStatusQuery.mockReturnValue({
       data: {

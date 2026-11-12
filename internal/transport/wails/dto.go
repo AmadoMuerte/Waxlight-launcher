@@ -382,20 +382,21 @@ func statisticsDTO(statistics statistics.Statistics) StatisticsDTO {
 
 // SettingsDTO carries launcher preferences between the frontend and settings service.
 type SettingsDTO struct {
-	Language                   string   `json:"language"`
-	DownloadsParallel          int      `json:"downloadsParallel"`
-	ConfirmDeletion            bool     `json:"confirmDeletion"`
-	GlobalLaunchArguments      []string `json:"globalLaunchArguments"`
-	OptimumPath                string   `json:"optimumPath"`
-	CheckForUpdates            bool     `json:"checkForUpdates"`
-	UpdateChannel              string   `json:"updateChannel"`
-	SkippedUpdateVersion       string   `json:"skippedUpdateVersion"`
-	RichPresenceEnabled        bool     `json:"richPresenceEnabled"`
-	AutomaticSafetySnapshots   bool     `json:"automaticSafetySnapshots"`
-	AutomaticSnapshotRetention int      `json:"automaticSnapshotRetention"`
-	LibrarySort                string   `json:"librarySort"`
-	UIScale                    float64  `json:"uiScale"`
-	CloseToTray                bool     `json:"closeToTray"`
+	Language                   string            `json:"language"`
+	DownloadsParallel          int               `json:"downloadsParallel"`
+	ConfirmDeletion            bool              `json:"confirmDeletion"`
+	GlobalLaunchArguments      []string          `json:"globalLaunchArguments"`
+	GlobalEnvironmentVariables map[string]string `json:"globalEnvironmentVariables"`
+	OptimumPath                string            `json:"optimumPath"`
+	CheckForUpdates            bool              `json:"checkForUpdates"`
+	UpdateChannel              string            `json:"updateChannel"`
+	SkippedUpdateVersion       string            `json:"skippedUpdateVersion"`
+	RichPresenceEnabled        bool              `json:"richPresenceEnabled"`
+	AutomaticSafetySnapshots   bool              `json:"automaticSafetySnapshots"`
+	AutomaticSnapshotRetention int               `json:"automaticSnapshotRetention"`
+	LibrarySort                string            `json:"librarySort"`
+	UIScale                    float64           `json:"uiScale"`
+	CloseToTray                bool              `json:"closeToTray"`
 }
 
 func settingsDTO(settings settings.Settings) SettingsDTO {
@@ -403,12 +404,17 @@ func settingsDTO(settings settings.Settings) SettingsDTO {
 	if launchArguments == nil {
 		launchArguments = []string{}
 	}
+	environmentVariables := settings.GlobalEnvironmentVariables
+	if environmentVariables == nil {
+		environmentVariables = map[string]string{}
+	}
 
 	return SettingsDTO{
 		Language:                   settings.Language,
 		DownloadsParallel:          settings.DownloadsParallel,
 		ConfirmDeletion:            settings.ConfirmDeletion,
 		GlobalLaunchArguments:      launchArguments,
+		GlobalEnvironmentVariables: environmentVariables,
 		OptimumPath:                settings.OptimumPath,
 		CheckForUpdates:            settings.CheckForUpdates,
 		UpdateChannel:              settings.UpdateChannel,

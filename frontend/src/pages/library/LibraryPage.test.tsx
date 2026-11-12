@@ -86,6 +86,7 @@ const settings: Settings = {
   downloadsParallel: 3,
   confirmDeletion: true,
   globalLaunchArguments: [],
+  globalEnvironmentVariables: {},
   optimumPath: "",
   checkForUpdates: true,
   updateChannel: "stable",

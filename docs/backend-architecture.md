@@ -43,6 +43,7 @@ only through narrow ports and structural views.
 | `internal/events` | Framework-neutral publisher abstraction. |
 | `internal/mutations` | Global write gate (`Gate`) and per-instance busy slot (`Slot`). |
 | `internal/errs` | The shared UI-facing error contract: `AppError`, `NewError`, `ErrNotFound`, and every error code. Code strings are a frontend contract (i18n keys) and must never change. |
+| `internal/envvars` | Shared validation for user-supplied global and per-instance environment variables. |
 | `internal/version` | Build version metadata. |
 | `internal/language` | Supported language list for settings validation. |
 | `internal/publishers` | Trusted Windows publisher identifiers for update signature checks. |
