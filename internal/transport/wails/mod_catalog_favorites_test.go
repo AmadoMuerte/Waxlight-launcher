@@ -71,7 +71,7 @@ func newFavoriteModCatalogController() (*ModCatalogController, *favoriteStoreStu
 	service := mods.NewCatalogService(
 		favoriteRepositoryStub{}, nil,
 		favoriteCatalogStub{details: mods.ModDetails{ModSummary: mods.ModSummary{ID: "canonical", Name: "Example"}}},
-		store, favoriteDownloadsStub{}, nil, nil, nil, &mutations.Gate{}, nil, nil, nil, nil, nil, nil, nil,
+		store, favoriteDownloadsStub{}, nil, nil, nil, &mutations.Gate{}, nil, nil, nil, nil, nil, nil,
 	)
 	return NewModCatalogController(service, newTestLifecycle()), store
 }

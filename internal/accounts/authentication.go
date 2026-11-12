@@ -23,18 +23,17 @@ type pendingLogin struct {
 }
 
 type Service struct {
-	repository        Repository
-	authenticator     Authenticator
-	credentials       Credentials
-	pending           PendingCredentials
-	cleanupInstances  InstanceCleanup
-	reportAuthFailure AuthFailureReporter
-	mutationGate      MutationGate
-	flowTTL           time.Duration
-	now               func() time.Time
-	flowMu            sync.Mutex
-	persistMu         sync.Mutex
-	loginFlow         map[string]*pendingLogin
+	repository       Repository
+	authenticator    Authenticator
+	credentials      Credentials
+	pending          PendingCredentials
+	cleanupInstances InstanceCleanup
+	mutationGate     MutationGate
+	flowTTL          time.Duration
+	now              func() time.Time
+	flowMu           sync.Mutex
+	persistMu        sync.Mutex
+	loginFlow        map[string]*pendingLogin
 }
 
 func NewService(
@@ -43,12 +42,11 @@ func NewService(
 	credentials Credentials,
 	pending PendingCredentials,
 	cleanupInstances InstanceCleanup,
-	reportAuthFailure AuthFailureReporter,
 	mutationGate MutationGate,
 ) *Service {
 	return &Service{
 		repository: repository, authenticator: authenticator, credentials: credentials,
-		pending: pending, cleanupInstances: cleanupInstances, reportAuthFailure: reportAuthFailure,
+		pending: pending, cleanupInstances: cleanupInstances,
 		mutationGate: mutationGate,
 		flowTTL:      defaultLoginFlowTTL, now: func() time.Time { return time.Now().UTC() },
 		loginFlow: make(map[string]*pendingLogin),
@@ -99,7 +97,6 @@ func (service *Service) startLogin(ctx context.Context, expectedAccountID, email
 		return LoginResult{Status: LoginStatusTOTPRequired, FlowID: flowID}, nil
 	}
 	if err != nil {
-		service.reportFailure(err)
 		return loginFailure(err), nil
 	}
 	return service.persistSession(ctx, expectedAccountID, email, session)
@@ -123,7 +120,6 @@ func (service *Service) CompleteTOTP(ctx context.Context, flowID, code string) (
 	}
 	session, _, err := service.authenticator.Login(ctx, flow.Email, flow.Password, code, flow.PreLoginToken)
 	if err != nil {
-		service.reportFailure(err)
 		return loginFailure(err), nil
 	}
 	result, err := service.persistSession(ctx, flow.ExpectedAccountID, flow.Email, session)
@@ -156,12 +152,6 @@ func (service *Service) purgeExpiredLocked() {
 			flow.PreLoginToken = ""
 			delete(service.loginFlow, id)
 		}
-	}
-}
-
-func (service *Service) reportFailure(err error) {
-	if service.reportAuthFailure != nil && (errors.Is(err, ErrAuthNetwork) || errors.Is(err, ErrAuthServer)) {
-		service.reportAuthFailure(context.Background())
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const currentSchemaVersion = 12
+const currentSchemaVersion = 13
 
 type migration struct {
 	version int
@@ -31,6 +31,7 @@ func (s *SQLiteStore) migrations() []migration {
 	return append(list,
 		migration{version: 11, apply: s.relativizeDataRootPaths},
 		migration{version: 12, apply: addFavoriteMods},
+		migration{version: 13, apply: dropTelemetryState},
 	)
 }
 
@@ -180,6 +181,20 @@ func addFavoriteMods(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `CREATE TABLE favorite_mods (
 	 mod_id TEXT PRIMARY KEY NOT NULL
 	)`)
+	return err
+}
+
+// dropTelemetryState removes the leftover telemetry identity and heartbeat
+// markers after the telemetry feature was removed from the launcher.
+func dropTelemetryState(ctx context.Context, tx *sql.Tx) error {
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='app_settings'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `DELETE FROM app_settings WHERE key IN ('telemetry_installation_id', 'telemetry_last_heartbeat')`)
 	return err
 }
 

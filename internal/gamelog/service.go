@@ -15,9 +15,8 @@ import (
 )
 
 // Game errors captured from a running game are forwarded through the regular
-// slog pipeline exactly like launcher errors, so they reach the console, the
-// per-session log files, and the support export. They never enter telemetry:
-// the telemetry taxonomy has no entries for game output.
+// slog pipeline exactly like launcher errors, so they reach the console and the
+// per-session log files.
 const (
 	// maxLineLength caps a single forwarded error line.
 	maxLineLength = 2000

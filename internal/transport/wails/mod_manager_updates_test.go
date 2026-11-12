@@ -21,7 +21,7 @@ func newUpgradeController(installed []mods.InstalledMod, versions []mods.ModVers
 	}}
 	service := mods.NewCatalogService(
 		nil, nil, catalog, nil, nil, nil, nil, upgradeListerStub{installed: installed},
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	return NewModManagerController(nil, service, newTestLifecycle())
 }

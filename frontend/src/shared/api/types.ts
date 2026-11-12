@@ -479,7 +479,6 @@ export interface Settings {
   checkForUpdates: boolean;
   updateChannel: "stable" | "prerelease";
   skippedUpdateVersion: string;
-  telemetryEnabled: boolean;
   richPresenceEnabled: boolean;
   automaticSafetySnapshots: boolean;
   automaticSnapshotRetention: number;

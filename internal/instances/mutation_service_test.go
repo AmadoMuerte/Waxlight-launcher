@@ -225,7 +225,6 @@ func TestDeleteServiceStagesFilesDeletesRecordAndCleansTrash(t *testing.T) {
 		calls:    &calls,
 	}
 	events := &eventRecorder{onPublish: func() { calls = append(calls, "publish") }}
-	var telemetryEvents []string
 	service := NewDeleteService(
 		repository,
 		&testGate{},
@@ -243,20 +242,16 @@ func TestDeleteServiceStagesFilesDeletesRecordAndCleansTrash(t *testing.T) {
 			return errors.New("already removed")
 		},
 		events,
-		func(_ context.Context, name string) {
-			calls = append(calls, "telemetry")
-			telemetryEvents = append(telemetryEvents, name)
-		},
 	)
 
 	if err := service.Delete(context.Background(), "instance", true); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(calls, []string{"guard", "get", "stage", "delete", "recovery", "publish", "telemetry", "release"}) {
+	if !reflect.DeepEqual(calls, []string{"guard", "get", "stage", "delete", "recovery", "publish", "release"}) {
 		t.Fatalf("calls = %v", calls)
 	}
-	if repository.deleted != "instance" || len(telemetryEvents) != 1 || telemetryEvents[0] != telemetryEventInstanceDeleted {
-		t.Fatalf("deleted = %q, telemetry = %v", repository.deleted, telemetryEvents)
+	if repository.deleted != "instance" {
+		t.Fatalf("deleted = %q", repository.deleted)
 	}
 	payload, ok := events.events[0].payload.(map[string]string)
 	if len(events.events) != 1 || events.events[0].name != "instance:deleted" || !ok || payload["id"] != "instance" {
@@ -302,7 +297,7 @@ func TestDeleteServiceRestoresFilesWhenDatabaseDeleteFails(t *testing.T) {
 	}
 	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
 		return StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	if err := service.Delete(context.Background(), "instance", true); !errors.Is(err, want) {
 		t.Fatalf("Delete() error = %v, want %v", err, want)
@@ -328,7 +323,7 @@ func TestDeleteServiceRenameFailureDoesNotDeleteRecord(t *testing.T) {
 			t.Fatalf("stage path = %q, want %q", path, directory)
 		}
 		return nil, nil, errors.New("rename failed")
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	if err := service.Delete(context.Background(), "instance", true); err == nil {
 		t.Fatal("Delete() error = nil")
@@ -346,7 +341,7 @@ func TestDeleteServiceWithoutFilesPreservesDirectory(t *testing.T) {
 	var calls []string
 	directory := t.TempDir()
 	repository := &mutationRepository{instance: Instance{ID: "instance", Directory: directory}, calls: &calls}
-	service := NewDeleteService(repository, &testGate{}, &testLock{}, nil, nil, nil, nil, nil)
+	service := NewDeleteService(repository, &testGate{}, &testLock{}, nil, nil, nil, nil)
 
 	if err := service.Delete(context.Background(), "instance", false); err != nil {
 		t.Fatal(err)
@@ -370,7 +365,7 @@ func TestDeleteServiceReportsDatabaseAndRollbackFailures(t *testing.T) {
 	}
 	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(string) (func() error, func() error, error) {
 		return func() error { return restoreErr }, func() error { return nil }, nil
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	err := service.Delete(context.Background(), "instance", true)
 	if !errors.Is(err, databaseErr) || !errors.Is(err, restoreErr) {
@@ -395,7 +390,7 @@ func TestDeleteServiceReturnsFinalCleanupFailureAfterRecordDeletion(t *testing.T
 	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
 		restore, _, err := StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
 		return restore, func() error { return cleanupErr }, err
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	if err := service.Delete(context.Background(), "instance", true); !errors.Is(err, cleanupErr) {
 		t.Fatalf("Delete() error = %v, want %v", err, cleanupErr)
@@ -421,7 +416,7 @@ func TestDeleteServiceDeletesRecordWhenDirectoryIsMissing(t *testing.T) {
 	}
 	service := NewDeleteService(repository, &testGate{}, &testLock{}, func(path string) (func() error, func() error, error) {
 		return StageDirectoryRemoval(path, dataRoot, ".waxlight-instance")
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	if err := service.Delete(context.Background(), "instance", true); err != nil {
 		t.Fatal(err)
@@ -442,7 +437,6 @@ func TestDeleteServiceClearFailurePreservesRecord(t *testing.T) {
 		&testLock{},
 		nil,
 		func(string) error { calls = append(calls, "clear"); return want },
-		nil,
 		nil,
 		nil,
 	)
@@ -472,7 +466,7 @@ func TestDeleteServiceRequiresSafetyDependencies(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
 			repository := &mutationRepository{instance: Instance{ID: "instance"}, calls: &calls}
-			service := NewDeleteService(repository, &testGate{}, test.lock, test.remover, nil, nil, nil, nil)
+			service := NewDeleteService(repository, &testGate{}, test.lock, test.remover, nil, nil, nil)
 
 			if err := service.Delete(context.Background(), "instance", true); err == nil {
 				t.Fatal("Delete() error = nil")
@@ -494,7 +488,7 @@ func TestMutationServicesRejectWhenGateIsBusy(t *testing.T) {
 	if _, err := updater.Update(context.Background(), Instance{}); !errors.Is(err, want) {
 		t.Fatalf("Update() error = %v, want %v", err, want)
 	}
-	deleter := NewDeleteService(repository, gate, &testLock{}, nil, nil, nil, nil, nil)
+	deleter := NewDeleteService(repository, gate, &testLock{}, nil, nil, nil, nil)
 	if err := deleter.Delete(context.Background(), "instance", true); !errors.Is(err, want) {
 		t.Fatalf("Delete() error = %v, want %v", err, want)
 	}

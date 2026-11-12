@@ -12,11 +12,6 @@ import (
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 )
 
-const (
-	telemetryEventInstanceCreated = "instance_created"
-	telemetryEventInstanceDeleted = "instance_deleted"
-)
-
 type QueryService struct {
 	repository QueryRepository
 }
@@ -41,7 +36,6 @@ type CreateService struct {
 	gate        MutationGate
 	directories DirectoryStorage
 	events      Publisher
-	telemetry   TelemetryFunc
 	dataRoot    string
 	now         Clock
 	newID       IDGenerator
@@ -55,7 +49,6 @@ func NewCreateService(
 	gate MutationGate,
 	directories DirectoryStorage,
 	events Publisher,
-	telemetryReporter TelemetryFunc,
 	dataRoot string,
 	now Clock,
 	newID IDGenerator,
@@ -68,7 +61,6 @@ func NewCreateService(
 		gate:        gate,
 		directories: directories,
 		events:      events,
-		telemetry:   telemetryReporter,
 		dataRoot:    dataRoot,
 		now:         now,
 		newID:       newID,
@@ -199,9 +191,6 @@ func (service *CreateService) CreatePrepared(
 	committed = true
 	if service.events != nil {
 		service.events.Publish("instance:created", instance)
-	}
-	if service.telemetry != nil {
-		service.telemetry(ctx, telemetryEventInstanceCreated)
 	}
 	return instance, nil
 }
@@ -335,7 +324,6 @@ type DeleteService struct {
 	clearClientSettings ClientSettingsClearer
 	cleanRecovery       RecoveryCleaner
 	events              Publisher
-	telemetry           TelemetryFunc
 }
 
 func NewDeleteService(
@@ -346,7 +334,6 @@ func NewDeleteService(
 	clearClientSettings ClientSettingsClearer,
 	cleanRecovery RecoveryCleaner,
 	events Publisher,
-	telemetryReporter TelemetryFunc,
 ) *DeleteService {
 	return &DeleteService{
 		repository:          repository,
@@ -356,7 +343,6 @@ func NewDeleteService(
 		clearClientSettings: clearClientSettings,
 		cleanRecovery:       cleanRecovery,
 		events:              events,
-		telemetry:           telemetryReporter,
 	}
 }
 
@@ -416,9 +402,6 @@ func (service *DeleteService) Delete(ctx context.Context, id string, deleteFiles
 	}
 	if service.events != nil {
 		service.events.Publish("instance:deleted", map[string]string{"id": id})
-	}
-	if service.telemetry != nil {
-		service.telemetry(ctx, telemetryEventInstanceDeleted)
 	}
 	slog.Info("instance deleted", "id", id)
 	return nil

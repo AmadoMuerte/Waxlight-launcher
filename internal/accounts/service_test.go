@@ -108,7 +108,7 @@ func (store failingAccountCommitStore) SaveAccountAndSelect(context.Context, acc
 }
 
 func newService(repository accounts.Repository, client accounts.Authenticator, credentials accounts.Credentials) *accounts.Service {
-	return accounts.NewService(repository, client, credentials, nil, nil, nil, nil)
+	return accounts.NewService(repository, client, credentials, nil, nil, nil)
 }
 
 func newAccountFixture(t *testing.T) (*accounts.Service, *sqlite.SQLiteStore, *fakeAuthClient, *memorySecretStore) {

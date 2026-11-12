@@ -22,7 +22,6 @@ type Settings struct {
 	CheckForUpdates            bool
 	UpdateChannel              string
 	SkippedUpdateVersion       string
-	TelemetryEnabled           bool
 	RichPresenceEnabled        bool
 	AutomaticSafetySnapshots   bool
 	AutomaticSnapshotRetention int
@@ -39,7 +38,6 @@ func Defaults() Settings {
 		GlobalLaunchArguments:      []string{},
 		CheckForUpdates:            true,
 		UpdateChannel:              "stable",
-		TelemetryEnabled:           false,
 		RichPresenceEnabled:        true,
 		AutomaticSafetySnapshots:   true,
 		AutomaticSnapshotRetention: AutomaticSnapshotRetentionDefault,

@@ -13,7 +13,6 @@ import (
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/downloads"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/errs"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 // externallyManaged disables launcher self-updates when the installed package
@@ -32,8 +31,7 @@ func ManagedExternally() bool { return externallyManaged != "" }
 var managedUpdateLog sync.Once
 
 // Service owns launcher update checks, verified downloads, and installation
-// orchestration. All dependencies are immutable at construction; telemetry is
-// strictly best-effort and never affects the update outcome.
+// orchestration. All dependencies are immutable at construction.
 type Service struct {
 	source            Source
 	downloader        downloads.Downloader
@@ -42,7 +40,6 @@ type Service struct {
 	mutationGate      MutationGate
 	dataRoot          string
 	currentVersion    string
-	telemetry         Telemetry
 	mu                sync.Mutex
 	installing        bool
 }
@@ -55,7 +52,6 @@ func NewService(
 	mutationGate MutationGate,
 	dataRoot string,
 	currentVersion string,
-	telemetry Telemetry,
 ) *Service {
 	return &Service{
 		source:            source,
@@ -65,19 +61,6 @@ func NewService(
 		mutationGate:      mutationGate,
 		dataRoot:          dataRoot,
 		currentVersion:    currentVersion,
-		telemetry:         telemetry,
-	}
-}
-
-func (service *Service) reportEvent(ctx context.Context, name string) {
-	if service.telemetry != nil {
-		service.telemetry.Event(ctx, name)
-	}
-}
-
-func (service *Service) reportError(ctx context.Context, code, operation string) {
-	if service.telemetry != nil {
-		service.telemetry.Error(ctx, code, telemetry.ComponentUpdater, operation)
 	}
 }
 
@@ -181,14 +164,6 @@ func (service *Service) Install(
 		}
 	}
 
-	// update_started marks the moment the launcher update operation actually
-	// begins: the update was detected, validated, and is about to be
-	// downloaded. update_succeeded is deliberately NOT emitted here: the
-	// platform installer applies the package asynchronously after this process
-	// quits, so a successful completion cannot be reliably observed in
-	// process. It is deferred to a future startup confirmation mechanism.
-	service.reportEvent(ctx, telemetry.EventUpdateStarted)
-
 	destination := filepath.Join(updateRoot, update.AssetName)
 
 	progress := make(chan downloads.Progress, 1)
@@ -222,8 +197,6 @@ func (service *Service) Install(
 	if err != nil {
 		service.cleanupSession(updateRoot)
 		slog.Error("launcher update download failed", "version", update.Version, "error", err)
-		service.reportEvent(ctx, telemetry.EventUpdateFailed)
-		service.reportError(ctx, telemetry.ErrorUpdateDownloadFailed, telemetry.OperationDownloadUpdate)
 		return &errs.AppError{
 			Code:      ErrUpdateDownloadFailed,
 			Message:   "Could not download the launcher update",
@@ -237,8 +210,6 @@ func (service *Service) Install(
 		os.Remove(destination)
 		service.cleanupSession(updateRoot)
 		slog.Error("launcher update signature verification failed", "version", update.Version, "error", err)
-		service.reportEvent(ctx, telemetry.EventUpdateFailed)
-		service.reportError(ctx, telemetry.ErrorUpdateSignatureInvalid, telemetry.OperationInstallUpdate)
 		return &errs.AppError{
 			Code:    ErrUpdateSignatureInvalid,
 			Message: fmt.Sprintf("Could not verify update signature: %v", err),
@@ -250,8 +221,6 @@ func (service *Service) Install(
 	if err := service.installer.Apply(ctx, destination, os.Getpid()); err != nil {
 		service.cleanupSession(updateRoot)
 		slog.Error("launcher update install failed", "version", update.Version, "error", err)
-		service.reportEvent(ctx, telemetry.EventUpdateFailed)
-		service.reportError(ctx, telemetry.ErrorUpdateInstallFailed, telemetry.OperationInstallUpdate)
 		return &errs.AppError{
 			Code:    ErrUpdateInstallerStartFail,
 			Message: fmt.Sprintf("Could not start the installer: %v", err),

@@ -63,7 +63,7 @@ func TestLegacySchemaMigrationPreservesDataAndAddsCurrentColumns(t *testing.T) {
 	assertIndex(t, path, "accounts_uid_lookup")
 	assertColumns(t, path, "instances", "game_client", "environment_variables", "is_pinned")
 	assertColumns(t, path, "installed_mods", "update_policy")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 }
 
 func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
@@ -97,7 +97,7 @@ func TestV035SchemaMigrationPreservesOperations(t *testing.T) {
 	assertColumns(t, path, "operations", "id", "type", "resource_id", "title", "status", "progress",
 		"current_bytes", "total_bytes", "bytes_per_second", "error_code", "error_message", "created_at",
 		"started_at", "finished_at", "title_key", "title_params")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 
 	store, err = sqlite.Open(path)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestVersionedMigrationContinuesFromLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertIndex(t, path, "accounts_uid_lookup")
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 
 	db = openRawDatabase(t, path)
 	defer db.Close()
@@ -236,7 +236,54 @@ func TestMigration12UpgradesV11AndPreservesData(t *testing.T) {
 	if value != "preserved" {
 		t.Fatalf("existing value = %q", value)
 	}
-	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+	assertMigrationVersions(t, path, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+}
+
+func TestMigration13DropsTelemetryState(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "telemetry-state.db")
+	store, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db := openRawDatabase(t, path)
+	if _, err := db.Exec(`
+		DELETE FROM schema_migrations WHERE version = 13;
+		INSERT INTO app_settings(key, value) VALUES
+			('telemetry_installation_id', 'id'),
+			('telemetry_last_heartbeat', 'ts'),
+			('unrelated', 'kept');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	for _, key := range []string{"telemetry_installation_id", "telemetry_last_heartbeat"} {
+		value, err := store.GetSettingValue(context.Background(), key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if value != "" {
+			t.Fatalf("key %q survived the migration", key)
+		}
+	}
+	value, err := store.GetSettingValue(context.Background(), "unrelated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != "kept" {
+		t.Fatalf("unrelated setting = %q, want kept", value)
+	}
 }
 
 func TestGameClientMigrationBackfillsVanilla(t *testing.T) {

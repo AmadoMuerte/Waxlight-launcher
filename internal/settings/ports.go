@@ -12,14 +12,6 @@ type ValueRepository interface {
 	SetSettingValue(context.Context, string, string) error
 }
 
-type ConsentSynchronizer interface {
-	SynchronizeConsent(func() error) error
-}
-
-type Heartbeat interface {
-	MaybeSendHeartbeat()
-}
-
 type DownloadLimiter interface {
 	SetLimit(int)
 }

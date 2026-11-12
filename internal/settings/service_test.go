@@ -27,17 +27,6 @@ func (repository *memoryRepository) SaveSettings(_ context.Context, value Settin
 	return nil
 }
 
-type consentRecorder struct{ calls int }
-
-func (recorder *consentRecorder) SynchronizeConsent(change func() error) error {
-	recorder.calls++
-	return change()
-}
-
-type heartbeatRecorder struct{ calls int }
-
-func (recorder *heartbeatRecorder) MaybeSendHeartbeat() { recorder.calls++ }
-
 type limitRecorder struct{ value int }
 
 func (recorder *limitRecorder) SetLimit(value int) { recorder.value = value }
@@ -58,19 +47,16 @@ func TestReaderNormalizesAndRepairsSettings(t *testing.T) {
 	}
 }
 
-func TestServiceSynchronizesConsentHeartbeatAndDownloadLimit(t *testing.T) {
+func TestServiceNormalizesAndAppliesDownloadLimit(t *testing.T) {
 	repository := &memoryRepository{value: Defaults()}
-	consent := &consentRecorder{}
-	heartbeat := &heartbeatRecorder{}
 	limit := &limitRecorder{}
-	service := NewService(repository, NewReader(repository), consent, heartbeat, limit)
+	service := NewService(repository, NewReader(repository), limit)
 
 	value := Defaults()
 	value.Language = "BE_by"
 	value.UpdateChannel = " PRERELEASE "
 	value.SkippedUpdateVersion = " 1.2.3 "
 	value.DownloadsParallel = 7
-	value.TelemetryEnabled = true
 	value.LibrarySort = LibrarySortGameVersion
 	saved, err := service.Update(context.Background(), value)
 	if err != nil {
@@ -79,21 +65,15 @@ func TestServiceSynchronizesConsentHeartbeatAndDownloadLimit(t *testing.T) {
 	if saved.Language != "be" || saved.UpdateChannel != "prerelease" || saved.SkippedUpdateVersion != "1.2.3" || saved.LibrarySort != LibrarySortGameVersion {
 		t.Fatalf("unexpected normalized settings: %+v", saved)
 	}
-	if consent.calls != 1 || heartbeat.calls != 1 || limit.value != 7 {
-		t.Fatalf("side effects: consent=%d heartbeat=%d limit=%d", consent.calls, heartbeat.calls, limit.value)
-	}
-	if _, err := service.Update(context.Background(), saved); err != nil {
-		t.Fatal(err)
-	}
-	if heartbeat.calls != 1 {
-		t.Fatalf("unchanged consent sent another heartbeat: %d", heartbeat.calls)
+	if limit.value != 7 {
+		t.Fatalf("download limit: %d", limit.value)
 	}
 }
 
 func TestServiceUpdatesOnlyLibrarySort(t *testing.T) {
 	repository := &memoryRepository{value: Defaults()}
 	repository.value.Language = "de"
-	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	service := NewService(repository, NewReader(repository), nil)
 
 	saved, err := service.SetLibrarySort(context.Background(), LibrarySortName)
 	if err != nil {
@@ -109,7 +89,7 @@ func TestServiceRoundTripsCloseToTray(t *testing.T) {
 		t.Fatal("CloseToTray does not default to true")
 	}
 	repository := &memoryRepository{value: Defaults()}
-	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	service := NewService(repository, NewReader(repository), nil)
 
 	value := Defaults()
 	value.CloseToTray = false
@@ -124,7 +104,7 @@ func TestServiceRoundTripsCloseToTray(t *testing.T) {
 
 func TestServiceRejectsInvalidAutomaticSnapshotRetention(t *testing.T) {
 	repository := &memoryRepository{value: Defaults()}
-	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	service := NewService(repository, NewReader(repository), nil)
 	for _, retention := range []int{0, 101} {
 		value := Defaults()
 		value.AutomaticSnapshotRetention = retention
@@ -139,7 +119,7 @@ func TestServiceRejectsInvalidAutomaticSnapshotRetention(t *testing.T) {
 
 func TestServiceRejectsInvalidUIScale(t *testing.T) {
 	repository := &memoryRepository{value: Defaults()}
-	service := NewService(repository, NewReader(repository), nil, nil, nil)
+	service := NewService(repository, NewReader(repository), nil)
 	for _, scale := range []float64{0.74, 1.51} {
 		value := Defaults()
 		value.UIScale = scale

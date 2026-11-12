@@ -255,13 +255,12 @@ func (service *CatalogService) downloadCatalogVersion(
 		} else {
 			// The exact cause (transport error, HTTP status, checksum
 			// mismatch) is otherwise invisible: the frontend only shows a
-			// generic message and telemetry records a category.
+			// generic message, so log the full error here.
 			slog.Warn("mod download failed",
 				"mod", details.Name,
 				"version", selected.Version,
 				"error", err,
 			)
-			service.reportModDownloadError(err)
 		}
 		return DownloadedMod{}, false, &errs.AppError{
 			Code:      errs.ErrDownloadFailed,
@@ -298,7 +297,6 @@ func (service *CatalogService) downloadCatalogVersion(
 	if err := service.downloads.Save(ctx, downloaded); err != nil {
 		return DownloadedMod{}, false, err
 	}
-	service.reportEvent(ctx, EventModDownloaded)
 	return downloaded, true, nil
 }
 

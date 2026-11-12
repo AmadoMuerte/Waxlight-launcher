@@ -115,7 +115,6 @@ type DirectoryRemover func(string) error
 type DirectoryRemovalStager func(string) (restore func() error, remove func() error, err error)
 type RecoveryCleaner func(context.Context, string) error
 type LanguageFunc func(context.Context) (string, error)
-type TelemetryFunc func(context.Context, string)
 type Clock func() time.Time
 type IDGenerator func() string
 

@@ -20,13 +20,6 @@ type SignatureVerifier interface {
 	Verify(ctx context.Context, executablePath string) error
 }
 
-// Telemetry forwards allowlisted update events and error categories. It is
-// strictly best-effort and never affects the update outcome.
-type Telemetry interface {
-	Event(context.Context, string)
-	Error(context.Context, string, string, string)
-}
-
 // MutationGate coordinates launcher writes with data-root relocation.
 type MutationGate interface {
 	Begin() error
