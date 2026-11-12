@@ -221,7 +221,6 @@ export function ServerDetailsContent({
 export interface ServerDetailsDialogProps extends ServerDetailsContentProps {
   onClose: () => void;
   onCopyAddress: () => void;
-  onCopyLink: () => void;
   onJoin: () => void;
 }
 
@@ -229,7 +228,6 @@ export function ServerDetailsDialog({
   server,
   onClose,
   onCopyAddress,
-  onCopyLink,
   onJoin,
   ...content
 }: ServerDetailsDialogProps) {
@@ -244,10 +242,6 @@ export function ServerDetailsDialog({
         <Button variant="ghost" onClick={onCopyAddress}>
           <Copy size={15} aria-hidden="true" />
           {t("copy_server_address")}
-        </Button>
-        <Button variant="ghost" onClick={onCopyLink}>
-          <Link size={15} aria-hidden="true" />
-          {t("copy_waxlight_link")}
         </Button>
         {server.url && (
           <Button variant="ghost" onClick={() => openExternal(server.url!)}>

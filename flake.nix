@@ -19,10 +19,10 @@
 
       forAllSystems = nixpkgs.lib.genAttrs systems;
 
-      # ── Go 1.27.3 ───────────────────────────────────────
+      # ── Go 1.27.4 ───────────────────────────────────────
       goToolchain = pkgs: pkgs.stdenvNoCC.mkDerivation {
         pname = "go";
-        version = "1.27.3";
+        version = "1.27.4";
 
         # buildGoModule reads GOOS/GOARCH/CGO_ENABLED and meta from the Go
         # derivation; nixpkgs' go exposes them and this hand-rolled toolchain must
@@ -33,8 +33,8 @@
         CGO_ENABLED = "1";
 
         src = pkgs.fetchurl {
-          url = "https://go.dev/dl/go1.27.3.linux-amd64.tar.gz";
-          hash = "sha256-Ze+8gP3B+izSYxytW0gXd6aOhyXzTon1D8ascU43m0A=";
+          url = "https://go.dev/dl/go1.27.4.linux-amd64.tar.gz";
+          hash = "sha256-ciZzbCM5cZzaKPvzpU1xqmO87+N26YzvAANCaNqySEA=";
         };
 
         sourceRoot = ".";

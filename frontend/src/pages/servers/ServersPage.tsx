@@ -1,8 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Globe2, Heart, RefreshCw } from "lucide-react";
-import { startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useGameVersionsQuery } from "../../entities/game-version/queries";
@@ -21,7 +20,6 @@ import { ServerJoinDialog } from "../../features/servers/ServerJoinDialog";
 import { errorMessage } from "../../shared/api/bridge";
 import { FAVORITE_SERVERS_QUERY_KEY } from "../../shared/api/keys";
 import { launcherApi } from "../../shared/api/launcher";
-import { normalizeServerAddress, serverShareURL } from "../../shared/lib/waxlight-links";
 import { Button } from "../../shared/ui/button";
 import { Checkbox } from "../../shared/ui/checkbox-control";
 import { EmptyState } from "../../shared/ui/empty";
@@ -54,8 +52,6 @@ function favoriteAsPublicServer(favorite: FavoriteServer): PublicServer {
 
 export function ServersPage() {
   const { t } = useTranslation();
-  const location = useLocation();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useToastStore((state) => state.notify);
   const favoriteServers = useFavoriteServersQuery();
@@ -67,7 +63,6 @@ export function ServersPage() {
   const [search, setSearch] = useState("");
   const [showWhitelistServers, setShowWhitelistServers] = useState(false);
   const [visibleServerCount, setVisibleServerCount] = useState(SERVER_PAGE_SIZE);
-  const consumedDeepLink = useRef("");
   const [detailsServer, setDetailsServer] = useState<PublicServer>();
   const [joinTarget, setJoinTarget] = useState<{
     server: PublicServer;
@@ -183,78 +178,11 @@ export function ServersPage() {
     ? instanceById.get(detailsFavorite.instanceId)
     : undefined;
 
-  useEffect(() => {
-    const address = normalizeServerAddress(
-      location.state && typeof location.state === "object"
-        ? Reflect.get(location.state, "deepLinkAddress")
-        : undefined,
-    );
-    if (!address) {
-      consumedDeepLink.current = "";
-      return;
-    }
-    if (
-      consumedDeepLink.current === address ||
-      publicServers.isLoading ||
-      favoriteServers.isLoading
-    ) {
-      return;
-    }
-    consumedDeepLink.current = address;
-
-    const publicServer = (publicServers.data ?? []).find(
-      (server) => normalizeServerAddress(server.address) === address,
-    );
-    const favorite = favorites.find((server) => normalizeServerAddress(server.address) === address);
-    void navigate("/servers", { replace: true, state: null });
-    setActiveTab("public");
-    setDetailsServer(
-      publicServer ??
-        (favorite
-          ? favoriteAsPublicServer(favorite)
-          : {
-              name: t("server"),
-              address,
-              description: t("server_not_in_catalog"),
-              players: 0,
-              modCount: 0,
-              requiresWhitelist: false,
-              accessRestricted: false,
-              joinable: true,
-            }),
-    );
-  }, [
-    favoriteServers.isLoading,
-    favorites,
-    location.state,
-    navigate,
-    publicServers.data,
-    publicServers.isLoading,
-    t,
-  ]);
-
   function resetFilters() {
     setSearch("");
     setShowWhitelistServers(false);
     setVisibleServerCount(SERVER_PAGE_SIZE);
   }
-
-  const copyWaxlightLink = useCallback(
-    async (address: string) => {
-      const url = serverShareURL(address);
-      if (!url) {
-        notify(t("invalid_waxlight_link"), "error");
-        return;
-      }
-      try {
-        if (!(await ClipboardSetText(url))) throw new Error("clipboard unavailable");
-        notify(t("server_link_copied"));
-      } catch {
-        notify(t("waxlight_link_copy_failed"), "error");
-      }
-    },
-    [notify, t],
-  );
 
   const copyAddress = useCallback(
     async (address: string) => {
@@ -263,7 +191,7 @@ export function ServersPage() {
         if (!(await ClipboardSetText(address))) throw new Error("clipboard unavailable");
         notify(t("server_address_copied"));
       } catch {
-        notify(t("waxlight_link_copy_failed"), "error");
+        notify(t("copy_failed"), "error");
       }
     },
     [notify, t],
@@ -272,10 +200,6 @@ export function ServersPage() {
   const handleCopyAddress = useCallback(
     (address: string) => void copyAddress(address),
     [copyAddress],
-  );
-  const handleCopyLink = useCallback(
-    (address: string) => void copyWaxlightLink(address),
-    [copyWaxlightLink],
   );
 
   return (
@@ -420,7 +344,6 @@ export function ServersPage() {
                           onToggleFavorite={toggleFavorite}
                           onDetails={setDetailsServer}
                           onCopyAddress={handleCopyAddress}
-                          onCopyLink={handleCopyLink}
                         />
                       );
                     })}
@@ -455,7 +378,6 @@ export function ServersPage() {
                         onToggleFavorite={toggleFavorite}
                         onDetails={setDetailsServer}
                         onCopyAddress={handleCopyAddress}
-                        onCopyLink={handleCopyLink}
                       />
                     );
                   })}
@@ -480,7 +402,6 @@ export function ServersPage() {
           onToggleFavorite={() => toggleFavorite(detailedServer, detailsFavorite)}
           onClose={() => setDetailsServer(undefined)}
           onCopyAddress={() => handleCopyAddress(detailedServer.address)}
-          onCopyLink={() => handleCopyLink(detailedServer.address)}
           onJoin={() => requestPlay(detailedServer, detailsFavorite)}
         />
       )}

@@ -4,7 +4,6 @@ import {
   Eye,
   Globe2,
   Heart,
-  Link,
   LockKeyhole,
   MoreHorizontal,
   ShieldCheck,
@@ -39,7 +38,6 @@ export interface ServerCardProps {
   onToggleFavorite: (server: PublicServer, favorite?: FavoriteServer) => void;
   onDetails: (server: PublicServer) => void;
   onCopyAddress: (address: string) => void;
-  onCopyLink: (address: string) => void;
 }
 
 function stopPropagationAndRun(event: MouseEvent, callback: () => void) {
@@ -57,7 +55,6 @@ export const ServerCard = memo(function ServerCard({
   onToggleFavorite,
   onDetails,
   onCopyAddress,
-  onCopyLink,
 }: ServerCardProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -111,10 +108,6 @@ export const ServerCard = memo(function ServerCard({
                 <DropdownMenuItem onSelect={() => onCopyAddress(server.address)}>
                   <Copy aria-hidden="true" />
                   {t("copy_server_address")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onCopyLink(server.address)}>
-                  <Link aria-hidden="true" />
-                  {t("copy_waxlight_link")}
                 </DropdownMenuItem>
                 {favorite && (
                   <>
