@@ -101,9 +101,6 @@ void vi.mock("../shared/api/updates", () => ({
     openReleasePage: vi.fn(),
   },
 }));
-void vi.mock("../shared/api/deep-links", () => ({
-  deepLinksApi: { consumePending: vi.fn().mockResolvedValue([]) },
-}));
 void vi.mock("../shared/api/news", () => ({
   newsApi: {
     sync: api.newsSync,

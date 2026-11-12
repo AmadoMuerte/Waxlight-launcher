@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -54,13 +54,13 @@ function instance(id: string, name: string) {
   };
 }
 
-function renderPage(deepLinkAddress?: string) {
+function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[{ pathname: "/servers", state: { deepLinkAddress } }]}>
+      <MemoryRouter initialEntries={["/servers"]}>
         <TooltipProvider>
           <ServersPage />
         </TooltipProvider>
@@ -150,18 +150,6 @@ describe("server visibility filters", () => {
     expect(serversApi.saveFavorite).not.toHaveBeenCalled();
   });
 
-  it("opens catalog server details from a server deep link", async () => {
-    const user = userEvent.setup();
-    const server = publicServer("Catalog Server", false);
-    server.address = "catalog.example.com:42420";
-    serversApi.listPublic.mockResolvedValue([server]);
-    renderPage("catalog.example.com:42420");
-
-    const dialog = await screen.findByRole("dialog", { name: "Catalog Server" });
-    await user.click(within(dialog).getAllByRole("button", { name: "Close" })[0]);
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
   it("loads full catalog details only after opening a server", async () => {
     const user = userEvent.setup();
     const server = { ...publicServer("Catalog Server", false), id: "42" };
@@ -184,26 +172,14 @@ describe("server visibility filters", () => {
     expect(serversApi.getPublic).toHaveBeenCalledWith("42");
   });
 
-  it("opens favorite server details from a server deep link", async () => {
+  it("lists favorite servers", async () => {
     serversApi.listFavorites.mockResolvedValue([
       { id: "favorite-1", name: "Favorite Server", address: "favorite.example.com:42420" },
     ]);
-    renderPage("favorite.example.com:42420");
+    renderPage();
 
-    expect(await screen.findByRole("dialog", { name: "Favorite Server" })).toBeTruthy();
-  });
-
-  it("shows a playable fallback when a deep-linked server is not listed", async () => {
-    renderPage("missing.example.com:42420");
-
-    const dialog = await screen.findByRole("dialog", { name: "Server" });
-    expect(within(dialog).getByText("missing.example.com:42420")).toBeTruthy();
-    expect(
-      within(dialog).getByText("This server is not currently listed in the public server catalog."),
-    ).toBeTruthy();
-    expect(within(dialog).getByRole("button", { name: "Play" }).hasAttribute("disabled")).toBe(
-      false,
-    );
+    await userEvent.setup().click(screen.getByRole("tab", { name: /Favorites/ }));
+    expect(await screen.findByText("Favorite Server")).toBeTruthy();
   });
 });
 

@@ -9,7 +9,6 @@ import (
 
 	frontendassets "github.com/AmadoMuerte/Waxlight-launcher/frontend"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/app"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/deeplink"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/mousenavigation"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/updater"
@@ -47,9 +46,6 @@ func main() {
 	// line, including construction failures, reaches the in-memory console.
 	logging.Setup(logging.DefaultCapacity)
 	slog.Info("waxlight: process entry")
-	if err := deeplink.RegisterHandler(); err != nil {
-		slog.Warn("Failed to register Waxlight links", "error", err)
-	}
 	// The updated portable binary is launched by the old process with
 	// --update-wait-pid <oldpid> before the old process exits. Wait for it to
 	// release the database and the native credential store before bootstrapping
@@ -62,7 +58,6 @@ func main() {
 		fatalStartup("Failed to construct the launcher", err)
 	}
 	slog.Info("waxlight: container constructed", "duration", time.Since(processStart).String())
-	container.DeepLinks.ReceiveArgs(os.Args[1:])
 	err = wails.Run(&options.App{
 		Title:            "Waxlight Launcher",
 		Width:            1240,
@@ -83,8 +78,7 @@ func main() {
 		Bind:          container.Controllers,
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "1b6bb7a2-2ecb-4a76-85b1-09b1b4c6c0fd",
-			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
-				container.DeepLinks.ReceiveArgs(data.Args)
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
 				wruntime.WindowUnminimise(container.Lifecycle.Context())
 				wruntime.Show(container.Lifecycle.Context())
 			},

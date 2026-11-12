@@ -14,9 +14,6 @@
     "AppController": [
       "AppInfo"
     ],
-    "DeepLinkController": [
-      "ConsumePendingDeepLinks"
-    ],
     "GameVersionController": [
       "InstallLocalVersion",
       "InstallVersion",

@@ -100,7 +100,7 @@ let
     '';
 
     dontFixup = true;
-    outputHash = "sha256-D/7eCN0CxIAB1QIu/N58OUV1jPHz7z2VCPzelpdL80Q=";
+    outputHash = "sha256-HXs6EwIErDdrXc7aqr7XNXEshhkWi/o8MpkS3AK4seA=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
