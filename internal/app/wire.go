@@ -53,8 +53,6 @@ import (
 	settingscore "github.com/AmadoMuerte/Waxlight-launcher/internal/settings"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/statistics"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/supportreports"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 	wailstransport "github.com/AmadoMuerte/Waxlight-launcher/internal/transport/wails"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/updates"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/version"
@@ -75,7 +73,6 @@ type Container struct {
 	DeepLinks      *DeepLinks
 	modsCatalog    *mods.CatalogService
 	store          *sqlite.SQLiteStore
-	telemetry      *telemetry.Service
 	presence       *presence.Service
 	dataRoot       string
 	windows        *wailstransport.WindowAdapter
@@ -161,11 +158,6 @@ func NewWithHome(home string) (*Container, error) {
 		return nil, fmt.Errorf("finish data folder relocation: %w", err)
 	}
 	startupPhase("finish data folder relocation", started)
-	if err := applyInstallerTelemetryConsent(context.Background(), store, dataRootManager.Home()); err != nil {
-		// Consent handling fails closed: an unreadable or malformed installer
-		// marker must never enable telemetry or prevent the launcher from starting.
-		slog.Warn("wire: could not apply installer telemetry choice", "error", err)
-	}
 
 	started = time.Now()
 	sessionService := sessions.NewService(store, time.Now)
@@ -212,14 +204,6 @@ func NewWithHome(home string) (*Container, error) {
 		versions.NewRemovalService(store, store, versionFilesystem, mutationGate, eventPublisher),
 	)
 	instanceQueries := instances.NewQueryService(store)
-	telemetryClient := telemetry.NewClient(telemetry.ProductionEndpoint())
-	telemetryService := telemetry.NewService(
-		telemetryClient,
-		settingsReader,
-		store,
-		store,
-		lifecycle,
-	)
 	presenceService := presence.NewService(settingsReader, func(appID string) presence.Client {
 		client := discord.Dial(appID)
 		if client == nil {
@@ -238,7 +222,6 @@ func NewWithHome(home string) (*Container, error) {
 		mutationGate,
 		instancedirectory.New(filesystem.ModFileManager{}),
 		eventPublisher,
-		telemetryService.Event,
 		dataRoot,
 		time.Now,
 		newVersionID,
@@ -257,7 +240,6 @@ func NewWithHome(home string) (*Container, error) {
 	modCatalog := modcatalog.NewClient(nil)
 	modDownloads := modstorage.New(dataRoot)
 	emit := func(name string, payload any) { eventPublisher.Publish(name, payload) }
-	reportEvent := func(ctx context.Context, name string) { telemetryService.Event(ctx, name) }
 
 	var recoveryService *recovery.Service
 	var modsService *mods.Service
@@ -308,7 +290,6 @@ func NewWithHome(home string) (*Container, error) {
 		launchRegistry,
 		snapshotter,
 		mods.PublishFunc(emit),
-		telemetryService,
 		time.Now,
 		newVersionID,
 	)
@@ -325,7 +306,6 @@ func NewWithHome(home string) (*Container, error) {
 		launchRegistry,
 		snapshotter,
 		mods.PublishFunc(emit),
-		telemetryService,
 		mods.NewModTaskManager(mods.PublishFunc(emit)),
 		time.Now,
 		newVersionID,
@@ -348,7 +328,6 @@ func NewWithHome(home string) (*Container, error) {
 		clearClientSettings,
 		store.DeleteLastKnownGood,
 		instances.PublishFunc(emit),
-		reportEvent,
 	)
 	instanceCloner := instances.NewCloneService(
 		store,
@@ -373,14 +352,6 @@ func NewWithHome(home string) (*Container, error) {
 			}
 			return nil
 		},
-		func(ctx context.Context) {
-			telemetryService.Error(
-				ctx,
-				telemetry.ErrorAuthServerUnavailable,
-				telemetry.ComponentAuthentication,
-				telemetry.OperationAuthenticate,
-			)
-		},
 		mutationGate,
 	)
 	optimumService := optimumfeature.NewService(platformoptimum.NewLocator())
@@ -400,7 +371,6 @@ func NewWithHome(home string) (*Container, error) {
 		dotnet.NewDetector(runtime.GOOS),
 		instancedirectory.LaunchLogs{},
 		eventPublisher,
-		telemetryService,
 		recoveryService,
 		lifecycle,
 		operationManager,
@@ -439,7 +409,7 @@ func NewWithHome(home string) (*Container, error) {
 	}
 	startupPhase("reconcile credentials", started)
 	slog.Info("wire: credential recovery checks finished")
-	settingsService := settingscore.NewService(store, settingsReader, telemetryService, telemetryService, downloadManager)
+	settingsService := settingscore.NewService(store, settingsReader, downloadManager)
 	dataRootService := settingscore.NewDataRootService(
 		dataRootManager,
 		mutationGate,
@@ -520,18 +490,8 @@ func NewWithHome(home string) (*Container, error) {
 		mutationGate,
 		dataRoot,
 		version.Version(),
-		telemetryService,
 	)
 	dialogs := wailstransport.NewDialogAdapter(lifecycle)
-	supportReportService := supportreports.NewService(
-		supportReportStoreAdapter{store: store, mods: modsService},
-		operationManager,
-		sessionService,
-		supportRecoveryAdapter{recovery: recoveryService, snapshots: snapshotService},
-		supportLogAdapter{},
-		telemetryService,
-		supportSenderAdapter{client: telemetryClient},
-	)
 	instanceController := wailstransport.NewInstanceController(
 		instanceCreator,
 		instanceQueries,
@@ -561,7 +521,6 @@ func NewWithHome(home string) (*Container, error) {
 		wailstransport.NewSnapshotController(snapshotService, lifecycle),
 		wailstransport.NewLastKnownGoodController(recoveryService, lifecycle),
 		wailstransport.NewLogController(instanceQueries, modsService, versionService, lifecycle),
-		wailstransport.NewSupportReportController(supportReportService, lifecycle),
 		wailstransport.NewSettingsController(
 			settingsReader,
 			settingsService,
@@ -586,7 +545,6 @@ func NewWithHome(home string) (*Container, error) {
 		DeepLinks:      deepLinks,
 		modsCatalog:    modsCatalogService,
 		store:          store,
-		telemetry:      telemetryService,
 		presence:       presenceService,
 		dataRoot:       dataRoot,
 		windows:        windows,
@@ -687,15 +645,6 @@ func (container *Container) Startup(ctx context.Context) {
 		}
 	})
 	container.presence.Connect(container.Lifecycle.Context())
-	container.telemetryHeartbeat()
-}
-
-func (container *Container) telemetryHeartbeat() {
-	// The heartbeat is fully asynchronous and isolated: telemetry failures
-	// never affect launcher startup or any other functionality.
-	if container.telemetry != nil {
-		container.telemetry.MaybeSendHeartbeat()
-	}
 }
 
 // Shutdown stops the lifecycle workers, records the established launches, and

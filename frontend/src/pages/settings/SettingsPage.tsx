@@ -64,7 +64,7 @@ const SETTINGS_SECTIONS = [
   { id: "updates", icon: RefreshCw, labelKey: "launcher_updates" },
   { id: "optimum", icon: Package, labelKey: "" },
   { id: "data-folder", icon: HardDrive, labelKey: "data_folder" },
-  { id: "privacy", icon: ShieldCheck, labelKey: "privacy_and_telemetry" },
+  { id: "privacy", icon: ShieldCheck, labelKey: "privacy" },
   { id: "support", icon: CircleHelp, labelKey: "support" },
 ] as const;
 
@@ -77,7 +77,6 @@ function settingsEqual(left: Settings, right: Settings) {
     left.checkForUpdates === right.checkForUpdates &&
     left.updateChannel === right.updateChannel &&
     left.skippedUpdateVersion === right.skippedUpdateVersion &&
-    left.telemetryEnabled === right.telemetryEnabled &&
     left.richPresenceEnabled === right.richPresenceEnabled &&
     left.automaticSafetySnapshots === right.automaticSafetySnapshots &&
     left.automaticSnapshotRetention === right.automaticSnapshotRetention &&
@@ -802,21 +801,10 @@ export function SettingsPage() {
             <PageSection id="settings-privacy">
               <SectionHeader
                 variant="compact"
-                title={t("privacy_and_telemetry")}
-                description={t("privacy_and_telemetry_description")}
+                title={t("privacy")}
+                description={t("privacy_description")}
               />
               <Card variant="subtle" className="divide-y divide-border-subtle">
-                <SettingRow
-                  title={t("send_usage_analytics")}
-                  description={t("telemetry_consent_notice")}
-                >
-                  <Switch
-                    label={t("send_usage_analytics")}
-                    checked={value.telemetryEnabled}
-                    onCheckedChange={(telemetryEnabled) => setValue({ ...value, telemetryEnabled })}
-                  />
-                </SettingRow>
-
                 <SettingRow
                   title={t("discord_rich_presence")}
                   description={t("discord_rich_presence_description")}
@@ -839,10 +827,7 @@ export function SettingsPage() {
                 description={t("support_description")}
               />
               <Card variant="subtle">
-                <SettingRow
-                  title={t("report_a_problem")}
-                  description={t("support_report_setting_description")}
-                >
+                <SettingRow title={t("report_a_problem")} description={t("support_report_intro")}>
                   <Button
                     variant="secondary"
                     onClick={() => useSupportReportStore.getState().show()}

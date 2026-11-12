@@ -90,7 +90,6 @@ const settings: Settings = {
   checkForUpdates: true,
   updateChannel: "stable",
   skippedUpdateVersion: "",
-  telemetryEnabled: false,
   richPresenceEnabled: true,
   automaticSafetySnapshots: true,
   automaticSnapshotRetention: 10,

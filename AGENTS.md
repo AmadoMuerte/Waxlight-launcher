@@ -120,7 +120,7 @@ Before promoting `dev` to `main`:
   call outside `wire.go`.
 - Features (`internal/accounts`, `instances`, `versions`, `launching`,
   `sessions`, `mods`, `snapshots`, `recovery`, `servers`, `settings`,
-  `operations`, `updates`, `telemetry`, `statistics`, `gamelog`, `downloads`,
+  `operations`, `updates`, `statistics`, `gamelog`, `downloads`,
   `events`, `mutations`, `errs`, ...) own their models, ports, use cases, and
   tests. Features never import `internal/app`, `internal/transport/wails`, or
   `internal/platform/*`; they consume other features only through narrow ports
@@ -136,7 +136,7 @@ Before promoting `dev` to `main`:
   `frontend/src/wailsjs`; the checked-in API inventory is
   `docs/wails-api-inventory.json`. The ignored documentation schema and
   Markdown are regenerated under `docs/generated/` with `make api-docs`.
-  Browse the current backend API reference at <https://docs.waxlight.by>.
+  Browse the current backend API reference at <https://amadomuerte.github.io/Waxlight-launcher/>.
 - User-facing errors use `internal/errs` (`errs.NewError`/`AppError`); the
   code strings are a frontend contract (i18n) and must never change.
 - Runtime SQLite schema changes belong in

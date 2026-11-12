@@ -78,7 +78,6 @@ func creator(repository *repository, storage *instancedirectory.Storage, root st
 		&testGate{},
 		storage,
 		nil,
-		nil,
 		root,
 		func() time.Time { return time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC) },
 		id,

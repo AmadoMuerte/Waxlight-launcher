@@ -32,7 +32,6 @@ type Service struct {
 	lock        InstanceLock
 	snapshotter snapshots.SafetySnapshotter
 	events      Publisher
-	telemetry   Telemetry
 	now         Clock
 	newID       IDGenerator
 }
@@ -55,7 +54,6 @@ func NewService(
 	lock InstanceLock,
 	snapshotter snapshots.SafetySnapshotter,
 	events Publisher,
-	telemetry Telemetry,
 	now Clock,
 	newID IDGenerator,
 ) *Service {
@@ -69,7 +67,6 @@ func NewService(
 		lock:        lock,
 		snapshotter: snapshotter,
 		events:      events,
-		telemetry:   telemetry,
 		now:         now,
 		newID:       newID,
 	}
@@ -495,7 +492,6 @@ func (service *Service) removeInstalledMod(ctx context.Context, mod InstalledMod
 		return err
 	}
 	service.events.Publish("mod:removed", map[string]string{"id": mod.ID, "instanceId": mod.InstanceID})
-	service.reportEvent(ctx, EventModRemoved)
 	slog.Info("mod removed", "mod", mod.Name)
 	return nil
 }
@@ -586,18 +582,6 @@ func stillRequiredByOther(
 // release function must be called exactly once when the operation finishes.
 func (service *Service) lockInstanceMutations(instanceID string) (func(), error) {
 	return service.lock.Lock(instanceID, MutationLockMarker)
-}
-
-func (service *Service) reportEvent(ctx context.Context, name string) {
-	if service.telemetry != nil {
-		service.telemetry.Event(ctx, name)
-	}
-}
-
-func (service *Service) reportError(ctx context.Context, code, component, operation string) {
-	if service.telemetry != nil {
-		service.telemetry.Error(ctx, code, component, operation)
-	}
 }
 
 // bindInstalledModToExistingCache binds a freshly installed local mod when a

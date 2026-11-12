@@ -215,7 +215,6 @@ func (service *Service) ValidateAuthorizedAccount(ctx context.Context, accountID
 	}
 	valid, err := service.authenticator.Validate(ctx, account.UID, account.SessionKey)
 	if err != nil {
-		service.reportFailure(err)
 		return account, mapAuthError(err)
 	}
 	now := service.now()

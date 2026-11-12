@@ -121,9 +121,7 @@ Default data locations:
 - Linux: `~/.config/waxlight/`
 - Windows: `%AppData%\waxlight\`
 
-The main data folder can be moved from **Settings → Data folder**. Account credentials remain in the operating system credential store.
-
-Optional telemetry is disabled by default for new installations. When enabled, it sends a pseudonymous installation ID, launcher version, OS, architecture, and limited numeric or allowlisted operational data. It can be changed in **Settings → Privacy & telemetry**. See the [Privacy Policy](docs/PRIVACY.md) for the complete, current list of network transfers.
+The main data folder can be moved from **Settings → Data folder**. Account credentials remain in the operating system credential store. Waxlight does not send usage telemetry. See the [Privacy Policy](docs/PRIVACY.md) for the complete, current list of network transfers.
 
 See [SECURITY.md](docs/SECURITY.md) and [authentication notes](docs/authentication.md) for details.
 
@@ -160,7 +158,7 @@ make api-docs-build # generate and build the production VitePress site
 
 Generated schema, Markdown, and VitePress output are intentionally not committed. A clean checkout reproduces them from `internal/transport/wails`, `wailsdoc.yaml`, and `docs/wails-api-inventory.json` remains the checked public API contract.
 
-Contributors can browse the current backend API reference at <https://docs.waxlight.by>.
+Contributors can browse the current backend API reference at <https://amadomuerte.github.io/Waxlight-launcher/>.
 
 ## Contributing
 

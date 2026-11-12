@@ -10,13 +10,10 @@ import (
 	optimumfeature "github.com/AmadoMuerte/Waxlight-launcher/internal/optimum"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/discord"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/filesystem"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/logging"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/platform/sqlite"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/presence"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/recovery"
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/snapshots"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/supportreports"
-	"github.com/AmadoMuerte/Waxlight-launcher/internal/telemetry"
 )
 
 type optimumLaunchAdapter struct {
@@ -43,60 +40,6 @@ func (adapter discordPresenceClient) SetActivity(activity presence.Activity) err
 
 func (adapter discordPresenceClient) ClearActivity() error { return adapter.client.ClearActivity() }
 func (adapter discordPresenceClient) Close()               { adapter.client.Close() }
-
-type supportLogAdapter struct{}
-
-func (supportLogAdapter) Lines() []string {
-	entries := logging.Snapshot()
-	lines := make([]string, len(entries))
-	for i, entry := range entries {
-		lines[i] = entry.Plain()
-	}
-	return lines
-}
-
-func (supportLogAdapter) FileLogStatus() supportreports.FileLogStatus {
-	status := logging.FileLogStatus()
-	return supportreports.FileLogStatus{Configured: status.Configured, Open: status.Open, Healthy: status.Healthy}
-}
-
-type supportReportStoreAdapter struct {
-	store *sqlite.SQLiteStore
-	mods  *mods.Service
-}
-
-func (adapter supportReportStoreAdapter) GetInstance(ctx context.Context, id string) (instances.Instance, error) {
-	return adapter.store.GetInstance(ctx, id)
-}
-
-func (adapter supportReportStoreAdapter) ListMods(ctx context.Context, instanceID string) ([]mods.InstalledMod, error) {
-	return adapter.mods.ListStoredMods(ctx, instanceID)
-}
-
-type supportRecoveryAdapter struct {
-	recovery  *recovery.Service
-	snapshots *snapshots.Service
-}
-
-func (adapter supportRecoveryAdapter) Summary(ctx context.Context, instanceID string) (bool, int, error) {
-	status, err := adapter.recovery.Status(ctx, instanceID)
-	if err != nil {
-		return false, 0, err
-	}
-	exists := !status.RecordedAt.IsZero()
-	listed, err := adapter.snapshots.List(ctx, instanceID)
-	if err != nil {
-		return exists, 0, err
-	}
-	return exists, len(listed), nil
-}
-
-type supportSenderAdapter struct{ client *telemetry.Client }
-
-func (adapter supportSenderAdapter) SendSupportReport(ctx context.Context, report supportreports.Report) (supportreports.Result, error) {
-	result, err := adapter.client.SendSupportReport(ctx, report)
-	return supportreports.Result{ReportID: result.ReportID, Status: result.Status}, err
-}
 
 func (adapter optimumLaunchAdapter) Resolve(configuredPath, vanillaDirectory string) (launching.OptimumTarget, error) {
 	installation, err := adapter.service.Resolve(configuredPath, vanillaDirectory)

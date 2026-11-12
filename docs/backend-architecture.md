@@ -37,7 +37,6 @@ only through narrow ports and structural views.
 | `internal/settings` | Launcher settings, data-root relocation coordinator. |
 | `internal/operations` | Persistent operations (status, progress, workers, cancellation, futures). |
 | `internal/updates` | Launcher update checks, verification, installation, skip policy. |
-| `internal/telemetry` | Privacy-consented telemetry with allowlists, worker-group delivery. |
 | `internal/statistics` | Aggregated statistics and per-instance playtime over the sessions reader. |
 | `internal/gamelog` | Game-output tailing, crash classification, launcher-side crash reports. |
 | `internal/downloads` | Transport-neutral download contract. |
@@ -109,13 +108,13 @@ These rules are enforced by `scripts/check-architecture.sh` (see Validation).
 2. `app.New` constructs, in order: the data root, the SQLite store and
    migrations, the session service (which recovers interrupted sessions), the
    lifecycle, the event adapter, the operations manager (which reconciles
-   interrupted operations), settings, versions, telemetry, the instance
+   interrupted operations), settings, versions, the instance
    creator, the snapshot/recovery services, the mods services, the instance
    mutation services, accounts, the launch coordinator, and every controller.
    Any failure closes the store and aborts startup.
 3. Wails calls `Container.Startup`, which derives the lifecycle context from
    the framework context, installs the log emitter, and starts the
-   non-blocking account validation and telemetry heartbeat.
+   non-blocking account validation.
 4. `Container.Shutdown` detaches the log emitter, cancels the lifecycle
    context, joins every lifecycle-owned worker, records established launches,
    and closes the shared database.

@@ -120,7 +120,6 @@ func newCreateServiceForTest(
 	allocation *testAllocation,
 	language string,
 	events Publisher,
-	telemetry TelemetryFunc,
 ) *CreateService {
 	return NewCreateService(
 		repository,
@@ -130,7 +129,6 @@ func newCreateServiceForTest(
 		gate,
 		testDirectoryStorage{allocation: allocation},
 		events,
-		telemetry,
 		"/data",
 		func() time.Time { return time.Date(2026, 8, 11, 12, 0, 0, 0, time.FixedZone("test", 3600)) },
 		func() string { return "instance-id" },
@@ -144,11 +142,7 @@ func TestCreateServicePersistsThenEmits(t *testing.T) {
 	var calls []string
 	repository.onSave = func() { calls = append(calls, "save") }
 	events := &eventRecorder{onPublish: func() { calls = append(calls, "publish") }}
-	var telemetryEvents []string
-	service := newCreateServiceForTest(repository, versionReader{}, accountReader{}, gate, allocation, "en", events, func(_ context.Context, name string) {
-		calls = append(calls, "telemetry")
-		telemetryEvents = append(telemetryEvents, name)
-	})
+	service := newCreateServiceForTest(repository, versionReader{}, accountReader{}, gate, allocation, "en", events)
 
 	accountID := "account-id"
 	instance, err := service.Create(context.Background(), CreateInput{
@@ -177,10 +171,7 @@ func TestCreateServicePersistsThenEmits(t *testing.T) {
 	if !ok || !reflect.DeepEqual(eventInstance, instance) {
 		t.Fatalf("event payload = %#v", events.events[0].payload)
 	}
-	if len(telemetryEvents) != 1 || telemetryEvents[0] != "instance_created" {
-		t.Fatalf("telemetry events = %v", telemetryEvents)
-	}
-	if !reflect.DeepEqual(calls, []string{"save", "publish", "telemetry"}) {
+	if !reflect.DeepEqual(calls, []string{"save", "publish"}) {
 		t.Fatalf("call order = %v", calls)
 	}
 }
@@ -188,7 +179,7 @@ func TestCreateServicePersistsThenEmits(t *testing.T) {
 func TestCreatePreparedRollsBackBeforePersistence(t *testing.T) {
 	repository := &createRepository{}
 	allocation := &testAllocation{}
-	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil, nil)
+	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil)
 	prepareErr := errors.New("copy failed")
 
 	_, err := service.CreatePrepared(context.Background(), CreateInput{Name: "Imported", GameVersionID: "1.20"},
@@ -202,7 +193,7 @@ func TestCreatePreparedRollsBackBeforePersistence(t *testing.T) {
 }
 
 func TestCreateServiceDefaultAndLocalizedNames(t *testing.T) {
-	defaultService := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, &testGate{}, &testAllocation{}, "en", nil, nil)
+	defaultService := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, &testGate{}, &testAllocation{}, "en", nil)
 	defaultInstance, err := defaultService.Create(context.Background(), CreateInput{GameVersionID: "1.20"})
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +203,7 @@ func TestCreateServiceDefaultAndLocalizedNames(t *testing.T) {
 	}
 
 	repository := &createRepository{items: []Instance{{Name: " сборка "}, {Name: "СБОРКА-2"}}}
-	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, &testAllocation{}, "ru", nil, nil)
+	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, &testAllocation{}, "ru", nil)
 
 	instance, err := service.Create(context.Background(), CreateInput{GameVersionID: "1.20"})
 	if err != nil {
@@ -225,14 +216,14 @@ func TestCreateServiceDefaultAndLocalizedNames(t *testing.T) {
 
 func TestCreateServiceValidatesVersionAndAccount(t *testing.T) {
 	versionErr := errs.NewError(errs.ErrVersionNotFound, "Game version not found")
-	service := newCreateServiceForTest(&createRepository{}, versionReader{err: versionErr}, nil, &testGate{}, &testAllocation{}, "en", nil, nil)
+	service := newCreateServiceForTest(&createRepository{}, versionReader{err: versionErr}, nil, &testGate{}, &testAllocation{}, "en", nil)
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "missing"}); !errors.Is(err, versionErr) {
 		t.Fatalf("version error = %v", err)
 	}
 
 	accountErr := errs.NewError(errs.ErrAccountNotFound, "Account not found")
 	accountID := "missing"
-	service = newCreateServiceForTest(&createRepository{}, versionReader{}, accountReader{err: accountErr}, &testGate{}, &testAllocation{}, "en", nil, nil)
+	service = newCreateServiceForTest(&createRepository{}, versionReader{}, accountReader{err: accountErr}, &testGate{}, &testAllocation{}, "en", nil)
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20", DefaultAccountID: &accountID}); !errors.Is(err, accountErr) {
 		t.Fatalf("account error = %v", err)
 	}
@@ -241,7 +232,7 @@ func TestCreateServiceValidatesVersionAndAccount(t *testing.T) {
 func TestCreateServiceRejectsMutationGate(t *testing.T) {
 	want := errs.NewError(errs.ErrDataFolderBusy, "The data folder is being moved; wait for the relocation to finish")
 	gate := &testGate{err: want}
-	service := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, gate, &testAllocation{}, "en", nil, nil)
+	service := newCreateServiceForTest(&createRepository{}, versionReader{}, nil, gate, &testAllocation{}, "en", nil)
 
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20"}); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
@@ -263,7 +254,7 @@ func TestCreateServiceRejectsDatabaseConflictBeforeAllocation(t *testing.T) {
 	}
 	repository := &createRepository{used: true}
 	allocation := &testAllocation{}
-	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil, nil)
+	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", nil)
 
 	_, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20", Directory: directory})
 	var appError *errs.AppError
@@ -298,8 +289,7 @@ func TestCreateServiceRollsBackOnPostAllocationConflictAndPersistenceFailure(t *
 		t.Run(test.name, func(t *testing.T) {
 			allocation := &testAllocation{}
 			events := &eventRecorder{}
-			var telemetryCount int
-			service := newCreateServiceForTest(test.repository, versionReader{}, nil, &testGate{}, allocation, "en", events, func(context.Context, string) { telemetryCount++ })
+			service := newCreateServiceForTest(test.repository, versionReader{}, nil, &testGate{}, allocation, "en", events)
 			_, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20"})
 			if err == nil {
 				t.Fatal("expected failure")
@@ -313,8 +303,8 @@ func TestCreateServiceRollsBackOnPostAllocationConflictAndPersistenceFailure(t *
 			if !allocation.rolledBack || allocation.committed {
 				t.Fatalf("allocation committed=%v rolledBack=%v", allocation.committed, allocation.rolledBack)
 			}
-			if len(events.events) != 0 || telemetryCount != 0 {
-				t.Fatalf("failure emitted events=%d telemetry=%d", len(events.events), telemetryCount)
+			if len(events.events) != 0 {
+				t.Fatalf("failure emitted events=%d", len(events.events))
 			}
 		})
 	}
@@ -325,8 +315,7 @@ func TestCreateServiceReturnsAllocationError(t *testing.T) {
 	allocation := &testAllocation{allocateErr: want}
 	repository := &createRepository{}
 	events := &eventRecorder{}
-	var telemetryCount int
-	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", events, func(context.Context, string) { telemetryCount++ })
+	service := newCreateServiceForTest(repository, versionReader{}, nil, &testGate{}, allocation, "en", events)
 
 	if _, err := service.Create(context.Background(), CreateInput{Name: "Test", GameVersionID: "1.20"}); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
@@ -334,7 +323,7 @@ func TestCreateServiceReturnsAllocationError(t *testing.T) {
 	if allocation.allocateCalls != 1 || allocation.committed || allocation.rolledBack {
 		t.Fatalf("allocation calls=%d committed=%v rolledBack=%v", allocation.allocateCalls, allocation.committed, allocation.rolledBack)
 	}
-	if repository.saved != nil || len(events.events) != 0 || telemetryCount != 0 {
-		t.Fatalf("saved=%v events=%d telemetry=%d", repository.saved, len(events.events), telemetryCount)
+	if repository.saved != nil || len(events.events) != 0 {
+		t.Fatalf("saved=%v events=%d", repository.saved, len(events.events))
 	}
 }

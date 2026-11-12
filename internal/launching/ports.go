@@ -82,13 +82,6 @@ type LaunchLogs interface {
 	Harden(directory string) error
 }
 
-// TelemetryReporter forwards allowlisted launch events and error categories.
-// Implementations are strictly best-effort and never affect launch outcomes.
-type TelemetryReporter interface {
-	Event(context.Context, string)
-	Error(context.Context, string, string, string)
-}
-
 // LaunchRecovery records the Last Known Good state of a successful launch and
 // assesses failed startups. It stays a narrow port until the recovery feature
 // owns the orchestration.

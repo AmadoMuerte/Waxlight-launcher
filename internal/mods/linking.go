@@ -268,7 +268,6 @@ func (service *CatalogService) linkLocalModFile(
 	link.LatestVersion = downloaded.LatestVersion
 	link.UpdateAvailable = downloaded.UpdateAvailable
 	service.tasks.EmitDownloadsChanged("", downloaded.ModID, []modDownloadedDependencyEvent{})
-	service.reportEvent(ctx, EventModDownloaded)
 	return downloaded, link, nil
 }
 
