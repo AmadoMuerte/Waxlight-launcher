@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/AmadoMuerte/Waxlight-launcher/internal/accounts"
@@ -178,6 +180,15 @@ func NewWithHome(home string) (*Container, error) {
 	// The window adapter decides close-to-tray and owns the quitting flag that
 	// every quit path (tray, update restart, relocation restart) must set.
 	windows := wailstransport.NewWindowAdapter(lifecycle, settingsReader)
+	// Wails' own SIGINT/SIGTERM handler quits through OnBeforeClose, which the
+	// close-to-tray setting turns into a window hide; force a real quit instead.
+	terminationSignals := make(chan os.Signal, 2)
+	signal.Notify(terminationSignals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		for range terminationSignals {
+			windows.ForceQuit()
+		}
+	}()
 	started = time.Now()
 	launcherSettings, err := settingsReader.Get(context.Background())
 	if err != nil {
@@ -613,6 +624,7 @@ func (adapter packageCatalogModInstaller) SetModEnabled(ctx context.Context, id 
 // application context is available.
 func (container *Container) Startup(ctx context.Context) {
 	container.Lifecycle.Startup(ctx)
+	container.windows.MarkReady()
 	// The tray is started after the lifecycle so its menu callbacks can safely
 	// restore or quit the running application.
 	tray.Run(tray.Config{

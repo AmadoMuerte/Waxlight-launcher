@@ -23,6 +23,7 @@ type WindowAdapter struct {
 	lifecycle lifecycle
 	reader    settingsReader
 	quitting  atomic.Bool
+	ready     atomic.Bool
 }
 
 func NewWindowAdapter(lifecycle lifecycle, reader settingsReader) *WindowAdapter {
@@ -80,4 +81,23 @@ func (adapter *WindowAdapter) QuitFromTray() {
 func (adapter *WindowAdapter) Quit(ctx context.Context) {
 	adapter.quitting.Store(true)
 	wruntime.Quit(ctx)
+}
+
+// MarkReady records that the lifecycle context carries the Wails application
+// values. Before that point wruntime.Quit would abort the process with
+// log.Fatalf, so ForceQuit skips the runtime call and relies on Wails' own
+// signal handler, which the quitting flag lets through OnBeforeClose.
+func (adapter *WindowAdapter) MarkReady() {
+	adapter.ready.Store(true)
+}
+
+// ForceQuit turns a termination signal into a real quit: a termination signal
+// must exit the process even when close-to-tray would turn a window close
+// into a hide. Wails' own signal handler also quits through OnBeforeClose, so
+// whichever handler runs last finishes the exit once quitting is set.
+func (adapter *WindowAdapter) ForceQuit() {
+	adapter.quitting.Store(true)
+	if adapter.ready.Load() {
+		wruntime.Quit(adapter.lifecycle.Context())
+	}
 }
