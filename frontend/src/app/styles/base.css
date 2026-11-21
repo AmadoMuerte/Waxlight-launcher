@@ -286,14 +286,19 @@
     display: none;
   }
 
+  /* Sticky inside .appMain so the actions stay left of the main scrollbar,
+     which native WebViews paint above fixed-position DOM layers. */
   .appActions {
-    position: fixed;
+    position: sticky;
     z-index: 10;
     top: calc(18px * var(--ui-scale));
-    right: var(--page-px);
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: var(--space-xs);
+    height: 0;
+    margin-top: calc(-30px * var(--ui-scale));
+    margin-bottom: calc(30px * var(--ui-scale));
   }
 
   .appActions .iconButton {
