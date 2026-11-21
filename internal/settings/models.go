@@ -40,7 +40,7 @@ func Defaults() Settings {
 		GlobalEnvironmentVariables: map[string]string{},
 		CheckForUpdates:            true,
 		UpdateChannel:              "stable",
-		RichPresenceEnabled:        true,
+		RichPresenceEnabled:        false,
 		AutomaticSafetySnapshots:   true,
 		AutomaticSnapshotRetention: AutomaticSnapshotRetentionDefault,
 		LibrarySort:                LibrarySortLastPlayed,
