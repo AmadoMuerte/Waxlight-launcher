@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	frontendassets "github.com/AmadoMuerte/Waxlight-launcher/frontend"
@@ -52,6 +53,14 @@ func main() {
 	// this instance. WaitForParent is a no-op on Windows.
 	if pid := updateWaitPID(); pid > 0 {
 		updater.WaitForParent(pid, 30*time.Second)
+	}
+	// Wayland needs a desktop entry installed before the window maps to show
+	// the app icon instead of the compositor default.
+	if executable, err := os.Executable(); err == nil {
+		if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+			executable = resolved
+		}
+		installDesktopIntegration(executable)
 	}
 	container, err := app.New()
 	if err != nil {

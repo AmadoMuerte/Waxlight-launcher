@@ -95,7 +95,6 @@ export function ModsPage() {
   const [layout, setLayout] = useState<"grid" | "list">(() =>
     readStorage("localStorage", "waxlight.mods.layout") === "list" ? "list" : "grid",
   );
-  const restoreScroll = useRef(true);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     title: string;
@@ -219,14 +218,6 @@ export function ModsPage() {
         });
     }
   }, [downloadedQuery.data, queryClient, view]);
-
-  useEffect(() => {
-    if (!loading && restoreScroll.current) {
-      restoreScroll.current = false;
-      const stored = readStorage("sessionStorage", `waxlight.mods.scroll:${location.search}`);
-      if (stored) window.scrollTo({ top: Number(stored) });
-    }
-  }, [loading, location.search]);
 
   const latestDownloadedByModId = useMemo(() => newestDownloadedByModId(downloaded), [downloaded]);
   const syncedCatalog = useMemo(
@@ -461,11 +452,6 @@ export function ModsPage() {
 
   const openDetails = useCallback(
     (modId: string) => {
-      writeStorage(
-        "sessionStorage",
-        `waxlight.mods.scroll:${location.search}`,
-        String(window.scrollY),
-      );
       void navigate(
         `/mods/${encodeURIComponent(modId)}?from=${encodeURIComponent(location.search)}`,
       );

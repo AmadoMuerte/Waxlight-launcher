@@ -189,8 +189,8 @@
     padding: calc(24px * var(--ui-scale)) calc(16px * var(--ui-scale)) calc(60px * var(--ui-scale));
   }
   .appActions {
-    top: calc(18px * var(--ui-scale));
-    right: calc(18px * var(--ui-scale));
+    margin-top: calc(-6px * var(--ui-scale));
+    margin-bottom: calc(6px * var(--ui-scale));
   }
   .pageHeader {
     gap: calc(16px * var(--ui-scale));

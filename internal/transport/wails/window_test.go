@@ -70,3 +70,20 @@ func TestShouldHideWindow(t *testing.T) {
 		})
 	}
 }
+
+// TestForceQuitOverridesCloseToTray covers the termination-signal path:
+// ForceQuit must arm the quitting flag so the Wails OnBeforeClose hook stops
+// converting the quit into a tray hide. The adapter is not marked ready, so
+// the Wails runtime call (which terminates the process without a live
+// application context) is skipped and only the flag decision is exercised.
+func TestForceQuitOverridesCloseToTray(t *testing.T) {
+	adapter := NewWindowAdapter(newTestLifecycle(), fakeSettingsReader{value: settings.Settings{CloseToTray: true}})
+	adapter.ForceQuit()
+	hide, err := adapter.shouldHideWindow(context.Background())
+	if err != nil {
+		t.Fatalf("shouldHideWindow() error = %v", err)
+	}
+	if hide {
+		t.Error("shouldHideWindow() = true after ForceQuit, want false")
+	}
+}
