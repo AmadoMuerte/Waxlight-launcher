@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useToastStore } from "../../app/stores/toast";
 import { useGameVersionsQuery } from "../../entities/game-version/queries";
@@ -18,6 +18,7 @@ import {
   formatBytes,
   formatDownloads,
   formatGameVersions,
+  parseModDBModURL,
   plainText,
   relativeDate,
   releaseTypeLabel,
@@ -45,6 +46,7 @@ export function ModDetailsPage() {
   const { modId = "" } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: instances = [] } = useInstancesQuery();
   const { data: versions = [] } = useGameVersionsQuery();
   const modQuery = useModDetailsQuery(modId);
@@ -110,8 +112,21 @@ export function ModDetailsPage() {
     ? mod.versions.find((version) => version.id === installVersion)
     : undefined;
 
+  function goBack() {
+    if (location.key === "default") {
+      navigate(`/mods${from}`);
+    } else {
+      void navigate(-1);
+    }
+  }
+
   function openExternal(url: string) {
     if (!url.startsWith("https://")) return;
+    const linkedModId = parseModDBModURL(url);
+    if (linkedModId) {
+      navigate(`/mods/${encodeURIComponent(linkedModId)}?from=${encodeURIComponent(from)}`);
+      return;
+    }
     setPendingExternalUrl(url);
   }
 
@@ -148,7 +163,7 @@ export function ModDetailsPage() {
   return (
     <Page>
       <div className="mb-4">
-        <Button variant="ghost" onClick={() => navigate(`/mods${from}`)}>
+        <Button variant="ghost" onClick={goBack}>
           <ArrowLeft size={16} aria-hidden="true" />
           {t("back_to_mods")}
         </Button>

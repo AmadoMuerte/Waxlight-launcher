@@ -139,9 +139,16 @@
               pkgs.pkg-config
               pkgs.gtk3
               pkgs.webkitgtk_4_1
+              pkgs.glib-networking
 
               pkgs.wails
             ];
+
+            # WebKitGTK resolves HTTPS (remote images) through the GIO TLS
+            # module from glib-networking. Without this the webview network
+            # process falls back to GDummyTlsBackend and every remote image
+            # fails, both in `wails dev` and in binaries built and run here.
+            GIO_EXTRA_MODULES = "${pkgs.glib-networking}/lib/gio/modules";
 
             shellHook = ''
               echo
