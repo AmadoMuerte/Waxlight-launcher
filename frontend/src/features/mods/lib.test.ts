@@ -1,6 +1,30 @@
 import { describe, expect, it } from "bun:test";
 
-import { formatGameVersions } from "./lib";
+import { formatGameVersions, parseModDBModURL } from "./lib";
+
+describe("parseModDBModURL", () => {
+  it("extracts the mod id from a ModDB mod page URL", () => {
+    expect(parseModDBModURL("https://mods.vintagestory.at/show/mod/44133")).toBe("44133");
+  });
+
+  it("tolerates a trailing slash and query parameters", () => {
+    expect(parseModDBModURL("https://mods.vintagestory.at/show/mod/44133/?tab=files")).toBe(
+      "44133",
+    );
+  });
+
+  it("rejects other ModDB pages", () => {
+    expect(parseModDBModURL("https://mods.vintagestory.at/list/mod")).toBeUndefined();
+    expect(parseModDBModURL("https://mods.vintagestory.at/")).toBeUndefined();
+    expect(parseModDBModURL("https://mods.vintagestory.at/show/mod/abc")).toBeUndefined();
+  });
+
+  it("rejects other hosts and non-https URLs", () => {
+    expect(parseModDBModURL("https://www.vintagestory.at/show/mod/44133")).toBeUndefined();
+    expect(parseModDBModURL("http://mods.vintagestory.at/show/mod/44133")).toBeUndefined();
+    expect(parseModDBModURL("not a url")).toBeUndefined();
+  });
+});
 
 describe("formatGameVersions", () => {
   it("returns an empty string for an empty list", () => {

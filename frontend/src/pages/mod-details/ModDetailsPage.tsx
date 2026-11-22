@@ -18,6 +18,7 @@ import {
   formatBytes,
   formatDownloads,
   formatGameVersions,
+  parseModDBModURL,
   plainText,
   relativeDate,
   releaseTypeLabel,
@@ -112,6 +113,11 @@ export function ModDetailsPage() {
 
   function openExternal(url: string) {
     if (!url.startsWith("https://")) return;
+    const linkedModId = parseModDBModURL(url);
+    if (linkedModId) {
+      navigate(`/mods/${encodeURIComponent(linkedModId)}?from=${encodeURIComponent(from)}`);
+      return;
+    }
     setPendingExternalUrl(url);
   }
 

@@ -42,6 +42,18 @@ export function relativeDate(value?: string): string {
   return formatter.format(Math.round(months / 12), "year");
 }
 
+const MODDB_MOD_URL_PATTERN = /^\/show\/mod\/(\d+)\/?$/;
+
+export function parseModDBModURL(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.hostname !== "mods.vintagestory.at") return undefined;
+    return MODDB_MOD_URL_PATTERN.exec(url.pathname)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
 export function plainText(html: string): string {
   if (typeof DOMParser !== "undefined") {
     const document = new DOMParser().parseFromString(html, "text/html");
