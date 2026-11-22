@@ -45,6 +45,7 @@ const NewsCard = memo(function NewsCard({ item }: { item: NewsItem }) {
             className="aspect-video size-full max-h-72 object-cover md:aspect-auto"
             src={item.imageUrl}
             alt=""
+            loading="lazy"
             onError={() => setImageFailed(true)}
           />
         )}

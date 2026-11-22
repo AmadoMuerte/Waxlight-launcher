@@ -56,7 +56,13 @@ function DescriptionImage({ src, alt }: { src?: string; alt?: string }) {
   if (!url || failedURL === url) return null;
 
   return (
-    <img src={url} alt={alt ?? ""} referrerPolicy="no-referrer" onError={() => setFailedURL(url)} />
+    <img
+      src={url}
+      alt={alt ?? ""}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailedURL(url)}
+    />
   );
 }
 
