@@ -13,8 +13,15 @@ describe("parseModDBModURL", () => {
     );
   });
 
+  it("extracts the slug from a short ModDB mod URL", () => {
+    expect(parseModDBModURL("https://mods.vintagestory.at/configlib")).toBe("configlib");
+    expect(parseModDBModURL("https://mods.vintagestory.at/xskills_fork/")).toBe("xskills_fork");
+  });
+
   it("rejects other ModDB pages", () => {
     expect(parseModDBModURL("https://mods.vintagestory.at/list/mod")).toBeUndefined();
+    expect(parseModDBModURL("https://mods.vintagestory.at/list")).toBeUndefined();
+    expect(parseModDBModURL("https://mods.vintagestory.at/login")).toBeUndefined();
     expect(parseModDBModURL("https://mods.vintagestory.at/")).toBeUndefined();
     expect(parseModDBModURL("https://mods.vintagestory.at/show/mod/abc")).toBeUndefined();
   });
