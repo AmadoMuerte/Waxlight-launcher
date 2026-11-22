@@ -73,7 +73,7 @@ export function ConfirmDialog({
               {hasMessage && (
                 <p
                   id={descriptionId}
-                  className="mt-3 max-w-[calc(470px*var(--ui-scale))] text-sm leading-6 text-text-secondary"
+                  className="mt-3 max-w-[calc(470px*var(--ui-scale))] text-sm leading-6 break-all text-text-secondary"
                 >
                   {message}
                 </p>
